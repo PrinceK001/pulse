@@ -252,7 +252,10 @@ internal class PulseSDKImpl :
                         attributesBuilder.build()
                     },
                 diskBuffering = diskBuffering,
-                resource = resource,
+                resource = {
+                    put(AttributeKey.stringKey("telemetry.sdk.name"), "pulse-android-java")
+                    resource?.invoke(this)
+                },
                 rumConfig = config,
                 tracerProviderCustomizer = mergedTracerProviderCustomizer,
                 loggerProviderCustomizer = mergedLoggerProviderCustomizer,
