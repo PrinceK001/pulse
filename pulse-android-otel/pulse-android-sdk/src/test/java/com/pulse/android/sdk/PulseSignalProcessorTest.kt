@@ -31,9 +31,9 @@ import org.junit.jupiter.api.TestInstance
 class PulseSignalProcessorTest {
     private val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create()
     private val logExporter: InMemoryLogRecordExporter = InMemoryLogRecordExporter.create()
-    private lateinit var processor: PulseSignalProcessor
-    private lateinit var logAppender: PulseSignalProcessor.PulseLogTypeAttributesAppender
-    private lateinit var spanAppender: PulseSignalProcessor.PulseSpanTypeAttributesAppender
+    private lateinit var processor: PulseSdkSignalProcessors
+    private lateinit var logAppender: PulseSdkSignalProcessors.PulseLogTypeAttributesAppender
+    private lateinit var spanAppender: PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender
     private lateinit var tracer: Tracer
     private lateinit var logger: Logger
 
@@ -42,9 +42,9 @@ class PulseSignalProcessorTest {
         spanExporter.reset()
         logExporter.reset()
 
-        processor = PulseSignalProcessor()
+        processor = PulseSdkSignalProcessors()
         logAppender = processor.PulseLogTypeAttributesAppender()
-        spanAppender = PulseSignalProcessor.PulseSpanTypeAttributesAppender()
+        spanAppender = PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender()
 
         val sdkTracerProvider =
             SdkTracerProvider
@@ -117,7 +117,7 @@ class PulseSignalProcessorTest {
                 .setAllAttributes(
                     Attributes
                         .builder()
-                        .put("app.jank.threshold", PulseSignalProcessor.FROZEN_THRESHOLD_MICRO)
+                        .put("app.jank.threshold", PulseSdkSignalProcessors.FROZEN_THRESHOLD_MICRO)
                         .build(),
                 ).emit()
 
@@ -135,7 +135,7 @@ class PulseSignalProcessorTest {
                 .setAllAttributes(
                     Attributes
                         .builder()
-                        .put("app.jank.threshold", PulseSignalProcessor.SLOW_THRESHOLD_MICRO)
+                        .put("app.jank.threshold", PulseSdkSignalProcessors.SLOW_THRESHOLD_MICRO)
                         .build(),
                 ).emit()
 
@@ -190,8 +190,28 @@ class PulseSignalProcessorTest {
         }
 
         @Test
-        fun `in log, does not set type for unknown event`() {
+        fun `in log, sets CUSTOM_EVENT type for unknown event with event name`() {
             logger.logRecordBuilder().setEventName("unknown.event").emit()
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry(PulseAttributes.PULSE_TYPE, "unknown.event")
+        }
+
+        @Test
+        fun `in log, when event name is not set then pulse type is not set`() {
+            logger.logRecordBuilder().emit()
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .doesNotContainKey(PulseAttributes.PULSE_TYPE)
+        }
+
+        @Test
+        fun `in log, does not set type for log without event name`() {
+            logger.logRecordBuilder().emit()
 
             assertThat(logExporter.finishedLogRecordItems).hasSize(1)
             OpenTelemetryAssertions
