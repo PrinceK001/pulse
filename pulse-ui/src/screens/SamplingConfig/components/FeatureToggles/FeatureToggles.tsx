@@ -32,7 +32,6 @@ import {
   IconBug,
   IconNetwork,
   IconClick,
-  IconPlus,
   IconEdit,
   IconInfoCircle,
   IconAlertTriangle,
@@ -140,12 +139,6 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
     setFeatureEnabled(true);
     setFeatureSdks([]);
     setEditingFeature(null);
-  };
-
-  const openAddModal = () => {
-    if (disabled) return;
-    resetForm();
-    setIsModalOpen(true);
   };
 
   const openEditModal = (feature: FeatureConfig) => {
