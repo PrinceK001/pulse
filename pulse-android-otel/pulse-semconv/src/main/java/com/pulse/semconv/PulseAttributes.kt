@@ -18,6 +18,23 @@ public object PulseAttributes {
     @JvmField
     public val PULSE_SPAN_ID: AttributeKey<String> = stringKey("pulse.span.id")
 
+    /**
+     * OpenTelemetry resource attribute key for telemetry SDK name.
+     * See: https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
+     */
+    @JvmField
+    public val TELEMETRY_SDK_NAME_KEY: AttributeKey<String> = stringKey("telemetry.sdk.name")
+
+    public object PulseSdkNames {
+        /**
+         * SDK name identifiers per OTel spec (custom SDKs use their own identifier, not "opentelemetry")
+         */
+        public const val ANDROID_JAVA: String = "pulse-android-java"
+        public const val ANDROID_RN: String = "pulse-android-rn"
+        public const val IOS_SWIFT: String = "pulse-ios-swift"
+        public const val IOS_RN: String = "pulse-ios-rn"
+    }
+
     public object PulseTypeValues {
         public const val CUSTOM_EVENT: String = "custom_event"
         public const val ANR: String = "device.anr"
