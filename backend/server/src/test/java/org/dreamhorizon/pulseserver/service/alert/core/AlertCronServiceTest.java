@@ -408,6 +408,7 @@ class AlertCronServiceTest {
           "http://logs-collector.url",
           "http://metric-collector.url",
           "http://span-collector.url",
+          "http://custom-event-collector.url",
           "config-bucket",
           "config/details.json",
           "cloudfront-distribution-id",
@@ -428,6 +429,7 @@ class AlertCronServiceTest {
       assertEquals("http://logs-collector.url", config.getLogsCollectorUrl());
       assertEquals("http://metric-collector.url", config.getMetricCollectorUrl());
       assertEquals("http://span-collector.url", config.getSpanCollectorUrl());
+      assertEquals("http://custom-event-collector.url", config.getCustomEventCollectorUrl());
       assertEquals("config-bucket", config.getS3BucketName());
       assertEquals("config/details.json", config.getConfigDetailsS3BucketFilePath());
       assertEquals("cloudfront-distribution-id", config.getCloudFrontDistributionId());
@@ -500,6 +502,7 @@ class AlertCronServiceTest {
           "http://logs-collector.url",
           "http://metric-collector.url",
           "http://span-collector.url",
+          "http://custom-event-collector.url",
           "config-bucket",
           "config/details.json",
           "cloudfront-distribution-id",
@@ -519,19 +522,19 @@ class AlertCronServiceTest {
       ApplicationConfig config1 = new ApplicationConfig(
           "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config2 = new ApplicationConfig(
           "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config3 = new ApplicationConfig(
           "http://different.url", "http://service.url", 30, "client-id", true, "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json"
       );
 
