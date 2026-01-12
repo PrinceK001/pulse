@@ -209,7 +209,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
             </Box>
           </Box>
         )}
-        <ErrorAndEmptyState message="Failed to load network issues. Please try again." />
+      <ErrorAndEmptyState message="Failed to load network issues. Please try again." />
       </Box>
     );
   }
@@ -272,7 +272,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
             <Text className={classes.title}>Network Issues by Provider</Text>
             <Text className={classes.description}>
               Connection errors grouped by network provider
-            </Text>
+          </Text>
           </Box>
         </Box>
       )}

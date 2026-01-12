@@ -7,21 +7,6 @@ export const NetworkApiCard: React.FC<NetworkApiCardProps> = ({
   apiData,
   onClick,
 }) => {
-  const getMethodColor = (method: string) => {
-    switch (method) {
-      case "GET":
-        return "blue";
-      case "POST":
-        return "green";
-      case "PUT":
-        return "orange";
-      case "DELETE":
-        return "red";
-      default:
-        return "gray";
-    }
-  };
-
   const getPerformanceIndicator = (avgResponseTime: number) => {
     // avgResponseTime is in nanoseconds, convert to ms for comparison
     const responseTimeMs = avgResponseTime / 1_000_000;

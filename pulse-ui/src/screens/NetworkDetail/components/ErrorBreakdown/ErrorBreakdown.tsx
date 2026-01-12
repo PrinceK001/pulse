@@ -151,9 +151,9 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
         <Box className={classes.header}>
           <SkeletonLoader height={36} width={36} radius="md" />
           <Box className={classes.headerContent}>
-            <SkeletonLoader height={16} width={150} radius="sm" />
+              <SkeletonLoader height={16} width={150} radius="sm" />
             <SkeletonLoader height={12} width={180} radius="xs" />
-          </Box>
+            </Box>
         </Box>
         <Box className={classes.errorList}>
           {Array.from({ length: 3 }).map((_, index) => (
@@ -213,20 +213,20 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
         </Box>
         <Box className={classes.headerContent}>
           <Box className={classes.headerTop}>
-            <Box>
+          <Box>
               <Text className={classes.title}>{title}</Text>
               <Text className={classes.description}>
                 HTTP {type} error breakdown
-              </Text>
-            </Box>
-            <Badge
-              size="sm"
-              variant="light"
-              color={colorScheme}
-              style={{ opacity: 0.8 }}
-            >
-              {totalErrors.toLocaleString()} Total
-            </Badge>
+            </Text>
+          </Box>
+          <Badge
+            size="sm"
+            variant="light"
+            color={colorScheme}
+            style={{ opacity: 0.8 }}
+          >
+            {totalErrors.toLocaleString()} Total
+          </Badge>
           </Box>
         </Box>
       </Box>

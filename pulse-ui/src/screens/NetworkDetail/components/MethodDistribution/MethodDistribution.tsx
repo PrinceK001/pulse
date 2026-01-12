@@ -179,7 +179,7 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
         },
       ],
     };
-  }, [methods, totalRequests]);
+  }, [methods]);
 
   if (error || data?.error) {
     return (

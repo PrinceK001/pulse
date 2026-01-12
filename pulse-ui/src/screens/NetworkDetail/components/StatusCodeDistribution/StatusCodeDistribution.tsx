@@ -214,7 +214,7 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
         },
       ],
     };
-  }, [categories, totalRequests]);
+  }, [categories]);
 
   if (error || data?.error) {
     return (
