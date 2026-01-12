@@ -1392,9 +1392,9 @@ export class MockDataStore {
           ],
         },
         scheduleDurationMs: 5000,
-        logsCollectorUrl: 'http://localhost:4318/v1/logs',
-        metricCollectorUrl: 'http://localhost:4318/v1/metrics',
-        spanCollectorUrl: 'http://localhost:4318/v1/traces',
+        logsCollectorUrl: 'http://10.0.2.2:4318/v1/logs',
+        metricCollectorUrl: 'http://10.0.2.2:4318/v1/metrics',
+        spanCollectorUrl: 'http://10.0.2.2:4318/v1/traces',
         attributesToDrop: [
           {
             id: generateId(),
@@ -1414,8 +1414,8 @@ export class MockDataStore {
         attributesToAdd: [],
       },
       interaction: {
-        collectorUrl: 'http://localhost:4318/v1/interactions',
-        configUrl: 'http://localhost:8080/v1/configs/active',
+        collectorUrl: 'http://10.0.2.2:4318/v1/traces/v1/interactions',
+        configUrl: 'http://10.0.2.2:8080/v1/interaction-configs/',
         beforeInitQueueSize: 100,
       },
       features: [
