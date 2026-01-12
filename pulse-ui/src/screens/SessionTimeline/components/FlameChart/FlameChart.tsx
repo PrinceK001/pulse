@@ -38,11 +38,30 @@ interface ScrollInfo {
 const BLOCK_HEIGHT = 18;
 const TIME_GRID_HEIGHT = 24; // Height of the time grid at the top
 
-// Extended type for flame chart instance
+// Extended type for flame chart instance with access to internal properties
 type FlameChartInstance = FlameChartLib & {
-  renderEngine?: { clear?: () => void };
+  renderEngine?: { 
+    clear?: () => void;
+    positionX?: number;
+    zoom?: number;
+    blockHeight?: number;
+    render?: () => void;
+  };
   setNodes?: (nodes: any) => void;
+  plugins?: any[];
 };
+
+/**
+ * Flattened node info for custom hit-testing.
+ * Uses start, end, and type to uniquely identify nodes.
+ */
+interface FlatNodeInfo {
+  node: FlameChartNode;
+  level: number;
+  start: number;
+  end: number;
+  type: string;
+}
 
 // Color legend for the flame chart
 const LEGEND_ITEMS = [
@@ -118,6 +137,37 @@ export function FlameChart({
     return map;
   }, [data]);
 
+  // Create a flat list of all nodes with their level for custom hit-testing
+  // Uses start, end (duration), and type to identify nodes
+  const flatNodesList = useMemo(() => {
+    const result: FlatNodeInfo[] = [];
+    
+    const traverse = (nodes: FlameChartNode[], level: number) => {
+      for (const node of nodes) {
+        result.push({
+          node,
+          level,
+          start: node.start,
+          end: node.start + node.duration,
+          type: node.type,
+        });
+        traverse(node.children, level + 1);
+      }
+    };
+    
+    if (data) {
+      traverse(data, 0);
+    }
+    
+    return result;
+  }, [data]);
+
+  // Ref to store flat nodes for use in event handlers
+  const flatNodesRef = useRef(flatNodesList);
+  useEffect(() => {
+    flatNodesRef.current = flatNodesList;
+  }, [flatNodesList]);
+
   // Stable callback ref for onItemClick to avoid re-creating the flame chart
   const onItemClickRef = useRef(onItemClick);
   useEffect(() => {
@@ -170,26 +220,217 @@ export function FlameChart({
 
     // Create flame chart instance with data
     try {
-      // Custom tooltip function to show start/end timestamps
-      const customTooltip = (hoveredRegion: any, renderEngine: any, mouse: any) => {
-        if (!hoveredRegion || !hoveredRegion.data?.source) return;
+      /**
+       * Find the topmost (latest-starting) overlapping node at a given position.
+       * 
+       * The flame-chart-js library has a bug where it uses Array.find() which returns
+       * the first match (earlier-starting node) instead of the topmost overlapping one.
+       * 
+       * We identify nodes by: start time, end time (start + duration), and type.
+       * Returns both the node and the clicked level for accurate highlight matching.
+       * 
+       * Edge cases handled:
+       * - Overlapping siblings at the same level: returns the latest-starting one
+       * - Click outside any node: returns null
+       * - Zoom/pan: uses library's positionX and zoom values
+       * - Plugin offset: accounts for other plugins above the flame chart
+       */
+      const findTopmostNodeAtPosition = (
+        mouseX: number, 
+        mouseY: number,
+        renderEngine: any
+      ): { node: FlameChartNode; level: number } | null => {
+        const chart = flameChartRef.current as any;
+        if (!chart?.plugins) return null;
         
-        const { start, duration, name, children } = hoveredRegion.data.source;
+        // Find the flameChartPlugin to get its vertical position offset
+        const flameChartPlugin = chart.plugins.find(
+          (p: any) => p.name === 'flameChartPlugin'
+        );
+        
+        if (!flameChartPlugin) return null;
+        
+        // Get the plugin's Y position (offset from top of canvas)
+        const pluginYOffset = flameChartPlugin.renderEngine?.position || 0;
+        
+        const positionX = renderEngine.positionX || 0;
+        const zoom = renderEngine.zoom || 1;
+        const blockHeight = renderEngine.blockHeight || BLOCK_HEIGHT;
+        
+        // Validate zoom to prevent division issues
+        if (zoom <= 0) return null;
+        
+        // Convert mouse X to time position
+        const clickTime = positionX + (mouseX / zoom);
+        
+        // Calculate which level (row) was clicked
+        // Account for the plugin's Y offset (there may be other plugins above the flame chart)
+        const adjustedMouseY = mouseY - pluginYOffset;
+        const clickLevel = Math.floor(adjustedMouseY / blockHeight);
+        
+        // Invalid level (clicked above the flame chart area)
+        if (clickLevel < 0) return null;
+        
+        // Find all nodes at this position (matching level and time range)
+        const flatNodes = flatNodesRef.current;
+        const matchingNodes = flatNodes.filter(({ level, start, end }) => {
+          return level === clickLevel && clickTime >= start && clickTime <= end;
+        });
+        
+        if (matchingNodes.length === 0) return null;
+        if (matchingNodes.length === 1) return { node: matchingNodes[0].node, level: clickLevel };
+        
+        // Multiple overlapping nodes at the same level - determine which is "on top"
+        // Sort priority:
+        // 1. Later start time (later-starting items are rendered on top)
+        // 2. Shorter duration (if same start, shorter/more specific items are on top)
+        // 3. Node name (stable tiebreaker for identical timing)
+        matchingNodes.sort((a, b) => {
+          // Primary: later start time first
+          if (b.start !== a.start) {
+            return b.start - a.start;
+          }
+          
+          // Secondary: shorter duration first (more specific item)
+          const aDuration = a.end - a.start;
+          const bDuration = b.end - b.start;
+          if (aDuration !== bDuration) {
+            return aDuration - bDuration;
+          }
+          
+          // Tertiary: alphabetical by name (stable tiebreaker)
+          return a.node.name.localeCompare(b.node.name);
+        });
+        
+        return { node: matchingNodes[0].node, level: clickLevel };
+      };
+
+      /**
+       * Update the library's internal selection to show highlight on the correct node.
+       * We find the matching node in the library's flatTree using start, duration, type, AND level.
+       * 
+       * This is needed because the library's internal hit-testing uses Array.find() which
+       * returns the first match, causing the highlight to appear on the wrong node.
+       */
+      const updateLibraryHighlight = (node: FlameChartNode, clickedLevel: number) => {
+        const chart = flameChartRef.current as any;
+        if (!chart?.plugins) return;
+        
+        // Find the flameChartPlugin
+        const flameChartPlugin = chart.plugins.find(
+          (p: any) => p.name === 'flameChartPlugin' && p.flatTree
+        );
+        
+        if (!flameChartPlugin?.flatTree) return;
+        
+        // Find the matching node in the library's flatTree using start, duration, type, AND level
+        // The level is critical to distinguish between nodes with the same timing at different depths
+        const libraryNode = flameChartPlugin.flatTree.find((n: any) => {
+          const nodeStart = n.source.start;
+          const nodeDuration = n.source.duration;
+          const nodeType = n.source.type;
+          const nodeLevel = n.level;
+          
+          return (
+            Math.abs(nodeStart - node.start) < 0.01 &&
+            Math.abs(nodeDuration - node.duration) < 0.01 &&
+            nodeType === node.type &&
+            nodeLevel === clickedLevel
+          );
+        });
+        
+        if (libraryNode) {
+          // Set the library's selectedRegion to the correct node
+          flameChartPlugin.selectedRegion = {
+            type: 'node',
+            data: libraryNode,
+          };
+          
+          // Re-render to show the highlight
+          if (chart.renderEngine?.render) {
+            chart.renderEngine.render();
+          }
+        }
+      };
+
+      // Custom tooltip - uses our hit-testing to show correct tooltip for overlapping nodes
+      const customTooltip = (hoveredRegion: any, renderEngine: any, mouse: any) => {
+        if (!hoveredRegion) return;
+        
+        // Try to find the correct topmost node
+        const result = findTopmostNodeAtPosition(mouse.x, mouse.y, renderEngine);
+        
+        let nodeData: { start: number; duration: number; name: string; children?: any[] };
+        
+        if (result) {
+          nodeData = {
+            start: result.node.start,
+            duration: result.node.duration,
+            name: result.node.name,
+            children: result.node.children,
+          };
+        } else if (hoveredRegion.data?.source) {
+          nodeData = hoveredRegion.data.source;
+        } else {
+          return;
+        }
+        
+        const { start, duration, name, children } = nodeData;
         const timeUnits = renderEngine.getTimeUnits();
         const nodeAccuracy = renderEngine.getAccuracy() + 2;
         
-        // Calculate self time (duration minus children's total duration)
-        const selfTime = duration - (children ? children.reduce((acc: number, child: any) => acc + child.duration, 0) : 0);
+        // Calculate self time by merging overlapping child intervals
+        // This correctly handles cases where children overlap each other
+        const calculateSelfTime = (parentStart: number, parentDuration: number, childNodes: any[] | undefined): number => {
+          if (!childNodes || childNodes.length === 0) return parentDuration;
+          
+          const parentEnd = parentStart + parentDuration;
+          
+          // Get child intervals and clip to parent bounds
+          const intervals: [number, number][] = childNodes
+            .filter((child: any) => child.duration > 0)
+            .map((child: any) => {
+              const childStart = Math.max(child.start, parentStart);
+              const childEnd = Math.min(child.start + child.duration, parentEnd);
+              return [childStart, childEnd] as [number, number];
+            })
+            .filter(([s, e]) => e > s); // Remove invalid intervals after clipping
+          
+          if (intervals.length === 0) return parentDuration;
+          
+          // Sort intervals by start time
+          intervals.sort((a, b) => a[0] - b[0]);
+          
+          // Merge overlapping intervals
+          const merged: [number, number][] = [intervals[0]];
+          for (let i = 1; i < intervals.length; i++) {
+            const last = merged[merged.length - 1];
+            const current = intervals[i];
+            
+            if (current[0] <= last[1]) {
+              // Overlapping - extend the last interval
+              last[1] = Math.max(last[1], current[1]);
+            } else {
+              // No overlap - add as new interval
+              merged.push(current);
+            }
+          }
+          
+          // Calculate total time covered by children (merged)
+          const totalChildTime = merged.reduce((acc, [s, e]) => acc + (e - s), 0);
+          
+          // Ensure self time is never negative (safety clamp)
+          return Math.max(0, parentDuration - totalChildTime);
+        };
         
-        // Calculate absolute timestamps (session start + relative offset)
+        const selfTime = calculateSelfTime(start, duration, children);
+        
         const absoluteStart = sessionStartTime + start;
         const absoluteEnd = absoluteStart + duration;
         
-        // Format to local time with milliseconds
         const startTimeStr = dayjs(absoluteStart).format("HH:mm:ss.SSS");
         const endTimeStr = dayjs(absoluteEnd).format("HH:mm:ss.SSS");
         
-        // Build tooltip lines
         const tooltipData = [
           { text: name },
           { text: `duration: ${duration.toFixed(nodeAccuracy)} ${timeUnits}${children?.length ? ` (self ${selfTime.toFixed(nodeAccuracy)} ${timeUnits})` : ""}` },
@@ -228,20 +469,50 @@ export function FlameChart({
       flameChart.resize(width, height);
       flameChart.render();
 
-      // Listen to select event - this is the ONLY click handler we need
-      // Use ref to always get the latest nodeByIdMap
+      // Track mouse position for custom hit-testing
+      let lastMousePos = { x: 0, y: 0 };
+      const handleMouseMove = (e: MouseEvent) => {
+        const rect = canvas.getBoundingClientRect();
+        lastMousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      };
+      canvas.addEventListener("mousemove", handleMouseMove);
+
+      // Listen to select event
       flameChart.on("select", (selection: any) => {
         if (!selection) return;
         
-        // The library returns { node: {...}, type: 'flame-chart-node' }
-        // The actual node data is inside selection.node
         const selectedNode = selection.node || selection;
-        
         if (!selectedNode) return;
         
         const currentNodeMap = nodeByIdMapRef.current;
         
-        // Try to look up by ID first (our custom property)
+        // Try custom hit-testing first to find the correct overlapping node
+        const chart = flameChartRef.current as any;
+        const renderEngine = chart?.renderEngine;
+        
+        if (renderEngine) {
+          const result = findTopmostNodeAtPosition(
+            lastMousePos.x, 
+            lastMousePos.y, 
+            renderEngine
+          );
+          
+          if (result) {
+            // Update the library's highlight to show on the correct node
+            // Pass the clicked level to ensure we match the exact node at that level
+            updateLibraryHighlight(result.node, result.level);
+            
+            if (onItemClickRef.current) {
+              onItemClickRef.current(result.node);
+            }
+            return;
+          }
+        }
+        
+        // Fallback to library's selection
+        const sourceNode = selectedNode.source || selectedNode;
+        
+        // Try to look up by ID first
         if (selectedNode.id && currentNodeMap.has(selectedNode.id)) {
           const originalNode = currentNodeMap.get(selectedNode.id)!;
           if (onItemClickRef.current) {
@@ -250,8 +521,6 @@ export function FlameChart({
           return;
         }
         
-        // Check if there's a source property with our data
-        const sourceNode = selectedNode.source || selectedNode;
         if (sourceNode.id && currentNodeMap.has(sourceNode.id)) {
           const originalNode = currentNodeMap.get(sourceNode.id)!;
           if (onItemClickRef.current) {
@@ -260,18 +529,18 @@ export function FlameChart({
           return;
         }
         
-        // Fallback: search through all nodes for matching name/start/duration
-        const nodeName = sourceNode.name || selectedNode.name;
+        // Fallback: search by start, duration, and type
         const nodeStart = sourceNode.start ?? selectedNode.start ?? 0;
         const nodeDuration = sourceNode.duration ?? selectedNode.duration ?? 0;
+        const nodeType = sourceNode.type ?? selectedNode.type;
         
         let foundNode: FlameChartNode | undefined;
         const allNodes = Array.from(currentNodeMap.values());
         for (const node of allNodes) {
           if (
-            node.name === nodeName &&
             Math.abs(node.start - nodeStart) < 1 &&
-            Math.abs(node.duration - nodeDuration) < 1
+            Math.abs(node.duration - nodeDuration) < 1 &&
+            node.type === nodeType
           ) {
             foundNode = node;
             break;
@@ -295,6 +564,7 @@ export function FlameChart({
 
       return () => {
         resizeObserver.disconnect();
+        canvas.removeEventListener("mousemove", handleMouseMove);
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
