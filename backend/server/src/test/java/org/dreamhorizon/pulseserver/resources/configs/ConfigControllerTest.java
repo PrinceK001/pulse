@@ -857,7 +857,7 @@ class ConfigControllerTest {
               PulseConfig.FeatureConfig.builder()
                   .featureName(Features.java_crash)
                   .sessionSampleRate(1.0)
-                  .sdks(Arrays.asList(Sdk.android_java))
+                  .sdks(Arrays.asList(Sdk.pulse_android_java))
                   .build(),
               PulseConfig.FeatureConfig.builder()
                   .featureName(Features.java_anr)

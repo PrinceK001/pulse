@@ -131,7 +131,7 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android.*",
                                 sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
@@ -155,13 +155,13 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android.*",
                                 sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = firstRuleRate,
                             ),
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android.*",
                                 sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = secondRuleRate,
                             ),
@@ -184,19 +184,19 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "ios.*",
+                                value = "pulse_ios.*",
                                 sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = 0.5f,
                             ),
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android_java",
                                 sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = matchingRuleRate,
                             ),
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android.*",
                                 sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = 0.95f,
                             ),
@@ -219,13 +219,13 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android_swift",
                                 sdks = setOf(PulseSdkName.IOS_SWIFT),
                                 sessionSampleRate = 0.5f,
                             ),
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android_java",
                                 sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = matchingRuleRate,
                             ),
@@ -251,7 +251,7 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android.*",
                                 sdks =
                                     setOf(
                                         PulseSdkName.IOS_SWIFT,

@@ -11,13 +11,13 @@ public enum class PulseSdkName {
     @SerialName(ANDROID_JAVA_SDK_NAME_STR)
     ANDROID_JAVA,
 
-    @SerialName("pulse_android_rn")
+    @SerialName(ANDROID_RN_SDK_NAME_STR)
     ANDROID_RN,
 
-    @SerialName("pulse_ios_swift")
+    @SerialName(IOS_SWIFT_SDK_NAME_STR)
     IOS_SWIFT,
 
-    @SerialName("pulse_ios_rn")
+    @SerialName(IOS_RN_SDK_NAME_STR)
     IOS_RN,
 
     /**
@@ -29,12 +29,16 @@ public enum class PulseSdkName {
 
     public companion object {
         internal const val ANDROID_JAVA_SDK_NAME_STR = "pulse_android_java"
+        private const val ANDROID_RN_SDK_NAME_STR = "pulse_android_rn"
+        private const val IOS_SWIFT_SDK_NAME_STR = "pulse_ios_swift"
+        private const val IOS_RN_SDK_NAME_STR = "pulse_ios_rn"
+
         public fun fromTelemetrySdkName(telemetrySdkName: String?): PulseSdkName =
             when (telemetrySdkName?.lowercase()) {
-                "pulse_android_java" -> ANDROID_JAVA
-                "pulse_android_rn" -> ANDROID_RN
-                "pulse_ios_swift" -> IOS_SWIFT
-                "pulse_ios_rn" -> IOS_RN
+                ANDROID_JAVA_SDK_NAME_STR -> ANDROID_JAVA
+                ANDROID_RN_SDK_NAME_STR -> ANDROID_RN
+                IOS_SWIFT_SDK_NAME_STR -> IOS_SWIFT
+                IOS_RN_SDK_NAME_STR -> IOS_RN
                 else -> ANDROID_JAVA // Default fallback
             }
     }

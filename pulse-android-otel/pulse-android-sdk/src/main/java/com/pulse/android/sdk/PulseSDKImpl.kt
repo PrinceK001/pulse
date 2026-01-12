@@ -112,9 +112,10 @@ internal class PulseSDKImpl :
         resourceBuilder.put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
         resource?.invoke(resourceBuilder)
         val builtResource = resourceBuilder.build()
-        val currentSdkName = PulseSdkName.fromTelemetrySdkName(
-            builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY)
-        )
+        val currentSdkName =
+            PulseSdkName.fromTelemetrySdkName(
+                builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY),
+            )
 
         // Set default telemetry.sdk.name for Android Java SDK
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {

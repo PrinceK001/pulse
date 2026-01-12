@@ -466,6 +466,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                                     name,
                                     props,
                                     matchCondition,
+                                    currentSdkName,
                                 )
                             }
                         }
