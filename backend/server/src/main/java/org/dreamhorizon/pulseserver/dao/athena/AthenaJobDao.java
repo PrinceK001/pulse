@@ -28,9 +28,9 @@ public class AthenaJobDao {
     );
   }
 
-  public Single<Boolean> updateJobWithExecutionId(String jobId, String queryExecutionId, AthenaJobStatus status, 
-      java.sql.Timestamp submissionDateTime) {
-    java.sql.Timestamp updatedAt = submissionDateTime != null ? submissionDateTime : new java.sql.Timestamp(System.currentTimeMillis());
+  public Single<Boolean> updateJobWithExecutionId(String jobId, String queryExecutionId, AthenaJobStatus status,
+                                                  Timestamp submissionDateTime) {
+    Timestamp updatedAt = submissionDateTime != null ? submissionDateTime : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_WITH_EXECUTION_ID,
         Tuple.of(queryExecutionId, status.name(), submissionDateTime, updatedAt, jobId),
@@ -39,8 +39,8 @@ public class AthenaJobDao {
     );
   }
 
-  public Single<Boolean> updateJobStatus(String jobId, AthenaJobStatus status, java.sql.Timestamp updatedAt) {
-    java.sql.Timestamp finalUpdatedAt = updatedAt != null ? updatedAt : new java.sql.Timestamp(System.currentTimeMillis());
+  public Single<Boolean> updateJobStatus(String jobId, AthenaJobStatus status, Timestamp updatedAt) {
+    Timestamp finalUpdatedAt = updatedAt != null ? updatedAt : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_STATUS,
         Tuple.of(status.name(), finalUpdatedAt, jobId),
@@ -49,9 +49,9 @@ public class AthenaJobDao {
     );
   }
 
-  public Single<Boolean> updateJobCompleted(String jobId, String resultLocation, 
-      java.sql.Timestamp completionDateTime) {
-    java.sql.Timestamp updatedAt = completionDateTime != null ? completionDateTime : new java.sql.Timestamp(System.currentTimeMillis());
+  public Single<Boolean> updateJobCompleted(String jobId, String resultLocation,
+                                            Timestamp completionDateTime) {
+    Timestamp updatedAt = completionDateTime != null ? completionDateTime : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_COMPLETED,
         Tuple.of(resultLocation, completionDateTime, updatedAt, jobId),
@@ -60,10 +60,10 @@ public class AthenaJobDao {
     );
   }
 
-  public Single<Boolean> updateJobStatistics(String jobId, Long dataScannedInBytes, 
-      Long executionTimeMillis, Long engineExecutionTimeMillis, Long queryQueueTimeMillis,
-      java.sql.Timestamp updatedAt) {
-    java.sql.Timestamp finalUpdatedAt = updatedAt != null ? updatedAt : new java.sql.Timestamp(System.currentTimeMillis());
+  public Single<Boolean> updateJobStatistics(String jobId, Long dataScannedInBytes,
+                                             Long executionTimeMillis, Long engineExecutionTimeMillis, Long queryQueueTimeMillis,
+                                             Timestamp updatedAt) {
+    Timestamp finalUpdatedAt = updatedAt != null ? updatedAt : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_STATISTICS,
         Tuple.of(dataScannedInBytes, executionTimeMillis, engineExecutionTimeMillis, queryQueueTimeMillis, finalUpdatedAt, jobId),
@@ -72,8 +72,8 @@ public class AthenaJobDao {
     );
   }
 
-  public Single<Boolean> updateJobFailed(String jobId, String errorMessage, java.sql.Timestamp completionDateTime) {
-    java.sql.Timestamp updatedAt = completionDateTime != null ? completionDateTime : new java.sql.Timestamp(System.currentTimeMillis());
+  public Single<Boolean> updateJobFailed(String jobId, String errorMessage, Timestamp completionDateTime) {
+    Timestamp updatedAt = completionDateTime != null ? completionDateTime : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_FAILED,
         Tuple.of(errorMessage, completionDateTime, updatedAt, jobId),
@@ -128,7 +128,8 @@ public class AthenaJobDao {
         });
   }
 
-  public Single<List<AthenaJob>> getQueriesForStatistics(String userEmail, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
+  public Single<List<AthenaJob>> getQueriesForStatistics(String userEmail, java.time.LocalDateTime startDate,
+                                                         java.time.LocalDateTime endDate) {
     return mysqlClient.getReaderPool()
         .preparedQuery(AthenaJobQueries.GET_QUERIES_FOR_STATISTICS)
         .rxExecute(Tuple.of(userEmail, startDate, endDate))
