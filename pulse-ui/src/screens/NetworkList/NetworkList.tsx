@@ -261,8 +261,8 @@ export function NetworkList({
           ? ((totalRequests - successRequests) / totalRequests) * 100
           : 0;
 
-      // Generate unique ID from endpoint and method (base64 encoded for URL safety)
-      const id = encodeNetworkId(method, url);
+      // Generate unique ID from endpoint URL (base64 encoded for URL safety)
+      const id = encodeNetworkId(url);
 
       return {
         id,

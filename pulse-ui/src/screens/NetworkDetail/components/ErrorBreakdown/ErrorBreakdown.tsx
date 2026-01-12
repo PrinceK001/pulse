@@ -5,11 +5,10 @@ import classes from "./ErrorBreakdown.module.css";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { SkeletonLoader } from "../../../../components/Skeletons";
-import { IconMoodHappy } from "@tabler/icons-react";
+import { IconMoodHappy, IconAlertTriangle, IconServerOff } from "@tabler/icons-react";
 
 export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
   type,
-  method,
   url,
   startTime,
   endTime,
@@ -56,11 +55,6 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
           value: [statusCodePattern],
         },
         {
-          field: "SpanAttributes['http.method']",
-          operator: "EQ" as const,
-          value: [method],
-        },
-        {
           field: "SpanAttributes['http.url']",
           operator: "EQ" as const,
           value: [url],
@@ -75,7 +69,7 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
       ],
       limit: 10,
     },
-    enabled: !!method && !!url && !!startTime && !!endTime,
+    enabled: !!url && !!startTime && !!endTime,
   });
 
   // Transform API response to ErrorDetail format
@@ -154,14 +148,12 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
   if (isLoading) {
     return (
       <Box className={classes.container}>
-        <Box mb="md">
-          <Group justify="space-between" align="center">
-            <Box>
-              <SkeletonLoader height={16} width={150} radius="sm" />
-              <SkeletonLoader height={12} width={200} radius="xs" />
-            </Box>
-            <SkeletonLoader height={24} width={80} radius="md" />
-          </Group>
+        <Box className={classes.header}>
+          <SkeletonLoader height={36} width={36} radius="md" />
+          <Box className={classes.headerContent}>
+            <SkeletonLoader height={16} width={150} radius="sm" />
+            <SkeletonLoader height={12} width={180} radius="xs" />
+          </Box>
         </Box>
         <Box className={classes.errorList}>
           {Array.from({ length: 3 }).map((_, index) => (
@@ -187,33 +179,56 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
     );
   }
 
+  const HeaderIcon = type === "4xx" ? IconAlertTriangle : IconServerOff;
+
   if (errorData.length === 0) {
     return (
-      <ErrorAndEmptyState message={`No ${type} errors found for this API`} icon={<IconMoodHappy />}/>
+      <Box className={classes.container}>
+        <Box className={classes.header}>
+          <Box className={`${classes.headerIcon} ${type === "4xx" ? classes.headerIcon4xx : classes.headerIcon5xx}`}>
+            <HeaderIcon size={18} />
+          </Box>
+          <Box className={classes.headerContent}>
+            <Text className={classes.title}>{title}</Text>
+            <Text className={classes.description}>
+              HTTP {type} error breakdown
+            </Text>
+          </Box>
+        </Box>
+        <Box className={classes.emptyState}>
+          <IconMoodHappy size={32} className={classes.emptyIcon} />
+          <Text className={classes.emptyMessage}>
+            No {type} errors found for this API
+          </Text>
+        </Box>
+      </Box>
     );
   }
 
   return (
     <Box className={classes.container}>
-      <Box mb="md">
-        <Group justify="space-between" align="center">
-          <Box>
-            <Text size="sm" fw={600} c="#0ba09a" mb={4}>
-              {title}
-            </Text>
-            <Text size="xs" c="dimmed">
-              Breakdown of HTTP {type} error codes
-            </Text>
+      <Box className={classes.header}>
+        <Box className={`${classes.headerIcon} ${type === "4xx" ? classes.headerIcon4xx : classes.headerIcon5xx}`}>
+          <HeaderIcon size={18} />
+        </Box>
+        <Box className={classes.headerContent}>
+          <Box className={classes.headerTop}>
+            <Box>
+              <Text className={classes.title}>{title}</Text>
+              <Text className={classes.description}>
+                HTTP {type} error breakdown
+              </Text>
+            </Box>
+            <Badge
+              size="sm"
+              variant="light"
+              color={colorScheme}
+              style={{ opacity: 0.8 }}
+            >
+              {totalErrors.toLocaleString()} Total
+            </Badge>
           </Box>
-          <Badge
-            size="sm"
-            variant="light"
-            color={colorScheme}
-            style={{ opacity: 0.8 }}
-          >
-            {totalErrors.toLocaleString()} Total
-          </Badge>
-        </Group>
+        </Box>
       </Box>
 
       <Box className={classes.errorList}>
