@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service.query;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
+import org.dreamhorizon.pulseserver.service.query.models.TableMetadata;
 
 public interface QueryService {
   Single<QueryJob> submitQuery(String queryString, List<String> parameters, String timestampString, String userEmail);
@@ -14,5 +15,7 @@ public interface QueryService {
   Single<QueryJob> cancelQuery(String jobId);
 
   Single<List<QueryJob>> getQueryHistory(String userEmail, Integer limit, Integer offset);
+
+  Single<List<TableMetadata>> getTablesAndColumns();
 }
 

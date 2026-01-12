@@ -12,12 +12,14 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import java.sql.Timestamp;
 import java.util.Collections;
 import org.dreamhorizon.pulseserver.client.query.QueryClient;
 import org.dreamhorizon.pulseserver.client.query.models.QueryExecutionInfo;
 import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
+import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
@@ -40,11 +42,15 @@ public class QueryServiceImplTest {
   @Mock
   QueryJobDao queryJobDao;
 
+  @Mock
+  AthenaConfig athenaConfig;
+
   QueryServiceImpl queryService;
 
   @BeforeEach
   void setUp() {
-    queryService = new QueryServiceImpl(queryClient, queryJobDao);
+    when(athenaConfig.getDatabase()).thenReturn("test_database");
+    queryService = new QueryServiceImpl(queryClient, queryJobDao, athenaConfig);
   }
 
   @Test
@@ -380,5 +386,133 @@ public class QueryServiceImplTest {
     var testObserver = queryService.waitForJobCompletion(jobId).test();
 
     testObserver.assertError(RuntimeException.class);
+  }
+
+  @Test
+  void shouldGetTablesAndColumnsSuccessfully() {
+    String tablesQueryExecutionId = "tables-exec-123";
+    String columnsQueryExecutionId = "columns-exec-123";
+
+    JsonArray tablesResult = new JsonArray();
+    JsonObject table1 = new JsonObject();
+    table1.put("table_schema", "test_database");
+    table1.put("table_name", "table1");
+    table1.put("table_type", "BASE TABLE");
+    tablesResult.add(table1);
+
+    JsonObject table2 = new JsonObject();
+    table2.put("table_schema", "test_database");
+    table2.put("table_name", "table2");
+    table2.put("table_type", "BASE TABLE");
+    tablesResult.add(table2);
+
+    JsonArray columnsResult = new JsonArray();
+    JsonObject col1 = new JsonObject();
+    col1.put("table_schema", "test_database");
+    col1.put("table_name", "table1");
+    col1.put("column_name", "id");
+    col1.put("data_type", "varchar");
+    col1.put("ordinal_position", "1");
+    col1.put("is_nullable", "YES");
+    columnsResult.add(col1);
+
+    JsonObject col2 = new JsonObject();
+    col2.put("table_schema", "test_database");
+    col2.put("table_name", "table1");
+    col2.put("column_name", "name");
+    col2.put("data_type", "varchar");
+    col2.put("ordinal_position", "2");
+    col2.put("is_nullable", "NO");
+    columnsResult.add(col2);
+
+    QueryResultSet tablesResultSet = QueryResultSet.builder()
+        .resultData(tablesResult)
+        .build();
+
+    QueryResultSet columnsResultSet = QueryResultSet.builder()
+        .resultData(columnsResult)
+        .build();
+
+    when(queryClient.submitQuery(anyString(), isNull()))
+        .thenReturn(Single.just(tablesQueryExecutionId))
+        .thenReturn(Single.just(columnsQueryExecutionId));
+    when(queryClient.waitForQueryCompletion(tablesQueryExecutionId))
+        .thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryClient.waitForQueryCompletion(columnsQueryExecutionId))
+        .thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryClient.getQueryResults(eq(tablesQueryExecutionId), isNull(), isNull()))
+        .thenReturn(Single.just(tablesResultSet));
+    when(queryClient.getQueryResults(eq(columnsQueryExecutionId), isNull(), isNull()))
+        .thenReturn(Single.just(columnsResultSet));
+
+    var result = queryService.getTablesAndColumns().blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(2);
+    assertThat(result.get(0).getTableName()).isEqualTo("table1");
+    assertThat(result.get(0).getColumns()).hasSize(2);
+    assertThat(result.get(0).getColumns().get(0).getColumnName()).isEqualTo("id");
+    assertThat(result.get(0).getColumns().get(1).getColumnName()).isEqualTo("name");
+    assertThat(result.get(1).getTableName()).isEqualTo("table2");
+    assertThat(result.get(1).getColumns()).isEmpty();
+  }
+
+  @Test
+  void shouldHandleErrorWhenDatabaseNotConfigured() {
+    when(athenaConfig.getDatabase()).thenReturn(null);
+
+    QueryServiceImpl serviceWithNullDb = new QueryServiceImpl(queryClient, queryJobDao, athenaConfig);
+
+    var testObserver = serviceWithNullDb.getTablesAndColumns().test();
+
+    testObserver.assertError(IllegalArgumentException.class);
+    testObserver.assertError(error -> error.getMessage().contains("Database name is not configured"));
+  }
+
+  @Test
+  void shouldHandleErrorWhenTablesQueryFails() {
+    String tablesQueryExecutionId = "tables-exec-123";
+
+    when(queryClient.submitQuery(anyString(), isNull()))
+        .thenReturn(Single.just(tablesQueryExecutionId));
+    when(queryClient.waitForQueryCompletion(tablesQueryExecutionId))
+        .thenReturn(Single.just(QueryStatus.FAILED));
+
+    var testObserver = queryService.getTablesAndColumns().test();
+
+    testObserver.assertError(RuntimeException.class);
+    testObserver.assertError(error -> error.getMessage().contains("Failed to query tables"));
+  }
+
+  @Test
+  void shouldHandleErrorWhenColumnsQueryFails() {
+    String tablesQueryExecutionId = "tables-exec-123";
+    String columnsQueryExecutionId = "columns-exec-123";
+
+    JsonArray tablesResult = new JsonArray();
+    JsonObject table1 = new JsonObject();
+    table1.put("table_schema", "test_database");
+    table1.put("table_name", "table1");
+    table1.put("table_type", "BASE TABLE");
+    tablesResult.add(table1);
+
+    QueryResultSet tablesResultSet = QueryResultSet.builder()
+        .resultData(tablesResult)
+        .build();
+
+    when(queryClient.submitQuery(anyString(), isNull()))
+        .thenReturn(Single.just(tablesQueryExecutionId))
+        .thenReturn(Single.just(columnsQueryExecutionId));
+    when(queryClient.waitForQueryCompletion(tablesQueryExecutionId))
+        .thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryClient.waitForQueryCompletion(columnsQueryExecutionId))
+        .thenReturn(Single.just(QueryStatus.FAILED));
+    when(queryClient.getQueryResults(eq(tablesQueryExecutionId), isNull(), isNull()))
+        .thenReturn(Single.just(tablesResultSet));
+
+    var testObserver = queryService.getTablesAndColumns().test();
+
+    testObserver.assertError(RuntimeException.class);
+    testObserver.assertError(error -> error.getMessage().contains("Failed to query columns"));
   }
 }

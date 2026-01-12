@@ -7,15 +7,24 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.dreamhorizon.pulseserver.client.query.QueryClient;
+import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
+import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
+import org.dreamhorizon.pulseserver.service.query.models.ColumnMetadata;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
+import org.dreamhorizon.pulseserver.service.query.models.TableMetadata;
 import org.dreamhorizon.pulseserver.util.QueryTimestampEnricher;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,6 +34,7 @@ public class QueryServiceImpl implements QueryService {
 
   private final QueryClient queryClient;
   private final QueryJobDao queryJobDao;
+  private final AthenaConfig athenaConfig;
 
   @Override
   public Single<QueryJob> submitQuery(String queryString, List<String> parameters, String timestampString, String userEmail) {
@@ -515,7 +525,162 @@ public class QueryServiceImpl implements QueryService {
     int queryLimit = limit != null && limit > 0 ? Math.min(limit, Constants.MAX_QUERY_RESULTS) : 20;
     int queryOffset = offset != null && offset >= 0 ? offset : 0;
 
-    return queryJobDao.getQueryHistory(userEmail.trim(), queryLimit, queryOffset);
+    return queryJobDao.getQueryHistory(userEmail.trim(), queryLimit, queryOffset)
+        .flatMap(jobs -> {
+          List<QueryJob> runningJobs = jobs.stream()
+              .filter(job -> job.getStatus() == QueryJobStatus.RUNNING && job.getQueryExecutionId() != null)
+              .limit(20)
+              .collect(java.util.stream.Collectors.toList());
+
+          if (runningJobs.isEmpty()) {
+            return Single.just(jobs);
+          }
+
+          log.debug("Checking status for {} running queries", runningJobs.size());
+
+          return Observable.fromIterable(runningJobs)
+              .flatMapSingle(job -> checkAndUpdateRunningJob(job)
+                  .onErrorReturn(error -> {
+                    log.warn("Error checking status for job {}: {}", job.getJobId(), error.getMessage());
+                    return job;
+                  }))
+              .toList()
+              .map(updatedRunningJobs -> {
+                java.util.Map<String, QueryJob> updatedMap = new java.util.HashMap<>();
+                updatedRunningJobs.forEach(updatedJob -> updatedMap.put(updatedJob.getJobId(), updatedJob));
+
+                return jobs.stream()
+                    .map(job -> {
+                      if (job.getStatus() == QueryJobStatus.RUNNING && updatedMap.containsKey(job.getJobId())) {
+                        return updatedMap.get(job.getJobId());
+                      }
+                      return job;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+              });
+        });
+  }
+
+  private Single<QueryJob> checkAndUpdateRunningJob(QueryJob job) {
+    return queryClient.getQueryStatus(job.getQueryExecutionId())
+        .flatMap(status -> {
+          QueryJobStatus newStatus = mapQueryStatusToJobStatus(status);
+
+          if (newStatus == job.getStatus()) {
+            return Single.just(job);
+          }
+
+          if (newStatus == QueryJobStatus.COMPLETED) {
+            return fetchAndUpdateJobResults(job.getJobId(), job.getQueryExecutionId());
+          } else if (newStatus == QueryJobStatus.FAILED || newStatus == QueryJobStatus.CANCELLED) {
+            return handleFailedQueryInStatusCheck(job.getJobId(), job.getQueryExecutionId(), newStatus);
+          } else {
+            return queryClient.getQueryExecution(job.getQueryExecutionId())
+                .flatMap(execution -> {
+                  Timestamp updatedAt = execution.getCompletionDateTime() != null 
+                      ? execution.getCompletionDateTime() 
+                      : execution.getSubmissionDateTime();
+                  if (updatedAt == null) {
+                    updatedAt = new Timestamp(System.currentTimeMillis());
+                  }
+                  return queryJobDao.updateJobStatus(job.getJobId(), newStatus, updatedAt)
+                      .flatMap(v -> queryJobDao.getJobById(job.getJobId()));
+                });
+          }
+        });
+  }
+
+  @Override
+  public Single<List<TableMetadata>> getTablesAndColumns() {
+    String database = athenaConfig.getDatabase();
+    if (database == null || database.trim().isEmpty()) {
+      return Single.error(new IllegalArgumentException("Database name is not configured"));
+    }
+
+    String tablesQuery = String.format(
+        "SELECT table_schema, table_name, table_type " +
+        "FROM information_schema.tables " +
+        "WHERE table_schema = '%s' " +
+        "ORDER BY table_name",
+        database
+    );
+
+    String columnsQuery = String.format(
+        "SELECT table_schema, table_name, column_name, data_type, ordinal_position, is_nullable " +
+        "FROM information_schema.columns " +
+        "WHERE table_schema = '%s' " +
+        "ORDER BY table_name, ordinal_position",
+        database
+    );
+
+    return queryClient.submitQuery(tablesQuery, null)
+        .flatMap(queryExecutionId -> queryClient.waitForQueryCompletion(queryExecutionId)
+            .flatMap(status -> {
+              if (status == QueryStatus.SUCCEEDED) {
+                return queryClient.getQueryResults(queryExecutionId, null, null)
+                    .map(QueryResultSet::getResultData);
+              } else {
+                return Single.error(new RuntimeException("Failed to query tables: " + status));
+              }
+            }))
+        .flatMap(tablesResult -> {
+          return queryClient.submitQuery(columnsQuery, null)
+              .flatMap(queryExecutionId -> queryClient.waitForQueryCompletion(queryExecutionId)
+                  .flatMap(status -> {
+                    if (status == QueryStatus.SUCCEEDED) {
+                      return queryClient.getQueryResults(queryExecutionId, null, null)
+                          .map(QueryResultSet::getResultData);
+                    } else {
+                      return Single.error(new RuntimeException("Failed to query columns: " + status));
+                    }
+                  }))
+              .map(columnsResult -> combineTablesAndColumns(tablesResult, columnsResult));
+        });
+  }
+
+  private List<TableMetadata> combineTablesAndColumns(JsonArray tablesResult, JsonArray columnsResult) {
+    Map<String, TableMetadata> tableMap = new HashMap<>();
+
+    for (int i = 0; i < tablesResult.size(); i++) {
+      JsonObject tableRow = tablesResult.getJsonObject(i);
+      String tableName = tableRow.getString("table_name");
+      String tableSchema = tableRow.getString("table_schema");
+      String tableType = tableRow.getString("table_type");
+
+      TableMetadata table = TableMetadata.builder()
+          .tableName(tableName)
+          .tableSchema(tableSchema)
+          .tableType(tableType)
+          .columns(new ArrayList<>())
+          .build();
+
+      tableMap.put(tableName, table);
+    }
+
+    for (int i = 0; i < columnsResult.size(); i++) {
+      JsonObject columnRow = columnsResult.getJsonObject(i);
+      String tableName = columnRow.getString("table_name");
+      String columnName = columnRow.getString("column_name");
+      String dataType = columnRow.getString("data_type");
+      String ordinalPositionStr = columnRow.getString("ordinal_position");
+      String isNullable = columnRow.getString("is_nullable");
+
+      TableMetadata table = tableMap.get(tableName);
+      if (table != null) {
+        Integer ordinalPosition = ordinalPositionStr != null ? Integer.parseInt(ordinalPositionStr) : null;
+        ColumnMetadata column = ColumnMetadata.builder()
+            .columnName(columnName)
+            .dataType(dataType)
+            .ordinalPosition(ordinalPosition)
+            .isNullable(isNullable)
+            .build();
+        table.getColumns().add(column);
+      }
+    }
+
+    return tableMap.values().stream()
+        .sorted((t1, t2) -> t1.getTableName().compareToIgnoreCase(t2.getTableName()))
+        .collect(Collectors.toList());
   }
 }
 
