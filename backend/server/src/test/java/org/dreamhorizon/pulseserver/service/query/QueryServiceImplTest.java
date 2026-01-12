@@ -515,4 +515,461 @@ public class QueryServiceImplTest {
     testObserver.assertError(RuntimeException.class);
     testObserver.assertError(error -> error.getMessage().contains("Failed to query columns"));
   }
+
+  @Test
+  void shouldGetQueryHistoryAndUpdateRunningQueries() {
+    String userEmail = "test@example.com";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob runningJob1 = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob runningJob2 = QueryJob.builder()
+        .jobId("job-2")
+        .queryExecutionId("exec-2")
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob completedJob = QueryJob.builder()
+        .jobId("job-3")
+        .status(QueryJobStatus.COMPLETED)
+        .createdAt(now)
+        .build();
+
+    QueryJob updatedJob1 = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.COMPLETED)
+        .createdAt(now)
+        .build();
+
+
+    when(queryJobDao.getQueryHistory(userEmail, 20, 0))
+        .thenReturn(Single.just(java.util.Arrays.asList(runningJob1, runningJob2, completedJob)));
+    when(queryClient.getQueryStatus("exec-1")).thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryClient.getQueryStatus("exec-2")).thenReturn(Single.just(QueryStatus.RUNNING));
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId("exec-1")
+        .status(QueryStatus.SUCCEEDED)
+        .resultLocation("s3://bucket/path")
+        .completionDateTime(now)
+        .build();
+    when(queryClient.getQueryExecution("exec-1")).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobCompleted(eq("job-1"), anyString(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq("job-1"), any(), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.getJobById("job-1"))
+        .thenReturn(Single.just(updatedJob1));
+
+    var result = queryService.getQueryHistory(userEmail, 20, 0).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(3);
+    verify(queryClient).getQueryStatus("exec-1");
+    verify(queryClient).getQueryStatus("exec-2");
+  }
+
+  @Test
+  void shouldGetQueryHistoryWithNoRunningQueries() {
+    String userEmail = "test@example.com";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob completedJob = QueryJob.builder()
+        .jobId("job-1")
+        .status(QueryJobStatus.COMPLETED)
+        .createdAt(now)
+        .build();
+
+    when(queryJobDao.getQueryHistory(userEmail, 20, 0))
+        .thenReturn(Single.just(java.util.Arrays.asList(completedJob)));
+
+    var result = queryService.getQueryHistory(userEmail, 20, 0).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getStatus()).isEqualTo(QueryJobStatus.COMPLETED);
+    verify(queryClient, never()).getQueryStatus(anyString());
+  }
+
+  @Test
+  void shouldHandleErrorWhenCheckingRunningQueryStatus() {
+    String userEmail = "test@example.com";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob runningJob = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    when(queryJobDao.getQueryHistory(userEmail, 20, 0))
+        .thenReturn(Single.just(java.util.Arrays.asList(runningJob)));
+    when(queryClient.getQueryStatus("exec-1"))
+        .thenReturn(Single.error(new RuntimeException("AWS error")));
+
+    var result = queryService.getQueryHistory(userEmail, 20, 0).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getStatus()).isEqualTo(QueryJobStatus.RUNNING);
+  }
+
+  @Test
+  void shouldLimitRunningQueriesTo20() {
+    String userEmail = "test@example.com";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    java.util.List<QueryJob> jobs = new java.util.ArrayList<>();
+    for (int i = 0; i < 25; i++) {
+      jobs.add(QueryJob.builder()
+          .jobId("job-" + i)
+          .queryExecutionId("exec-" + i)
+          .status(QueryJobStatus.RUNNING)
+          .createdAt(now)
+          .build());
+    }
+
+    when(queryJobDao.getQueryHistory(userEmail, 20, 0))
+        .thenReturn(Single.just(jobs));
+    when(queryClient.getQueryStatus(anyString())).thenReturn(Single.just(QueryStatus.RUNNING));
+
+    var result = queryService.getQueryHistory(userEmail, 20, 0).blockingGet();
+
+    assertThat(result).isNotNull();
+    verify(queryClient, org.mockito.Mockito.times(20)).getQueryStatus(anyString());
+  }
+
+  @Test
+  void shouldCancelQuerySuccessfully() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob cancelledJob = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.CANCELLED)
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.CANCELLED)
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(job))
+        .thenReturn(Single.just(cancelledJob));
+    when(queryClient.cancelQuery(queryExecutionId)).thenReturn(Single.just(true));
+    when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobStatus(eq(jobId), eq(QueryJobStatus.CANCELLED), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.cancelQuery(jobId).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.CANCELLED);
+    verify(queryClient).cancelQuery(queryExecutionId);
+  }
+
+  @Test
+  void shouldCancelQueryWithNoExecutionId() {
+    String jobId = "job-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(null)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob cancelledJob = QueryJob.builder()
+        .jobId(jobId)
+        .status(QueryJobStatus.CANCELLED)
+        .createdAt(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(job))
+        .thenReturn(Single.just(cancelledJob));
+    when(queryJobDao.updateJobStatus(eq(jobId), eq(QueryJobStatus.CANCELLED), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.cancelQuery(jobId).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.CANCELLED);
+    verify(queryClient, never()).cancelQuery(anyString());
+  }
+
+  @Test
+  void shouldNotCancelQueryInFinalState() {
+    String jobId = "job-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .status(QueryJobStatus.COMPLETED)
+        .createdAt(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
+
+    QueryJob result = queryService.cancelQuery(jobId).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.COMPLETED);
+    verify(queryClient, never()).cancelQuery(anyString());
+  }
+
+  @Test
+  void shouldHandleCancelQueryFailure() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.CANCELLED)
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(job))
+        .thenReturn(Single.just(job));
+    when(queryClient.cancelQuery(queryExecutionId)).thenReturn(Single.just(false));
+    when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobStatus(eq(jobId), eq(QueryJobStatus.CANCELLED), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.cancelQuery(jobId).blockingGet();
+
+    assertThat(result).isNotNull();
+    verify(queryClient).cancelQuery(queryExecutionId);
+  }
+
+  @Test
+  void shouldHandleCancelQueryError() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob cancelledJob = QueryJob.builder()
+        .jobId(jobId)
+        .status(QueryJobStatus.CANCELLED)
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.CANCELLED)
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(job))
+        .thenReturn(Single.just(cancelledJob));
+    when(queryClient.cancelQuery(queryExecutionId))
+        .thenReturn(Single.error(new RuntimeException("Cancel failed")));
+    when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobStatus(eq(jobId), eq(QueryJobStatus.CANCELLED), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.cancelQuery(jobId).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.CANCELLED);
+  }
+
+  @Test
+  void shouldHandleCancelQueryWithErrorGettingExecution() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob cancelledJob = QueryJob.builder()
+        .jobId(jobId)
+        .status(QueryJobStatus.CANCELLED)
+        .createdAt(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(job))
+        .thenReturn(Single.just(cancelledJob));
+    when(queryClient.cancelQuery(queryExecutionId)).thenReturn(Single.just(true));
+    when(queryClient.getQueryExecution(queryExecutionId))
+        .thenReturn(Single.error(new RuntimeException("Get execution failed")));
+    when(queryJobDao.updateJobStatus(eq(jobId), eq(QueryJobStatus.CANCELLED), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.cancelQuery(jobId).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.CANCELLED);
+  }
+
+  @Test
+  void shouldHandleCheckAndUpdateRunningJobWithFailedStatus() {
+    String userEmail = "test@example.com";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob runningJob = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob failedJob = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.FAILED)
+        .errorMessage("Query failed")
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId("exec-1")
+        .status(QueryStatus.FAILED)
+        .stateChangeReason("Query failed")
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getQueryHistory(userEmail, 20, 0))
+        .thenReturn(Single.just(java.util.Arrays.asList(runningJob)));
+    when(queryClient.getQueryStatus("exec-1")).thenReturn(Single.just(QueryStatus.FAILED));
+    when(queryClient.getQueryExecution("exec-1")).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobFailed(eq("job-1"), anyString(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.getJobById("job-1"))
+        .thenReturn(Single.just(failedJob));
+
+    var result = queryService.getQueryHistory(userEmail, 20, 0).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getStatus()).isEqualTo(QueryJobStatus.FAILED);
+  }
+
+  @Test
+  void shouldHandleCheckAndUpdateRunningJobWithOtherStatus() {
+    String userEmail = "test@example.com";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob runningJob = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob queuedJob = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.SUBMITTED)
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId("exec-1")
+        .status(QueryStatus.QUEUED)
+        .submissionDateTime(now)
+        .build();
+
+    when(queryJobDao.getQueryHistory(userEmail, 20, 0))
+        .thenReturn(Single.just(java.util.Arrays.asList(runningJob)));
+    when(queryClient.getQueryStatus("exec-1")).thenReturn(Single.just(QueryStatus.QUEUED));
+    when(queryClient.getQueryExecution("exec-1")).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobStatus(eq("job-1"), eq(QueryJobStatus.SUBMITTED), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.getJobById("job-1"))
+        .thenReturn(Single.just(queuedJob));
+
+    var result = queryService.getQueryHistory(userEmail, 20, 0).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(1);
+  }
+
+  @Test
+  void shouldHandleFetchAndUpdateJobResultsError() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob failedJob = QueryJob.builder()
+        .jobId(jobId)
+        .status(QueryJobStatus.FAILED)
+        .errorMessage("Failed to update result location")
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.SUCCEEDED)
+        .resultLocation("s3://bucket/path")
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(job))
+        .thenReturn(Single.just(failedJob));
+    when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryClient.getQueryExecution(queryExecutionId))
+        .thenReturn(Single.just(executionInfo))
+        .thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobCompleted(eq(jobId), anyString(), any(Timestamp.class)))
+        .thenReturn(Single.error(new RuntimeException("Update failed")));
+    when(queryJobDao.updateJobFailed(eq(jobId), anyString(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.FAILED);
+  }
 }
