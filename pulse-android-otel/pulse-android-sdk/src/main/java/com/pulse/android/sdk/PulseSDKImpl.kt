@@ -9,11 +9,15 @@ import androidx.core.content.edit
 import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.otel.utils.toAttributes
-import com.pulse.sampling.core.PulseSamplingSignalProcessors
+import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
+import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
 import com.pulse.sampling.models.PulseFeatureName
+import com.pulse.sampling.models.PulseProp
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
+import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseUserAttributes
 import io.opentelemetry.android.AndroidResource
@@ -73,6 +77,7 @@ internal class PulseSDKImpl :
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
+        customEventConnectivity: EndpointConnectivity,
         resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
@@ -94,6 +99,7 @@ internal class PulseSDKImpl :
                 spanEndpointConnectivity,
                 logEndpointConnectivity,
                 metricEndpointConnectivity,
+                customEventConnectivity,
                 resource,
                 instrumentations,
                 endpointHeaders,
@@ -116,6 +122,7 @@ internal class PulseSDKImpl :
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
+        customEventConnectivity: EndpointConnectivity,
         resource: (ResourceBuilder.() -> Unit)?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         endpointHeaders: Map<String, String>,
@@ -225,6 +232,10 @@ internal class PulseSDKImpl :
                 PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = $url" }
                 HttpEndpointConnectivity(url = url, headers = emptyMap())
             } ?: metricEndpointConnectivity
+        val finalCustomEventEndpointConnectivity =
+            currentSdkConfig?.let {
+                HttpEndpointConnectivity.forCustomEvents(it.signals.metricCollectorUrl)
+            } ?: customEventConnectivity
 
         val otlpSpanExporter: SpanExporter =
             OtlpHttpSpanExporter
@@ -242,11 +253,30 @@ internal class PulseSDKImpl :
                 .build()
 
         val otlpLogExporter: LogRecordExporter =
-            OtlpHttpLogRecordExporter
-                .builder()
-                .setEndpoint(finalLogEndpointConnectivity.getUrl())
-                .setHeaders(finalLogEndpointConnectivity::getHeaders)
-                .build()
+            PulseSignalSelectExporter(currentSdkName).SelectedLogExporter(
+                listOf(
+                    PulseSignalMatchCondition.allMatchLogCondition to
+                        OtlpHttpLogRecordExporter
+                            .builder()
+                            .setEndpoint(finalLogEndpointConnectivity.getUrl())
+                            .setHeaders(finalLogEndpointConnectivity::getHeaders)
+                            .build(),
+                    PulseSignalMatchCondition(
+                        name = ".*",
+                        props =
+                            setOf(
+                                PulseProp(name = PulseAttributes.PULSE_TYPE.key, value = PulseAttributes.PulseTypeValues.CUSTOM_EVENT),
+                            ),
+                        scopes = PulseSignalScope.allValuesExceptUnknown,
+                        sdks = PulseSdkName.allValuesExceptUnknown,
+                    ) to
+                        OtlpHttpLogRecordExporter
+                            .builder()
+                            .setEndpoint(finalCustomEventEndpointConnectivity.getUrl())
+                            .setHeaders(finalCustomEventEndpointConnectivity::getHeaders)
+                            .build(),
+                ),
+            )
 
         val otlMetricExporter: MetricExporter =
             OtlpHttpMetricExporter

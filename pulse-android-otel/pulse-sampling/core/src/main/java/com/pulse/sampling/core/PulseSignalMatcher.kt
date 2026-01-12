@@ -11,7 +11,7 @@ public fun interface PulseSignalMatcher {
         name: String,
         props: Map<String, Any?>,
         signalMatchConfig: PulseSignalMatchCondition,
-        currentSdkName: PulseSdkName,
+        sdkName: PulseSdkName,
     ): Boolean
 }
 

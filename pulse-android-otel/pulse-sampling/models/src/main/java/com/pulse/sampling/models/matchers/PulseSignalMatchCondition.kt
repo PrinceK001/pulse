@@ -9,13 +9,23 @@ import kotlinx.serialization.Serializable
 
 @Keep
 @Serializable
-public class PulseSignalMatchCondition internal constructor(
+public class PulseSignalMatchCondition(
     @SerialName("name")
     public val name: String,
     @SerialName("props")
-    public val props: Set<PulseProp>,
+    public val props: Collection<PulseProp>,
     @SerialName("scopes")
-    public val scopes: Set<PulseSignalScope>,
+    public val scopes: Collection<PulseSignalScope>,
     @SerialName("sdks")
-    public val sdks: Set<PulseSdkName>,
-)
+    public val sdks: Collection<PulseSdkName>,
+) {
+    public companion object {
+        public val allMatchLogCondition: PulseSignalMatchCondition =
+            PulseSignalMatchCondition(
+                name = ".*",
+                props = emptySet(),
+                scopes = PulseSignalScope.allValuesExceptUnknown,
+                sdks = PulseSdkName.allValuesExceptUnknown,
+            )
+    }
+}

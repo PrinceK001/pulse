@@ -14,9 +14,11 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PulseSdkConfigRetrofitClientTest {
     private lateinit var mockWebServer: MockWebServer
     private lateinit var retrofitClient: PulseSdkConfigRetrofitClient
@@ -230,6 +232,7 @@ class PulseSdkConfigRetrofitClientTest {
                             "logsCollectorUrl": "http://localhost:4318/v1/traces",
                             "metricCollectorUrl": "http://localhost:4318/v1/traces",
                             "spanCollectorUrl": "http://localhost:4318/v1/traces",
+                            "customEventCollectorUrl": "http://localhost:4318/v1/custom-event",
                             "attributesToDrop": [
                                 {
                                     "name": "credit_card",
@@ -468,6 +471,7 @@ class PulseSdkConfigRetrofitClientTest {
                             "logsCollectorUrl": "http://localhost:4318/v1/traces",
                             "metricCollectorUrl": "http://localhost:4318/v1/traces",
                             "spanCollectorUrl": "http://localhost:4318/v1/traces",
+                            "customEventCollectorUrl": "http://localhost:4318/v1/custom-event",
                             "attributesToDrop": [],
                             "attributesToAdd": [],
                             "filters": {
@@ -500,16 +504,16 @@ class PulseSdkConfigRetrofitClientTest {
 
             assertThat(config).isNotNull
             assertThat(config!!.sampling.rules[0].sdks)
-                .containsExactly(PulseSdkName.ANDROID_JAVA, PulseSdkName.UNKNOWN, PulseSdkName.IOS_RN)
+                .containsExactlyInAnyOrder(PulseSdkName.ANDROID_JAVA, PulseSdkName.UNKNOWN, PulseSdkName.IOS_RN)
             assertThat(config.sampling.rules)
                 .flatExtracting({ it.name })
-                .containsExactly(PulseDeviceAttributeName.UNKNOWN, PulseDeviceAttributeName.OS_VERSION)
+                .containsExactlyInAnyOrder(PulseDeviceAttributeName.UNKNOWN, PulseDeviceAttributeName.OS_VERSION)
 
             assertThat(config.sampling.criticalEventPolicies).isNotNull
 
             assertThat(config.sampling.criticalEventPolicies!!.alwaysSend[0])
-                .extracting({ it.scopes }, { it.sdks })
-                .containsExactly(
+                .extracting({ it.scopes.toSet() }, { it.sdks.toSet() })
+                .containsExactlyInAnyOrder(
                     setOf(
                         PulseSignalScope.LOGS,
                         PulseSignalScope.UNKNOWN,

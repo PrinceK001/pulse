@@ -20,6 +20,8 @@ public final class io/opentelemetry/android/agent/connectivity/HttpEndpointConne
 }
 
 public final class io/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity$Companion {
+	public final fun forCustomEvents (Ljava/lang/String;Ljava/util/Map;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
+	public static synthetic fun forCustomEvents$default (Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity$Companion;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
 	public final fun forLogs (Ljava/lang/String;Ljava/util/Map;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
 	public static synthetic fun forLogs$default (Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity$Companion;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
 	public final fun forMetrics (Ljava/lang/String;Ljava/util/Map;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;

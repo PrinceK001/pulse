@@ -47,6 +47,11 @@ public interface PulseSDK {
                 endpointBaseUrl,
                 endpointHeaders,
             ),
+        /**
+         * Endpoint connectivity for custom business events. This will control the endpoint url for [trackEvent]
+         * If not provided, [logEndpointConnectivity] will be used
+         */
+        customEventConnectivity: EndpointConnectivity = logEndpointConnectivity,
         resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
