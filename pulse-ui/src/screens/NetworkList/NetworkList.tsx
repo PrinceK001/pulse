@@ -155,13 +155,6 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.method']",
-          },
-          alias: "method",
-        },
-        {
-          function: "CUSTOM" as const,
-          param: {
             expression: "SpanAttributes['http.url']",
           },
           alias: "url",
@@ -194,13 +187,13 @@ export function NetworkList({
           },
           alias: "all_sessions",
         },
-        {
-          function: "CUSTOM" as const,
-          param: {
-            expression: "SpanAttributes['http.status_code']",
-          },
-          alias: "status_code",
-        },
+        // {
+        //   function: "CUSTOM" as const,
+        //   param: {
+        //     expression: "SpanAttributes['http.status_code']",
+        //   },
+        //   alias: "status_code",
+        // },
         ...(screenName ? [{
           function: "COL" as const,
           param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
@@ -208,9 +201,7 @@ export function NetworkList({
         }] : []),
       ],
       groupBy: [
-        "method",
         "url",
-        "status_code",
         ...(screenName ? ["screen_name"] : []),
       ],
       orderBy: [
@@ -399,7 +390,6 @@ export function NetworkList({
                 data={[
                   { value: "method", label: "Method" },
                   { value: "url", label: "URL" },
-                  { value: "endpoint", label: "Endpoint" },
                   { value: "status_code", label: "Status Code" },
                 ]}
                 size="sm"

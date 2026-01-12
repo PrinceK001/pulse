@@ -7,6 +7,7 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { Box, Text, SimpleGrid } from "@mantine/core";
 import { ChartSkeleton, SkeletonLoader } from "../../../../components/Skeletons";
 import classes from "./NetworkIssuesByProvider.module.css";
+import { IconMoodHappy } from "@tabler/icons-react";
 
 interface NetworkIssuesByProviderProps {
   method: string;
@@ -226,6 +227,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       <ErrorAndEmptyState
         classes={[classes.errorBreakdownGrid]}
         message="No network issues found for this API"
+        icon={<IconMoodHappy />}
       />
     );
   }

@@ -5,6 +5,7 @@ import classes from "./ErrorBreakdown.module.css";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { SkeletonLoader } from "../../../../components/Skeletons";
+import { IconMoodHappy } from "@tabler/icons-react";
 
 export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
   type,
@@ -188,7 +189,7 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
 
   if (errorData.length === 0) {
     return (
-      <ErrorAndEmptyState message={`No ${type} errors found for this API`} />
+      <ErrorAndEmptyState message={`No ${type} errors found for this API`} icon={<IconMoodHappy />}/>
     );
   }
 

@@ -201,11 +201,6 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         value: ["%network%"],
       },
       {
-        field: "SpanAttributes['http.method']",
-        operator: "EQ" as const,
-        value: [decodedApiData.method],
-      },
-      {
         field: "SpanAttributes['http.url']",
         operator: "EQ" as const,
         value: [decodedApiData.url],
@@ -222,13 +217,6 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         end: formatToUTC(endTime),
       },
       select: [
-        {
-          function: "CUSTOM" as const,
-          param: {
-            expression: "SpanAttributes['http.method']",
-          },
-          alias: "method",
-        },
         {
           function: "CUSTOM" as const,
           param: {
@@ -271,7 +259,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         },
       ],
       filters,
-      groupBy: ["method", "url"],
+      groupBy: ["url"],
     };
   }, [decodedApiData, startTime, endTime, buildCommonFilters]);
 
@@ -434,7 +422,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         <div className={classes.titleSection}>
           <h1 className={classes.pageTitle}>Network Details</h1>
           <Text size="sm" c="dimmed" className={classes.subtitle}>
-            {apiData.method} {apiData.endpoint}
+            {apiData.endpoint}
           </Text>
         </div>
       </div>

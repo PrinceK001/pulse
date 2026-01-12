@@ -46,14 +46,6 @@ export const NetworkApiCard: React.FC<NetworkApiCardProps> = ({
     <Box className={classes.apiCard} onClick={onClick}>
       <Box className={classes.apiCardHeader}>
         <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
-          <Badge
-            color={getMethodColor(apiData.method)}
-            variant="light"
-            size="sm"
-            className={classes.methodBadge}
-          >
-            {apiData.method}
-          </Badge>
           <Text size="sm" fw={500} className={classes.endpoint}>
             {apiData.endpoint}
           </Text>
