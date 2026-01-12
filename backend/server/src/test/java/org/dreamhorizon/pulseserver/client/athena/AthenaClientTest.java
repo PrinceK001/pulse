@@ -268,6 +268,60 @@ public class AthenaClientTest {
       var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
       testObserver.assertError(RuntimeException.class);
     }
+
+    @Test
+    void shouldHandleNullResponseInGetQueryResults() {
+      String executionId = "exec-123";
+
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(null);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
+      testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldHandleNullResultSetInGetQueryResults() {
+      String executionId = "exec-123";
+
+      GetQueryResultsResponse response = GetQueryResultsResponse.builder()
+          .build();
+
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
+      testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldGetQueryResultsWithoutParameters() {
+      String executionId = "exec-123";
+
+      ResultSet resultSet = ResultSet.builder().build();
+      GetQueryResultsResponse response = GetQueryResultsResponse.builder()
+          .resultSet(resultSet)
+          .build();
+
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
+
+      software.amazon.awssdk.services.athena.model.ResultSet result = athenaClient.getQueryResults(executionId).blockingGet();
+
+      assertThat(result).isNotNull();
+    }
+
+    @Test
+    void shouldHandleIllegalArgumentExceptionInGetQueryResults() {
+      String executionId = "exec-123";
+      IllegalArgumentException error = new IllegalArgumentException("Invalid request");
+
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
+          .thenThrow(error);
+
+      var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
+      testObserver.assertError(IllegalArgumentException.class);
+    }
   }
 
   @Nested
