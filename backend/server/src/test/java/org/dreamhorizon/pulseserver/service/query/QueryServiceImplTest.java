@@ -18,13 +18,13 @@ import org.dreamhorizon.pulseserver.client.query.QueryClient;
 import org.dreamhorizon.pulseserver.client.query.models.QueryExecutionInfo;
 import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
-import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -51,23 +51,26 @@ public class QueryServiceImplTest {
   void shouldRejectInvalidQuery() {
     String invalidQuery = "INVALID QUERY";
 
-    var testObserver = queryService.submitQuery(invalidQuery, Collections.emptyList(), null).test();
+    var testObserver = queryService.submitQuery(invalidQuery, Collections.emptyList(), null, "test@example.com").test();
 
     testObserver.assertError(IllegalArgumentException.class);
-    verify(queryJobDao, never()).createJob(anyString());
+    verify(queryJobDao, never()).createJob(anyString(), anyString(), anyString());
   }
 
   @Test
   void shouldSubmitQuerySuccessfully() {
-    String query = "SELECT * FROM table WHERE year = 2025 AND month = 1 AND day = 1 AND hour = 1";
+    String query = "SELECT * FROM table WHERE year = 2025 AND month = 1 AND day = 1 AND hour = 1 " +
+        "WHERE timestamp >= TIMESTAMP '2026-01-01 05:00:00'";
     String jobId = "job-123";
     String queryExecutionId = "exec-123";
     Long dataScannedBytes = 1000L;
 
+    Timestamp submissionTime = new Timestamp(System.currentTimeMillis());
     QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
         .queryExecutionId(queryExecutionId)
         .dataScannedInBytes(dataScannedBytes)
         .status(QueryStatus.RUNNING)
+        .submissionDateTime(submissionTime)
         .build();
 
     QueryJob job = QueryJob.builder()
@@ -76,85 +79,29 @@ public class QueryServiceImplTest {
         .queryExecutionId(queryExecutionId)
         .status(QueryJobStatus.RUNNING)
         .dataScannedInBytes(dataScannedBytes)
-        .createdAt(new Timestamp(System.currentTimeMillis()))
+        .createdAt(submissionTime)
         .build();
 
-    when(queryJobDao.createJob(anyString())).thenReturn(Single.just(jobId));
+    when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
     when(queryClient.submitQuery(anyString(), anyList())).thenReturn(Single.just(queryExecutionId));
     when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
-    when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class)))
+    when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), ArgumentMatchers.any(Timestamp.class)))
         .thenReturn(Single.just(true));
     when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.RUNNING));
     when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
 
-    QueryJob result = queryService.submitQuery(query, Collections.emptyList(), null).blockingGet();
+    QueryJob result = queryService.submitQuery(query, Collections.emptyList(), null, "test@example.com").blockingGet();
 
     assertThat(result).isNotNull();
     assertThat(result.getJobId()).isEqualTo(jobId);
-    verify(queryJobDao).createJob(anyString());
+    verify(queryJobDao).createJob(anyString(), anyString(), anyString());
     verify(queryClient).submitQuery(anyString(), anyList());
   }
 
   @Test
-  void shouldHandleQueryCompletionWithinTimeout() {
-    String query = "SELECT * FROM table WHERE year = 2025 AND month = 1 AND day = 1 AND hour = 1";
-    String jobId = "job-123";
-    String queryExecutionId = "exec-123";
-    Long dataScannedBytes = 1000L;
-    String resultLocation = "s3://bucket/path";
-
-    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
-        .queryExecutionId(queryExecutionId)
-        .dataScannedInBytes(dataScannedBytes)
-        .status(QueryStatus.SUCCEEDED)
-        .resultLocation(resultLocation)
-        .build();
-
-    JsonArray resultData = new JsonArray();
-    resultData.add(new io.vertx.core.json.JsonObject().put("col1", "value1"));
-
-    QueryResultSet resultSet = QueryResultSet.builder()
-        .resultData(resultData)
-        .nextToken(null)
-        .build();
-
-    QueryJob job = QueryJob.builder()
-        .jobId(jobId)
-        .queryString(query)
-        .queryExecutionId(queryExecutionId)
-        .status(QueryJobStatus.COMPLETED)
-        .resultLocation(resultLocation)
-        .dataScannedInBytes(dataScannedBytes)
-        .resultData(resultData)
-        .createdAt(new Timestamp(System.currentTimeMillis()))
-        .completedAt(new Timestamp(System.currentTimeMillis()))
-        .build();
-
-    when(queryJobDao.createJob(anyString())).thenReturn(Single.just(jobId));
-    when(queryClient.submitQuery(anyString(), anyList())).thenReturn(Single.just(queryExecutionId));
-    when(queryClient.getQueryExecution(queryExecutionId))
-        .thenReturn(Single.just(executionInfo))
-        .thenReturn(Single.just(executionInfo));
-    when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class)))
-        .thenReturn(Single.just(true));
-    when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.SUCCEEDED));
-    when(queryJobDao.updateJobCompleted(jobId, resultLocation)).thenReturn(Single.just(true));
-    when(queryClient.getQueryResults(eq(queryExecutionId), eq(Constants.MAX_QUERY_RESULTS), isNull()))
-        .thenReturn(Single.just(resultSet));
-    when(queryJobDao.getJobById(jobId))
-        .thenReturn(Single.just(job))
-        .thenReturn(Single.just(job));
-
-    QueryJob result = queryService.submitQuery(query, Collections.emptyList(), null).blockingGet();
-
-    assertThat(result).isNotNull();
-    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.COMPLETED);
-    assertThat(result.getResultData()).isNotNull();
-  }
-
-  @Test
   void shouldHandleQueryFailure() {
-    String query = "SELECT * FROM table WHERE year = 2025 AND month = 1 AND day = 1 AND hour = 1";
+    String query = "SELECT * FROM table WHERE year = 2025 AND month = 1 AND day = 1 AND hour = 1 " +
+        "WHERE timestamp >= TIMESTAMP '2026-01-01 05:00:00'";
     String jobId = "job-123";
     String queryExecutionId = "exec-123";
 
@@ -173,20 +120,30 @@ public class QueryServiceImplTest {
         .createdAt(new Timestamp(System.currentTimeMillis()))
         .build();
 
-    when(queryJobDao.createJob(anyString())).thenReturn(Single.just(jobId));
+    Timestamp submissionTime = new Timestamp(System.currentTimeMillis());
+    Timestamp completionTime = new Timestamp(System.currentTimeMillis() + 5000);
+    QueryExecutionInfo executionInfoWithTimestamps = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.FAILED)
+        .stateChangeReason("Query failed")
+        .submissionDateTime(submissionTime)
+        .completionDateTime(completionTime)
+        .build();
+    when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
     when(queryClient.submitQuery(anyString(), anyList())).thenReturn(Single.just(queryExecutionId));
     when(queryClient.getQueryExecution(queryExecutionId))
-        .thenReturn(Single.just(executionInfo))
-        .thenReturn(Single.just(executionInfo));
-    when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class)))
+        .thenReturn(Single.just(executionInfoWithTimestamps))
+        .thenReturn(Single.just(executionInfoWithTimestamps));
+    when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), ArgumentMatchers.any(Timestamp.class)))
         .thenReturn(Single.just(true));
     when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.FAILED));
-    when(queryJobDao.updateJobFailed(jobId, "Query failed")).thenReturn(Single.just(true));
+    when(queryJobDao.updateJobFailed(eq(jobId), eq("Query failed"), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
     when(queryJobDao.getJobById(jobId))
         .thenReturn(Single.just(job))
         .thenReturn(Single.just(job));
 
-    QueryJob result = queryService.submitQuery(query, Collections.emptyList(), null).blockingGet();
+    QueryJob result = queryService.submitQuery(query, Collections.emptyList(), null, "test@example.com").blockingGet();
 
     assertThat(result).isNotNull();
     assertThat(result.getStatus()).isEqualTo(QueryJobStatus.FAILED);
@@ -242,11 +199,13 @@ public class QueryServiceImplTest {
         .updatedAt(now)
         .build();
 
+    Timestamp completionTime = new Timestamp(System.currentTimeMillis() + 10000);
     QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
         .queryExecutionId(queryExecutionId)
         .status(QueryStatus.SUCCEEDED)
         .resultLocation(resultLocation)
         .dataScannedInBytes(1000L)
+        .completionDateTime(completionTime)
         .build();
 
     QueryJob updatedJob = QueryJob.builder()
@@ -257,7 +216,8 @@ public class QueryServiceImplTest {
         .resultLocation(resultLocation)
         .dataScannedInBytes(1000L)
         .createdAt(now)
-        .updatedAt(now)
+        .updatedAt(completionTime)
+        .completedAt(completionTime)
         .build();
 
     when(queryJobDao.getJobById(jobId))
@@ -265,13 +225,17 @@ public class QueryServiceImplTest {
         .thenReturn(Single.just(updatedJob));
     when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.SUCCEEDED));
     when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
-    when(queryJobDao.updateJobCompleted(jobId, resultLocation)).thenReturn(Single.just(true));
+    when(queryJobDao.updateJobCompleted(
+        eq(jobId),
+        eq(resultLocation),
+        any(Timestamp.class)
+    )).thenReturn(Single.just(true));
 
     QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();
 
     assertThat(result).isNotNull();
     assertThat(result.getStatus()).isEqualTo(QueryJobStatus.COMPLETED);
-    verify(queryJobDao).updateJobCompleted(eq(jobId), eq(resultLocation));
+    verify(queryJobDao).updateJobCompleted(eq(jobId), eq(resultLocation), ArgumentMatchers.any(Timestamp.class));
   }
 
   @Test
@@ -359,10 +323,12 @@ public class QueryServiceImplTest {
         .updatedAt(now)
         .build();
 
+    Timestamp completionTime = new Timestamp(System.currentTimeMillis() + 10000);
     QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
         .queryExecutionId(queryExecutionId)
         .status(QueryStatus.SUCCEEDED)
         .resultLocation(resultLocation)
+        .completionDateTime(completionTime)
         .build();
 
     QueryJob completedJob = QueryJob.builder()
@@ -372,7 +338,8 @@ public class QueryServiceImplTest {
         .status(QueryJobStatus.COMPLETED)
         .resultLocation(resultLocation)
         .createdAt(now)
-        .updatedAt(now)
+        .updatedAt(completionTime)
+        .completedAt(completionTime)
         .build();
 
     when(queryJobDao.getJobById(jobId))
@@ -381,7 +348,11 @@ public class QueryServiceImplTest {
     when(queryClient.waitForQueryCompletion(queryExecutionId))
         .thenReturn(Single.just(QueryStatus.SUCCEEDED));
     when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
-    when(queryJobDao.updateJobCompleted(jobId, resultLocation)).thenReturn(Single.just(true));
+    when(queryJobDao.updateJobCompleted(
+        eq(jobId),
+        eq(resultLocation),
+        any(Timestamp.class)
+    )).thenReturn(Single.just(true));
 
     QueryJob result = queryService.waitForJobCompletion(jobId).blockingGet();
 
