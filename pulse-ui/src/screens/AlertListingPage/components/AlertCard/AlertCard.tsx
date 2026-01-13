@@ -8,6 +8,7 @@ import {
 } from "@tabler/icons-react";
 import { AlertCardProps, SeverityDisplayConfig, AlertCondition } from "./AlertCard.interface";
 import classes from "./AlertCard.module.css";
+import { formatNetworkApiScopeNameCompact, isNetworkApiScopeName } from "../../../AlertFormWizard/utils/scopeNameUtils";
 
 const DEFAULT_SEVERITY: SeverityDisplayConfig = { label: "Unknown", color: "#6b7280" };
 
@@ -28,6 +29,14 @@ const getAllScopeNames = (conditions: AlertCondition[]): string[] => {
   return Array.from(allNames);
 };
 
+// Format scope name for display (handles network_api {method}_{url} format)
+const formatScopeNameForDisplay = (scopeName: string): string => {
+  if (isNetworkApiScopeName(scopeName)) {
+    return formatNetworkApiScopeNameCompact(scopeName, 20);
+  }
+  return scopeName.length > 25 ? `${scopeName.substring(0, 25)}...` : scopeName;
+};
+
 export function AlertCard({
   name, description, current_state, scope, alerts = [], severity_id,
   is_snoozed, evaluation_period, scopeLabels = {}, severityConfig = {}, metricLabels = {}, onClick,
@@ -38,7 +47,8 @@ export function AlertCard({
 
   const getStatusConfig = () => {
     if (is_snoozed) return { label: "Snoozed", color: "#94a3b8", bgColor: "rgba(148, 163, 184, 0.1)", icon: IconBellOff };
-    if (isFiring || current_state === "NO_DATA") return { label: current_state, color: "#ef4444", bgColor: "rgba(239, 68, 68, 0.08)", icon: IconBellRinging };
+    if (current_state === "NO_DATA") return { label: "No Data", color: "#9ca3af", bgColor: "rgba(156, 163, 175, 0.1)", icon: IconBell };
+    if (isFiring) return { label: current_state, color: "#ef4444", bgColor: "rgba(239, 68, 68, 0.08)", icon: IconBellRinging };
     return { label: current_state, color: "#10b981", bgColor: "rgba(16, 185, 129, 0.08)", icon: IconBell };
   };
 
@@ -83,9 +93,11 @@ export function AlertCard({
       {allScopeNames.length > 0 && (
         <Group gap={4} className={classes.scopeNamesRow}>
           {allScopeNames.slice(0, 3).map((scopeName) => (
-            <Badge key={scopeName} size="xs" variant="outline" color="teal" className={classes.scopeChip}>
-              {scopeName}
-            </Badge>
+            <Tooltip key={scopeName} label={scopeName} position="top" withArrow>
+              <Badge size="xs" variant="outline" color="teal" className={classes.scopeChip}>
+                {formatScopeNameForDisplay(scopeName)}
+              </Badge>
+            </Tooltip>
           ))}
           {allScopeNames.length > 3 && (
             <Badge size="xs" variant="light" color="gray" className={classes.scopeChip}>

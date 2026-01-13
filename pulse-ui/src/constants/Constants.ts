@@ -41,6 +41,8 @@ import { NetworkDetail } from "../screens/NetworkDetail";
 import { NetworkList } from "../screens/NetworkList";
 import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
+import { SamplingConfig } from "../screens/SamplingConfig";
+import { Settings } from "../screens/Settings";
 import { AlertListingPage } from "../screens/AlertListingPage";
 import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
@@ -186,6 +188,18 @@ export const ROUTES: Routes = {
     basePath: "/coming-soon",
     path: "/coming-soon",
     element: ComingSoon,
+  },
+  SDK_CONFIG: {
+    key: "SDK_CONFIG",
+    basePath: "/sdk-config",
+    path: "/sdk-config",
+    element: SamplingConfig,
+  },
+  SETTINGS: {
+    key: "SETTINGS",
+    basePath: "/settings",
+    path: "/settings/*",
+    element: Settings,
   },
   ALERTS: {
     key: "ALERTS",
@@ -577,6 +591,37 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_ALERT_NOTIFICATION_CHANNELS: {
     key: "GET_ALERT_NOTIFICATION_CHANNELS",
     apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.GET,
+  },
+  // SDK Configuration API Routes
+  GET_ALL_SDK_CONFIGS: {
+    key: "GET_ALL_SDK_CONFIGS",
+    apiPath: `/v1/configs`,
+    method: API_METHODS.GET,
+  },
+  GET_SDK_CONFIG_BY_VERSION: {
+    key: "GET_SDK_CONFIG_BY_VERSION",
+    apiPath: `/v1/configs/{version}`,
+    method: API_METHODS.GET,
+  },
+  GET_ACTIVE_SDK_CONFIG: {
+    key: "GET_ACTIVE_SDK_CONFIG",
+    apiPath: `/v1/configs/active`,
+    method: API_METHODS.GET,
+  },
+  CREATE_SDK_CONFIG: {
+    key: "CREATE_SDK_CONFIG",
+    apiPath: `/v1/configs`,
+    method: API_METHODS.POST,
+  },
+  GET_SDK_RULES_AND_FEATURES: {
+    key: "GET_SDK_RULES_AND_FEATURES",
+    apiPath: `/v1/configs/rules-features`,
+    method: API_METHODS.GET,
+  },
+  GET_SDK_SCOPES_AND_SDKS: {
+    key: "GET_SDK_SCOPES_AND_SDKS",
+    apiPath: `/v1/configs/scopes-sdks`,
     method: API_METHODS.GET,
   },
 };
@@ -1056,6 +1101,10 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
   THIS_WEEK: "THIS_WEEK",
   THIS_MONTH_SO_FAR: "THIS_MONTH_SO_FAR",
 };
+
+// Default time filter for the dashboard (Last 24 hours)
+export const DEFAULT_QUICK_TIME_FILTER = CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
+export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {
   NEXT_1_HOUR: "NEXT_1_HOUR",

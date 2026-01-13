@@ -7,9 +7,105 @@
 
 import { MockDataStore as IMockDataStore } from "./types";
 
+// SDK Config types matching the PulseConfig schema
+type SdkEnum = 'android_native' | 'android_rn' | 'ios_native' | 'ios_rn';
+type ScopeEnum = 'logs' | 'traces' | 'metrics' | 'baggage';
+type FilterMode = 'blacklist' | 'whitelist';
+type SamplingMatchType = 'app_version_min' | 'app_version_max';
+
+interface EventPropMatch {
+  name: string;
+  value: string;
+}
+
+interface EventFilter {
+  id?: string;
+  name: string;
+  props: EventPropMatch[];
+  scope: ScopeEnum[];
+  sdks: SdkEnum[];
+}
+
+interface FiltersConfig {
+  mode: FilterMode;
+  whitelist: EventFilter[];
+  blacklist: EventFilter[];
+}
+
+interface SamplingMatchCondition {
+  type: SamplingMatchType;
+  sdks: SdkEnum[];
+  app_version_min_inclusive?: string;
+  app_version_max_inclusive?: string;
+}
+
+interface SamplingRule {
+  id?: string;
+  name: string;
+  match: SamplingMatchCondition;
+  session_sample_rate: number;
+}
+
+interface CriticalEventPolicy {
+  id?: string;
+  name: string;
+  props: EventPropMatch[];
+  scope: ScopeEnum[];
+}
+
+interface SamplingConfig {
+  default: { session_sample_rate: number };
+  rules: SamplingRule[];
+  criticalEventPolicies: { alwaysSend: CriticalEventPolicy[] };
+}
+
+interface SignalsConfig {
+  scheduleDurationMs: number;
+  collectorUrl: string;
+  attributesToDrop: string[];
+}
+
+interface InteractionConfig {
+  collectorUrl: string;
+  configUrl: string;
+  beforeInitQueueSize: number;
+}
+
+interface FeatureConfig {
+  id?: string;
+  featureName: string;
+  session_sample_rate: number;
+  sdks: SdkEnum[];
+}
+
+interface PulseConfig {
+  version: number;
+  filtersConfig: FiltersConfig;
+  samplingConfig: SamplingConfig;
+  signals: SignalsConfig;
+  interaction: InteractionConfig;
+  featureConfigs: FeatureConfig[];
+}
+
+// Version metadata
+interface ConfigVersionMeta {
+  version: number;
+  createdAt: string;
+  createdBy: string;
+  description?: string;
+  isActive: boolean;
+}
+
+// Config with metadata
+interface PulseConfigWithMeta extends PulseConfig {
+  _meta: ConfigVersionMeta;
+}
+
 export class MockDataStore {
   private static instance: MockDataStore;
   private data: IMockDataStore;
+  private sdkConfig: PulseConfig;
+  private configHistory: PulseConfigWithMeta[];
 
   private constructor() {
     this.data = {
@@ -20,7 +116,128 @@ export class MockDataStore {
       queries: [],
       events: [],
     };
+    this.sdkConfig = this.getDefaultSdkConfig();
+    this.configHistory = this.initializeConfigHistory();
     this.initializeData();
+  }
+
+  private getDefaultSdkConfig(): PulseConfig {
+    const generateId = () => Math.random().toString(36).substring(2, 11);
+    
+    return {
+      version: 1,
+      filtersConfig: {
+        mode: 'blacklist',
+        whitelist: [
+          {
+            id: generateId(),
+            name: 'test_event',
+            props: [{ name: 'user_id', value: '.*test.*' }],
+            scope: ['logs', 'traces'],
+            sdks: ['android_native', 'ios_native'],
+          },
+        ],
+        blacklist: [
+          {
+            id: generateId(),
+            name: 'sensitive_event',
+            props: [{ name: 'contains_pii', value: 'true' }],
+            scope: ['logs', 'traces', 'metrics'],
+            sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
+          },
+          {
+            id: generateId(),
+            name: 'debug_log',
+            props: [{ name: 'level', value: 'debug' }],
+            scope: ['logs'],
+            sdks: ['android_native', 'ios_native'],
+          },
+        ],
+      },
+      samplingConfig: {
+        default: { session_sample_rate: 0.5 },
+        rules: [
+          {
+            id: generateId(),
+            name: 'high_value_users',
+            match: {
+              type: 'app_version_min',
+              sdks: ['android_native', 'ios_native'],
+              app_version_min_inclusive: '2.0.0',
+            },
+            session_sample_rate: 1.0,
+          },
+          {
+            id: generateId(),
+            name: 'legacy_users',
+            match: {
+              type: 'app_version_max',
+              sdks: ['android_native', 'android_rn'],
+              app_version_max_inclusive: '1.5.0',
+            },
+            session_sample_rate: 0.1,
+          },
+        ],
+        criticalEventPolicies: {
+          alwaysSend: [
+            {
+              id: generateId(),
+              name: 'crash',
+              props: [{ name: 'severity', value: 'critical' }],
+              scope: ['traces', 'logs'],
+            },
+            {
+              id: generateId(),
+              name: 'payment_error',
+              props: [{ name: 'error_type', value: 'payment.*' }],
+              scope: ['traces'],
+            },
+            {
+              id: generateId(),
+              name: 'auth_failure',
+              props: [{ name: 'error_code', value: '401|403' }],
+              scope: ['traces', 'logs'],
+            },
+          ],
+        },
+      },
+      signals: {
+        scheduleDurationMs: 5000,
+        collectorUrl: 'https://collector.pulse.io/v1/traces',
+        attributesToDrop: ['password', 'credit_card', 'ssn', 'auth_token'],
+      },
+      interaction: {
+        collectorUrl: 'https://collector.pulse.io/v1/interactions',
+        configUrl: 'https://config.pulse.io/v1/configs/latest',
+        beforeInitQueueSize: 100,
+      },
+      featureConfigs: [
+        {
+          id: generateId(),
+          featureName: 'crash_reporting',
+          session_sample_rate: 1.0,
+          sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'network_monitoring',
+          session_sample_rate: 0.8,
+          sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'performance_monitoring',
+          session_sample_rate: 0.6,
+          sdks: ['android_native', 'ios_native'],
+        },
+        {
+          id: generateId(),
+          featureName: 'user_interaction_tracking',
+          session_sample_rate: 0.0,
+          sdks: ['android_native', 'ios_native'],
+        },
+      ],
+    };
   }
 
   static getInstance(): MockDataStore {
@@ -538,7 +755,7 @@ export class MockDataStore {
         created_at: new Date(now - 7 * 86400000).toISOString(),
         updated_at: new Date(now - 3600000).toISOString(),
         is_active: true,
-        current_state: "FIRING",
+        status: "FIRING",
         is_snoozed: false,
         last_snoozed_at: null,
         snoozed_from: null,
@@ -551,9 +768,9 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 0.05, "/checkout/confirm": 0.03 } },
-          { alias: "B", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 3000, "/checkout/confirm": 2500 } },
-          { alias: "C", metric: "NET_5XX_RATE", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 0.01 } },
+          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 0.05, "post_https://api.fancode.com/v1/checkout/confirm": 0.03 } },
+          { alias: "B", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 3000, "post_https://api.fancode.com/v1/checkout/confirm": 2500 } },
+          { alias: "C", metric: "NET_5XX_RATE", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 0.01 } },
         ],
         condition_expression: "A && B || C",
         evaluation_period: 900,
@@ -566,7 +783,7 @@ export class MockDataStore {
         created_at: new Date(now - 14 * 86400000).toISOString(),
         updated_at: new Date(now - 7200000).toISOString(),
         is_active: true,
-        current_state: "NORMAL",
+        status: "NORMAL",
         is_snoozed: false,
         last_snoozed_at: null,
         snoozed_from: null,
@@ -592,7 +809,7 @@ export class MockDataStore {
         created_at: new Date(now - 30 * 86400000).toISOString(),
         updated_at: new Date(now - 86400000).toISOString(),
         is_active: true,
-        current_state: "FIRING",
+        status: "FIRING",
         is_snoozed: false,
         last_snoozed_at: null,
         snoozed_from: null,
@@ -618,7 +835,7 @@ export class MockDataStore {
         created_at: new Date(now - 21 * 86400000).toISOString(),
         updated_at: new Date(now - 43200000).toISOString(),
         is_active: true,
-        current_state: "NORMAL",
+        status: "NORMAL",
         is_snoozed: false,
         last_snoozed_at: null,
         snoozed_from: null,
@@ -644,7 +861,7 @@ export class MockDataStore {
         created_at: new Date(now - 10 * 86400000).toISOString(),
         updated_at: new Date(now - 21600000).toISOString(),
         is_active: true,
-        current_state: "NORMAL",
+        status: "NORMAL",
         is_snoozed: false,
         last_snoozed_at: null,
         snoozed_from: null,
@@ -657,7 +874,7 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "/search/products": 2000, "/search/suggest": 500 } },
+          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "get_https://api.fancode.com/v1/search/products": 2000, "get_https://api.fancode.com/v1/search/suggest": 500 } },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -670,7 +887,7 @@ export class MockDataStore {
         created_at: new Date(now - 5 * 86400000).toISOString(),
         updated_at: new Date(now - 18000000).toISOString(),
         is_active: true,
-        current_state: "FIRING",
+        status: "FIRING",
         is_snoozed: false,
         last_snoozed_at: null,
         snoozed_from: null,
@@ -696,7 +913,7 @@ export class MockDataStore {
         created_at: new Date(now - 25 * 86400000).toISOString(),
         updated_at: new Date(now - 172800000).toISOString(),
         is_active: true,
-        current_state: "NORMAL",
+        status: "NORMAL",
         is_snoozed: false,
         last_snoozed_at: null,
         snoozed_from: null,
@@ -722,7 +939,111 @@ export class MockDataStore {
         created_at: new Date(now - 3 * 86400000).toISOString(),
         updated_at: new Date(now - 86400000).toISOString(),
         is_active: true,
-        current_state: "NORMAL",
+        status: "NORMAL",
+        is_snoozed: false,
+        last_snoozed_at: null,
+        snoozed_from: null,
+        snoozed_until: null,
+      },
+      {
+        alert_id: 9,
+        name: "Payment Gateway - Snoozed for Maintenance",
+        description: "Payment API latency - temporarily snoozed",
+        scope: "network_api",
+        dimension_filter: null,
+        alerts: [
+          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/payment/process": 5000, "post_https://api.fancode.com/v1/payment/verify": 3000 } },
+        ],
+        condition_expression: "A",
+        evaluation_period: 600,
+        evaluation_interval: 60,
+        severity_id: 1,
+        notification_channel_id: 1,
+        notification_webhook_url: "https://hooks.slack.com/xxx",
+        created_by: "admin@example.com",
+        updated_by: "admin@example.com",
+        created_at: new Date(now - 15 * 86400000).toISOString(),
+        updated_at: new Date(now - 3600000).toISOString(),
+        is_active: true,
+        status: "SNOOZED",
+        is_snoozed: true,
+        last_snoozed_at: new Date(now - 3600000).toISOString(),
+        snoozed_from: new Date(now - 3600000).toISOString(),
+        snoozed_until: new Date(now + 7200000).toISOString(),
+      },
+      {
+        alert_id: 10,
+        name: "New Feature - Beta Testing",
+        description: "Monitoring new feature rollout - awaiting data",
+        scope: "interaction",
+        dimension_filter: null,
+        alerts: [
+          { alias: "A", metric: "INTERACTION_COUNT", metric_operator: "LESS_THAN", threshold: { "NewFeatureButton": 10 } },
+        ],
+        condition_expression: "A",
+        evaluation_period: 1800,
+        evaluation_interval: 300,
+        severity_id: 3,
+        notification_channel_id: 2,
+        notification_webhook_url: "mailto:beta-team@example.com",
+        created_by: "john@example.com",
+        updated_by: "john@example.com",
+        created_at: new Date(now - 86400000).toISOString(),
+        updated_at: new Date(now - 86400000).toISOString(),
+        is_active: true,
+        status: "NO_DATA",
+        is_snoozed: false,
+        last_snoozed_at: null,
+        snoozed_from: null,
+        snoozed_until: null,
+      },
+      {
+        alert_id: 11,
+        name: "Profile Screen - Snoozed Alert",
+        description: "Profile screen performance - under investigation",
+        scope: "screen",
+        dimension_filter: null,
+        alerts: [
+          { alias: "A", metric: "SCREEN_LOAD_TIME_P95", metric_operator: "GREATER_THAN", threshold: { "ProfileScreen": 4000 } },
+        ],
+        condition_expression: "A",
+        evaluation_period: 600,
+        evaluation_interval: 60,
+        severity_id: 2,
+        notification_channel_id: 1,
+        notification_webhook_url: "https://hooks.slack.com/xxx",
+        created_by: "chirag@example.com",
+        updated_by: "chirag@example.com",
+        created_at: new Date(now - 7 * 86400000).toISOString(),
+        updated_at: new Date(now - 7200000).toISOString(),
+        is_active: true,
+        status: "SNOOZED",
+        is_snoozed: true,
+        last_snoozed_at: new Date(now - 7200000).toISOString(),
+        snoozed_from: new Date(now - 7200000).toISOString(),
+        snoozed_until: new Date(now + 10800000).toISOString(),
+      },
+      {
+        alert_id: 12,
+        name: "Experimental API - No Data Yet",
+        description: "New API endpoint monitoring - pending data",
+        scope: "network_api",
+        dimension_filter: null,
+        alerts: [
+          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "get_https://api.fancode.com/v2/experimental": 0.01 } },
+        ],
+        condition_expression: "A",
+        evaluation_period: 900,
+        evaluation_interval: 120,
+        severity_id: 3,
+        notification_channel_id: 2,
+        notification_webhook_url: "mailto:engineering@example.com",
+        created_by: "admin@example.com",
+        updated_by: "admin@example.com",
+        created_at: new Date(now - 2 * 86400000).toISOString(),
+        updated_at: new Date(now - 2 * 86400000).toISOString(),
+        is_active: true,
+        status: "NO_DATA",
         is_snoozed: false,
         last_snoozed_at: null,
         snoozed_from: null,
@@ -732,12 +1053,11 @@ export class MockDataStore {
   }
 
   private initializeAnalytics(): void {
-    // Generate sample analytics data
     const now = new Date();
     const dataPoints = [];
 
     for (let i = 0; i < 30; i++) {
-      const timestamp = new Date(now.getTime() - i * 60000); // 1 minute intervals
+      const timestamp = new Date(now.getTime() - i * 60000);
       dataPoints.push({
         timestamp: timestamp.toISOString(),
         apdexScore: 0.8 + Math.random() * 0.2,
@@ -766,16 +1086,6 @@ export class MockDataStore {
         eventName: "login_complete",
         screenName: "LoginScreen",
         properties: ["user_id", "timestamp", "success"],
-      },
-      {
-        eventName: "checkout_start",
-        screenName: "CheckoutScreen",
-        properties: ["user_id", "timestamp", "amount"],
-      },
-      {
-        eventName: "checkout_complete",
-        screenName: "CheckoutScreen",
-        properties: ["user_id", "timestamp", "amount", "payment_method"],
       },
     ];
   }
@@ -863,4 +1173,514 @@ export class MockDataStore {
       (alert) => alert.alert_id !== alertId,
     );
   }
+
+  // Initialize config history with mock data
+  private initializeConfigHistory(): PulseConfigWithMeta[] {
+    const now = Date.now();
+    const baseConfig = this.getDefaultSdkConfig();
+    
+    // Create historical versions
+    const history: PulseConfigWithMeta[] = [
+      {
+        ...baseConfig,
+        version: 1,
+        _meta: {
+          version: 1,
+          createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'admin@example.com',
+          description: 'Initial configuration',
+          isActive: false,
+        },
+      },
+      {
+        ...baseConfig,
+        version: 2,
+        samplingConfig: {
+          ...baseConfig.samplingConfig,
+          default: { session_sample_rate: 0.3 },
+        },
+        _meta: {
+          version: 2,
+          createdAt: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'admin@example.com',
+          description: 'Added blacklist filters for sensitive data',
+          isActive: false,
+        },
+      },
+      {
+        ...baseConfig,
+        version: 3,
+        samplingConfig: {
+          ...baseConfig.samplingConfig,
+          default: { session_sample_rate: 0.5 },
+        },
+        _meta: {
+          version: 3,
+          createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'john.doe@example.com',
+          description: 'Reduced default sample rate to 50%',
+          isActive: false,
+        },
+      },
+      {
+        ...baseConfig,
+        version: 4,
+        _meta: {
+          version: 4,
+          createdAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'jane.smith@example.com',
+          description: 'Added payment_error to critical events',
+          isActive: false,
+        },
+      },
+      {
+        ...baseConfig,
+        version: 5,
+        _meta: {
+          version: 5,
+          createdAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'john.doe@example.com',
+          description: 'Increased crash reporting sample rate',
+          isActive: true,
+        },
+      },
+    ];
+    
+    return history;
+  }
+
+  // SDK Configuration methods
+  getSdkConfig(): PulseConfig {
+    // Return the active version
+    const activeConfig = this.configHistory.find(c => c._meta.isActive);
+    if (activeConfig) {
+      const { _meta, ...config } = activeConfig;
+      return JSON.parse(JSON.stringify(config));
+    }
+    return JSON.parse(JSON.stringify(this.sdkConfig));
+  }
+
+  getSdkConfigVersions(): ConfigVersionMeta[] {
+    return this.configHistory
+      .map(c => c._meta)
+      .sort((a, b) => b.version - a.version);
+  }
+
+  getSdkConfigByVersion(version: number): PulseConfig | null {
+    const config = this.configHistory.find(c => c.version === version);
+    if (config) {
+      const { _meta, ...configWithoutMeta } = config;
+      return JSON.parse(JSON.stringify(configWithoutMeta));
+    }
+    return null;
+  }
+
+  updateSdkConfig(updates: Partial<PulseConfig>): PulseConfig {
+    // Deactivate current active version
+    this.configHistory.forEach(c => {
+      c._meta.isActive = false;
+    });
+    
+    // Calculate new version number
+    const maxVersion = Math.max(...this.configHistory.map(c => c.version));
+    const newVersion = maxVersion + 1;
+    
+    // Create new config
+    const newConfig: PulseConfigWithMeta = {
+      ...this.sdkConfig,
+      ...updates,
+      version: newVersion,
+      _meta: {
+        version: newVersion,
+        createdAt: new Date().toISOString(),
+        createdBy: 'current.user@example.com',
+        description: (updates as any).description || `Configuration v${newVersion}`,
+        isActive: true,
+      },
+    };
+    
+    // Add to history
+    this.configHistory.push(newConfig);
+    
+    // Update current config
+    const { _meta, ...configWithoutMeta } = newConfig;
+    this.sdkConfig = configWithoutMeta;
+    
+    return JSON.parse(JSON.stringify(this.sdkConfig));
+  }
+
+  createSdkConfig(config: Partial<PulseConfig>): PulseConfig {
+    const defaultConfig = this.getDefaultSdkConfig();
+    const newConfig = {
+      ...defaultConfig,
+      ...config,
+      version: 1,
+    };
+    
+    // Clear history and start fresh
+    this.configHistory = [{
+      ...newConfig,
+      _meta: {
+        version: 1,
+        createdAt: new Date().toISOString(),
+        createdBy: 'current.user@example.com',
+        description: 'New configuration',
+        isActive: true,
+      },
+    }];
+    
+    this.sdkConfig = newConfig;
+    return JSON.parse(JSON.stringify(this.sdkConfig));
+  }
+
+  // ============================================================================
+  // SDK Configuration V1 API Methods (New schema matching backend PulseConfig)
+  // ============================================================================
+
+  private configHistoryV1: PulseConfigV1WithMeta[] = [];
+
+  private getDefaultConfigV1(): PulseConfigV1 {
+    const generateId = () => Math.random().toString(36).substring(2, 11);
+    
+    return {
+      version: 1,
+      description: 'Default SDK configuration',
+      sampling: {
+        default: { sessionSampleRate: 0.5 },
+        rules: [
+          {
+            id: generateId(),
+            name: 'app_version',
+            sdks: ['android_java', 'ios_native'],
+            value: '^2\\..*',
+            sessionSampleRate: 1.0,
+          },
+        ],
+        criticalEventPolicies: {
+          alwaysSend: [
+            {
+              id: generateId(),
+              name: 'crash',
+              props: [{ name: 'severity', value: 'critical' }],
+              scopes: ['traces', 'logs'],
+              sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+            },
+            {
+              id: generateId(),
+              name: 'payment_error',
+              props: [{ name: 'error_type', value: '^payment.*' }],
+              scopes: ['traces'],
+              sdks: ['android_java', 'ios_native'],
+            },
+          ],
+        },
+        criticalSessionPolicies: {
+          alwaysSend: [],
+        },
+      },
+      signals: {
+        filters: {
+          mode: 'blacklist',
+          values: [
+            {
+              id: generateId(),
+              name: '^debug_.*',
+              props: [{ name: 'level', value: 'debug' }],
+              scopes: ['logs'],
+              sdks: ['android_java', 'ios_native'],
+            },
+          ],
+        },
+        scheduleDurationMs: 5000,
+        logsCollectorUrl: 'http://10.0.2.2:4318/v1/logs',
+        metricCollectorUrl: 'http://10.0.2.2:4318/v1/metrics',
+        spanCollectorUrl: 'http://10.0.2.2:4318/v1/traces',
+        attributesToDrop: [
+          {
+            id: generateId(),
+            name: '^user\\.email$',
+            props: [],
+            scopes: ['logs', 'traces'],
+            sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+          },
+          {
+            id: generateId(),
+            name: '^auth_token$',
+            props: [],
+            scopes: ['logs', 'traces', 'metrics'],
+            sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+          },
+        ],
+        attributesToAdd: [],
+      },
+      interaction: {
+        collectorUrl: 'http://10.0.2.2:4318/v1/traces/v1/interactions',
+        configUrl: 'http://10.0.2.2:8080/v1/interaction-configs/',
+        beforeInitQueueSize: 100,
+      },
+      features: [
+        {
+          id: generateId(),
+          featureName: 'interaction',
+          sessionSampleRate: 1,
+          sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'java_crash',
+          sessionSampleRate: 1,
+          sdks: ['android_java', 'android_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'js_crash',
+          sessionSampleRate: 1,
+          sdks: ['android_rn', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'network_instrumentation',
+          sessionSampleRate: 1,
+          sdks: ['android_java', 'ios_native'],
+        },
+        {
+          id: generateId(),
+          featureName: 'screen_session',
+          sessionSampleRate: 0,
+          sdks: ['android_java', 'ios_native'],
+        },
+        {
+          id: generateId(),
+          featureName: 'rn_navigation',
+          sessionSampleRate: 0,
+          sdks: ['android_rn', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'rn_screen_load',
+          sessionSampleRate: 0,
+          sdks: ['android_rn', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'rn_screen_interactive',
+          sessionSampleRate: 0,
+          sdks: ['android_rn', 'ios_rn'],
+        },
+      ],
+    };
+  }
+
+  private initializeConfigHistoryV1(): void {
+    if (this.configHistoryV1.length > 0) return;
+    
+    const defaultConfig = this.getDefaultConfigV1();
+    this.configHistoryV1 = [
+      {
+        ...defaultConfig,
+        version: 1,
+        _meta: {
+          version: 1,
+          isactive: false,
+          description: 'Initial SDK configuration',
+          createdBy: 'admin@example.com',
+          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      {
+        ...defaultConfig,
+        version: 2,
+        description: 'Updated sampling rates',
+        sampling: {
+          ...defaultConfig.sampling,
+          default: { sessionSampleRate: 0.75 },
+        },
+        _meta: {
+          version: 2,
+          isactive: false,
+          description: 'Updated sampling rates',
+          createdBy: 'dev@example.com',
+          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      {
+        ...defaultConfig,
+        version: 3,
+        description: 'Added new filter rules',
+        _meta: {
+          version: 3,
+          isactive: true,
+          description: 'Added new filter rules',
+          createdBy: 'dev@example.com',
+          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+    ];
+  }
+
+  getActiveConfigV1(): PulseConfigV1 | null {
+    this.initializeConfigHistoryV1();
+    const active = this.configHistoryV1.find(c => c._meta.isactive);
+    if (active) {
+      const { _meta, ...config } = active;
+      return JSON.parse(JSON.stringify(config));
+    }
+    return null;
+  }
+
+  getConfigByVersionV1(version: number): PulseConfigV1 | null {
+    this.initializeConfigHistoryV1();
+    const config = this.configHistoryV1.find(c => c.version === version);
+    if (config) {
+      const { _meta, ...configWithoutMeta } = config;
+      return JSON.parse(JSON.stringify(configWithoutMeta));
+    }
+    return null;
+  }
+
+  getAllConfigsV1(): ConfigVersionMetaV1[] {
+    this.initializeConfigHistoryV1();
+    return this.configHistoryV1
+      .map(c => c._meta)
+      .sort((a, b) => b.version - a.version);
+  }
+
+  createConfigV1(config: Partial<PulseConfigV1>, userEmail: string): number {
+    this.initializeConfigHistoryV1();
+    
+    // Deactivate all existing configs
+    this.configHistoryV1.forEach(c => {
+      c._meta.isactive = false;
+    });
+    
+    // Calculate new version
+    const maxVersion = this.configHistoryV1.length > 0 
+      ? Math.max(...this.configHistoryV1.map(c => c.version || 0))
+      : 0;
+    const newVersion = maxVersion + 1;
+    
+    // Create new config
+    const defaultConfig = this.getDefaultConfigV1();
+    const newConfig: PulseConfigV1WithMeta = {
+      ...defaultConfig,
+      ...config,
+      version: newVersion,
+      _meta: {
+        version: newVersion,
+        isactive: true,
+        description: config.description || `Configuration v${newVersion}`,
+        createdBy: userEmail,
+        createdAt: new Date().toISOString(),
+      },
+    };
+    
+    this.configHistoryV1.push(newConfig);
+    return newVersion;
+  }
+}
+
+// ============================================================================
+// V1 Config Types (matching new backend PulseConfig schema)
+// ============================================================================
+
+type SdkEnumV1 = 'android_java' | 'android_rn' | 'ios_native' | 'ios_rn';
+type ScopeEnumV1 = 'logs' | 'traces' | 'metrics' | 'baggage';
+type FilterModeV1 = 'blacklist' | 'whitelist';
+type SamplingRuleNameV1 = 'os_version' | 'app_version' | 'country' | 'platform' | 'state' | 'device' | 'network';
+type FeatureNameV1 = 'interaction' | 'java_crash' | 'js_crash' | 'java_anr' | 'network_change' | 'network_instrumentation' | 'screen_session' | 'custom_events' | 'rn_navigation' | 'rn_screen_load' | 'rn_screen_interactive';
+
+interface EventPropMatchV1 {
+  name: string;
+  value: string;
+}
+
+interface EventFilterV1 {
+  id?: string;
+  name: string;
+  props: EventPropMatchV1[];
+  scopes: ScopeEnumV1[];
+  sdks: SdkEnumV1[];
+}
+
+interface AttributeValueV1 {
+  name: string;
+  value: string;
+}
+
+interface AttributeToAddV1 {
+  id?: string;
+  values: AttributeValueV1[];
+  condition: EventFilterV1;
+}
+
+interface FilterConfigV1 {
+  mode: FilterModeV1;
+  values: EventFilterV1[];
+}
+
+interface SamplingRuleV1 {
+  id?: string;
+  name: SamplingRuleNameV1;
+  sdks: SdkEnumV1[];
+  value: string;
+  sessionSampleRate: number;
+}
+
+interface CriticalPolicyRuleV1 {
+  id?: string;
+  name: string;
+  props: EventPropMatchV1[];
+  scopes: ScopeEnumV1[];
+  sdks: SdkEnumV1[];
+}
+
+interface SamplingConfigV1 {
+  default: { sessionSampleRate: number };
+  rules: SamplingRuleV1[];
+  criticalEventPolicies: { alwaysSend: CriticalPolicyRuleV1[] };
+  criticalSessionPolicies: { alwaysSend: CriticalPolicyRuleV1[] };
+}
+
+interface SignalsConfigV1 {
+  filters: FilterConfigV1;
+  scheduleDurationMs: number;
+  logsCollectorUrl?: string;
+  metricCollectorUrl?: string;
+  spanCollectorUrl?: string;
+  attributesToDrop: EventFilterV1[];
+  attributesToAdd?: AttributeToAddV1[];
+}
+
+interface InteractionConfigV1 {
+  collectorUrl?: string;
+  configUrl?: string;
+  beforeInitQueueSize: number;
+}
+
+interface FeatureConfigV1 {
+  id?: string;
+  featureName: FeatureNameV1;
+  sessionSampleRate: number;
+  sdks: SdkEnumV1[];
+}
+
+interface PulseConfigV1 {
+  version?: number;
+  description: string;
+  sampling: SamplingConfigV1;
+  signals: SignalsConfigV1;
+  interaction: InteractionConfigV1;
+  features: FeatureConfigV1[];
+}
+
+interface ConfigVersionMetaV1 {
+  version: number;
+  isactive: boolean;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+interface PulseConfigV1WithMeta extends PulseConfigV1 {
+  _meta: ConfigVersionMetaV1;
 }
