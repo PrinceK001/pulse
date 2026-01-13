@@ -83,7 +83,7 @@ resource "aws_lb" "pulse_ui" {
 
 resource "aws_lb_target_group" "pulse_ui" {
   name     = "pulse-ui-tg"
-  port     = var.healthcheck_port
+  port     =  3000
   protocol = "HTTP"
   vpc_id   = var.vpc_id
 
@@ -94,6 +94,7 @@ resource "aws_lb_target_group" "pulse_ui" {
     timeout             = 5
     interval            = 30
     path                = var.healthcheck_path
+    port                = var.healthcheck_port
     protocol            = "HTTP"
     matcher             = "200"
   }

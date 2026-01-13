@@ -83,7 +83,7 @@ resource "aws_lb" "pulse_backend" {
 
 resource "aws_lb_target_group" "pulse_backend" {
   name     = "pulse-backend-tg"
-  port     = var.healthcheck_port
+  port     = 8080
   protocol = "HTTP"
   vpc_id   = var.vpc_id
 
@@ -94,6 +94,7 @@ resource "aws_lb_target_group" "pulse_backend" {
     timeout             = 5
     interval            = 30
     path                = var.healthcheck_path
+    port                = var.healthcheck_port
     protocol            = "HTTP"
     matcher             = "200"
   }
@@ -163,7 +164,7 @@ resource "aws_autoscaling_group" "pulse_backend" {
 resource "aws_route53_record" "pulse_backend" {
   zone_id = var.route53_zone_id
   name    = var.route53_record_name
-  type    = "A"
+  type    = "A" 
 
   alias {
     name                   = aws_lb.pulse_backend.dns_name
