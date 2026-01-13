@@ -8,7 +8,7 @@
 import { MockDataStore as IMockDataStore } from "./types";
 
 // SDK Config types matching the PulseConfig schema
-type SdkEnum = 'android_native' | 'android_rn' | 'ios_native' | 'ios_rn';
+type SdkEnum = 'pulse_android_native' | 'pulse_android_rn' | 'pulse_ios_native' | 'pulse_ios_rn';
 type ScopeEnum = 'logs' | 'traces' | 'metrics' | 'baggage';
 type FilterMode = 'blacklist' | 'whitelist';
 type SamplingMatchType = 'app_version_min' | 'app_version_max';
