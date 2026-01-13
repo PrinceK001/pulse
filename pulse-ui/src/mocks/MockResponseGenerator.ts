@@ -418,7 +418,7 @@ export class MockResponseGenerator {
       return {
         data: {
           scope: ["logs", "traces", "metrics", "baggage"],
-          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"]
+          sdks: ["pulse_android_java", "pulse_android_rn", "pulse_ios_native", "pulse_ios_rn"]
         },
         status: 200,
       };
