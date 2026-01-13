@@ -41,6 +41,12 @@ public enum class PulseFeatureName {
     @SerialName("custom_events")
     CUSTOM_EVENTS,
 
+    @SerialName("rn_screen_load")
+    RN_SCREEN_LOAD,
+
+    @SerialName("rn_screen_interactive")
+    RN_SCREEN_INTERACTIVE,
+
     @SerialName(PulseFallbackToUnknownEnumSerializer.UNKNOWN_KEY_NAME)
     UNKNOWN,
 }

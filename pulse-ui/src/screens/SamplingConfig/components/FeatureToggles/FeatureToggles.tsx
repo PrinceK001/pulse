@@ -63,6 +63,8 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   screen_session: <IconDeviceMobile size={22} />,
   custom_events: <IconTag size={22} />,
   rn_navigation: <IconDeviceMobile size={22} />,
+  rn_screen_load: <IconDeviceMobile size={22} />,
+  rn_screen_interactive: <IconDeviceMobile size={22} />,
 };
 
 const FEATURE_COLORS: Record<string, string> = {
@@ -75,6 +77,8 @@ const FEATURE_COLORS: Record<string, string> = {
   screen_session: '#8b5cf6',
   custom_events: '#10b981',
   rn_navigation: '#8b5cf6',
+  rn_screen_load: '#f59e0b',
+  rn_screen_interactive: '#10b981',
 };
 
 export function FeatureToggles({ configs, onChange, disabled = false }: FeatureConfigsProps) {

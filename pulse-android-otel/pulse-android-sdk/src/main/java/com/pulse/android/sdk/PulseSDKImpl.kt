@@ -230,6 +230,14 @@ internal class PulseSDKImpl :
                                 isCustomEventEnabled = false
                             }
 
+                            PulseFeatureName.RN_SCREEN_LOAD -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.RN_SCREEN_INTERACTIVE -> {
+                                // no-op
+                            }
+
                             PulseFeatureName.UNKNOWN -> {
                                 // no-op
                             }
