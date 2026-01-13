@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import java.sql.Timestamp;
-import java.util.Collections;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryRequestDto;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryResponseDto;
@@ -43,8 +42,7 @@ public class SubmitQueryTest {
   void shouldSubmitQuerySuccessfully(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
       String queryString = "SELECT * FROM table";
-      SubmitQueryRequestDto request = new SubmitQueryRequestDto(
-          queryString, Collections.emptyList(), null);
+      SubmitQueryRequestDto request = new SubmitQueryRequestDto(queryString);
 
       Timestamp now = new Timestamp(System.currentTimeMillis());
       QueryJob job = QueryJob.builder()
@@ -56,7 +54,7 @@ public class SubmitQueryTest {
           .createdAt(now)
           .build();
 
-      when(queryService.submitQuery(queryString, Collections.emptyList(), null, "test@example.com"))
+      when(queryService.submitQuery(queryString, "test@example.com"))
           .thenReturn(Single.just(job));
 
       CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery("test@example.com", request);
@@ -71,7 +69,7 @@ public class SubmitQueryTest {
           assertThat(response.getData()).isNotNull();
           assertThat(response.getData().getJobId()).isEqualTo("job-123");
           assertThat(response.getData().getStatus()).isEqualTo("SUBMITTED");
-          verify(queryService).submitQuery(queryString, Collections.emptyList(), null, "test@example.com");
+          verify(queryService).submitQuery(queryString, "test@example.com");
         });
         testContext.completeNow();
       });
@@ -82,8 +80,7 @@ public class SubmitQueryTest {
   void shouldHandleCompletedQueryWithResults(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
       String queryString = "SELECT * FROM table";
-      SubmitQueryRequestDto request = new SubmitQueryRequestDto(
-          queryString, Collections.emptyList(), null);
+      SubmitQueryRequestDto request = new SubmitQueryRequestDto(queryString);
 
       Timestamp now = new Timestamp(System.currentTimeMillis());
       JsonArray resultData = new JsonArray();
@@ -101,7 +98,7 @@ public class SubmitQueryTest {
           .completedAt(now)
           .build();
 
-      when(queryService.submitQuery(queryString, Collections.emptyList(), null, "test@example.com"))
+      when(queryService.submitQuery(queryString, "test@example.com"))
           .thenReturn(Single.just(job));
 
       CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery("test@example.com", request);
@@ -127,8 +124,7 @@ public class SubmitQueryTest {
   void shouldHandleCompletedQueryWithoutResults(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
       String queryString = "SELECT * FROM table";
-      SubmitQueryRequestDto request = new SubmitQueryRequestDto(
-          queryString, Collections.emptyList(), null);
+      SubmitQueryRequestDto request = new SubmitQueryRequestDto(queryString);
 
       Timestamp now = new Timestamp(System.currentTimeMillis());
       QueryJob job = QueryJob.builder()
@@ -143,7 +139,7 @@ public class SubmitQueryTest {
           .completedAt(now)
           .build();
 
-      when(queryService.submitQuery(queryString, Collections.emptyList(), null, "test@example.com"))
+      when(queryService.submitQuery(queryString, "test@example.com"))
           .thenReturn(Single.just(job));
 
       CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery("test@example.com", request);
@@ -169,8 +165,7 @@ public class SubmitQueryTest {
   void shouldHandleFailedQuery(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
       String queryString = "SELECT * FROM table";
-      SubmitQueryRequestDto request = new SubmitQueryRequestDto(
-          queryString, Collections.emptyList(), null);
+      SubmitQueryRequestDto request = new SubmitQueryRequestDto(queryString);
 
       Timestamp now = new Timestamp(System.currentTimeMillis());
       QueryJob job = QueryJob.builder()
@@ -184,7 +179,7 @@ public class SubmitQueryTest {
           .completedAt(now)
           .build();
 
-      when(queryService.submitQuery(queryString, Collections.emptyList(), null, "test@example.com"))
+      when(queryService.submitQuery(queryString, "test@example.com"))
           .thenReturn(Single.just(job));
 
       CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery("test@example.com", request);
