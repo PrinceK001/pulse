@@ -23,12 +23,12 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.1) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #8b5cf6;
+  color: #3b82f6;
 }
 
 .headerContent {
@@ -52,6 +52,10 @@
   font-weight: 400 !important;
 }
 
+.chartContainer {
+  height: 280px;
+}
+
 .emptyState {
   display: flex;
   flex-direction: column;
@@ -59,6 +63,7 @@
   justify-content: center;
   padding: 32px 20px;
   text-align: center;
+  height: 280px;
   background: rgba(14, 201, 194, 0.02);
   border: 1px dashed rgba(14, 201, 194, 0.15);
   border-radius: 12px;
@@ -75,3 +80,4 @@
   color: #9ca3af;
   font-weight: 400;
 }
+

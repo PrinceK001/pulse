@@ -768,9 +768,9 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 0.05, "/checkout/confirm": 0.03 } },
-          { alias: "B", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 3000, "/checkout/confirm": 2500 } },
-          { alias: "C", metric: "NET_5XX_RATE", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 0.01 } },
+          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 0.05, "post_https://api.fancode.com/v1/checkout/confirm": 0.03 } },
+          { alias: "B", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 3000, "post_https://api.fancode.com/v1/checkout/confirm": 2500 } },
+          { alias: "C", metric: "NET_5XX_RATE", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 0.01 } },
         ],
         condition_expression: "A && B || C",
         evaluation_period: 900,
@@ -874,7 +874,7 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "/search/products": 2000, "/search/suggest": 500 } },
+          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "get_https://api.fancode.com/v1/search/products": 2000, "get_https://api.fancode.com/v1/search/suggest": 500 } },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -952,7 +952,7 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "/payment/process": 5000, "/payment/verify": 3000 } },
+          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/payment/process": 5000, "post_https://api.fancode.com/v1/payment/verify": 3000 } },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -1030,7 +1030,7 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "/api/v2/experimental": 0.01 } },
+          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "get_https://api.fancode.com/v2/experimental": 0.01 } },
         ],
         condition_expression: "A",
         evaluation_period: 900,
