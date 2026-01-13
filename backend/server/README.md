@@ -743,7 +743,7 @@ The query service provides a generic interface for executing SQL queries against
 
 ### Submit Query
 
-**Description:** Submits a SQL query for execution. The service validates the query, enriches it with timestamp-based partition filters for optimal performance, and executes it. If the query completes within 3 seconds, results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
+**Description:** Submits a SQL query for execution. The service validates that the query is a SELECT statement and includes a timestamp filter in the WHERE clause. If the query completes within 3 seconds, results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
 
 **Business Logic:** The endpoint:
 
@@ -766,7 +766,9 @@ Content-Type: application/json
 
 **Request Fields:**
 
-- `queryString` (required): SQL query string. Must be a SELECT query. The query is executed as-is without any modifications or validations.
+- `queryString` (required): SQL query string. Must be a SELECT query and must include a timestamp filter in the WHERE clause. The timestamp filter can be either:
+  - Partition columns: `year`, `month`, `day`, and `hour` (all four must be present)
+  - TIMESTAMP literals: `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` format
 
 **Success Response (Query completed within 3 seconds):**
 
@@ -822,13 +824,37 @@ Content-Type: application/json
 - `createdAt`: Job creation timestamp
 - `completedAt`: Job completion timestamp (if completed)
 
-**Error Response:**
+**Error Response (Missing user email):**
 
 ```json
 {
   "data": null,
   "error": {
     "message": "User email is required and cannot be null or empty",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Error Response (Invalid query - not SELECT):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Query must start with SELECT",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Error Response (Missing timestamp filter):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, (2) partition columns (year, month, day, hour), or (3) TIMESTAMP literals",
     "code": "UNKNOWN_EXCEPTION"
   }
 }
@@ -850,10 +876,18 @@ curl --location 'http://localhost:8080/query' \
   }'
 ```
 
+**Validation Rules:**
+
+- **Query Type**: Only SELECT queries are allowed. INSERT, UPDATE, DELETE, DROP, and other DDL/DML operations are rejected.
+- **Timestamp Filter**: The query must include a timestamp filter in the WHERE clause. This can be satisfied in one of three ways:
+  - **Timestamp Column**: Use the `timestamp` column (with or without quotes) with comparison operators (>=, <=, >, <, =, !=, <>) in the WHERE clause. Example: `WHERE timestamp >= date_add('hour', -24, current_timestamp)`
+  - **Partition Columns**: Include all four partition columns (`year`, `month`, `day`, `hour`) in the WHERE clause
+  - **TIMESTAMP Literals**: Include at least one `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literal in the WHERE clause
+- **Query Length**: Maximum query length is 100,000 characters
+- **Security**: Queries containing potentially dangerous operations (SQL injection patterns) are rejected
+
 **Notes:**
 
-- Queries are automatically enriched with partition filters (`year`, `month`, `day`, `hour`) for optimal performance
-- If the query contains `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals, those are automatically extracted and used to add partition filters
 - The `queryString` and `userEmail` are stored in the database for audit and history tracking
 - Queries that complete within 3 seconds return results immediately in the response
 - For longer-running queries, use the job ID to check status and retrieve results

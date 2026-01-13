@@ -23,6 +23,7 @@ import org.dreamhorizon.pulseserver.service.query.models.ColumnMetadata;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.dreamhorizon.pulseserver.service.query.models.TableMetadata;
+import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
 import java.sql.Timestamp;
 
 @Slf4j
@@ -37,6 +38,11 @@ public class QueryServiceImpl implements QueryService {
   public Single<QueryJob> submitQuery(String queryString, String userEmail) {
     if (userEmail == null || userEmail.trim().isEmpty()) {
       return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
+    }
+
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryString);
+    if (!validationResult.isValid()) {
+      return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
 
     return queryJobDao.createJob(queryString, userEmail.trim())
