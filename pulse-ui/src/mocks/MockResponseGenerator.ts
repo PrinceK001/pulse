@@ -405,6 +405,8 @@ export class MockResponseGenerator {
             "screen_session",
             "custom_events",
             "rn_navigation",
+            "rn_screen_load",
+            "rn_screen_interactive",
           ]
         },
         status: 200,
