@@ -11,7 +11,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { FlameChartNode, toFlameChartJsFormat } from "../../utils/flameChartTransform";
+import { FlameChartNode, toFlameChartJsFormat, getColorForPulseType } from "../../utils/flameChartTransform";
 import classes from "./FlameChart.module.css";
 
 dayjs.extend(utc);
@@ -63,19 +63,67 @@ interface FlatNodeInfo {
   type: string;
 }
 
-// Color legend for the flame chart
-const LEGEND_ITEMS = [
-  { label: "HTTP/Network", color: "#42a5f5" },
-  { label: "Database", color: "#66bb6a" },
-  { label: "Screen/Activity", color: "#ffa726" },
-  { label: "Interaction", color: "#26c6da" },
-  { label: "Error", color: "#ff4d4d" },
-  { label: "Log", color: "#90a4ae" },
-  { label: "Crash", color: "#dc2626" },
-  { label: "ANR", color: "#ea580c" },
-  { label: "Non-Fatal", color: "#ca8a04" },
-  { label: "Orphan", color: "#9e9e9e" },
-];
+// Legend item with filter key for matching nodes
+interface LegendItem {
+  key: string;
+  label: string;
+  color: string;
+  // Function to check if a node matches this legend category
+  matches: (node: FlameChartNode) => boolean;
+}
+
+// Format pulse type for display (capitalize, replace underscores)
+function formatPulseType(type: string): string {
+  return type
+    .split(/[_-]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// Extract unique pulse types from data using metadata.pulseType
+function extractPulseTypes(nodes: FlameChartNode[]): Set<string> {
+  const types = new Set<string>();
+  
+  const traverse = (nodeList: FlameChartNode[]) => {
+    for (const node of nodeList) {
+      // Get pulseType directly from metadata
+      const pulseType = node.metadata?.pulseType;
+      if (pulseType) {
+        types.add(pulseType);
+      }
+      traverse(node.children);
+    }
+  };
+  
+  traverse(nodes);
+  return types;
+}
+
+// Generate legend items from pulse types
+function generateLegendItems(pulseTypes: Set<string>): LegendItem[] {
+  const items: LegendItem[] = [];
+  
+  // Sort types alphabetically for consistent ordering
+  const sortedTypes = Array.from(pulseTypes).sort();
+  
+  for (const pulseType of sortedTypes) {
+    const key = pulseType.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const color = getColorForPulseType(pulseType);
+    const label = formatPulseType(pulseType);
+    
+    items.push({
+      key,
+      label,
+      color,
+      matches: (node: FlameChartNode) => {
+        // Simple direct match on pulseType from metadata
+        return node.metadata?.pulseType === pulseType;
+      },
+    });
+  }
+  
+  return items;
+}
 
 /**
  * Format duration for display
@@ -111,6 +159,92 @@ export function FlameChart({
     canScrollDown: false,
   });
   
+  // Extract unique pulse types from data and generate legend items
+  const legendItems = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    const pulseTypes = extractPulseTypes(data);
+    return generateLegendItems(pulseTypes);
+  }, [data]);
+
+  // State for active legend filters - all enabled by default
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+
+  // Update active filters when legend items change (e.g., new data loaded)
+  useEffect(() => {
+    setActiveFilters(new Set(legendItems.map(item => item.key)));
+  }, [legendItems]);
+
+  // Toggle a filter on/off
+  const toggleFilter = useCallback((key: string) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        // Don't allow deselecting all filters - keep at least one
+        if (next.size > 1) {
+          next.delete(key);
+        }
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  // Select only this filter (exclusive selection)
+  const selectOnlyFilter = useCallback((key: string) => {
+    setActiveFilters(new Set([key]));
+  }, []);
+
+  // Reset to all filters active
+  const resetFilters = useCallback(() => {
+    setActiveFilters(new Set(legendItems.map(item => item.key)));
+  }, [legendItems]);
+
+  // Filter nodes based on active legend filters
+  // Non-matching parent nodes are kept but dimmed (as containers for matching children)
+  const filterNodes = useCallback((nodes: FlameChartNode[]): FlameChartNode[] => {
+    const filterNode = (node: FlameChartNode): FlameChartNode | null => {
+      // Check if this node matches any active filter
+      const matchesActiveFilter = legendItems.some(
+        item => activeFilters.has(item.key) && item.matches(node)
+      );
+
+      // Filter children recursively
+      const filteredChildren = node.children
+        .map(filterNode)
+        .filter((child): child is FlameChartNode => child !== null);
+
+      // If node matches, include it with filtered children (keep original color)
+      if (matchesActiveFilter) {
+        return { ...node, children: filteredChildren };
+      }
+
+      // If node doesn't match but has matching children, include it as a dimmed container
+      // (This keeps the hierarchy intact for child nodes)
+      if (filteredChildren.length > 0) {
+        // Dim the container node by making it grey with low opacity
+        return { 
+          ...node, 
+          children: filteredChildren,
+          color: '#e0e0e0', // Light grey for non-matching containers
+        };
+      }
+
+      // Node doesn't match and has no matching children - exclude it
+      return null;
+    };
+
+    return nodes
+      .map(filterNode)
+      .filter((node): node is FlameChartNode => node !== null);
+  }, [activeFilters, legendItems]);
+
+  // Apply filters to data
+  const filteredData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return filterNodes(data);
+  }, [data, filterNodes]);
+  
   // Calculate content height based on total depth
   const contentHeight = useMemo(() => {
     // Each level is BLOCK_HEIGHT pixels, plus time grid
@@ -118,7 +252,7 @@ export function FlameChart({
     return Math.max(400, calculatedHeight);
   }, [totalDepth]);
   
-  // Create a Map of node ID -> FlameChartNode for fast lookup
+  // Create a Map of node ID -> FlameChartNode for fast lookup (uses filtered data)
   const nodeByIdMap = useMemo(() => {
     const map = new Map<string, FlameChartNode>();
     
@@ -130,15 +264,15 @@ export function FlameChart({
       }
     };
     
-    if (data) {
-      traverse(data);
+    if (filteredData) {
+      traverse(filteredData);
     }
     
     return map;
-  }, [data]);
+  }, [filteredData]);
 
   // Create a flat list of all nodes with their level for custom hit-testing
-  // Uses start, end (duration), and type to identify nodes
+  // Uses start, end (duration), and type to identify nodes (uses filtered data)
   const flatNodesList = useMemo(() => {
     const result: FlatNodeInfo[] = [];
     
@@ -155,12 +289,12 @@ export function FlameChart({
       }
     };
     
-    if (data) {
-      traverse(data, 0);
+    if (filteredData) {
+      traverse(filteredData, 0);
     }
     
     return result;
-  }, [data]);
+  }, [filteredData]);
 
   // Ref to store flat nodes for use in event handlers
   const flatNodesRef = useRef(flatNodesList);
@@ -174,11 +308,11 @@ export function FlameChart({
     onItemClickRef.current = onItemClick;
   }, [onItemClick]);
 
-  // Transform data to flame-chart-js format (memoized)
+  // Transform filtered data to flame-chart-js format (memoized)
   const flameChartData = useMemo(() => {
-    if (!data || data.length === 0) return null;
-    return toFlameChartJsFormat(data);
-  }, [data]);
+    if (!filteredData || filteredData.length === 0) return null;
+    return toFlameChartJsFormat(filteredData);
+  }, [filteredData]);
 
   // Keep nodeByIdMap in a ref so select handler always has latest version
   const nodeByIdMapRef = useRef(nodeByIdMap);
@@ -720,6 +854,7 @@ export function FlameChart({
           }}
         >
           <canvas
+            key={Array.from(activeFilters).sort().join(',')}
             ref={canvasRef}
             className={classes.flameChartCanvas}
             style={{ cursor: "pointer" }}
@@ -789,17 +924,71 @@ export function FlameChart({
         </Box>
       )}
 
-      {/* Legend */}
+      {/* Legend - Click to filter, Shift+Click for exclusive selection, Double-click to reset */}
       <Box className={classes.legend}>
-        {LEGEND_ITEMS.map((item) => (
-          <Box key={item.label} className={classes.legendItem}>
+        <Tooltip label="Double-click any filter to reset all" position="top">
+          <Text 
+            size="xs" 
+            c="dimmed" 
+            className={classes.legendLabel}
+            onDoubleClick={resetFilters}
+            style={{ cursor: 'pointer' }}
+          >
+            Filter:
+          </Text>
+        </Tooltip>
+        {legendItems.map((item) => {
+          const isActive = activeFilters.has(item.key);
+          return (
+            <Tooltip 
+              key={item.key} 
+              label={isActive ? "Click to hide" : "Click to show"}
+              position="top"
+            >
+              <Box 
+                className={`${classes.legendItem} ${isActive ? classes.legendItemActive : classes.legendItemInactive}`}
+                onClick={(e) => {
+                  if (e.shiftKey) {
+                    // Shift+click for exclusive selection
+                    selectOnlyFilter(item.key);
+                  } else {
+                    toggleFilter(item.key);
+                  }
+                }}
+                onDoubleClick={resetFilters}
+                style={{ cursor: 'pointer' }}
+              >
             <Box
               className={classes.legendColor}
-              style={{ backgroundColor: item.color }}
-            />
-            <Text size="xs">{item.label}</Text>
+                  style={{ 
+                    backgroundColor: item.color,
+                    opacity: isActive ? 1 : 0.3,
+                  }}
+                />
+                <Text 
+                  size="xs" 
+                  style={{ 
+                    opacity: isActive ? 1 : 0.5,
+                    textDecoration: isActive ? 'none' : 'line-through',
+                  }}
+                >
+                  {item.label}
+                </Text>
           </Box>
-        ))}
+            </Tooltip>
+          );
+        })}
+        {activeFilters.size < legendItems.length && (
+          <Text 
+            size="xs" 
+            c="teal" 
+            className={classes.legendReset}
+            onClick={resetFilters}
+            style={{ cursor: 'pointer', marginLeft: 8 }}
+          >
+            Reset
+          </Text>
+        )}
       </Box>
     </Box>
   );

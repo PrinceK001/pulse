@@ -68,6 +68,7 @@ interface RawTraceRow {
   duration: number;
   statusCode: string;
   spanType: string;
+  pulseType: string;
 }
 
 interface RawLogRow {
@@ -77,6 +78,7 @@ interface RawLogRow {
   severityText: string;
   body: string;
   eventName: string;
+  pulseType: string;
 }
 
 interface RawExceptionRow {
@@ -89,6 +91,7 @@ interface RawExceptionRow {
   traceId: string;
   spanId: string;
   groupId: string;
+  pulseType: string;
 }
 
 /**
@@ -114,6 +117,7 @@ function parseTraceRow(
     duration: Number(getField("duration") || 0),
     statusCode: String(getField("statuscode") || ""),
     spanType: String(getField("spantype") || ""),
+    pulseType: String(getField("pulsetype") || ""),
   };
 }
 
@@ -133,6 +137,7 @@ function parseLogRow(
     severityText: String(getField("severitytext") || ""),
     body: String(getField("body") || ""),
     eventName: String(getField("eventname") || ""),
+    pulseType: String(getField("pulsetype") || ""),
   };
 }
 
@@ -155,6 +160,7 @@ function parseExceptionRow(
     traceId: String(getField("traceid") || ""),
     spanId: String(getField("spanid") || ""),
     groupId: String(getField("groupid") || ""),
+    pulseType: String(getField("pulsetype") || ""),
   };
 }
 
@@ -176,7 +182,27 @@ export function getExceptionColor(eventName: string): string {
 }
 
 /**
- * Get color based on span type or severity
+ * Get color based on PulseType - generates consistent colors for filtering
+ * Uses a deterministic hash-based approach so the same pulseType always gets the same color
+ */
+export function getColorForPulseType(pulseType: string): string {
+  if (!pulseType) {
+    return "#64b5f6"; // Default blue for missing pulseType
+  }
+  
+  // Generate a deterministic color based on the type string
+  let hash = 0;
+  for (let i = 0; i < pulseType.length; i++) {
+    hash = pulseType.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash % 360);
+  const saturation = 55 + (hash % 20); // 55-75%
+  const lightness = 45 + (hash % 15);  // 45-60%
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+/**
+ * Get color based on span type or severity (legacy - for backwards compatibility)
  */
 export function getSpanColor(spanType: string, statusCode: string): string {
   // Error states
@@ -271,7 +297,7 @@ export function transformToFlameChart(
         start: ts.valueOf(),
         duration: parsed.duration / 1_000_000, // Convert nanoseconds to ms
         type: "span",
-        color: getSpanColor(parsed.spanType, parsed.statusCode),
+        color: getColorForPulseType(parsed.pulseType),
         traceId: parsed.traceId,
         spanId: parsed.spanId,
         parentSpanId: isEmptySpanId(parsed.parentSpanId) ? undefined : parsed.parentSpanId,
@@ -280,6 +306,7 @@ export function transformToFlameChart(
           serviceName: parsed.serviceName,
           statusCode: parsed.statusCode,
           spanType: parsed.spanType,
+          pulseType: parsed.pulseType,
           timestamp: parsed.timestamp,
         },
       };
@@ -302,7 +329,7 @@ export function transformToFlameChart(
         start: ts.valueOf(),
         duration: 0, // Logs are point-in-time events
         type: "log",
-        color: getLogColor(parsed.severityText),
+        color: getColorForPulseType(parsed.pulseType),
         traceId: parsed.traceId,
         spanId: parsed.spanId,
         parentSpanId: undefined, // Logs don't have parent span ID directly
@@ -310,6 +337,7 @@ export function transformToFlameChart(
           severityText: parsed.severityText,
           body: parsed.body,
           eventName: parsed.eventName,
+          pulseType: parsed.pulseType,
           timestamp: parsed.timestamp,
         },
       };
@@ -341,7 +369,7 @@ export function transformToFlameChart(
         start: ts.valueOf(),
         duration: 0, // Exceptions are point-in-time events
         type: "exception",
-        color: getExceptionColor(parsed.eventName),
+        color: getColorForPulseType(parsed.pulseType),
         traceId: parsed.traceId,
         spanId: parsed.spanId,
         parentSpanId: undefined,
@@ -352,6 +380,7 @@ export function transformToFlameChart(
           exceptionType: parsed.exceptionType,
           screenName: parsed.screenName,
           groupId: parsed.groupId,
+          pulseType: parsed.pulseType,
           timestamp: parsed.timestamp,
         },
       };
