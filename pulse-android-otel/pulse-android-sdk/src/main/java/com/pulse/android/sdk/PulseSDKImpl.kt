@@ -46,6 +46,7 @@ import io.opentelemetry.semconv.ExceptionAttributes
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes
 import io.opentelemetry.semconv.incubating.UserIncubatingAttributes
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -91,7 +92,9 @@ internal class PulseSDKImpl :
             sharedPrefs.getString(PrefsName.PULSE_SDK_CONFIG_KEY, null)?.let {
                 json.decodeFromString<PulseSdkConfig>(it)
             }
-        launch {
+
+        @Suppress("InjectDispatcher") // we are not exposing this dispatchers to client
+        launch(Dispatchers.IO) {
             val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
             apiCache.mkdirs()
             val newConfig =
