@@ -12,6 +12,7 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.pulsereactnativeotel.Pulse
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
 import io.opentelemetry.instrumentation.library.okhttp.v3_0.OkHttpInstrumentation
+import io.opentelemetry.api.common.AttributeKey
 import android.util.Log
 import pulsereactnativeotel.example.NativePulseExamplePackage
 
@@ -48,7 +49,7 @@ class MainApplication : Application(), ReactApplication {
     Pulse.initialize(this, "http://10.0.2.2:4318") {
       interaction {
         enabled(true)
-        setConfigUrl { "http://10.0.2.2:8080/v1/interactions/all-active-interactions/" }
+        setConfigUrl { "http://10.0.2.2:8080/v1/interaction-configs/"}
       }
     }
     loadReactNative(this)
