@@ -541,7 +541,11 @@ public class QueryServiceImpl implements QueryService {
           return Observable.fromIterable(jobsToUpdate)
               .flatMapSingle(job -> {
                 if (job.getStatus() == QueryJobStatus.RUNNING) {
-                  return checkAndUpdateRunningJob(job);
+                  return checkAndUpdateRunningJob(job)
+                      .onErrorReturn(error -> {
+                        log.warn("Error checking status for job {}: {}", job.getJobId(), error.getMessage());
+                        return job;
+                      });
                 } else if (job.getStatus() == QueryJobStatus.COMPLETED) {
                   // Refresh statistics for completed jobs with missing stats
                   return fetchAndUpdateJobResults(job.getJobId(), job.getQueryExecutionId())
@@ -552,11 +556,6 @@ public class QueryServiceImpl implements QueryService {
                 }
                 return Single.just(job);
               })
-              .onErrorReturn(error -> {
-                log.warn("Error updating job: {}", error.getMessage());
-                return null;
-              })
-              .filter(job -> job != null)
               .toList()
               .map(updatedJobs -> {
                 java.util.Map<String, QueryJob> updatedMap = new java.util.HashMap<>();
