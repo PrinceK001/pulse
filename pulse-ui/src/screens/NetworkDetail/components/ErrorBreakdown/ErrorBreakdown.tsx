@@ -3,12 +3,12 @@ import { useMemo } from "react";
 import { ErrorBreakdownProps, ErrorDetail } from "./ErrorBreakdown.interface";
 import classes from "./ErrorBreakdown.module.css";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
-import { LoaderWithMessage } from "../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
+import { SkeletonLoader } from "../../../../components/Skeletons";
+import { IconMoodHappy, IconAlertTriangle, IconServerOff } from "@tabler/icons-react";
 
 export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
   type,
-  method,
   url,
   startTime,
   endTime,
@@ -50,14 +50,9 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
       groupBy: ["status_code", "error_type"],
       filters: [
         {
-          field: "SpanType",
+          field: "PulseType",
           operator: "LIKE" as const,
           value: [statusCodePattern],
-        },
-        {
-          field: "SpanAttributes['http.method']",
-          operator: "EQ" as const,
-          value: [method],
         },
         {
           field: "SpanAttributes['http.url']",
@@ -74,7 +69,7 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
       ],
       limit: 10,
     },
-    enabled: !!method && !!url && !!startTime && !!endTime,
+    enabled: !!url && !!startTime && !!endTime,
   });
 
   // Transform API response to ErrorDetail format
@@ -151,25 +146,77 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
   }
 
   if (isLoading) {
-    return <LoaderWithMessage loadingMessage="Loading error breakdown..." />;
+    return (
+      <Box className={classes.container}>
+        <Box className={classes.header}>
+          <SkeletonLoader height={36} width={36} radius="md" />
+          <Box className={classes.headerContent}>
+              <SkeletonLoader height={16} width={150} radius="sm" />
+            <SkeletonLoader height={12} width={180} radius="xs" />
+            </Box>
+        </Box>
+        <Box className={classes.errorList}>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Box key={index} className={classes.errorCard}>
+              <Group justify="space-between" align="flex-start" mb="xs">
+                <Group gap="sm" wrap="nowrap">
+                  <SkeletonLoader height={28} width={50} radius="md" />
+                  <Box>
+                    <SkeletonLoader height={14} width={120} radius="sm" />
+                    <SkeletonLoader height={12} width={180} radius="xs" />
+                  </Box>
+                </Group>
+                <Box>
+                  <SkeletonLoader height={14} width={40} radius="sm" />
+                  <SkeletonLoader height={12} width={30} radius="xs" />
+                </Box>
+              </Group>
+              <SkeletonLoader height={6} width="100%" radius="sm" />
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    );
   }
+
+  const HeaderIcon = type === "4xx" ? IconAlertTriangle : IconServerOff;
 
   if (errorData.length === 0) {
     return (
-      <ErrorAndEmptyState message={`No ${type} errors found for this API`} />
+      <Box className={classes.container}>
+        <Box className={classes.header}>
+          <Box className={`${classes.headerIcon} ${type === "4xx" ? classes.headerIcon4xx : classes.headerIcon5xx}`}>
+            <HeaderIcon size={18} />
+          </Box>
+          <Box className={classes.headerContent}>
+            <Text className={classes.title}>{title}</Text>
+            <Text className={classes.description}>
+              HTTP {type} error breakdown
+            </Text>
+          </Box>
+        </Box>
+        <Box className={classes.emptyState}>
+          <IconMoodHappy size={32} className={classes.emptyIcon} />
+          <Text className={classes.emptyMessage}>
+            No {type} errors found for this API
+          </Text>
+        </Box>
+      </Box>
     );
   }
 
   return (
     <Box className={classes.container}>
-      <Box mb="md">
-        <Group justify="space-between" align="center">
+      <Box className={classes.header}>
+        <Box className={`${classes.headerIcon} ${type === "4xx" ? classes.headerIcon4xx : classes.headerIcon5xx}`}>
+          <HeaderIcon size={18} />
+        </Box>
+        <Box className={classes.headerContent}>
+          <Box className={classes.headerTop}>
           <Box>
-            <Text size="sm" fw={600} c="#0ba09a" mb={4}>
-              {title}
-            </Text>
-            <Text size="xs" c="dimmed">
-              Breakdown of HTTP {type} error codes
+              <Text className={classes.title}>{title}</Text>
+              <Text className={classes.description}>
+                HTTP {type} error breakdown
             </Text>
           </Box>
           <Badge
@@ -180,7 +227,8 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
           >
             {totalErrors.toLocaleString()} Total
           </Badge>
-        </Group>
+          </Box>
+        </Box>
       </Box>
 
       <Box className={classes.errorList}>

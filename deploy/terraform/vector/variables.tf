@@ -18,8 +18,8 @@ variable "instance_count" {
   type        = number
 }
 
-variable "subnet_ids" {
-  description = "List of subnet IDs for NLB and instances"
+variable "private_ec2_subnet_ids" {
+  description = "List of subnet IDs for instances"
   type        = list(string)
 }
 
@@ -73,12 +73,8 @@ variable "vector_listen_port" {
   type        = number
 }
 
-variable "public_subnet_ids" {
-  description = "List of public subnets for the NLB"
+variable "private_nlb_subnet_ids" {
+  description = "List of private subnets for the NLB"
   type        = list(string)
 }
 
-variable "acm_certificate_arn" {
-  description = "acm certificate to add to the listener"
-  type        = string
-}

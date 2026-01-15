@@ -11,7 +11,6 @@ import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
-import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.agent.session.SessionIdTimeoutHandler
 import io.opentelemetry.android.agent.session.SessionManager
@@ -24,8 +23,11 @@ import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.logs.export.LogRecordExporter
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
+import io.opentelemetry.sdk.metrics.export.MetricExporter
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
+import io.opentelemetry.sdk.trace.export.SpanExporter
 import java.util.function.BiFunction
 
 @OptIn(Incubating::class)
@@ -68,16 +70,29 @@ object OpenTelemetryRumInitializer {
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
-        instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
         meterProviderCustomizer: BiFunction<SdkMeterProviderBuilder, Application, SdkMeterProviderBuilder>? = null,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
+        spanExporter: SpanExporter =
+            OtlpHttpSpanExporter
+                .builder()
+                .setEndpoint(spanEndpointConnectivity.getUrl())
+                .setHeaders(spanEndpointConnectivity::getHeaders)
+                .build(),
+        logRecordExporter: LogRecordExporter =
+            OtlpHttpLogRecordExporter
+                .builder()
+                .setEndpoint(logEndpointConnectivity.getUrl())
+                .setHeaders(logEndpointConnectivity::getHeaders)
+                .build(),
+        metricExporter: MetricExporter =
+            OtlpHttpMetricExporter
+                .builder()
+                .setEndpoint(metricEndpointConnectivity.getUrl())
+                .setHeaders(metricEndpointConnectivity::getHeaders)
+                .build(),
         rumConfig: OtelRumConfig = OtelRumConfig(),
     ): OpenTelemetryRum {
-        instrumentations?.let { configure ->
-            InstrumentationConfiguration(rumConfig).configure()
-        }
-
         val diskBufferingConfigurationSpec = DiskBufferingConfigurationSpec()
         diskBuffering?.invoke(diskBufferingConfigurationSpec)
         rumConfig.setDiskBufferingConfig(DiskBufferingConfig.create(enabled = diskBufferingConfigurationSpec.isEnabled))
@@ -89,27 +104,9 @@ object OpenTelemetryRumInitializer {
             .builder(application, rumConfig)
             .apply {
                 setSessionProvider(createSessionProvider(application, sessionConfig))
-                addSpanExporterCustomizer {
-                    OtlpHttpSpanExporter
-                        .builder()
-                        .setEndpoint(spanEndpointConnectivity.getUrl())
-                        .setHeaders(spanEndpointConnectivity::getHeaders)
-                        .build()
-                }
-                addLogRecordExporterCustomizer {
-                    OtlpHttpLogRecordExporter
-                        .builder()
-                        .setEndpoint(logEndpointConnectivity.getUrl())
-                        .setHeaders(logEndpointConnectivity::getHeaders)
-                        .build()
-                }
-                addMetricExporterCustomizer {
-                    OtlpHttpMetricExporter
-                        .builder()
-                        .setEndpoint(metricEndpointConnectivity.getUrl())
-                        .setHeaders(metricEndpointConnectivity::getHeaders)
-                        .build()
-                }
+                addSpanExporterCustomizer { spanExporter }
+                addLogRecordExporterCustomizer { logRecordExporter }
+                addMetricExporterCustomizer { metricExporter }
                 if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
                 if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
                 if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)

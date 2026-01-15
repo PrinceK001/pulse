@@ -18,6 +18,7 @@ import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
 import { useGetAlertMetrics } from "../../hooks/useGetAlertMetrics";
 import { showNotification } from "../../helpers/showNotification";
+import { formatNetworkApiScopeName, isNetworkApiScopeName } from "../AlertFormWizard/utils/scopeNameUtils";
 
 const OPERATOR_SYMBOLS: Record<string, string> = {
   GREATER_THAN: ">", LESS_THAN: "<", GREATER_THAN_OR_EQUAL: "≥", LESS_THAN_OR_EQUAL: "≤", EQUAL: "=",
@@ -25,8 +26,18 @@ const OPERATOR_SYMBOLS: Record<string, string> = {
 
 const formatDuration = (seconds: number): string => {
   if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  }
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  let result = `${hrs}h`;
+  if (mins > 0) result += ` ${mins}m`;
+  if (secs > 0) result += ` ${secs}s`;
+  return result;
 };
 
 const formatDate = (date: string | Date) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -177,9 +188,10 @@ export function AlertDetail(_props: AlertDetailProps) {
     );
   }
 
+  const isNoData = alert.status === "NO_DATA";
   const StatusIcon = alert.is_snoozed ? IconBellOff : isFiring ? IconBellRinging : IconBell;
-  const statusColor = alert.is_snoozed ? "#94a3b8" : isFiring || alert.status === "NO_DATA" ? "#ef4444" : "#10b981";
-  const statusLabel = alert.is_snoozed ? "Snoozed" : alert.status;
+  const statusColor = alert.is_snoozed ? "#94a3b8" : isNoData ? "#9ca3af" : isFiring ? "#ef4444" : "#10b981";
+  const statusLabel = alert.is_snoozed ? "Snoozed" : isNoData ? "No Data" : alert.status;
 
   // Format snooze end time
   const formatSnoozeUntil = (timestamp: number | null) => {
@@ -282,12 +294,20 @@ export function AlertDetail(_props: AlertDetailProps) {
                   </div>
                   <Divider my="xs" color="rgba(14,201,194,0.1)" />
                   <div className={classes.thresholdsList}>
-                    {Object.entries(condition.threshold || {}).map(([name, value]) => (
-                      <div key={name} className={classes.thresholdItem}>
-                        <span className={classes.thresholdName}>{name}</span>
-                        <span className={classes.thresholdValue}>{value}</span>
-                      </div>
-                    ))}
+                    {Object.entries(condition.threshold || {}).map(([name, value]) => {
+                      // Format network_api scope names for display
+                      const displayName = isNetworkApiScopeName(name) 
+                        ? formatNetworkApiScopeName(name) 
+                        : name;
+                      return (
+                        <div key={name} className={classes.thresholdItem}>
+                          <Tooltip label={name} position="top" withArrow disabled={displayName === name}>
+                            <span className={classes.thresholdName}>{displayName}</span>
+                          </Tooltip>
+                          <span className={classes.thresholdValue}>{value}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -382,9 +402,15 @@ export function AlertDetail(_props: AlertDetailProps) {
                             </Badge>
                             <Tooltip label={scopeHistory.scope_name} position="top">
                               <span className={classes.scopeNameText}>
-                                {scopeHistory.scope_name.length > 25 
-                                  ? `${scopeHistory.scope_name.slice(0, 25)}...` 
-                                  : scopeHistory.scope_name}
+                                {(() => {
+                                  // Format network_api scope names for display
+                                  const displayName = isNetworkApiScopeName(scopeHistory.scope_name)
+                                    ? formatNetworkApiScopeName(scopeHistory.scope_name)
+                                    : scopeHistory.scope_name;
+                                  return displayName.length > 35 
+                                    ? `${displayName.slice(0, 35)}...` 
+                                    : displayName;
+                                })()}
                               </span>
                             </Tooltip>
                           </div>

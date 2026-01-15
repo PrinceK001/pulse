@@ -11,7 +11,7 @@ import {
   DataQueryRequestBody,
   DataQueryResponse,
 } from "../../hooks/useGetDataQuery/useGetDataQuery.interface";
-import { SpanType } from "../../constants/PulseOtelSemcov";
+import { PulseType } from "../../constants/PulseOtelSemcov";
 
 // Extend dayjs with UTC support
 dayjs.extend(utc);
@@ -40,6 +40,8 @@ export class DataQueryMockGeneratorV2 {
       timeRange,
       selectCount: select.length,
       limit,
+      dataType: requestBody.dataType,
+      filters: filters?.map((f) => ({ field: f.field, operator: f.operator })),
     });
 
     // Check if this is a time-series query (has TIME_BUCKET)
@@ -49,9 +51,30 @@ export class DataQueryMockGeneratorV2 {
     const hasGroupBy = groupBy && groupBy.length > 0 && !groupBy.includes("t1");
 
     // Check if this is a session records query (has event_names, traceid, spanid)
+    // Use case-insensitive matching for aliases
     const hasEventNames = select.some((s) => s.alias === "event_names");
-    const hasTraceId = select.some((s) => s.alias === "traceid");
-    const hasSpanId = select.some((s) => s.alias === "spanid");
+    const hasTraceId = select.some((s) => s.alias?.toLowerCase() === "traceid");
+    const hasSpanId = select.some((s) => s.alias?.toLowerCase() === "spanid");
+
+    // Check if this is a Session Timeline query (has SessionId filter)
+    const sessionIdFilter = filters?.find(
+      (f) => f.field === "SessionId" && f.operator === "EQ",
+    );
+    const isSessionTimelineQuery = !!sessionIdFilter && !hasGroupBy && !hasTimeBucket;
+
+    // Check if this is a Span/Log Details query (TraceId + SpanId filter with toJSONString attributes)
+    const traceIdFilter = filters?.find(
+      (f) => f.field === "TraceId" && f.operator === "EQ",
+    );
+    const spanIdFilter = filters?.find(
+      (f) => f.field === "SpanId" && f.operator === "EQ",
+    );
+    const hasJsonAttributes = select.some(
+      (s) => s.function === "CUSTOM" && 
+        s.param?.expression?.includes("toJSONString")
+    );
+    const isSpanDetailsQuery = !!traceIdFilter && !!spanIdFilter && hasJsonAttributes && limit === 1;
+    const isLogDetailsQuery = requestBody.dataType === "LOGS" && !!traceIdFilter && hasJsonAttributes && limit === 1;
 
     // Check if this is an exceptions query
     const isExceptionsQuery = requestBody.dataType === "EXCEPTIONS";
@@ -129,8 +152,79 @@ export class DataQueryMockGeneratorV2 {
         "rows",
       );
       return response;
+    } else if (isSpanDetailsQuery) {
+      // Span Details query - return detailed attributes for a specific span
+      const response = this.generateSpanDetailsResponse(requestBody);
+      console.log(
+        "[DataQueryMockV2] Generated span details response:",
+        response.rows.length,
+        "rows",
+      );
+      return response;
+    } else if (isLogDetailsQuery) {
+      // Log Details query - return detailed attributes for a specific log
+      const response = this.generateLogDetailsResponse(requestBody);
+      console.log(
+        "[DataQueryMockV2] Generated log details response:",
+        response.rows.length,
+        "rows",
+      );
+      return response;
+    } else if (isSessionTimelineQuery) {
+      // Session Timeline query - return traces/logs/exceptions for a specific session
+      const response = this.generateSessionTimelineResponse(requestBody);
+      console.log(
+        "[DataQueryMockV2] Generated session timeline response:",
+        response.rows.length,
+        "rows for dataType:",
+        requestBody.dataType,
+      );
+      return response;
     } else if (hasTimeBucket) {
-      // Time-series data
+      // Check if this is a network time series query
+      const hasNetworkFilterTimeSeries = filters?.some(
+        (f) =>
+          f.field === "PulseType" &&
+          f.operator === "LIKE" &&
+          Array.isArray(f.value) &&
+          f.value
+            .map((v) => String(v).toLowerCase())
+            .some((v: string) => v.includes("network")),
+      );
+
+      // Check for status code time series (TIME_BUCKET + status_code groupBy)
+      const isStatusCodeTimeSeriesQuery =
+        hasNetworkFilterTimeSeries &&
+        groupBy?.includes("status_code") &&
+        groupBy?.includes("t1");
+
+      // Check for method time series (TIME_BUCKET + http_method groupBy)
+      const isMethodTimeSeriesQuery =
+        hasNetworkFilterTimeSeries &&
+        groupBy?.includes("http_method") &&
+        groupBy?.includes("t1");
+
+      if (isStatusCodeTimeSeriesQuery) {
+        const response = this.generateStatusCodeTimeSeriesResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated status code time-series response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      if (isMethodTimeSeriesQuery) {
+        const response = this.generateMethodTimeSeriesResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated method time-series response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      // Generic time-series data
       const response = this.generateTimeSeriesResponse(requestBody);
       console.log(
         "[DataQueryMockV2] Generated time-series response:",
@@ -142,14 +236,14 @@ export class DataQueryMockGeneratorV2 {
       // Check if this is a network query (has network filter)
       const hasNetworkFilter = filters?.some(
         (f) => {
-          const matches = f.field === "SpanType" &&
+          const matches = f.field === "PulseType" &&
             f.operator === "LIKE" &&
             Array.isArray(f.value) &&
             f.value
               .map((v) => String(v).toLowerCase())
               .some((v: string) => v.includes("network"));
-          if (f.field === "SpanType") {
-            console.log("[DataQueryMockV2] SpanType filter check:", {
+          if (f.field === "PulseType") {
+            console.log("[DataQueryMockV2] PulseType filter check:", {
               field: f.field,
               operator: f.operator,
               value: f.value,
@@ -166,14 +260,53 @@ export class DataQueryMockGeneratorV2 {
         hasNetworkFilter &&
         (groupBy?.includes("status_code") || groupBy?.includes("error_type")) &&
         !groupBy?.includes("method") &&
+        !groupBy?.includes("url") &&
+        !groupBy?.includes("http_method"); // Exclude method distribution
+
+      // Check if this is a STATUS CODE DISTRIBUTION query (groups by status_code only, has url filter)
+      const urlFilter = filters?.find(
+        (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+      );
+      const isStatusCodeDistributionQuery =
+        hasNetworkFilter &&
+        urlFilter &&
+        groupBy?.includes("status_code") &&
+        !groupBy?.includes("error_type") &&
+        !groupBy?.includes("method") &&
         !groupBy?.includes("url");
+
+      // Check if this is a METHOD DISTRIBUTION query (groups by http_method, has url filter)
+      const isMethodDistributionQuery =
+        hasNetworkFilter &&
+        urlFilter &&
+        groupBy?.includes("http_method") &&
+        !groupBy?.includes("status_code") &&
+        !groupBy?.includes("method") &&
+        !groupBy?.includes("url");
+
+      // Check if this is a NETWORK METRICS query (groups by url only, HAS url filter - for specific URL)
+      // This is used by the Network Detail page to get aggregated metrics for a specific URL
+      const isNetworkMetricsQuery =
+        hasNetworkFilter &&
+        urlFilter &&
+        groupBy?.includes("url") &&
+        !groupBy?.includes("method") &&
+        !groupBy?.includes("status_code") &&
+        !groupBy?.includes("http_method");
+
+      // Check if this is a NETWORK LIST query (groups by url only, NO url filter - returns all URLs)
+      // This is used by the Network List page to show all network APIs
+      const isNetworkListByUrlQuery =
+        hasNetworkFilter &&
+        !urlFilter &&
+        groupBy?.includes("url") &&
+        !groupBy?.includes("method") &&
+        !groupBy?.includes("status_code") &&
+        !groupBy?.includes("http_method");
 
       // Check if this is a network DETAIL query (has specific method and url filters, groups by method/url)
       const methodFilter = filters?.find(
         (f) => f.field === "SpanAttributes['http.method']" && f.operator === "EQ",
-      );
-      const urlFilter = filters?.find(
-        (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
       );
       const isNetworkDetailQuery =
         hasNetworkFilter &&
@@ -194,10 +327,58 @@ export class DataQueryMockGeneratorV2 {
         methodFilter: !!methodFilter,
         urlFilter: !!urlFilter,
         isNetworkErrorBreakdownQuery,
+        isStatusCodeDistributionQuery,
+        isMethodDistributionQuery,
+        isNetworkMetricsQuery,
+        isNetworkListByUrlQuery,
         isNetworkDetailQuery,
         isNetworkListQuery,
         groupBy,
       });
+
+      // Handle network list query (for Network List page - all URLs without specific filter)
+      if (isNetworkListByUrlQuery) {
+        const response = this.generateNetworkListByUrlResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated network list (by URL) response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      // Handle network metrics query (for Network Detail page - aggregated metrics for a URL)
+      if (isNetworkMetricsQuery) {
+        const response = this.generateNetworkMetricsResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated network metrics response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      // Handle status code distribution query (for StatusCodeDistribution component)
+      if (isStatusCodeDistributionQuery) {
+        const response = this.generateStatusCodeDistributionResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated status code distribution response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      // Handle method distribution query (for MethodDistribution component)
+      if (isMethodDistributionQuery) {
+        const response = this.generateMethodDistributionResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated method distribution response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
 
       // Handle network error breakdown query FIRST (has method/url filters but groups by status_code)
       if (isNetworkErrorBreakdownQuery) {
@@ -239,7 +420,7 @@ export class DataQueryMockGeneratorV2 {
         groupBy?.includes("network_provider") &&
         filters?.some(
           (f) =>
-            f.field === "SpanType" &&
+            f.field === "PulseType" &&
             (f.operator === "EQ" || f.operator === "LIKE") &&
             Array.isArray(f.value) &&
             (f.value
@@ -398,7 +579,7 @@ export class DataQueryMockGeneratorV2 {
     const isNetworkQuery =
       filters?.some(
         (f) =>
-          f.field === "SpanType" &&
+          f.field === "PulseType" &&
           f.operator === "LIKE" &&
           Array.isArray(f.value) &&
           f.value
@@ -620,6 +801,49 @@ export class DataQueryMockGeneratorV2 {
       return { fields: [], rows: [] };
     }
 
+    // Parse ADDITIONAL filters for event type filtering
+    const additionalFilter = filters?.find(
+      (f) => f.operator === "ADDITIONAL"
+    );
+    
+    // Extract which event types are being filtered
+    const eventTypeFilters: Set<string> = new Set();
+    let hasErrorFilter = false;
+    let hasCompletedFilter = false;
+    
+    if (additionalFilter && Array.isArray(additionalFilter.value)) {
+      const filterExpression = String(additionalFilter.value[0] || "");
+      
+      // Check for specific event type filters
+      if (filterExpression.includes("device.crash")) {
+        eventTypeFilters.add("crash");
+      }
+      if (filterExpression.includes("device.anr")) {
+        eventTypeFilters.add("anr");
+      }
+      if (filterExpression.includes("app.jank.frozen")) {
+        eventTypeFilters.add("frozenFrame");
+      }
+      if (filterExpression.includes("non_fatal")) {
+        eventTypeFilters.add("nonFatal");
+      }
+      if (filterExpression.includes("StatusCode = 'Error'")) {
+        hasErrorFilter = true;
+      }
+      if (filterExpression.includes("StatusCode != 'Error'")) {
+        hasCompletedFilter = true;
+      }
+    }
+    
+    const hasEventTypeFilter = eventTypeFilters.size > 0 || hasErrorFilter || hasCompletedFilter;
+    
+    console.log("[DataQueryMockV2] Event type filters:", {
+      eventTypeFilters: Array.from(eventTypeFilters),
+      hasErrorFilter,
+      hasCompletedFilter,
+      hasEventTypeFilter,
+    });
+
     // Generate number of rows
     // For SessionTimeline: generate multiple spans (15-25) for the same traceId to show waterfall
     // For SessionReplays: generate multiple sessions (default 10)
@@ -753,55 +977,113 @@ export class DataQueryMockGeneratorV2 {
       // For SessionReplays, generate events per session
       const rand = Math.random();
       const events: string[] = [];
+      
+      // Determine StatusCode for this row (used for error/completed filtering)
+      let statusCode = "Ok";
 
-      // For SessionTimeline: generate events for the single span
-      // For SessionReplays, 40% chance to generate multiple events
-      const hasMultipleEvents = isSessionTimeline
-        ? true // Single span can have multiple events
-        : Math.random() < 0.4;
-
-      if (rand < 0.2) {
-        // P1: device.crash (highest priority)
-        events.push("device.crash");
-        if (hasMultipleEvents) {
-          // Add lower priority events to test priority selection
-          events.push("device.anr");
-          events.push("non_fatal");
-          events.push("app.jank.frozen");
+      // If event type filters are active, generate events that match the filters
+      if (hasEventTypeFilter) {
+        // When filters are active, generate data that matches the selected filters
+        const filterArray = Array.from(eventTypeFilters);
+        
+        if (filterArray.length > 0) {
+          // Cycle through the event type filters to distribute them evenly
+          const selectedFilter = filterArray[i % filterArray.length];
+          
+          switch (selectedFilter) {
+            case "crash":
+              events.push("device.crash");
+              statusCode = "Error";
+              break;
+            case "anr":
+              events.push("device.anr");
+              statusCode = "Error";
+              break;
+            case "frozenFrame":
+              events.push("app.jank.frozen");
+              break;
+            case "nonFatal":
+              events.push("non_fatal");
+              break;
+          }
         }
-      } else if (rand < 0.4) {
-        // P2: device.anr
-        events.push("device.anr");
-        if (hasMultipleEvents) {
-          // Add lower priority events
-          events.push("non_fatal");
-          events.push("app.jank.frozen");
-        }
-      } else if (rand < 0.6) {
-        // P3: non_fatal
-        events.push("non_fatal");
-        if (hasMultipleEvents) {
-          // Add lower priority events
-          events.push("app.jank.frozen");
-        }
-      } else if (rand < 0.8) {
-        // P4: app.jank.frozen (lowest priority event)
-        events.push("app.jank.frozen");
-        // No lower priority events to add
-      } else if (rand < 0.9) {
-        // Test combination: anr + frozen (should pick anr)
-        events.push("device.anr");
-        if (hasMultipleEvents) {
-          events.push("app.jank.frozen");
+        
+        // Handle error/completed filters
+        if (hasErrorFilter && !hasCompletedFilter) {
+          // Only errors - ensure StatusCode is Error
+          statusCode = "Error";
+          // If no event was added and we need errors, add a generic error event
+          if (events.length === 0) {
+            // Generate varied error types
+            const errorRand = Math.random();
+            if (errorRand < 0.3) {
+              events.push("device.crash");
+            } else if (errorRand < 0.6) {
+              events.push("device.anr");
+            } else {
+              events.push("non_fatal");
+            }
+          }
+        } else if (hasCompletedFilter && !hasErrorFilter) {
+          // Only completed - ensure StatusCode is Ok and no error events
+          statusCode = "Ok";
+          // Clear any error events if completed filter is active alone
+          if (eventTypeFilters.size === 0) {
+            events.length = 0;
+          }
+        } else if (hasCompletedFilter && hasErrorFilter) {
+          // Both selected - alternate between completed and error
+          if (i % 2 === 0) {
+            statusCode = "Ok";
+            if (eventTypeFilters.size === 0) {
+              events.length = 0;
+            }
+          } else {
+            statusCode = "Error";
+          }
         }
       } else {
-        // Test combination: non_fatal + frozen (should pick non_fatal)
-        events.push("non_fatal");
-        if (hasMultipleEvents) {
+        // No filters - generate random events as before
+        // For SessionTimeline: generate events for the single span
+        // For SessionReplays, 40% chance to generate multiple events
+        const hasMultipleEvents = isSessionTimeline
+          ? true // Single span can have multiple events
+          : Math.random() < 0.4;
+
+        if (rand < 0.15) {
+          // P1: device.crash (highest priority)
+          events.push("device.crash");
+          statusCode = "Error";
+          if (hasMultipleEvents) {
+            events.push("device.anr");
+            events.push("non_fatal");
+            events.push("app.jank.frozen");
+          }
+        } else if (rand < 0.30) {
+          // P2: device.anr
+          events.push("device.anr");
+          statusCode = "Error";
+          if (hasMultipleEvents) {
+            events.push("non_fatal");
+            events.push("app.jank.frozen");
+          }
+        } else if (rand < 0.45) {
+          // P3: non_fatal
+          events.push("non_fatal");
+          if (hasMultipleEvents) {
+            events.push("app.jank.frozen");
+          }
+        } else if (rand < 0.60) {
+          // P4: app.jank.frozen (lowest priority event)
           events.push("app.jank.frozen");
+        } else if (rand < 0.70) {
+          // Error status without specific event
+          statusCode = "Error";
+        } else {
+          // Completed - no events, Ok status
+          statusCode = "Ok";
         }
       }
-      // Note: rand >= 0.95 would be empty (completed session), but we're not handling that range
 
       // Generate event names
       const eventNames = events.join(",");
@@ -966,6 +1248,10 @@ export class DataQueryMockGeneratorV2 {
             if (eventNames.toLowerCase().includes("anr"))
               return "Application not responding";
             return "";
+          case "status_code":
+            return statusCode;
+          case "is_error":
+            return statusCode === "Error" ? "true" : "false";
           default:
             // For other fields, use the standard function generator
             return this.generateValueForFunction(
@@ -982,6 +1268,658 @@ export class DataQueryMockGeneratorV2 {
     }
 
     return { fields, rows };
+  }
+
+  /**
+   * Generate Session Timeline response for traces, logs, or exceptions filtered by SessionId
+   * This handles the waterfall/flame chart view for a single session
+   */
+  private generateSessionTimelineResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, filters, dataType } = requestBody;
+
+    // Extract SessionId from filter
+    const sessionIdFilter = filters?.find(
+      (f) => f.field === "SessionId" && f.operator === "EQ",
+    );
+    const sessionId = Array.isArray(sessionIdFilter?.value)
+      ? String(sessionIdFilter.value[0])
+      : String(sessionIdFilter?.value || "mock-session-123");
+
+    console.log("[DataQueryMockV2] Generating session timeline response:", {
+      sessionId,
+      dataType,
+      fieldCount: select.length,
+    });
+
+    // Extract fields (aliases)
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Use a fixed time window for better visualization (last 5 minutes of activity)
+    const now = dayjs().utc();
+    const startTime = now.subtract(5, "minute");
+    const sessionDurationMs = 5 * 60 * 1000; // 5 minutes
+
+    const rows: string[][] = [];
+
+    if (dataType === "TRACES") {
+      // Generate trace spans for session timeline - create a realistic span hierarchy
+      const traceSpans = this.generateSessionTraceSpans(sessionId, startTime, sessionDurationMs);
+      
+      console.log("[DataQueryMockV2] Generated", traceSpans.length, "trace spans");
+      
+      for (const span of traceSpans) {
+        const row: string[] = select.map((selectField) => {
+          const alias = selectField.alias?.toLowerCase() || selectField.alias;
+          
+          switch (alias) {
+            case "traceid":
+              return span.traceId;
+            case "spanid":
+              return span.spanId;
+            case "parentspanid":
+              return span.parentSpanId;
+            case "spanname":
+              return span.spanName;
+            case "spankind":
+              return span.spanKind;
+            case "servicename":
+              return span.serviceName;
+            case "timestamp":
+              return span.timestamp;
+            case "duration":
+              return span.duration.toString();
+            case "statuscode":
+              return span.statusCode;
+            case "pulsetype":
+              return span.pulseType;
+            default:
+              return "";
+          }
+        });
+        rows.push(row);
+      }
+    } else if (dataType === "LOGS") {
+      // Generate more logs for the session - 25-40 logs
+      const numLogs = 25 + Math.floor(Math.random() * 15);
+      
+      const logBodies = [
+        "Application initialized",
+        "User session started",
+        "Fetching user preferences from cache",
+        "Cache hit: user_preferences",
+        "Loading HomeScreen",
+        "HomeScreen rendered successfully",
+        "Network request: GET /api/v1/user/profile",
+        "Response received: 200 OK (234ms)",
+        "Updating UI with profile data",
+        "User tapped: 'Settings' button",
+        "Navigating to SettingsScreen",
+        "SettingsScreen loaded",
+        "Fetching notification settings",
+        "Push token registered",
+        "Analytics event: screen_view (SettingsScreen)",
+        "User changed theme preference",
+        "Saving preferences to local storage",
+        "Database write completed (12ms)",
+        "Background sync initiated",
+        "Syncing 3 pending items",
+        "Sync completed successfully",
+        "Memory usage: 128MB (normal)",
+        "Location permission requested",
+        "Location permission granted",
+        "GPS coordinates received",
+        "Map tiles loaded (8 tiles)",
+        "Image loaded: profile_photo.jpg",
+        "Image cached successfully",
+        "Checking for app updates",
+        "App is up to date",
+        "Session heartbeat sent",
+        "WebSocket connection established",
+        "Real-time updates enabled",
+        "User returned to HomeScreen",
+        "Refreshing home feed",
+        "Feed updated with 5 new items",
+      ];
+
+      const severities = ["INFO", "DEBUG", "INFO", "DEBUG", "INFO", "WARN", "INFO", "DEBUG"];
+
+      for (let i = 0; i < numLogs; i++) {
+        const progress = i / (numLogs - 1);
+        const logTime = startTime.add(progress * sessionDurationMs * 0.95, "millisecond");
+        
+        const row: string[] = select.map((selectField) => {
+          const alias = selectField.alias?.toLowerCase() || selectField.alias;
+          
+          switch (alias) {
+            case "traceid":
+              return `${sessionId}-trace-${Math.floor(i / 3)}`;
+            case "spanid":
+              return this.generateHexString(16).toUpperCase();
+            case "timestamp":
+              return logTime.toISOString();
+            case "severitytext":
+              return severities[i % severities.length];
+            case "body":
+              return logBodies[i % logBodies.length];
+            case "pulsetype":
+              return "log";
+            default:
+              return "";
+          }
+        });
+        rows.push(row);
+      }
+    } else if (dataType === "EXCEPTIONS") {
+      // Always generate 1-2 exceptions for demo visualization
+      const numExceptions = 1 + Math.floor(Math.random() * 2);
+      
+      const exceptionDetails = [
+        { type: "non_fatal", title: "NetworkTimeoutException", message: "Connection timed out after 30000ms", screen: "HomeScreen" },
+        { type: "crash", title: "NullPointerException", message: "Cannot invoke method 'getString()' on null object reference", screen: "ProfileScreen" },
+        { type: "anr", title: "Application Not Responding", message: "Input dispatching timed out (Waiting to send non-key event)", screen: "CheckoutScreen" },
+        { type: "non_fatal", title: "OutOfMemoryError", message: "Failed to allocate 4194304 bytes", screen: "ImageGalleryScreen" },
+      ];
+
+      for (let i = 0; i < numExceptions; i++) {
+        const progress = 0.3 + (i * 0.3); // Space exceptions throughout session
+        const exceptionTime = startTime.add(progress * sessionDurationMs, "millisecond");
+        const exception = exceptionDetails[i % exceptionDetails.length];
+        
+        const row: string[] = select.map((selectField) => {
+          const alias = selectField.alias?.toLowerCase() || selectField.alias;
+          
+          switch (alias) {
+            case "timestamp":
+              return exceptionTime.toISOString();
+            case "pulsetype":
+              return `device.${exception.type}`;
+            case "title":
+              return exception.title;
+            case "exceptionmessage":
+              return exception.message;
+            case "exceptiontype":
+              return exception.type;
+            case "screenname":
+              return exception.screen;
+            case "traceid":
+              return `${sessionId}-exception-trace-${i}`;
+            case "spanid":
+              return this.generateHexString(16).toUpperCase();
+            case "groupid":
+              return `group-${exception.type}-${Date.now()}-${i}`;
+            default:
+              return "";
+          }
+        });
+        rows.push(row);
+      }
+    }
+
+    console.log("[DataQueryMockV2] Session timeline generated:", {
+      dataType,
+      rowCount: rows.length,
+      fields,
+    });
+
+    return { fields, rows };
+  }
+
+  /**
+   * Generate realistic trace spans for a session with proper parent-child hierarchy
+   * Creates a rich hierarchy for flame chart visualization
+   */
+  private generateSessionTraceSpans(
+    sessionId: string,
+    startTime: dayjs.Dayjs,
+    sessionDurationMs: number,
+  ): Array<{
+    traceId: string;
+    spanId: string;
+    parentSpanId: string;
+    spanName: string;
+    spanKind: string;
+    serviceName: string;
+    timestamp: string;
+    duration: number;
+    statusCode: string;
+    pulseType: string;
+  }> {
+    const spans: Array<{
+      traceId: string;
+      spanId: string;
+      parentSpanId: string;
+      spanName: string;
+      spanKind: string;
+      serviceName: string;
+      timestamp: string;
+      duration: number;
+      statusCode: string;
+      pulseType: string;
+    }> = [];
+
+    // Screen names for realistic navigation flow
+    const screens = ["HomeScreen", "ProfileScreen", "SettingsScreen", "SearchScreen", "DetailsScreen", "CheckoutScreen"];
+    
+    // Define rich interaction templates with nested operations
+    const interactionTemplates = [
+      {
+        name: "AppStart",
+        pulseType: PulseType.APP_START,
+        baseDuration: 2500,
+        children: [
+          { name: "SDK Initialization", type: "internal", duration: 150, children: [
+            { name: "Config Load", type: "internal", duration: 30 },
+            { name: "Analytics Init", type: "internal", duration: 50 },
+            { name: "Crash Reporter Init", type: "internal", duration: 40 },
+          ]},
+          { name: "Database Migration", type: "database", duration: 200, children: [
+            { name: "Schema Check", type: "database", duration: 50 },
+            { name: "Run Migrations", type: "database", duration: 120 },
+          ]},
+          { name: "User Session Restore", type: "internal", duration: 300, children: [
+            { name: "Token Validation", type: "network", duration: 180 },
+            { name: "Profile Fetch", type: "network", duration: 100 },
+          ]},
+          { name: "Initial Screen Render", type: "render", duration: 400, children: [
+            { name: "Layout Inflation", type: "render", duration: 80 },
+            { name: "View Binding", type: "render", duration: 60 },
+            { name: "Data Binding", type: "render", duration: 100 },
+          ]},
+        ],
+      },
+      {
+        name: "ScreenLoad",
+        pulseType: PulseType.SCREEN_LOAD,
+        baseDuration: 800,
+        screenName: true,
+        children: [
+          { name: "View Creation", type: "render", duration: 100 },
+          { name: "Data Fetch", type: "network", duration: 350, children: [
+            { name: "API Request", type: "network", duration: 280 },
+            { name: "Response Parse", type: "internal", duration: 50 },
+          ]},
+          { name: "Render Content", type: "render", duration: 200, children: [
+            { name: "RecyclerView Bind", type: "render", duration: 120 },
+            { name: "Image Decode", type: "internal", duration: 60 },
+          ]},
+        ],
+      },
+      {
+        name: "UserInteraction",
+        pulseType: PulseType.INTERACTION,
+        baseDuration: 400,
+        children: [
+          { name: "Click Handler", type: "internal", duration: 20 },
+          { name: "State Update", type: "internal", duration: 50 },
+          { name: "API Call", type: "network", duration: 250, children: [
+            { name: "Request Prepare", type: "internal", duration: 15 },
+            { name: "Network Request", type: "network", duration: 200 },
+            { name: "Response Handle", type: "internal", duration: 30 },
+          ]},
+          { name: "UI Update", type: "render", duration: 80 },
+        ],
+      },
+      {
+        name: "Navigation",
+        pulseType: PulseType.NAVIGATION,
+        baseDuration: 600,
+        children: [
+          { name: "Route Resolve", type: "internal", duration: 30 },
+          { name: "Screen Transition", type: "render", duration: 250, children: [
+            { name: "Exit Animation", type: "render", duration: 100 },
+            { name: "Enter Animation", type: "render", duration: 120 },
+          ]},
+          { name: "New Screen Init", type: "internal", duration: 150 },
+          { name: "Data Prefetch", type: "network", duration: 170 },
+        ],
+      },
+      {
+        name: "NetworkRequest",
+        pulseType: "network.request",
+        baseDuration: 500,
+        children: [
+          { name: "DNS Lookup", type: "network", duration: 20 },
+          { name: "TCP Connect", type: "network", duration: 40 },
+          { name: "TLS Handshake", type: "network", duration: 60 },
+          { name: "Request Send", type: "network", duration: 30 },
+          { name: "Server Processing", type: "network", duration: 200 },
+          { name: "Response Receive", type: "network", duration: 100 },
+          { name: "Body Parse", type: "internal", duration: 50 },
+        ],
+      },
+    ];
+
+    // Generate 8-12 traces distributed across the session
+    const numTraces = 8 + Math.floor(Math.random() * 5);
+    const timeSlotSize = sessionDurationMs / numTraces;
+    
+    for (let t = 0; t < numTraces; t++) {
+      const traceId = this.generateHexString(32).toUpperCase();
+      const template = interactionTemplates[t % interactionTemplates.length];
+      
+      // Calculate trace start time with some randomness within the slot
+      const slotStart = t * timeSlotSize;
+      const randomOffset = Math.random() * (timeSlotSize * 0.3);
+      const traceStartTime = startTime.add(slotStart + randomOffset, "millisecond");
+      
+      // Duration variation: 70-130% of base
+      const durationMultiplier = 0.7 + Math.random() * 0.6;
+      const traceDuration = Math.floor(template.baseDuration * durationMultiplier);
+      
+      // Determine span name (add screen name for screen-related spans)
+      let spanName = template.name;
+      if (template.screenName) {
+        spanName = `${screens[t % screens.length]} Load`;
+      }
+      
+      // Create root span
+      const rootSpanId = this.generateHexString(16).toUpperCase();
+      spans.push({
+        traceId,
+        spanId: rootSpanId,
+        parentSpanId: "",
+        spanName,
+        spanKind: "INTERNAL",
+        serviceName: "pulse-mobile-app",
+        timestamp: traceStartTime.toISOString(),
+        duration: traceDuration * 1_000_000, // Convert ms to nanoseconds
+        statusCode: Math.random() < 0.95 ? "OK" : "ERROR",
+        pulseType: template.pulseType,
+      });
+      
+      // Create child spans recursively
+      let childOffset = 5; // Start 5ms after parent
+      
+      for (const child of template.children) {
+        const childDuration = Math.floor(child.duration * durationMultiplier);
+        this.addSpanWithChildren(
+          spans,
+          traceId,
+          rootSpanId,
+          child,
+          traceStartTime.add(childOffset, "millisecond"),
+          durationMultiplier,
+        );
+        childOffset += childDuration + 5;
+      }
+    }
+
+    // Sort spans by timestamp for proper visualization
+    spans.sort((a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf());
+
+    return spans;
+  }
+
+  /**
+   * Recursively add a span and its children
+   */
+  private addSpanWithChildren(
+    spans: Array<{
+      traceId: string;
+      spanId: string;
+      parentSpanId: string;
+      spanName: string;
+      spanKind: string;
+      serviceName: string;
+      timestamp: string;
+      duration: number;
+      statusCode: string;
+      pulseType: string;
+    }>,
+    traceId: string,
+    parentSpanId: string,
+    spanDef: { name: string; type: string; duration: number; children?: Array<{ name: string; type: string; duration: number; children?: any[] }> },
+    startTime: dayjs.Dayjs,
+    durationMultiplier: number,
+  ): void {
+    const spanId = this.generateHexString(16).toUpperCase();
+    const duration = Math.floor(spanDef.duration * durationMultiplier);
+    
+    // Map type to spanKind
+    const spanKindMap: Record<string, string> = {
+      "internal": "INTERNAL",
+      "network": "CLIENT",
+      "database": "CLIENT",
+      "render": "INTERNAL",
+      "cache": "INTERNAL",
+    };
+    
+    // Map type to pulseType
+    const pulseTypeMap: Record<string, string> = {
+      "internal": "internal",
+      "network": "network.request",
+      "database": "database.query",
+      "render": "ui.render",
+      "cache": "cache.operation",
+    };
+    
+    spans.push({
+      traceId,
+      spanId,
+      parentSpanId,
+      spanName: spanDef.name,
+      spanKind: spanKindMap[spanDef.type] || "INTERNAL",
+      serviceName: "pulse-mobile-app",
+      timestamp: startTime.toISOString(),
+      duration: duration * 1_000_000, // Convert ms to nanoseconds
+      statusCode: Math.random() < 0.92 ? "OK" : "ERROR",
+      pulseType: pulseTypeMap[spanDef.type] || "internal",
+    });
+    
+    // Add children if present
+    if (spanDef.children && spanDef.children.length > 0) {
+      let childOffset = 3; // Small offset for child spans
+      for (const child of spanDef.children) {
+        const childDuration = Math.floor(child.duration * durationMultiplier);
+        this.addSpanWithChildren(
+          spans,
+          traceId,
+          spanId,
+          child,
+          startTime.add(childOffset, "millisecond"),
+          durationMultiplier,
+        );
+        childOffset += childDuration + 2;
+      }
+    }
+  }
+
+  /**
+   * Generate Span Details response with rich attribute data
+   * Returns resourceAttributes, spanAttributes, events, and links as JSON strings
+   */
+  private generateSpanDetailsResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select } = requestBody;
+
+    // Extract fields (aliases)
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Generate rich mock data for span details
+    const resourceAttributes = {
+      "service.name": "pulse-mobile-app",
+      "service.version": "3.2.1",
+      "telemetry.sdk.name": "pulse-otel-sdk",
+      "telemetry.sdk.version": "1.4.0",
+      "device.id": "ABC123XYZ789",
+      "device.model.name": "iPhone 14 Pro",
+      "device.manufacturer": "Apple",
+      "os.type": "iOS",
+      "os.version": "17.2",
+      "os.name": "iOS",
+      "deployment.environment": "production",
+      "host.arch": "arm64",
+      "process.runtime.name": "iOS",
+      "process.runtime.version": "17.2",
+    };
+
+    const spanAttributes = {
+      "pulse.type": "screen_load",
+      "pulse.screen.name": "HomeScreen",
+      "pulse.session.id": "session-abc-123",
+      "http.method": "GET",
+      "http.url": "https://api.fancode.com/v1/user/profile",
+      "http.status_code": "200",
+      "http.response_content_length": "2458",
+      "http.request_content_length": "0",
+      "net.peer.name": "api.example.com",
+      "net.peer.port": "443",
+      "user_agent.original": "PulseApp/3.2.1 (iOS 17.2; iPhone14,2)",
+      "thread.id": "1",
+      "thread.name": "main",
+      "code.function": "loadHomeScreen",
+      "code.filepath": "HomeViewController.swift",
+      "code.lineno": "142",
+      "enduser.id": "user-12345",
+      "app.screen.previous": "SplashScreen",
+      "app.navigation.type": "push",
+    };
+
+    // Generate some events
+    const now = dayjs().utc();
+    const events = [
+      {
+        timestamp: now.subtract(100, "millisecond").toISOString(),
+        name: "view.created",
+        attributes: { "view.class": "HomeViewController", "view.id": "home_root" },
+      },
+      {
+        timestamp: now.subtract(50, "millisecond").toISOString(),
+        name: "data.loaded",
+        attributes: { "data.source": "cache", "data.items": "12" },
+      },
+      {
+        timestamp: now.toISOString(),
+        name: "view.rendered",
+        attributes: { "view.frame_time": "16.7ms", "view.dropped_frames": "0" },
+      },
+    ];
+
+    // Generate some links
+    const links = [
+      {
+        traceId: this.generateHexString(32).toUpperCase(),
+        spanId: this.generateHexString(16).toUpperCase(),
+        attributes: { "link.type": "parent_request", "link.source": "api_gateway" },
+      },
+    ];
+
+    // Build the row based on select fields
+    const row: string[] = select.map((selectField) => {
+      const alias = selectField.alias?.toLowerCase() || selectField.alias;
+      
+      switch (alias) {
+        case "resourceattributes":
+          return JSON.stringify(resourceAttributes);
+        case "spanattributes":
+          return JSON.stringify(spanAttributes);
+        case "eventstimestamp":
+          return events.map((e) => e.timestamp).join("|||");
+        case "eventsname":
+          return events.map((e) => e.name).join("|||");
+        case "eventsattributes":
+          return events.map((e) => JSON.stringify(e.attributes)).join("|||");
+        case "linkstraceid":
+          return links.map((l) => l.traceId).join("|||");
+        case "linksspanid":
+          return links.map((l) => l.spanId).join("|||");
+        case "linksattributes":
+          return links.map((l) => JSON.stringify(l.attributes)).join("|||");
+        default:
+          return "";
+      }
+    });
+
+    return { fields, rows: [row] };
+  }
+
+  /**
+   * Generate Log Details response with rich attribute data
+   * Returns resourceAttributes, logAttributes, scopeAttributes, body, severityText, severityNumber
+   */
+  private generateLogDetailsResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select } = requestBody;
+
+    // Extract fields (aliases)
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Generate rich mock data for log details
+    const resourceAttributes = {
+      "service.name": "pulse-mobile-app",
+      "service.version": "3.2.1",
+      "telemetry.sdk.name": "pulse-otel-sdk",
+      "telemetry.sdk.version": "1.4.0",
+      "device.id": "ABC123XYZ789",
+      "device.model.name": "iPhone 14 Pro",
+      "device.manufacturer": "Apple",
+      "os.type": "iOS",
+      "os.version": "17.2",
+      "deployment.environment": "production",
+    };
+
+    const logAttributes = {
+      "log.file.name": "AppLogger.swift",
+      "log.file.path": "/Sources/Logging/AppLogger.swift",
+      "log.record.uid": "log-rec-" + this.generateHexString(8),
+      "code.function": "logEvent",
+      "code.lineno": "87",
+      "thread.id": "1",
+      "thread.name": "main",
+      "event.domain": "app",
+      "event.name": "user_action",
+      "user.id": "user-12345",
+      "screen.name": "HomeScreen",
+      "session.id": "session-abc-123",
+      "app.state": "foreground",
+      "network.type": "wifi",
+    };
+
+    const scopeAttributes = {
+      "scope.name": "com.pulse.app.logger",
+      "scope.version": "1.0.0",
+    };
+
+    const logBodies = [
+      "User completed profile update successfully",
+      "Network request completed: GET /api/v1/user/profile (200 OK)",
+      "Screen transition: HomeScreen -> ProfileScreen",
+      "Cache hit for user preferences data",
+      "Background sync completed with 3 items",
+    ];
+
+    const severities = ["INFO", "DEBUG", "WARN"];
+    const severityNumbers = [9, 5, 13]; // INFO=9, DEBUG=5, WARN=13
+
+    const randomIndex = Math.floor(Math.random() * logBodies.length);
+
+    // Build the row based on select fields
+    const row: string[] = select.map((selectField) => {
+      const alias = selectField.alias?.toLowerCase() || selectField.alias;
+      
+      switch (alias) {
+        case "resourceattributes":
+          return JSON.stringify(resourceAttributes);
+        case "logattributes":
+          return JSON.stringify(logAttributes);
+        case "scopeattributes":
+          return JSON.stringify(scopeAttributes);
+        case "body":
+          return logBodies[randomIndex];
+        case "severitytext":
+          return severities[randomIndex % severities.length];
+        case "severitynumber":
+          return severityNumbers[randomIndex % severityNumbers.length].toString();
+        default:
+          return "";
+      }
+    });
+
+    return { fields, rows: [row] };
   }
 
   /**
@@ -1091,6 +2029,14 @@ export class DataQueryMockGeneratorV2 {
       case "FROZEN_FRAME":
         return this.randomCount(5, 25, interactionName, groupValue).toString();
 
+      case "UNANALYSED_FRAME":
+        // Unanalysed frames - frames that couldn't be processed
+        return this.randomCount(10, 50, interactionName, groupValue).toString();
+
+      case "ANALYSED_FRAME":
+        // Analysed frames - successfully processed frames (should be larger than frozen)
+        return this.randomCount(200, 500, interactionName, groupValue).toString();
+
       case "ANR":
         return this.randomCount(3, 15, interactionName, groupValue).toString();
 
@@ -1156,7 +2102,7 @@ export class DataQueryMockGeneratorV2 {
         // Handle custom expressions based on the expression parameter
         const expression = param?.expression || "";
 
-        // Handle sumIf(Duration, SpanType = 'screen_session') - total time spent on screen
+        // Handle sumIf(Duration, PulseType = 'screen_session') - total time spent on screen
         if (
           expression.includes("sumIf(Duration") &&
           expression.includes("screen_session")
@@ -1177,7 +2123,7 @@ export class DataQueryMockGeneratorV2 {
           return totalNs.toString();
         }
 
-        // Handle sumIf(Duration, SpanType = 'screen_load') - total screen load time
+        // Handle sumIf(Duration, PulseType = 'screen_load') - total screen load time
         if (
           expression.includes("sumIf(Duration") &&
           expression.includes("screen_load")
@@ -1198,7 +2144,7 @@ export class DataQueryMockGeneratorV2 {
           return totalNs.toString();
         }
 
-        // Handle countIf(SpanType = 'screen_session') - session count
+        // Handle countIf(PulseType = 'screen_session') - session count
         if (
           expression.includes("countIf") &&
           expression.includes("screen_session")
@@ -1214,7 +2160,7 @@ export class DataQueryMockGeneratorV2 {
           ).toString();
         }
 
-        // Handle countIf(SpanType = 'screen_load') - load count
+        // Handle countIf(PulseType = 'screen_load') - load count
         if (
           expression.includes("countIf") &&
           expression.includes("screen_load")
@@ -1339,7 +2285,7 @@ export class DataQueryMockGeneratorV2 {
     let normalizedField = groupByField.toLowerCase();
 
     // Extract actual field name from SpanAttributes notation
-    if (normalizedField.includes(`spanattributes['${SpanType.SCREEN_NAME}']`)) {
+    if (normalizedField.includes(`spanattributes['${PulseType.SCREEN_NAME}']`)) {
       normalizedField = "screen_name";
     }
     if (normalizedField.includes("spanattributes['http.url']")) {
@@ -1687,16 +2633,16 @@ export class DataQueryMockGeneratorV2 {
         "OrderListScreen",
       ],
       url: [
-        "https://api.example.com/v1/users",
-        "https://api.example.com/v1/products",
-        "https://api.example.com/v1/orders",
-        "https://api.example.com/v1/payments",
-        "https://api.example.com/v1/auth/login",
-        "https://api.example.com/v1/cart",
-        "https://api.example.com/v1/search",
-        "https://api.example.com/v1/notifications",
-        "https://api.example.com/v1/analytics",
-        "https://api.example.com/v1/profile",
+        "https://api.fancode.com/v1/contests/live",
+        "https://api.fancode.com/v1/contests/upcoming",
+        "https://api.fancode.com/v1/teams/my-teams",
+        "https://api.fancode.com/v1/players/list",
+        "https://api.fancode.com/v1/matches/live-score",
+        "https://api.fancode.com/v1/user/profile",
+        "https://api.fancode.com/v1/notifications/list",
+        "https://www.fancode.com/graphql",
+        "https://api.fancode.com/v1/auth/refresh",
+        "https://api.fancode.com/v1/config/app",
       ],
     };
 
@@ -1814,26 +2760,28 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields
     const fields: string[] = select.map((s) => s.alias);
 
-    // Fantasy sports specific network APIs
+    // Fantasy sports specific network APIs with complete URLs
     const networkApis = [
-      { method: "GET", url: "/api/v1/contests/live" },
-      { method: "GET", url: "/api/v1/contests/upcoming" },
-      { method: "POST", url: "/api/v1/contests/join" },
-      { method: "GET", url: "/api/v1/teams/my-teams" },
-      { method: "POST", url: "/api/v1/teams/create" },
-      { method: "PUT", url: "/api/v1/teams/update" },
-      { method: "GET", url: "/api/v1/players/list" },
-      { method: "GET", url: "/api/v1/players/stats" },
-      { method: "GET", url: "/api/v1/matches/live-score" },
-      { method: "GET", url: "/api/v1/matches/schedule" },
-      { method: "GET", url: "/api/v1/user/profile" },
-      { method: "GET", url: "/api/v1/user/wallet" },
-      { method: "POST", url: "/api/v1/wallet/deposit" },
-      { method: "POST", url: "/api/v1/wallet/withdraw" },
-      { method: "GET", url: "/api/v1/leaderboard/global" },
-      { method: "GET", url: "/api/v1/leaderboard/contest" },
-      { method: "GET", url: "/api/v1/notifications/list" },
-      { method: "POST", url: "/api/v1/auth/refresh" },
+      { method: "GET", url: "https://api.fancode.com/v1/contests/live" },
+      { method: "GET", url: "https://api.fancode.com/v1/contests/upcoming" },
+      { method: "POST", url: "https://api.fancode.com/v1/contests/join" },
+      { method: "GET", url: "https://api.fancode.com/v1/teams/my-teams" },
+      { method: "POST", url: "https://api.fancode.com/v1/teams/create" },
+      { method: "PUT", url: "https://api.fancode.com/v1/teams/update" },
+      { method: "GET", url: "https://api.fancode.com/v1/players/list" },
+      { method: "GET", url: "https://api.fancode.com/v1/players/stats" },
+      { method: "GET", url: "https://api.fancode.com/v1/matches/live-score" },
+      { method: "GET", url: "https://api.fancode.com/v1/matches/schedule" },
+      { method: "GET", url: "https://api.fancode.com/v1/user/profile" },
+      { method: "GET", url: "https://api.fancode.com/v1/user/wallet" },
+      { method: "POST", url: "https://api.fancode.com/v1/wallet/deposit" },
+      { method: "POST", url: "https://api.fancode.com/v1/wallet/withdraw" },
+      { method: "GET", url: "https://api.fancode.com/v1/leaderboard/global" },
+      { method: "GET", url: "https://api.fancode.com/v1/leaderboard/contest" },
+      { method: "GET", url: "https://api.fancode.com/v1/notifications/list" },
+      { method: "POST", url: "https://api.fancode.com/v1/auth/refresh" },
+      { method: "POST", url: "https://www.fancode.com/graphql" },
+      { method: "GET", url: "https://api.fancode.com/v1/config/app" },
     ];
 
     // For detail query, filter to specific method and url
@@ -1882,7 +2830,7 @@ export class DataQueryMockGeneratorV2 {
     if (!isDetailQuery) {
       const screenNameFilter = filters?.find(
         (f) =>
-          f.field === `SpanAttributes['${SpanType.SCREEN_NAME}']` && f.operator === "EQ",
+          f.field === `SpanAttributes['${PulseType.SCREEN_NAME}']` && f.operator === "EQ",
       );
       if (screenNameFilter) {
         // In a real scenario, we'd filter by screen name, but for mock we'll return all
@@ -2042,9 +2990,9 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields
     const fields: string[] = select.map((s) => s.alias);
 
-    // Determine error type from SpanType filter (4xx or 5xx)
+    // Determine error type from PulseType filter (4xx or 5xx)
     const spanTypeFilter = filters?.find(
-      (f) => f.field === "SpanType" && f.operator === "LIKE",
+      (f) => f.field === "PulseType" && f.operator === "LIKE",
     );
     const filterValues = spanTypeFilter?.value
       ? Array.isArray(spanTypeFilter.value)
@@ -2160,6 +3108,646 @@ export class DataQueryMockGeneratorV2 {
   }
 
   /**
+   * Generate status code distribution response
+   * Used by StatusCodeDistribution component on Network Detail page
+   * Returns request counts grouped by individual HTTP status codes (200, 201, 400, 404, 500, etc.)
+   * Distribution is realistic: ~97-99% success, ~1-2% client errors, ~0.1-0.5% server errors
+   */
+  private generateStatusCodeDistributionResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, filters } = requestBody;
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Get URL from filters for consistent seeding
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+    const seed = this.hashString(targetUrl);
+
+    // Base total requests (consistent with network metrics)
+    const baseTotalRequests = 15000 + (seed % 70000);
+
+    // Realistic status code distribution for a production API endpoint
+    // ~97-99% success (2xx/3xx), ~1-2% client errors (4xx), ~0.1-0.5% server errors (5xx)
+    const statusCodeData = [
+      // Success codes (97-99% of traffic)
+      { code: "200", weight: 0.72 },   // OK - most common
+      { code: "201", weight: 0.12 },   // Created
+      { code: "204", weight: 0.08 },   // No Content
+      { code: "304", weight: 0.05 },   // Not Modified (caching)
+      // Client errors (1-2% of traffic)
+      { code: "400", weight: 0.008 },  // Bad Request
+      { code: "401", weight: 0.005 },  // Unauthorized
+      { code: "403", weight: 0.003 },  // Forbidden
+      { code: "404", weight: 0.006 },  // Not Found
+      { code: "422", weight: 0.003 },  // Unprocessable Entity
+      { code: "429", weight: 0.002 },  // Too Many Requests
+      // Server errors (0.1-0.5% of traffic)
+      { code: "500", weight: 0.002 },  // Internal Server Error
+      { code: "502", weight: 0.001 },  // Bad Gateway
+      { code: "503", weight: 0.0008 }, // Service Unavailable
+      { code: "504", weight: 0.0005 }, // Gateway Timeout
+      // Connection errors (very rare)
+      { code: "0", weight: 0.0007 },   // Connection Error (no HTTP response)
+    ];
+
+    // Generate rows with realistic counts based on weights
+    const rows: string[][] = statusCodeData.map((statusData) => {
+      const row: string[] = [];
+      // Calculate base count from weight
+      const baseCount = Math.round(baseTotalRequests * statusData.weight);
+      // Add variance (±15%) to make data look natural
+      const variance = 0.15;
+      const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+      const adjustedCount = Math.max(1, Math.round(baseCount * randomFactor));
+
+      select.forEach((selectField) => {
+        const alias = selectField.alias;
+
+        switch (alias) {
+          case "request_count":
+            row.push(adjustedCount.toString());
+            break;
+          case "status_code":
+            row.push(statusData.code);
+            break;
+          default:
+            row.push(
+              this.generateValueForFunction(
+                selectField.function,
+                null,
+                requestBody.filters,
+                undefined,
+                selectField.param,
+              ),
+            );
+        }
+      });
+
+      return row;
+    });
+
+    // Sort by count descending
+    const countIndex = fields.indexOf("request_count");
+    if (countIndex >= 0) {
+      rows.sort((a, b) => {
+        const aVal = parseFloat(a[countIndex]) || 0;
+        const bVal = parseFloat(b[countIndex]) || 0;
+        return bVal - aVal;
+      });
+    }
+
+    return { fields, rows };
+  }
+
+  /**
+   * Generate HTTP method distribution response
+   * Used by MethodDistribution component on Network Detail page
+   * Returns request counts grouped by HTTP methods (GET, POST, PUT, etc.)
+   * Distribution is consistent with network metrics total requests
+   */
+  private generateMethodDistributionResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, filters } = requestBody;
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Get URL from filters for consistent seeding
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+    const seed = this.hashString(targetUrl);
+
+    // Base total requests (consistent with network metrics)
+    const baseTotalRequests = 15000 + (seed % 70000);
+
+    // Realistic HTTP method distribution for a typical API endpoint
+    // GET and POST are most common, with some PUT, PATCH, DELETE
+    const methodData = [
+      { method: "GET", weight: 0.52 },     // Most common for data fetching
+      { method: "POST", weight: 0.26 },    // For creating/submitting data
+      { method: "PUT", weight: 0.09 },     // For full updates
+      { method: "PATCH", weight: 0.065 },  // For partial updates
+      { method: "DELETE", weight: 0.034 }, // For deletions
+      { method: "HEAD", weight: 0.01 },    // For checking resource existence
+      { method: "OPTIONS", weight: 0.006 },// CORS preflight requests
+    ];
+
+    // Generate rows with realistic counts based on weights
+    const rows: string[][] = methodData.map((methodInfo) => {
+      const row: string[] = [];
+      // Calculate base count from weight
+      const baseCount = Math.round(baseTotalRequests * methodInfo.weight);
+      // Add variance (±15%) to make data look natural
+      const variance = 0.15;
+      const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+      const adjustedCount = Math.max(1, Math.round(baseCount * randomFactor));
+
+      select.forEach((selectField) => {
+        const alias = selectField.alias;
+
+        switch (alias) {
+          case "request_count":
+            row.push(adjustedCount.toString());
+            break;
+          case "http_method":
+            row.push(methodInfo.method);
+            break;
+          default:
+            row.push(
+              this.generateValueForFunction(
+                selectField.function,
+                null,
+                requestBody.filters,
+                undefined,
+                selectField.param,
+              ),
+            );
+        }
+      });
+
+      return row;
+    });
+
+    // Sort by count descending
+    const countIndex = fields.indexOf("request_count");
+    if (countIndex >= 0) {
+      rows.sort((a, b) => {
+        const aVal = parseFloat(a[countIndex]) || 0;
+        const bVal = parseFloat(b[countIndex]) || 0;
+        return bVal - aVal;
+      });
+    }
+
+    return { fields, rows };
+  }
+
+  /**
+   * Generate network metrics response for Network Detail page
+   * Used for the aggregated metrics display (avg request time, total requests, success rate, etc.)
+   * Returns a single row with aggregated metrics for a specific URL
+   */
+  private generateNetworkMetricsResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, filters } = requestBody;
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Get the URL from filters to seed consistent values
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+
+    // Generate consistent metrics based on URL seed
+    const seed = this.hashString(targetUrl);
+    
+    // Realistic total requests: 15,000 - 85,000 requests in the time period
+    const totalRequests = 15000 + (seed % 70000);
+    
+    // Realistic success rate: 96.5% - 99.8%
+    const successRatePercent = 96.5 + (seed % 33) / 10;
+    const successRequests = Math.round(totalRequests * (successRatePercent / 100));
+    
+    // Realistic response times (in nanoseconds, as Duration field stores nanoseconds)
+    // Average response time: 120-450ms
+    const avgResponseTimeMs = 120 + (seed % 330);
+    const avgResponseTimeNs = avgResponseTimeMs * 1_000_000;
+    
+    // Percentile response times
+    // P50: 60-80% of average (faster)
+    const p50Ms = Math.round(avgResponseTimeMs * (0.6 + (seed % 20) / 100));
+    // P95: 150-250% of average (slower)
+    const p95Ms = Math.round(avgResponseTimeMs * (1.5 + (seed % 100) / 100));
+    // P99: 200-400% of average (much slower)
+    const p99Ms = Math.round(avgResponseTimeMs * (2.0 + (seed % 200) / 100));
+
+    console.log("[DataQueryMockV2] Network metrics generated:", {
+      url: targetUrl,
+      totalRequests,
+      successRequests,
+      successRatePercent: successRatePercent.toFixed(1),
+      avgResponseTimeMs,
+      p50Ms,
+      p95Ms,
+      p99Ms,
+    });
+
+    // Build the row based on select fields
+    const row: string[] = select.map((selectField) => {
+      const alias = selectField.alias;
+
+      switch (alias) {
+        case "url":
+          return targetUrl;
+        case "total_requests":
+          return totalRequests.toString();
+        case "success_requests":
+          return successRequests.toString();
+        case "response_time":
+          // Duration is in nanoseconds
+          return avgResponseTimeNs.toString();
+        case "p50":
+          // Percentiles are in milliseconds
+          return p50Ms.toString();
+        case "p95":
+          return p95Ms.toString();
+        case "p99":
+          return p99Ms.toString();
+        default:
+          return this.generateValueForFunction(
+            selectField.function,
+            null,
+            filters,
+            undefined,
+            selectField.param,
+          );
+      }
+    });
+
+    return { fields, rows: [row] };
+  }
+
+  /**
+   * Generate network list response for Network List page
+   * Returns multiple rows with different URLs and their aggregated metrics
+   * Used when grouping by url only (without method)
+   */
+  private generateNetworkListByUrlResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, limit } = requestBody;
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Realistic complete API URLs for a fantasy sports app
+    const networkApis = [
+      "https://api.fancode.com/v1/contests/live",
+      "https://api.fancode.com/v1/contests/upcoming",
+      "https://api.fancode.com/v1/contests/join",
+      "https://api.fancode.com/v1/teams/my-teams",
+      "https://api.fancode.com/v1/teams/create",
+      "https://api.fancode.com/v1/players/list",
+      "https://api.fancode.com/v1/players/stats",
+      "https://api.fancode.com/v1/matches/live-score",
+      "https://api.fancode.com/v1/matches/schedule",
+      "https://api.fancode.com/v1/user/profile",
+      "https://api.fancode.com/v1/user/wallet",
+      "https://api.fancode.com/v1/wallet/deposit",
+      "https://api.fancode.com/v1/wallet/withdraw",
+      "https://api.fancode.com/v1/leaderboard/global",
+      "https://api.fancode.com/v1/leaderboard/contest",
+      "https://api.fancode.com/v1/notifications/list",
+      "https://api.fancode.com/v1/auth/refresh",
+      "https://api.fancode.com/v1/auth/login",
+      "https://www.fancode.com/graphql",
+      "https://api.fancode.com/v1/analytics/track",
+      "https://api.fancode.com/v1/config/app",
+      "https://cdn.fancode.com/assets/images",
+      "https://api.fancode.com/v1/search/players",
+      "https://api.fancode.com/v1/payment/initiate",
+    ];
+
+    // Generate rows for each API
+    const rows: string[][] = networkApis.map((url) => {
+      const row: string[] = [];
+
+      // Generate consistent metrics based on URL seed
+      const seed = this.hashString(url);
+
+      // Realistic total requests: 1,000 - 50,000 requests in the time period
+      const totalRequests = 1000 + (seed % 49000);
+
+      // Realistic success rate: 96.5% - 99.9%
+      const successRatePercent = 96.5 + (seed % 34) / 10;
+      const successRequests = Math.round(totalRequests * (successRatePercent / 100));
+
+      // Realistic response times (in nanoseconds, as Duration field stores nanoseconds)
+      // Average response time: 80-500ms
+      const avgResponseTimeMs = 80 + (seed % 420);
+      const avgResponseTimeNs = avgResponseTimeMs * 1_000_000;
+
+      // Sessions: 10-30% of requests
+      const sessionRate = 0.10 + (seed % 20) / 100;
+      const sessionCount = Math.max(1, Math.round(totalRequests * sessionRate));
+
+      // Percentile response times
+      const p50Ms = Math.round(avgResponseTimeMs * (0.5 + (seed % 30) / 100));
+      const p95Ms = Math.round(avgResponseTimeMs * (1.8 + (seed % 70) / 100));
+      const p99Ms = Math.round(avgResponseTimeMs * (2.5 + (seed % 150) / 100));
+
+      select.forEach((selectField) => {
+        const alias = selectField.alias;
+
+        switch (alias) {
+          case "url":
+            row.push(url);
+            break;
+          case "total_requests":
+            row.push(totalRequests.toString());
+            break;
+          case "success_requests":
+            row.push(successRequests.toString());
+            break;
+          case "response_time":
+            // Duration is in nanoseconds
+            row.push(avgResponseTimeNs.toString());
+            break;
+          case "all_sessions":
+            row.push(sessionCount.toString());
+            break;
+          case "p50":
+            row.push(p50Ms.toString());
+            break;
+          case "p95":
+            row.push(p95Ms.toString());
+            break;
+          case "p99":
+            row.push(p99Ms.toString());
+            break;
+          case "screen_name":
+            // Return empty or a default screen name
+            row.push("");
+            break;
+          default:
+            row.push(
+              this.generateValueForFunction(
+                selectField.function,
+                null,
+                requestBody.filters,
+                undefined,
+                selectField.param,
+              ),
+            );
+        }
+      });
+
+      return row;
+    });
+
+    // Sort by total_requests descending (most popular APIs first)
+    const totalRequestsIndex = fields.indexOf("total_requests");
+    if (totalRequestsIndex >= 0) {
+      rows.sort((a, b) => {
+        const aVal = parseFloat(a[totalRequestsIndex]) || 0;
+        const bVal = parseFloat(b[totalRequestsIndex]) || 0;
+        return bVal - aVal;
+      });
+    }
+
+    // Apply limit if specified
+    const limitedRows = limit ? rows.slice(0, limit) : rows;
+
+    return { fields, rows: limitedRows };
+  }
+
+  /**
+   * Generate status code time series response
+   * Used by StatusCodeTimeSeries component on Network Detail page
+   * Returns request counts over time grouped by status code categories (2xx, 3xx, 4xx, 5xx, 0xx)
+   * Distribution is consistent with network metrics (~97-99% success rate)
+   */
+  private generateStatusCodeTimeSeriesResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, timeRange, filters } = requestBody;
+
+    // Get URL from filters for consistent seeding
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+    const seed = this.hashString(targetUrl);
+
+    // Get time bucket parameter
+    const timeBucketField = select.find((s) => s.function === "TIME_BUCKET");
+    const bucketSize = timeBucketField?.param?.bucket || "1h";
+
+    // Generate time points
+    const startTime = dayjs(timeRange.start).utc();
+    const endTime = dayjs(timeRange.end).utc();
+    const timePoints = this.generateTimePoints(startTime, endTime, bucketSize);
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Base requests per bucket (total / number of buckets, adjusted for realistic per-bucket counts)
+    const baseTotalRequests = 15000 + (seed % 70000);
+    const requestsPerBucket = Math.round(baseTotalRequests / Math.max(1, timePoints.length));
+
+    // Status code categories with weights matching the distribution response
+    // ~97-99% success (2xx/3xx), ~1-2% client errors (4xx), ~0.1-0.5% server errors (5xx)
+    const statusCategories = [
+      { code: "200", weight: 0.72, variance: 0.2 },   // OK - most common
+      { code: "201", weight: 0.12, variance: 0.25 },  // Created
+      { code: "204", weight: 0.08, variance: 0.25 },  // No Content
+      { code: "304", weight: 0.05, variance: 0.3 },   // Not Modified (cache)
+      { code: "400", weight: 0.008, variance: 0.4 },  // Bad Request
+      { code: "401", weight: 0.005, variance: 0.45 }, // Unauthorized
+      { code: "404", weight: 0.006, variance: 0.4 },  // Not Found
+      { code: "500", weight: 0.002, variance: 0.5 },  // Server Error (spiky)
+      { code: "503", weight: 0.0008, variance: 0.6 }, // Service Unavailable (spiky)
+      { code: "0", weight: 0.0007, variance: 0.5 },   // Connection Error
+    ];
+
+    const rows: string[][] = [];
+
+    // Generate data for each time point and status code combination
+    timePoints.forEach((timestamp) => {
+      // Add some time-based patterns (e.g., more traffic during certain hours)
+      const hourOfDay = dayjs(timestamp).hour();
+      const trafficMultiplier = hourOfDay >= 9 && hourOfDay <= 21 ? 1.3 : 0.7;
+
+      // Simulate occasional spikes in errors (rare - 3% chance)
+      const isErrorSpike = Math.random() < 0.03;
+
+      statusCategories.forEach((category) => {
+        const row: string[] = [];
+
+        // Calculate base count from weight and per-bucket requests
+        const baseCount = requestsPerBucket * category.weight * trafficMultiplier;
+        
+        // Add variance
+        const variance = category.variance;
+        const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+        let count = Math.round(baseCount * randomFactor);
+
+        // Apply error spike if applicable (rare spikes for server errors)
+        if (isErrorSpike && (category.code.startsWith("5") || category.code === "0")) {
+          count = Math.round(count * (1.5 + Math.random() * 2));
+        }
+
+        // Ensure minimum count of 0
+        count = Math.max(0, count);
+
+        select.forEach((selectField) => {
+          const alias = selectField.alias;
+
+          switch (alias) {
+            case "t1":
+              row.push(timestamp);
+              break;
+            case "status_code":
+              row.push(category.code);
+              break;
+            case "request_count":
+              row.push(count.toString());
+              break;
+            default:
+              row.push(
+                this.generateValueForFunction(
+                  selectField.function,
+                  timestamp,
+                  requestBody.filters,
+                  undefined,
+                  selectField.param,
+                ),
+              );
+          }
+        });
+
+        rows.push(row);
+      });
+    });
+
+    return { fields, rows };
+  }
+
+  /**
+   * Generate HTTP method time series response
+   * Used by MethodTimeSeries component on Network Detail page
+   * Returns request counts over time grouped by HTTP methods
+   * Distribution is consistent with network metrics total requests
+   */
+  private generateMethodTimeSeriesResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, timeRange, filters } = requestBody;
+
+    // Get URL from filters for consistent seeding
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+    const seed = this.hashString(targetUrl);
+
+    // Get time bucket parameter
+    const timeBucketField = select.find((s) => s.function === "TIME_BUCKET");
+    const bucketSize = timeBucketField?.param?.bucket || "1h";
+
+    // Generate time points
+    const startTime = dayjs(timeRange.start).utc();
+    const endTime = dayjs(timeRange.end).utc();
+    const timePoints = this.generateTimePoints(startTime, endTime, bucketSize);
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Base requests per bucket (total / number of buckets)
+    const baseTotalRequests = 15000 + (seed % 70000);
+    const requestsPerBucket = Math.round(baseTotalRequests / Math.max(1, timePoints.length));
+
+    // HTTP methods with weights matching the distribution response
+    const methodCategories = [
+      { method: "GET", weight: 0.52, variance: 0.2 },     // Most common
+      { method: "POST", weight: 0.26, variance: 0.25 },   // Second most common
+      { method: "PUT", weight: 0.09, variance: 0.3 },     // Updates
+      { method: "PATCH", weight: 0.065, variance: 0.3 },  // Partial updates
+      { method: "DELETE", weight: 0.034, variance: 0.35 },// Deletions
+      { method: "HEAD", weight: 0.01, variance: 0.4 },    // Health checks
+      { method: "OPTIONS", weight: 0.006, variance: 0.4 },// CORS preflight
+    ];
+
+    const rows: string[][] = [];
+
+    // Generate data for each time point and method combination
+    timePoints.forEach((timestamp) => {
+      // Add some time-based patterns
+      const hourOfDay = dayjs(timestamp).hour();
+      const trafficMultiplier = hourOfDay >= 9 && hourOfDay <= 21 ? 1.3 : 0.6;
+
+      // Weekend pattern (less traffic)
+      const dayOfWeek = dayjs(timestamp).day();
+      const weekendMultiplier = dayOfWeek === 0 || dayOfWeek === 6 ? 0.7 : 1.0;
+
+      methodCategories.forEach((category) => {
+        const row: string[] = [];
+
+        // Calculate base count from weight and per-bucket requests
+        const baseCount = requestsPerBucket * category.weight * trafficMultiplier * weekendMultiplier;
+        
+        // Add variance
+        const variance = category.variance;
+        const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+        let count = Math.round(baseCount * randomFactor);
+
+        // Ensure minimum count of 0
+        count = Math.max(0, count);
+
+        select.forEach((selectField) => {
+          const alias = selectField.alias;
+
+          switch (alias) {
+            case "t1":
+              row.push(timestamp);
+              break;
+            case "http_method":
+              row.push(category.method);
+              break;
+            case "request_count":
+              row.push(count.toString());
+              break;
+            default:
+              row.push(
+                this.generateValueForFunction(
+                  selectField.function,
+                  timestamp,
+                  requestBody.filters,
+                  undefined,
+                  selectField.param,
+                ),
+              );
+          }
+        });
+
+        rows.push(row);
+      });
+    });
+
+    return { fields, rows };
+  }
+
+  /**
    * Generate network issues by provider response
    * Used by NetworkIssuesByProvider component
    */
@@ -2171,10 +3759,10 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields
     const fields: string[] = select.map((s) => s.alias);
 
-    // Determine error type from SpanType filter
+    // Determine error type from PulseType filter
     const spanTypeFilter = filters?.find(
       (f) =>
-        f.field === "SpanType" &&
+        f.field === "PulseType" &&
         (f.operator === "EQ" || f.operator === "LIKE"),
     );
     const filterValues = spanTypeFilter?.value

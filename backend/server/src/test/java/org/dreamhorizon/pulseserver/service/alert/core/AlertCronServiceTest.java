@@ -403,7 +403,18 @@ class AlertCronServiceTest {
           "google-client-id",
           true,
           "jwt-secret",
-          "http://webhook.url"
+          "http://otel-collector.url",
+          "http://interaction-config.url",
+          "http://logs-collector.url",
+          "http://metric-collector.url",
+          "http://span-collector.url",
+          "config-bucket",
+          "config/details.json",
+          "cloudfront-distribution-id",
+          "/config/details.json",
+          "http://webhook.url",
+          "interaction/details.json",
+          "/interaction/details.json"
       );
 
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
@@ -412,7 +423,18 @@ class AlertCronServiceTest {
       assertEquals("google-client-id", config.getGoogleOAuthClientId());
       assertTrue(config.getGoogleOAuthEnabled());
       assertEquals("jwt-secret", config.getJwtSecret());
+      assertEquals("http://otel-collector.url", config.getOtelCollectorUrl());
+      assertEquals("http://interaction-config.url", config.getInteractionConfigUrl());
+      assertEquals("http://logs-collector.url", config.getLogsCollectorUrl());
+      assertEquals("http://metric-collector.url", config.getMetricCollectorUrl());
+      assertEquals("http://span-collector.url", config.getSpanCollectorUrl());
+      assertEquals("config-bucket", config.getS3BucketName());
+      assertEquals("config/details.json", config.getConfigDetailsS3BucketFilePath());
+      assertEquals("cloudfront-distribution-id", config.getCloudFrontDistributionId());
+      assertEquals("/config/details.json", config.getConfigDetailCloudFrontAssetPath());
       assertEquals("http://webhook.url", config.getWebhookUrl());
+      assertEquals("interaction/details.json", config.getInteractionDetailsS3BucketFilePath());
+      assertEquals("/interaction/details.json", config.getInteractionDetailCloudFrontAssetPath());
     }
 
     @Test
@@ -431,7 +453,18 @@ class AlertCronServiceTest {
       config.setGoogleOAuthClientId("new-client-id");
       config.setGoogleOAuthEnabled(false);
       config.setJwtSecret("new-jwt-secret");
+      config.setOtelCollectorUrl("http://new-otel.url");
+      config.setInteractionConfigUrl("http://new-interaction.url");
+      config.setLogsCollectorUrl("http://new-logs.url");
+      config.setMetricCollectorUrl("http://new-metric.url");
+      config.setSpanCollectorUrl("http://new-span.url");
+      config.setS3BucketName("new-bucket");
+      config.setConfigDetailsS3BucketFilePath("new/path.json");
+      config.setCloudFrontDistributionId("new-distribution-id");
+      config.setConfigDetailCloudFrontAssetPath("/new/path.json");
       config.setWebhookUrl("http://new-webhook.url");
+      config.setInteractionDetailsS3BucketFilePath("new/interaction-path.json");
+      config.setInteractionDetailCloudFrontAssetPath("/new/interaction-path.json");
 
       assertEquals("http://new-cron.url", config.getCronManagerBaseUrl());
       assertEquals("http://new-service.url", config.getServiceUrl());
@@ -439,7 +472,18 @@ class AlertCronServiceTest {
       assertEquals("new-client-id", config.getGoogleOAuthClientId());
       assertFalse(config.getGoogleOAuthEnabled());
       assertEquals("new-jwt-secret", config.getJwtSecret());
+      assertEquals("http://new-otel.url", config.getOtelCollectorUrl());
+      assertEquals("http://new-interaction.url", config.getInteractionConfigUrl());
+      assertEquals("http://new-logs.url", config.getLogsCollectorUrl());
+      assertEquals("http://new-metric.url", config.getMetricCollectorUrl());
+      assertEquals("http://new-span.url", config.getSpanCollectorUrl());
+      assertEquals("new-bucket", config.getS3BucketName());
+      assertEquals("new/path.json", config.getConfigDetailsS3BucketFilePath());
+      assertEquals("new-distribution-id", config.getCloudFrontDistributionId());
+      assertEquals("/new/path.json", config.getConfigDetailCloudFrontAssetPath());
       assertEquals("http://new-webhook.url", config.getWebhookUrl());
+      assertEquals("new/interaction-path.json", config.getInteractionDetailsS3BucketFilePath());
+      assertEquals("/new/interaction-path.json", config.getInteractionDetailCloudFrontAssetPath());
     }
 
     @Test
@@ -451,7 +495,18 @@ class AlertCronServiceTest {
           "google-client-id",
           true,
           "jwt-secret",
-          "http://webhook.url"
+          "http://otel-collector.url",
+          "http://interaction-config.url",
+          "http://logs-collector.url",
+          "http://metric-collector.url",
+          "http://span-collector.url",
+          "config-bucket",
+          "config/details.json",
+          "cloudfront-distribution-id",
+          "/config/details.json",
+          "http://webhook.url",
+          "interaction/details.json",
+          "/interaction/details.json"
       );
       String toString = config.toString();
 
@@ -462,13 +517,22 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForApplicationConfig() {
       ApplicationConfig config1 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "secret", "http://webhook.url"
+          "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
+          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config2 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "secret", "http://webhook.url"
+          "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
+          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config3 = new ApplicationConfig(
-          "http://different.url", "http://service.url", 30, "client-id", true, "secret", "http://webhook.url"
+          "http://different.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
+          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
 
       assertEquals(config1, config2);

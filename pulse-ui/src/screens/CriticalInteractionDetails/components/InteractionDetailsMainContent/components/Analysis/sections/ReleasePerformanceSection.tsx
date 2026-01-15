@@ -1,12 +1,10 @@
-import { Box, Text } from "@mantine/core";
+import { Box } from "@mantine/core";
 import ReleaseComparisonChart from "../components/ReleaseComparisonChart";
-import { LoaderWithMessage } from "../../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
+import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
 import {
   ANALYSIS_ERROR_MESSAGES,
-  ANALYSIS_LOADING_MESSAGES,
 } from "../Analysis.constants";
-import commonStyles from "../../../common.module.css";
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetReleasePerformance } from "../hooks/useGetReleasePerformance";
 
@@ -42,12 +40,7 @@ export const ReleasePerformanceSection: React.FC<AnalysisSectionProps> = ({
   }
 
   if (isLoading) {
-    return (
-      <LoaderWithMessage
-        className={commonStyles.centeredContainer}
-        loadingMessage={ANALYSIS_LOADING_MESSAGES.RELEASE_PERFORMANCE}
-      />
-    );
+    return <AnalysisSectionSkeleton chartCount={1} layout="vertical" chartHeight={350} />;
   }
 
   const hasData = releaseData && releaseData.length > 0;
@@ -64,20 +57,6 @@ export const ReleasePerformanceSection: React.FC<AnalysisSectionProps> = ({
 
   return (
     <Box mb="lg">
-      <Box mb="md">
-        <Text
-          size="sm"
-          fw={700}
-          c="#0ba09a"
-          mb={4}
-          style={{ fontSize: "16px", letterSpacing: "-0.3px" }}
-        >
-          Release Performance Analysis
-        </Text>
-        <Text size="xs" c="dimmed" style={{ fontSize: "12px" }}>
-          How did our last release impact performance?
-        </Text>
-      </Box>
       <ReleaseComparisonChart data={releaseData} />
     </Box>
   );
