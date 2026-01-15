@@ -250,7 +250,7 @@ public class AlertService {
   }
 
   public Single<Boolean> createAlertNotificationChannel(@NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {
-    return alertsDao.createNotificationChannel(notificationChannel.getName(), notificationChannel.getConfig());
+    return alertsDao.createNotificationChannel(notificationChannel.getName(), notificationChannel.getType(), notificationChannel.getConfig());
   }
 
   public Single<Boolean> createTag(@NotNull String tag) {

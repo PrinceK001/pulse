@@ -64,8 +64,12 @@ public class AlertDetailsResponseDto {
   Integer notificationChannelId;
 
   @NotNull
-  @JsonProperty("notification_webhook_url")
-  String notificationWebhookUrl;
+  @JsonProperty("notification_type")
+  String notificationType;
+
+  @NotNull
+  @JsonProperty("notification_config")
+  String notificationConfig;
 
   @NotNull
   @JsonProperty("created_by")

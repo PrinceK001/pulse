@@ -510,7 +510,8 @@ public class AlertsDao {
         .evaluationInterval(row.getInteger("evaluation_interval"))
         .severityId(row.getInteger("severity_id"))
         .notificationChannelId(row.getInteger("notification_channel_id"))
-        .notificationWebhookUrl(row.getString("notification_webhook_url"))
+        .notificationType(row.getString("notification_type"))
+        .notificationConfig(row.getString("notification_config"))
         .createdBy(row.getString("created_by"))
         .updatedBy(row.getString("updated_by"))
         .createdAt(Timestamp.valueOf(row.getLocalDateTime("alert_created_at")))
@@ -675,21 +676,60 @@ public class AlertsDao {
                   .notificationChannelId(row
                       .getInteger("notification_channel_id"))
                   .name(row.getString("name"))
-                  .notificationWebhookUrl(row.getString("notification_webhook_url"))
+                  .type(row.getString("type"))
+                  .config(row.getString("config"))
                   .build()));
 
           return notificationChannels;
         });
   }
 
-  public Single<Boolean> createNotificationChannel(@NotNull String name, @NotNull String config) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(name, config))
+  public Single<Boolean> createNotificationChannel(@NotNull String name, @NotNull String type, @NotNull String config) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(name, type, config))
         .onErrorResumeNext(error -> {
           log.error("Error while inserting alert notification channel in db: {}", error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
 
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> rowSet.rowCount() > 0);
+  }
+
+  public Single<NotificationChannelInfo> getNotificationChannelById(@NotNull Integer notificationChannelId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(notificationChannelId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching notification channel from db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        })
+        .map(rowSet -> {
+          if (rowSet.size() == 0) {
+            log.error("Notification channel not found: {}", notificationChannelId);
+            return null;
+          }
+          Row row = rowSet.iterator().next();
+          return new NotificationChannelInfo(
+              row.getString("type"),
+              row.getString("config")
+          );
+        });
+  }
+
+  public static class NotificationChannelInfo {
+    private final String type;
+    private final String config;
+
+    public NotificationChannelInfo(String type, String config) {
+      this.type = type;
+      this.config = config;
+    }
+
+    public String getType() {
+      return type;
+    }
+
+    public String getConfig() {
+      return config;
+    }
   }
 
   public Single<Boolean> createTagForAlert(@NotNull String tag) {

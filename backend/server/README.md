@@ -1882,7 +1882,14 @@ GET /v1/alert/notificationChannels
     {
       "notification_channel_id": 1,
       "name": "Incident management",
-      "notification_webhook_url": "http://whistlebot.local/declare-incident"
+      "type": "slack",
+      "config": "http://whistlebot.local/declare-incident"
+    },
+    {
+      "notification_channel_id": 2,
+      "name": "Team Email",
+      "type": "email",
+      "config": "team@example.com"
     }
   ],
   "error": null
@@ -1893,7 +1900,10 @@ GET /v1/alert/notificationChannels
 
 - `notification_channel_id`: Unique identifier for the notification channel
 - `name`: Name of the notification channel
-- `notification_webhook_url`: Webhook URL for sending notifications
+- `type`: Notification type (`slack` or `email`)
+- `config`: Configuration value (string, not JSON)
+  - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
+  - For `email`: Email address (e.g., `team@example.com`)
 
 ### Create Alert Notification Channel
 
@@ -1905,6 +1915,7 @@ Content-Type: application/json
 
 {
   "name": "PagerDuty",
+  "type": "slack",
   "config": "http://whistlebot.local/declare-incident"
 }
 ```
@@ -1912,7 +1923,10 @@ Content-Type: application/json
 **Request Body:**
 
 - `name` (required): Channel name
-- `config` (required): Notification webhook URL (stored as `notification_webhook_url` in the database)
+- `type` (required): Notification type (`slack` or `email`)
+- `config` (required): Configuration value (string)
+  - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
+  - For `email`: Email address (e.g., `recipient@example.com`)
 
 **Response:**
 
@@ -1923,6 +1937,13 @@ Content-Type: application/json
   "error": null
 }
 ```
+
+**Notes:**
+
+- When an alert is triggered during evaluation, the system automatically fetches the notification channel configuration from the database using the `notification_channel_id` associated with the alert
+- For `slack` type channels, the `config` field contains the webhook URL directly, and notifications are sent to that URL
+- For `email` type channels, the `config` field contains the email address directly (email sending implementation can be added later)
+- The notification channel details (type and config) are retrieved from the `notification_channels` table at the time of alert evaluation
 
 ## 🗄️ Database Schema
 
