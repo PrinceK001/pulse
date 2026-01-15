@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
@@ -47,7 +46,6 @@ import org.dreamhorizon.pulseserver.util.RxObjectMapper;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AlertEvaluationService {
   private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-  private final ApplicationConfig applicationConfig;
   private final AlertsDao alertsDao;
   private final ClickhouseMetricService clickhouseMetricService;
   private final MetricOperatorFactory metricOperatorFactory;
@@ -964,7 +962,19 @@ public class AlertEvaluationService {
     }
 
     String message = buildNotificationMessage(responseDto, scopeName, metricReading);
-    sendNotification(message);
+    Integer notificationChannelId = responseDto.getAlert().getNotificationChannelId();
+    
+    alertsDao.getNotificationChannelById(notificationChannelId)
+        .subscribe(
+            channelInfo -> {
+              if (channelInfo != null) {
+                sendNotification(message, channelInfo.getType(), channelInfo.getConfig());
+              } else {
+                log.error("Notification channel not found for channel ID: {}", notificationChannelId);
+              }
+            },
+            error -> log.error("Failed to fetch notification channel: {}", error.getMessage(), error)
+        );
   }
 
   private boolean shouldCreateIncident(AlertState alertState, AlertEvaluationResponseDto responseDto, AlertState currentScopeState) {
@@ -1053,20 +1063,35 @@ public class AlertEvaluationService {
     return message.toString();
   }
 
-  private void sendNotification(String message) {
-    JsonObject payload = new JsonObject().put("text", message);
-    WebClient.create(vertx)
-        .postAbs(applicationConfig.getWebhookUrl())
-        .putHeader("Content-Type", "application/json")
-        .rxSendJsonObject(payload)
-        .doOnError(error -> log.error("Failed to send notification", error))
-        .subscribe(response -> {
-          if (response.statusCode() >= 200 && response.statusCode() < 300) {
-            log.info("Notification sent successfully");
-          } else {
-            log.error("Notification failed with status: {}", response.statusCode());
-          }
-        }, error -> log.error("Notification sending error", error));
+  private void sendNotification(String message, String type, String config) {
+    if (config == null || config.isEmpty()) {
+      log.error("Notification config is empty for type: {}", type);
+      return;
+    }
+    
+    if ("slack".equalsIgnoreCase(type)) {
+      JsonObject payload = new JsonObject().put("text", message);
+      WebClient.create(vertx)
+          .postAbs(config)
+          .putHeader("Content-Type", "application/json")
+          .rxSendJsonObject(payload)
+          .doOnError(error -> log.error("Failed to send Slack notification", error))
+          .subscribe(response -> {
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+              log.info("Slack notification sent successfully");
+            } else {
+              log.error("Slack notification failed with status: {}", response.statusCode());
+            }
+          }, error -> log.error("Slack notification sending error", error));
+          
+    } else if ("email".equalsIgnoreCase(type)) {
+      // TODO: Implement email sending logic
+      // For now, log the email notification
+      log.info("Email notification would be sent to {} with message: {}", config, message);
+      
+    } else {
+      log.error("Unsupported notification type: {}", type);
+    }
   }
 
   private void updateEvaluationHistoryEventBusConsumer() {
