@@ -6,14 +6,17 @@ package com.pulse.android.sdk
 import android.app.Application
 import android.content.Context
 import androidx.core.content.edit
+import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
 import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseSdkConfig
+import com.pulse.sampling.models.PulseSdkName
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseUserAttributes
+import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.OpenTelemetryRumInitializer
@@ -40,6 +43,7 @@ import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
 import io.opentelemetry.sdk.metrics.export.MetricExporter
+import io.opentelemetry.sdk.resources.ResourceBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import io.opentelemetry.semconv.ExceptionAttributes
@@ -68,6 +72,7 @@ internal class PulseSDKImpl :
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
+        resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
@@ -96,11 +101,27 @@ internal class PulseSDKImpl :
             apiCache.mkdirs()
             val newConfig =
                 PulseSdkConfigRestProvider(apiCache) {
-                    "${endpointBaseUrl.replace(":4318", ":8080")}/v1/configs/active/"
+                    "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
                 }.provide() ?: return@launch
             sharedPrefs.edit(commit = true) {
                 putString(PrefsName.PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
             }
+        }
+
+        // Build resource once to determine currentSdkName for PulseSamplingSignalProcessors
+        val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
+        resourceBuilder.put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
+        resource?.invoke(resourceBuilder)
+        val builtResource = resourceBuilder.build()
+        val currentSdkName =
+            PulseSdkName.fromName(
+                builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY),
+            )
+
+        // Set default telemetry.sdk.name for Android Java SDK
+        val androidJavaResource: (ResourceBuilder.() -> Unit) = {
+            put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
+            resource?.invoke(this)
         }
 
         pulseSamplingProcessors =
@@ -108,6 +129,7 @@ internal class PulseSDKImpl :
                 PulseSamplingSignalProcessors(
                     context = application,
                     sdkConfig = currentSdkConfig,
+                    currentSdkName = currentSdkName,
                 )
             }
         pulseSpanProcessor = PulseSdkSignalProcessors()
@@ -135,15 +157,15 @@ internal class PulseSDKImpl :
 
         val finalSpanEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forTraces(it.signals.spanCollectorUrl)
+                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.spanCollectorUrl), headers = emptyMap())
             } ?: spanEndpointConnectivity
         val finalLogEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forLogs(it.signals.logsCollectorUrl)
+                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.logsCollectorUrl), headers = emptyMap())
             } ?: logEndpointConnectivity
         val finalMetricEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forMetrics(it.signals.metricCollectorUrl)
+                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.metricCollectorUrl), headers = emptyMap())
             } ?: metricEndpointConnectivity
 
         val otlpSpanExporter: SpanExporter =
@@ -180,41 +202,77 @@ internal class PulseSDKImpl :
         val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
 
         instrumentations?.let { configure ->
-            InstrumentationConfiguration(config).configure()
+            val instrumentationConfig = InstrumentationConfiguration(config)
+            instrumentationConfig.configure()
+            if (currentSdkConfig != null) {
+                instrumentationConfig.interaction { setConfigUrl { PulseOtelUtils.endWithSlash(currentSdkConfig.interaction.configUrl) } }
+            }
             pulseSamplingProcessors?.run {
-                getDisabledFeatures().forEach {
-                    when (it) {
-                        PulseFeatureName.JAVA_CRASH -> {
-                            config.suppressInstrumentation("crash")
-                        }
+                val enabledFeatures = getEnabledFeatures()
+                enumValues<PulseFeatureName>().forEach { feature ->
+                    if (feature !in enabledFeatures) {
+                        when (feature) {
+                            PulseFeatureName.JAVA_CRASH -> {
+                                config.suppressInstrumentation("crash")
+                            }
 
-                        PulseFeatureName.NETWORK_CHANGE -> {
-                            config.disableNetworkAttributes()
-                        }
+                            PulseFeatureName.JS_CRASH -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.JAVA_ANR -> {
-                            config.suppressInstrumentation("anr")
-                        }
+                            PulseFeatureName.NETWORK_CHANGE -> {
+                                config.disableNetworkAttributes()
+                            }
 
-                        PulseFeatureName.INTERACTION -> {
-                            config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                        }
+                            PulseFeatureName.JAVA_ANR -> {
+                                config.suppressInstrumentation("anr")
+                            }
 
-                        PulseFeatureName.CPP_CRASH -> {
-                            // no-op
-                        }
+                            PulseFeatureName.INTERACTION -> {
+                                config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                            }
 
-                        PulseFeatureName.CPP_ANR -> {
-                            // no-op
-                        }
+                            PulseFeatureName.RN_NAVIGATION -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.UNKNOWN -> {
-                            // no-op
+                            PulseFeatureName.CPP_CRASH -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.CPP_ANR -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.NETWORK_INSTRUMENTATION -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.SCREEN_SESSION -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.CUSTOM_EVENTS -> {
+                                isCustomEventEnabled = false
+                            }
+
+                            PulseFeatureName.RN_SCREEN_LOAD -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.RN_SCREEN_INTERACTIVE -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.UNKNOWN -> {
+                                // no-op
+                            }
                         }
                     }
                 }
             }
         }
+
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
@@ -247,6 +305,7 @@ internal class PulseSDKImpl :
                         }
                         attributesBuilder.build()
                     },
+                resource = androidJavaResource,
                 diskBuffering = diskBuffering,
                 rumConfig = config,
                 tracerProviderCustomizer = mergedTracerProviderCustomizer,
@@ -362,19 +421,21 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        logger
-            .logRecordBuilder()
-            .apply {
-                setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
-                setBody(name)
-                setEventName(CUSTOM_EVENT_NAME)
-                setAttribute(
-                    PulseAttributes.PULSE_TYPE,
-                    PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
-                )
-                setAllAttributes(params.toAttributes())
-                emit()
-            }
+        if (isCustomEventEnabled) {
+            logger
+                .logRecordBuilder()
+                .apply {
+                    setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                    setBody(name)
+                    setEventName(CUSTOM_EVENT_NAME)
+                    setAttribute(
+                        PulseAttributes.PULSE_TYPE,
+                        PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
+                    )
+                    setAllAttributes(params.toAttributes())
+                    emit()
+                }
+        }
     }
 
     override fun trackNonFatal(
@@ -488,6 +549,7 @@ internal class PulseSDKImpl :
 
     private lateinit var pulseSpanProcessor: PulseSdkSignalProcessors
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
+    private var isCustomEventEnabled = true
     private var otelInstance: OpenTelemetryRum? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()

@@ -68,32 +68,25 @@ android {
   }
 }
 
+kotlin {
+  explicitApi()
+}
+
 repositories {
   mavenCentral()
   google()
 }
 
-def kotlin_version = getExtOrDefault("kotlinVersion")
 def pulse_version = "0.0.2-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
-  implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
 
   api("org.dreamhorizon:pulse-android-sdk:$pulse_version") {
     exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
   }
   implementation("org.dreamhorizon:pulse-semconv:$pulse_version")
+  implementation("org.dreamhorizon:pulse-sampling-models:$pulse_version")
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
   implementation("io.opentelemetry:opentelemetry-sdk")
-}
-
-configurations.all {
-  resolutionStrategy {
-    eachDependency {
-      if (requested.group == "com.squareup.okhttp3" && requested.name == "okhttp-jvm") {
-        useTarget("com.squareup.okhttp3:okhttp:${requested.version}")
-        because("Resolving okhttp-jvm to okhttp for Android compatibility")
-      }
-    }
-  }
+  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
 }

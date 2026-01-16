@@ -33,6 +33,7 @@ import kotlin.experimental.ExperimentalTypeInference
 public class PulseSamplingSignalProcessors internal constructor(
     private val context: Context,
     private val sdkConfig: PulseSdkConfig,
+    private val currentSdkName: PulseSdkName,
     private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher(),
     private val sessionParser: PulseSessionParser = PulseSessionConfigParser(),
     private val randomIdGenerator: Random = SecureRandom(),
@@ -41,16 +42,16 @@ public class PulseSamplingSignalProcessors internal constructor(
         sdkConfig
             .signals
             .attributesToDrop
-            .filter { it.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.sdks }
+            .filter { it.scopes.contains(scope) && currentSdkName in it.sdks }
 
     private fun getAddedAttributesConfig(scope: PulseSignalScope): List<PulseAttributesToAddEntry> =
         sdkConfig
             .signals
             .attributesToAdd
-            .filter { it.condition.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.condition.sdks }
+            .filter { it.condition.scopes.contains(scope) && currentSdkName in it.condition.sdks }
 
     private val shouldSampleThisSession by lazy {
-        val samplingRate = sessionParser.parses(context, sdkConfig.sampling)
+        val samplingRate = sessionParser.parses(context, sdkConfig.sampling, currentSdkName)
         val localRandomValue = randomIdGenerator.nextFloat()
         localRandomValue <= samplingRate
     }
@@ -67,7 +68,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         }
 
         override fun export(spans: Collection<SpanData>): CompletableResultCode =
-            sampleSession {
+            sampleSpansInSession(spans) {
                 val filteredSpans =
                     spans
                         .asSequence()
@@ -123,6 +124,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                         name,
                         propsMap,
                         matchCondition,
+                        currentSdkName,
                     )
                 }
 
@@ -143,7 +145,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         }
 
         override fun export(logs: Collection<LogRecordData>): CompletableResultCode =
-            sampleSession {
+            sampleLogsInSession(logs) {
                 val filteredLogs =
                     logs
                         .asSequence()
@@ -207,6 +209,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                         name,
                         propsMap,
                         matchCondition,
+                        currentSdkName,
                     )
                 }
 
@@ -232,7 +235,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         private val delegateExporter: MetricExporter,
     ) : MetricExporter by delegateExporter {
         override fun export(metrics: Collection<MetricData>): CompletableResultCode =
-            sampleSession {
+            sampleMetricsInSession(metrics) {
                 val filteredLogs =
                     metrics
                         .asSequence()
@@ -252,6 +255,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                     name,
                     emptyMap(),
                     matchCondition,
+                    currentSdkName,
                 )
             }
 
@@ -270,10 +274,10 @@ public class PulseSamplingSignalProcessors internal constructor(
         ): DefaultAggregationSelector? = delegateExporter.with(instrumentType, aggregation)
     }
 
-    public fun getDisabledFeatures(): List<PulseFeatureName> =
+    public fun getEnabledFeatures(): List<PulseFeatureName> =
         sdkConfig
             .features
-            .filter { PulseSdkName.CURRENT_SDK_NAME in it.sdks && it.sessionSampleRate == 0F }
+            .filter { currentSdkName in it.sdks && it.sessionSampleRate == 1F }
             .map { it.featureName }
 
     private inline fun <E> List<E>.anyOrNone(
@@ -358,6 +362,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                     signalName,
                     spanAttributes,
                     entry.condition,
+                    currentSdkName,
                 )
             }
 
@@ -426,22 +431,76 @@ public class PulseSamplingSignalProcessors internal constructor(
 
     private fun parseDoubleArray(value: String): List<Double> = value.split(",").mapNotNull { it.trim().toDoubleOrNull() }
 
-    private inline fun sampleSession(block: () -> CompletableResultCode): CompletableResultCode =
-        if (shouldSampleThisSession) {
-            block()
+    private inline fun sampleLogsInSession(
+        signals: Collection<LogRecordData>,
+        block: (Collection<LogRecordData>) -> CompletableResultCode,
+    ): CompletableResultCode = sampleSession(PulseSignalScope.LOGS, signals, LogRecordData::toSignalValues, block)
+
+    private inline fun sampleSpansInSession(
+        signals: Collection<SpanData>,
+        block: (Collection<SpanData>) -> CompletableResultCode,
+    ): CompletableResultCode = sampleSession(PulseSignalScope.TRACES, signals, SpanData::toSignalValues, block)
+
+    private inline fun sampleMetricsInSession(
+        signals: Collection<MetricData>,
+        block: (Collection<MetricData>) -> CompletableResultCode,
+    ): CompletableResultCode = sampleSession(PulseSignalScope.METRICS, signals, MetricData::toSignalValues, block)
+
+    private inline fun <M> sampleSession(
+        scope: PulseSignalScope,
+        signals: Collection<M>,
+        signalValuesProvider: M.() -> SignalMatchValues,
+        block: (Collection<M>) -> CompletableResultCode,
+    ): CompletableResultCode {
+        val sampledSignals =
+            if (shouldSampleThisSession) {
+                signals
+            } else {
+                sdkConfig.sampling.criticalEventPolicies
+                    ?.run {
+                        signals.filter { signal ->
+                            val (name, props) = signal.signalValuesProvider()
+                            alwaysSend.any { matchCondition ->
+                                signalMatcher.matches(
+                                    scope,
+                                    name,
+                                    props,
+                                    matchCondition,
+                                    currentSdkName,
+                                )
+                            }
+                        }
+                    }.orEmpty()
+            }
+        return if (sampledSignals.isNotEmpty()) {
+            block(sampledSignals)
         } else {
             CompletableResultCode.ofSuccess()
         }
+    }
 }
 
 public fun PulseSamplingSignalProcessors(
     context: Context,
     sdkConfig: PulseSdkConfig,
+    currentSdkName: PulseSdkName,
 ): PulseSamplingSignalProcessors =
     PulseSamplingSignalProcessors(
         context,
         sdkConfig,
+        currentSdkName,
         PulseSignalsAttrMatcher(),
         PulseSessionConfigParser(),
         SecureRandom(),
     )
+
+private data class SignalMatchValues(
+    val name: String,
+    val props: Map<String, Any?>,
+)
+
+private fun LogRecordData.toSignalValues() = SignalMatchValues(bodyValue?.asString().orEmpty(), attributes.toMap())
+
+private fun SpanData.toSignalValues() = SignalMatchValues(name.orEmpty(), attributes.toMap())
+
+private fun MetricData.toSignalValues() = SignalMatchValues(this.name, emptyMap())

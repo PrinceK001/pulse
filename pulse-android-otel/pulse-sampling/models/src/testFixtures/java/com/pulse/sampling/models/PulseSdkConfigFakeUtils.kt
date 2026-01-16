@@ -16,18 +16,19 @@ public object PulseSdkConfigFakeUtils {
         signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
         attributesToDrop: List<PulseSignalMatchCondition> = emptyList(),
         attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+        sampling: PulseSamplingConfig =
+            PulseSamplingConfig(
+                default =
+                    PulseDefaultSamplingConfig(
+                        sessionSampleRate = sessionSampleRate,
+                    ),
+                rules = emptyList(),
+            ),
     ): PulseSdkConfig =
         PulseSdkConfig(
             version = version,
             description = "This is test description",
-            sampling =
-                PulseSamplingConfig(
-                    default =
-                        PulseDefaultSamplingConfig(
-                            sessionSampleRate = sessionSampleRate,
-                        ),
-                    rules = emptyList(),
-                ),
+            sampling = sampling,
             signals =
                 PulseSignalConfig(
                     scheduleDurationMs = scheduleDurationMs,
@@ -72,7 +73,7 @@ public object PulseSdkConfigFakeUtils {
     public fun createFakeSessionSamplingRule(
         name: PulseDeviceAttributeName = PulseDeviceAttributeName.OS_VERSION,
         value: String = ".*",
-        sdks: Set<PulseSdkName> = setOf(PulseSdkName.CURRENT_SDK_NAME),
+        sdks: Set<PulseSdkName> = setOf(PulseSdkName.ANDROID_JAVA),
         sessionSampleRate: SamplingRate = 1.0f,
     ): PulseSessionSamplingRule =
         PulseSessionSamplingRule(
@@ -86,7 +87,7 @@ public object PulseSdkConfigFakeUtils {
         name: String = ".*",
         props: Set<PulseProp> = emptySet(),
         scopes: Set<PulseSignalScope> = setOf(PulseSignalScope.TRACES, PulseSignalScope.LOGS),
-        sdks: Set<PulseSdkName> = setOf(PulseSdkName.CURRENT_SDK_NAME),
+        sdks: Set<PulseSdkName> = setOf(PulseSdkName.ANDROID_JAVA),
     ): PulseSignalMatchCondition =
         PulseSignalMatchCondition(
             name = name,
@@ -122,5 +123,12 @@ public object PulseSdkConfigFakeUtils {
         PulseAttributesToAddEntry(
             values = values,
             condition = matcher,
+        )
+
+    public fun createFakeCriticalEventPolicies(
+        alwaysSend: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
+    ): PulseCriticalEventPolicies =
+        PulseCriticalEventPolicies(
+            alwaysSend = alwaysSend,
         )
 }
