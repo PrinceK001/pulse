@@ -637,6 +637,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/alert/notificationChannels`,
     method: API_METHODS.DELETE,
   },
+  GET_NOTIFICATION_CHANNEL_BY_ID: {
+    key: "GET_NOTIFICATION_CHANNEL_BY_ID",
+    apiPath: `/v1/alert/notificationChannels/{notificationChannelId}`,
+    method: API_METHODS.GET,
+  },
   // SDK Configuration API Routes
   GET_ALL_SDK_CONFIGS: {
     key: "GET_ALL_SDK_CONFIGS",

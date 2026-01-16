@@ -8,6 +8,7 @@ export type AlertNotificationChannelItem = {
   name: string;
   type: NotificationChannelType;
   config: string; // webhook URL for slack, email address for email
+  is_active: boolean;
 };
 
 export type GetAlertNotificationChannelsResponse = AlertNotificationChannelItem[];

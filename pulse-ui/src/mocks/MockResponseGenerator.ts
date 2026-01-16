@@ -1328,10 +1328,30 @@ export class MockResponseGenerator {
       return { data: metricsData, status: 200 };
     }
 
+    // GET /v1/alert/notificationChannels/:id - Returns a single notification channel by ID
+    // @see backend GetAlertNotificationChannelById.java
+    // NOTE: This must come BEFORE the general GET to avoid being caught by the more general route
+    const channelByIdMatch = pathname.match(/\/alert\/notificationChannels\/(\d+)$/);
+    if (channelByIdMatch && method === "GET") {
+      const channelId = parseInt(channelByIdMatch[1]);
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET_NOTIFICATION_CHANNEL_BY_ID - ID:", channelId);
+      }
+      const channel = mockNotificationChannels.find(
+        (c) => c.notification_channel_id === channelId
+      );
+      if (channel) {
+        return { data: channel, status: 200 };
+      }
+      return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Notification channel not found", cause: "" } };
+    }
+
     // GET /v1/alert/notificationChannels - Returns notification channels
     // @see backend AlertNotificationChannelResponseDto.java
     if (pathname.includes("/alert/notificationChannels") && method === "GET") {
-      return { data: mockNotificationChannels, status: 200 };
+      // Filter to only return active channels for the list endpoint
+      const activeChannels = mockNotificationChannels.filter((c) => c.is_active);
+      return { data: activeChannels, status: 200 };
     }
 
     // POST /v1/alert/notificationChannels - Create notification channel
@@ -1347,6 +1367,7 @@ export class MockResponseGenerator {
         name: body.name,
         type: body.type,
         config: body.config,
+        is_active: true,
       };
       mockNotificationChannels.push(newChannel);
       return { data: true, status: 200 };
