@@ -154,7 +154,8 @@ class AlertsDaoTest {
     when(mockRow.getInteger("evaluation_interval")).thenReturn(60);
     when(mockRow.getInteger("severity_id")).thenReturn(1);
     when(mockRow.getInteger("notification_channel_id")).thenReturn(1);
-    when(mockRow.getString("notification_webhook_url")).thenReturn("https://webhook.url");
+    when(mockRow.getString("notification_type")).thenReturn("slack");
+    when(mockRow.getString("notification_config")).thenReturn("https://webhook.url");
     when(mockRow.getString("created_by")).thenReturn("user1");
     when(mockRow.getString("updated_by")).thenReturn("user2");
     when(mockRow.getLocalDateTime("alert_created_at")).thenReturn(now);
@@ -616,7 +617,8 @@ class AlertsDaoTest {
       Row channelRow = mock(Row.class);
       when(channelRow.getInteger("notification_channel_id")).thenReturn(1);
       when(channelRow.getString("name")).thenReturn("Slack");
-      when(channelRow.getString("notification_webhook_url")).thenReturn("https://slack.webhook");
+      when(channelRow.getString("type")).thenReturn("slack");
+      when(channelRow.getString("config")).thenReturn("https://slack.webhook");
 
       // Use helper method to properly mock RowSet with forEach support
       setupRowSetMock(rowSet, Arrays.asList(channelRow));
@@ -662,7 +664,7 @@ class AlertsDaoTest {
       when(rowSet.rowCount()).thenReturn(1);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      Boolean result = alertsDao.createNotificationChannel("Slack", "https://webhook").blockingGet();
+      Boolean result = alertsDao.createNotificationChannel("Slack", "slack", "https://webhook").blockingGet();
       assertTrue(result);
     }
 
@@ -672,7 +674,7 @@ class AlertsDaoTest {
       when(rowSet.rowCount()).thenReturn(0);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      Boolean result = alertsDao.createNotificationChannel("Slack", "https://webhook").blockingGet();
+      Boolean result = alertsDao.createNotificationChannel("Slack", "slack", "https://webhook").blockingGet();
       assertFalse(result);
     }
 
@@ -683,7 +685,7 @@ class AlertsDaoTest {
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> alertsDao.createNotificationChannel("Slack", "https://webhook").blockingGet());
+          () -> alertsDao.createNotificationChannel("Slack", "slack", "https://webhook").blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
     }
   }

@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
@@ -54,9 +53,6 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AlertEvaluationServiceTest {
-
-  @Mock
-  private ApplicationConfig applicationConfig;
 
   @Mock
   private AlertsDao alertsDao;
@@ -91,7 +87,6 @@ class AlertEvaluationServiceTest {
     // Create service with real ObjectMapper to allow actual JSON parsing
     // Pass null for rxObjectMapper since we're testing private methods that don't use it
     alertEvaluationService = new AlertEvaluationService(
-        applicationConfig,
         alertsDao,
         clickhouseMetricService,
         metricOperatorFactory,
@@ -1964,15 +1959,13 @@ class AlertEvaluationServiceTest {
 
     @Test
     void shouldAttemptToSendNotification() throws Exception {
-      Method method = AlertEvaluationService.class.getDeclaredMethod("sendNotification", String.class);
+      Method method = AlertEvaluationService.class.getDeclaredMethod("sendNotification", String.class, String.class, String.class);
       method.setAccessible(true);
-
-      when(applicationConfig.getWebhookUrl()).thenReturn("http://localhost:8080/webhook");
 
       // This will fail because WebClient.create(vertx) will fail with mocked Vertx
       // but the test ensures the method is called
       try {
-        method.invoke(alertEvaluationService, "Test message");
+        method.invoke(alertEvaluationService, "Test message", "slack", "http://localhost:8080/webhook");
       } catch (Exception e) {
         // Expected due to WebClient mocking issues
       }
