@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.core.Vertx;
@@ -967,13 +968,14 @@ public class AlertEvaluationService {
     alertsDao.getNotificationChannelById(notificationChannelId)
         .subscribe(
             channelInfo -> {
-              if (channelInfo != null) {
+              if (channelInfo != null && Boolean.TRUE.equals(channelInfo.getIsActive())) {
                 sendNotification(message, channelInfo.getType(), channelInfo.getConfig());
               } else {
-                log.error("Notification channel not found for channel ID: {}", notificationChannelId);
+                log.error("Notification channel not found or inactive for channel ID: {}", notificationChannelId);
               }
             },
-            error -> log.error("Failed to fetch notification channel: {}", error.getMessage(), error)
+            error -> log.error("Failed to fetch notification channel: {}", error.getMessage(), error),
+            () -> log.error("Notification channel not found for channel ID: {}", notificationChannelId)
         );
   }
 

@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.dao;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -619,6 +620,7 @@ class AlertsDaoTest {
       when(channelRow.getString("name")).thenReturn("Slack");
       when(channelRow.getString("type")).thenReturn("slack");
       when(channelRow.getString("config")).thenReturn("https://slack.webhook");
+      when(channelRow.getBoolean("is_active")).thenReturn(true);
 
       // Use helper method to properly mock RowSet with forEach support
       setupRowSetMock(rowSet, Arrays.asList(channelRow));
@@ -629,6 +631,7 @@ class AlertsDaoTest {
       assertNotNull(result);
       assertEquals(1, result.size());
       assertEquals("Slack", result.get(0).getName());
+      assertTrue(result.get(0).getIsActive());
     }
 
     @Test
@@ -687,6 +690,110 @@ class AlertsDaoTest {
       Exception ex = assertThrows(RuntimeException.class,
           () -> alertsDao.createNotificationChannel("Slack", "slack", "https://webhook").blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
+    }
+  }
+
+  @Nested
+  class TestUpdateNotificationChannel {
+
+    @Test
+    void shouldUpdateChannelSuccessfully() {
+      setupPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(1);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = alertsDao.updateNotificationChannel(1, "Updated Slack", "slack", "https://new.webhook").blockingGet();
+      assertTrue(result);
+    }
+
+    @Test
+    void shouldReturnFalseWhenNoRowsUpdated() {
+      setupPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = alertsDao.updateNotificationChannel(1, "Updated Slack", "slack", "https://new.webhook").blockingGet();
+      assertFalse(result);
+    }
+
+    @Test
+    void shouldThrowExceptionOnDatabaseError() {
+      setupPreparedQuery();
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> alertsDao.updateNotificationChannel(1, "Updated Slack", "slack", "https://new.webhook").blockingGet());
+      assertTrue(ex.getMessage().contains("DB Error"));
+    }
+  }
+
+  @Nested
+  class TestDeleteNotificationChannel {
+
+    @Test
+    void shouldDeleteChannelSuccessfully() {
+      setupPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(1);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = alertsDao.deleteNotificationChannel(1).blockingGet();
+      assertTrue(result);
+    }
+
+    @Test
+    void shouldReturnFalseWhenNoRowsDeleted() {
+      setupPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = alertsDao.deleteNotificationChannel(1).blockingGet();
+      assertFalse(result);
+    }
+
+    @Test
+    void shouldThrowExceptionOnDatabaseError() {
+      setupPreparedQuery();
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> alertsDao.deleteNotificationChannel(1).blockingGet());
+      assertTrue(ex.getMessage().contains("DB Error"));
+    }
+  }
+
+  @Nested
+  class TestGetNotificationChannelById {
+
+    @Test
+    void shouldGetChannelInfoSuccessfully() {
+      setupPreparedQuery();
+      Row channelRow = mock(Row.class);
+      when(channelRow.getString("type")).thenReturn("slack");
+      when(channelRow.getString("config")).thenReturn("https://webhook.url");
+      when(channelRow.getBoolean("is_active")).thenReturn(true);
+
+      setupRowSetMock(rowSet, Arrays.asList(channelRow));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      AlertsDao.NotificationChannelInfo result = alertsDao.getNotificationChannelById(1).blockingGet();
+
+      assertNotNull(result);
+      assertEquals("slack", result.getType());
+      assertEquals("https://webhook.url", result.getConfig());
+      assertTrue(result.getIsActive());
+    }
+
+    @Test
+    void shouldReturnEmptyWhenChannelNotFound() {
+      setupPreparedQuery();
+      when(rowSet.size()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      AlertsDao.NotificationChannelInfo result = alertsDao.getNotificationChannelById(999).blockingGet();
+
+      assertNull(result);
     }
   }
 

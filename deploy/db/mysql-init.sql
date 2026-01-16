@@ -51,7 +51,8 @@ CREATE TABLE notification_channels
     notification_channel_id INT PRIMARY KEY AUTO_INCREMENT,
     name                    VARCHAR(100) NOT NULL,
     type                    ENUM('slack', 'email') NOT NULL,
-    config                  VARCHAR(500) NOT NULL
+    config                  VARCHAR(500) NOT NULL,
+    is_active               BOOLEAN DEFAULT TRUE NOT NULL
 );
 
 

@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.dao;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -678,6 +679,7 @@ public class AlertsDao {
                   .name(row.getString("name"))
                   .type(row.getString("type"))
                   .config(row.getString("config"))
+                  .isActive(row.getBoolean("is_active"))
                   .build()));
 
           return notificationChannels;
@@ -694,33 +696,56 @@ public class AlertsDao {
         }).map(rowSet -> rowSet.rowCount() > 0);
   }
 
-  public Single<NotificationChannelInfo> getNotificationChannelById(@NotNull Integer notificationChannelId) {
+  public Maybe<NotificationChannelInfo> getNotificationChannelById(@NotNull Integer notificationChannelId) {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(notificationChannelId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching notification channel from db: {}", error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
-        .map(rowSet -> {
+        .flatMapMaybe(rowSet -> {
           if (rowSet.size() == 0) {
             log.error("Notification channel not found: {}", notificationChannelId);
-            return null;
+            return Maybe.empty();
           }
           Row row = rowSet.iterator().next();
-          return new NotificationChannelInfo(
+          return Maybe.just(new NotificationChannelInfo(
               row.getString("type"),
-              row.getString("config")
-          );
+              row.getString("config"),
+              row.getBoolean("is_active")
+          ));
         });
+  }
+
+  public Single<Boolean> updateNotificationChannel(@NotNull Integer notificationChannelId, @NotNull String name, @NotNull String type, @NotNull String config) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.UPDATE_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(name, type, config, notificationChannelId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while updating notification channel in db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        })
+        .map(rowSet -> rowSet.rowCount() > 0);
+  }
+
+  public Single<Boolean> deleteNotificationChannel(@NotNull Integer notificationChannelId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(notificationChannelId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while deleting notification channel in db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        })
+        .map(rowSet -> rowSet.rowCount() > 0);
   }
 
   public static class NotificationChannelInfo {
     private final String type;
     private final String config;
+    private final Boolean isActive;
 
-    public NotificationChannelInfo(String type, String config) {
+    public NotificationChannelInfo(String type, String config, Boolean isActive) {
       this.type = type;
       this.config = config;
+      this.isActive = isActive;
     }
 
     public String getType() {
@@ -729,6 +754,10 @@ public class AlertsDao {
 
     public String getConfig() {
       return config;
+    }
+
+    public Boolean getIsActive() {
+      return isActive;
     }
   }
 

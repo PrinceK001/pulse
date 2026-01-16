@@ -407,12 +407,13 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      AlertNotificationChannelResponseDto dto = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "http://slack.webhook");
+      AlertNotificationChannelResponseDto dto = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "http://slack.webhook", true);
 
       assertEquals(1, dto.getNotificationChannelId());
       assertEquals("Slack", dto.getName());
       assertEquals("slack", dto.getType());
       assertEquals("http://slack.webhook", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
@@ -422,12 +423,14 @@ class AlertModelsTest {
           .name("Email")
           .type("email")
           .config("team@example.com")
+          .isActive(true)
           .build();
 
       assertEquals(2, dto.getNotificationChannelId());
       assertEquals("Email", dto.getName());
       assertEquals("email", dto.getType());
       assertEquals("team@example.com", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
@@ -438,17 +441,19 @@ class AlertModelsTest {
       dto.setName("PagerDuty");
       dto.setType("slack");
       dto.setConfig("http://pagerduty.webhook");
+      dto.setIsActive(true);
 
       assertEquals(3, dto.getNotificationChannelId());
       assertEquals("PagerDuty", dto.getName());
       assertEquals("slack", dto.getType());
       assertEquals("http://pagerduty.webhook", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      AlertNotificationChannelResponseDto dto1 = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "url");
-      AlertNotificationChannelResponseDto dto2 = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "url");
+      AlertNotificationChannelResponseDto dto1 = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "url", true);
+      AlertNotificationChannelResponseDto dto2 = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "url", true);
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());

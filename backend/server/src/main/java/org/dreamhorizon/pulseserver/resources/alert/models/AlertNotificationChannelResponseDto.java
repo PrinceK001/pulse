@@ -27,4 +27,8 @@ public class AlertNotificationChannelResponseDto {
   @NotNull
   @JsonProperty("config")
   String config;
+
+  @NotNull
+  @JsonProperty("is_active")
+  Boolean isActive;
 }

@@ -190,6 +190,26 @@ class AlertControllersV1Test {
   }
 
   @Nested
+  class TestUpdateAlertNotificationChannelController {
+
+    @Test
+    void shouldInitializeController() {
+      UpdateAlertNotificationChannel controller = new UpdateAlertNotificationChannel(alertService);
+      assertNotNull(controller);
+    }
+  }
+
+  @Nested
+  class TestDeleteAlertNotificationChannelController {
+
+    @Test
+    void shouldInitializeController() {
+      DeleteAlertNotificationChannel controller = new DeleteAlertNotificationChannel(alertService);
+      assertNotNull(controller);
+    }
+  }
+
+  @Nested
   class TestCreateTagController {
 
     @Test

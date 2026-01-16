@@ -253,6 +253,14 @@ public class AlertService {
     return alertsDao.createNotificationChannel(notificationChannel.getName(), notificationChannel.getType(), notificationChannel.getConfig());
   }
 
+  public Single<Boolean> updateAlertNotificationChannel(@NotNull Integer notificationChannelId, @NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {
+    return alertsDao.updateNotificationChannel(notificationChannelId, notificationChannel.getName(), notificationChannel.getType(), notificationChannel.getConfig());
+  }
+
+  public Single<Boolean> deleteAlertNotificationChannel(@NotNull Integer notificationChannelId) {
+    return alertsDao.deleteNotificationChannel(notificationChannelId);
+  }
+
   public Single<Boolean> createTag(@NotNull String tag) {
     return alertsDao.createTagForAlert(tag);
   }

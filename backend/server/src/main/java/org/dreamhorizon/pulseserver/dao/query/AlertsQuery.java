@@ -248,9 +248,13 @@ public class AlertsQuery {
   public static final String GET_SEVERITIES = "SELECT * FROM severity;";
   public static final String CREATE_SEVERITY = "INSERT INTO severity(name, description) VALUES (?,?);";
 
-  public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM notification_channels;";
+  public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM notification_channels WHERE is_active = TRUE;";
   public static final String CREATE_NOTIFICATION_CHANNEL =
-      "INSERT INTO notification_channels(name, type, config) VALUES (?,?,?);";
+      "INSERT INTO notification_channels(name, type, config, is_active) VALUES (?,?,?,TRUE);";
+  public static final String UPDATE_NOTIFICATION_CHANNEL =
+      "UPDATE notification_channels SET name = ?, type = ?, config = ? WHERE notification_channel_id = ? AND is_active = TRUE;";
+  public static final String DELETE_NOTIFICATION_CHANNEL =
+      "UPDATE notification_channels SET is_active = FALSE WHERE notification_channel_id = ?;";
 
   public static final String CREATE_TAG = "INSERT INTO tags(name) VALUES (?);";
   public static final String GET_TAGS_FOR_ALERT =
@@ -294,9 +298,9 @@ public class AlertsQuery {
       + "state) "
       + "VALUES (?,?,?);";
 
-  public static final String GET_NOTIFICATION_CHANNEL = "SELECT type, config "
+  public static final String GET_NOTIFICATION_CHANNEL = "SELECT type, config, is_active "
       + "FROM notification_channels "
-      + "WHERE notification_channel_id = ?;";
+      + "WHERE notification_channel_id = ? AND is_active = TRUE;";
 
   public static final String GET_SCOPE_STATE = "SELECT state "
       + "FROM alert_scope "
