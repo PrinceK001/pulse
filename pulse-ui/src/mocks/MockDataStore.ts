@@ -1392,9 +1392,10 @@ export class MockDataStore {
           ],
         },
         scheduleDurationMs: 5000,
-        logsCollectorUrl: 'http://localhost:4318/v1/logs',
-        metricCollectorUrl: 'http://localhost:4318/v1/metrics',
-        spanCollectorUrl: 'http://localhost:4318/v1/traces',
+        logsCollectorUrl: 'http://localhost:4318/v1/logs/',
+        metricCollectorUrl: 'http://localhost:4318/v1/metrics/',
+        spanCollectorUrl: 'http://localhost:4318/v1/traces/',
+        customEventCollectorUrl: 'http://localhost:4318/v1/events/',
         attributesToDrop: [
           {
             id: generateId(),
@@ -1414,8 +1415,8 @@ export class MockDataStore {
         attributesToAdd: [],
       },
       interaction: {
-        collectorUrl: 'http://localhost:4318/v1/interactions',
-        configUrl: 'http://localhost:8080/v1/configs/active',
+        collectorUrl: 'http://localhost:4318/v1/interactions/',
+        configUrl: 'http://localhost:8080/v1/configs/active/',
         beforeInitQueueSize: 100,
       },
       features: [
@@ -1623,6 +1624,7 @@ interface SignalsConfigV1 {
   logsCollectorUrl?: string;
   metricCollectorUrl?: string;
   spanCollectorUrl?: string;
+  customEventCollectorUrl?: string;
   attributesToDrop: EventFilterV1[];
   attributesToAdd?: AttributeToAddV1[];
 }

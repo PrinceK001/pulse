@@ -134,6 +134,7 @@ export interface SignalsConfig {
   logsCollectorUrl?: string; // Auto-filled by backend if not provided
   metricCollectorUrl?: string; // Auto-filled by backend if not provided
   spanCollectorUrl?: string; // Auto-filled by backend if not provided
+  customEventCollectorUrl?: string; // Auto-filled by backend if not provided
   attributesToDrop: EventFilter[];
   attributesToAdd?: AttributeToAdd[];
 }
