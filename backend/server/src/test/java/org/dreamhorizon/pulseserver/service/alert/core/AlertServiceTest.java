@@ -563,8 +563,9 @@ class AlertServiceTest {
     void shouldCreateNotificationChannel() {
       CreateAlertNotificationChannelRequestDto request = new CreateAlertNotificationChannelRequestDto();
       request.setName("Slack");
-      request.setConfig("{}");
-      when(alertsDao.createNotificationChannel(anyString(), anyString())).thenReturn(Single.just(true));
+      request.setType("slack");
+      request.setConfig("https://webhook.url");
+      when(alertsDao.createNotificationChannel(anyString(), anyString(), anyString())).thenReturn(Single.just(true));
 
       Boolean result = alertService.createAlertNotificationChannel(request).blockingGet();
 
@@ -776,7 +777,8 @@ class AlertServiceTest {
         .evaluationPeriod(1)
         .severityId(1)
         .notificationChannelId(1)
-        .notificationWebhookUrl("url")
+        .notificationType("slack")
+        .notificationConfig("https://webhook.url")
         .createdBy("user")
         .updatedBy("user")
         .createdAt(Timestamp.valueOf(LocalDateTime.now(ZoneOffset.UTC)))
