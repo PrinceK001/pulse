@@ -1314,6 +1314,70 @@ export class MockResponseGenerator {
       return { data: mockNotificationChannels, status: 200 };
     }
 
+    // POST /v1/alert/notificationChannels - Create notification channel
+    // @see backend CreateAlertNotificationChannelRequestDto.java
+    if (pathname.includes("/alert/notificationChannels") && method === "POST") {
+      const body = JSON.parse(request.body || "{}");
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] CREATE_NOTIFICATION_CHANNEL - Body:", body);
+      }
+      // Add to mock channels (in memory only)
+      const newChannel = {
+        notification_channel_id: mockNotificationChannels.length + 1,
+        name: body.name,
+        type: body.type,
+        config: body.config,
+      };
+      mockNotificationChannels.push(newChannel);
+      return { data: true, status: 200 };
+    }
+
+    // PUT /v1/alert/notificationChannels/:id - Update notification channel
+    if (pathname.includes("/alert/notificationChannels/") && method === "PUT") {
+      const channelIdMatch = pathname.match(/\/notificationChannels\/(\d+)/);
+      if (channelIdMatch) {
+        const channelId = parseInt(channelIdMatch[1]);
+        const body = JSON.parse(request.body || "{}");
+        if (this.config.shouldLog()) {
+          console.log("[Mock Server] UPDATE_NOTIFICATION_CHANNEL - ID:", channelId, "Body:", body);
+        }
+        // Update in mock channels (in memory only)
+        const channelIndex = mockNotificationChannels.findIndex(
+          (c) => c.notification_channel_id === channelId
+        );
+        if (channelIndex !== -1) {
+          mockNotificationChannels[channelIndex] = {
+            ...mockNotificationChannels[channelIndex],
+            name: body.name,
+            type: body.type,
+            config: body.config,
+          };
+          return { data: true, status: 200 };
+        }
+        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+      }
+    }
+
+    // DELETE /v1/alert/notificationChannels/:id - Delete notification channel
+    if (pathname.includes("/alert/notificationChannels/") && method === "DELETE") {
+      const channelIdMatch = pathname.match(/\/notificationChannels\/(\d+)/);
+      if (channelIdMatch) {
+        const channelId = parseInt(channelIdMatch[1]);
+        if (this.config.shouldLog()) {
+          console.log("[Mock Server] DELETE_NOTIFICATION_CHANNEL - ID:", channelId);
+        }
+        // Remove from mock channels (in memory only)
+        const channelIndex = mockNotificationChannels.findIndex(
+          (c) => c.notification_channel_id === channelId
+        );
+        if (channelIndex !== -1) {
+          mockNotificationChannels.splice(channelIndex, 1);
+          return { data: true, status: 200 };
+        }
+        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+      }
+    }
+
     // GET /v1/alert/filters - Returns filter options
     // @see backend AlertFiltersResponseDto.java
     if (pathname.includes("/alert/filters") && method === "GET") {

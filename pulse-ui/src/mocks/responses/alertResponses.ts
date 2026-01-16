@@ -95,12 +95,14 @@ export const mockAlertMetrics: Record<string, { scope: string; metrics: Array<{ 
 
 // =============================================================================
 // GET /v1/alert/notificationChannels - List<AlertNotificationChannelResponseDto>
+// POST /v1/alert/notificationChannels - CreateAlertNotificationChannelRequestDto
+// Note: Currently only Slack is supported. Email support coming soon.
 // =============================================================================
 export const mockNotificationChannels = [
-  { notification_channel_id: 1, name: "Slack - #alerts-critical", notification_webhook_url: "https://hooks.slack.com/services/xxx" },
-  { notification_channel_id: 2, name: "Email - Engineering Team", notification_webhook_url: "mailto:engineering@example.com" },
-  { notification_channel_id: 3, name: "PagerDuty - On-Call", notification_webhook_url: "https://events.pagerduty.com/v2/enqueue" },
-  { notification_channel_id: 4, name: "Webhook - Custom Integration", notification_webhook_url: "https://api.example.com/webhooks/alerts" },
+  { notification_channel_id: 1, name: "Slack - #alerts-critical", type: "slack", config: "https://hooks.slack.com/services/xxx" },
+  { notification_channel_id: 2, name: "Slack - #engineering", type: "slack", config: "https://hooks.slack.com/services/yyy" },
+  { notification_channel_id: 3, name: "Slack - #alerts-warning", type: "slack", config: "https://hooks.slack.com/services/zzz" },
+  { notification_channel_id: 4, name: "Slack - #devops", type: "slack", config: "https://hooks.slack.com/services/aaa" },
 ];
 
 // =============================================================================
@@ -246,7 +248,8 @@ const generateMockAlerts = () => {
       evaluation_interval: [60, 120, 180][i % 3],
       severity_id: template.severity_id,
       notification_channel_id: (i % 4) + 1,
-      notification_webhook_url: mockNotificationChannels[i % 4].notification_webhook_url,
+      notification_type: mockNotificationChannels[i % 4].type,
+      notification_config: mockNotificationChannels[i % 4].config,
       created_by: users[i % users.length],
       updated_by: users[(i + 1) % users.length],
       created_at: new Date(Date.now() - createdDaysAgo * 86400000).toISOString(),

@@ -221,6 +221,14 @@ export const ROUTES: Routes = {
   },
 };
 
+// Settings sub-routes (handled internally by Settings component)
+// Use these paths for programmatic navigation
+export const SETTINGS_PATHS = {
+  SDK_CONFIG: "/settings/sdk-config",
+  NOTIFICATIONS: "/settings/notifications",
+  SECURITY: "/settings/security",
+} as const;
+
 export const NAVBAR_ITEMS: NavbarItems = [
   {
     tabName: "Home",
@@ -593,6 +601,21 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/alert/notificationChannels`,
     method: API_METHODS.GET,
   },
+  CREATE_NOTIFICATION_CHANNEL: {
+    key: "CREATE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_NOTIFICATION_CHANNEL: {
+    key: "UPDATE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_NOTIFICATION_CHANNEL: {
+    key: "DELETE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.DELETE,
+  },
   // SDK Configuration API Routes
   GET_ALL_SDK_CONFIGS: {
     key: "GET_ALL_SDK_CONFIGS",
@@ -822,13 +845,14 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 };
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
-  FOOTER_MESSAGE: "Facing problems? Ping us on #pulse-feedback",
+  FOOTER_MESSAGE: "Have questions? Join our Discord community",
+  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
   HELP_LINK:
-    "https://dream11.atlassian.net/wiki/spaces/FE/pages/3583705154/Pulse+Demo",
+    "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {
