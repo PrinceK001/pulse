@@ -20,6 +20,13 @@
 - [Technology Stack](#-technology-stack)
 - [Getting Started](#-getting-started)
 - [API Documentation](#api-documentation)
+    - [Authentication](#authentication)
+    - [Metrics](#metrics)
+    - [OpenTelemetry Logs Ingestion](#opentelemetry-logs-ingestion)
+
+    - [Symbol File Upload](#symbol-file-upload)
+    - [Critical Interactions](#critical-interactions)
+    - [Alerts](#alerts)
 - [Database Schema](#-database-schema)
 - [Configuration](#-configuration)
 - [Testing](#testing)
@@ -723,6 +730,526 @@ curl -X POST http://localhost:8080/v1/logs \
 - Error messages in responses are sanitized (newlines and carriage returns are replaced with spaces)
 - The endpoint processes logs asynchronously and returns a completion stage
 - Stack traces are automatically symbolicated based on the detected platform (JS, Java, or NDK)
+
+## Query Service
+
+The query service provides a generic interface for executing SQL queries against various query engines (AWS Athena, BigQuery, etc.) with pagination support. Queries are automatically optimized with partition filters for better performance.
+
+**Base Path:** `/query`
+
+**Authentication:** These endpoints may require authentication depending on your server configuration.
+
+**Note:** The service is designed to be engine-agnostic. Currently, AWS Athena is the default implementation, but the architecture supports plugging in other query engines (e.g., BigQuery, GCP) by implementing the `QueryClient` and `QueryJobDao` interfaces.
+
+### Submit Query
+
+**Description:** Submits a SQL query for execution. The service validates that the query is a SELECT statement and includes a timestamp filter in the WHERE clause. If the query completes within 3 seconds, results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
+
+**Business Logic:** The endpoint:
+
+- Submits query to the configured query engine and polls for completion (up to 3 seconds)
+- Returns results immediately if query completes within 3 seconds
+- Returns job ID for asynchronous status checking if query takes longer
+
+```http
+POST /query
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59' LIMIT 10"
+}
+```
+
+**Request Fields:**
+
+- `queryString` (required): SQL query string. Must be a SELECT query and must include a timestamp filter in the WHERE clause. The timestamp filter can be either:
+  - TIMESTAMP literals: `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` format
+  - Timestamp column: `timestamp` column with comparison operators (>=, <=, >, <, =, !=, <>)
+
+**Success Response (Query completed within 3 seconds):**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "COMPLETED",
+    "message": "Query completed successfully within 3 seconds",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
+    "resultData": [
+      {
+        "column1": "value1",
+        "column2": "value2"
+      }
+    ],
+    "nextToken": "AXzl4c3EaYUFTNQNmBrZsT9jIA...",
+    "dataScannedInBytes": 2639,
+    "createdAt": 1766738293000,
+    "completedAt": 1766738295000
+  },
+  "error": null
+}
+```
+
+**Success Response (Query still running after 3 seconds):**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "RUNNING",
+    "message": "Query submitted successfully. Use GET /athena/job/{jobId} to check status and get results.",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "dataScannedInBytes": null,
+    "createdAt": 1766738293000
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `jobId`: Unique identifier for the query job
+- `status`: Job status (COMPLETED, RUNNING, FAILED, CANCELLED)
+- `message`: Human-readable status message
+- `queryExecutionId`: AWS Athena query execution ID
+- `resultLocation`: S3 location where results are stored (if completed)
+- `resultData`: Array of result rows (if completed within 3 seconds)
+- `nextToken`: Token for pagination (if more results available)
+- `dataScannedInBytes`: Amount of data scanned by the query in bytes
+- `createdAt`: Job creation timestamp
+- `completedAt`: Job completion timestamp (if completed)
+
+**Error Response (Missing user email):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "User email is required and cannot be null or empty",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Error Response (Invalid query - not SELECT):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Query must start with SELECT",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Error Response (Missing timestamp filter):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, or (2) TIMESTAMP literals",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Headers:**
+
+- `user-email` (required): Email address of the user submitting the query
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query' \
+  --header 'Content-Type: application/json' \
+  --header 'user-email: user@example.com' \
+  --data '{
+    "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '\''2025-12-23 11:00:00'\'' AND \"timestamp\" <= TIMESTAMP '\''2025-12-23 11:59:59'\'' LIMIT 10",
+    "parameters": []
+  }'
+```
+
+**Validation Rules:**
+
+- **Query Type**: Only SELECT queries are allowed. INSERT, UPDATE, DELETE, DROP, and other DDL/DML operations are rejected.
+- **Timestamp Filter**: The query must include a timestamp filter in the WHERE clause. This can be satisfied in one of two ways:
+  - **Timestamp Column**: Use the `timestamp` column (with or without quotes) with comparison operators (>=, <=, >, <, =, !=, <>) in the WHERE clause. Example: `WHERE timestamp >= date_add('hour', -24, current_timestamp)`
+  - **TIMESTAMP Literals**: Include at least one `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literal in the WHERE clause
+- **Query Length**: Maximum query length is 100,000 characters
+- **Security**: Queries containing potentially dangerous operations (SQL injection patterns) are rejected
+
+**Notes:**
+
+- The `queryString` and `userEmail` are stored in the database for audit and history tracking
+- Queries that complete within 3 seconds return results immediately in the response
+- For longer-running queries, use the job ID to check status and retrieve results
+- The service includes retry logic to handle cases where results aren't immediately available after query completion
+- All timestamps (`createdAt`, `updatedAt`, `completedAt`) are sourced from the AWS Athena API for accuracy
+- Query execution statistics (data scanned, execution time, queue time) are captured from AWS Athena and stored in the database
+- The service architecture is engine-agnostic and supports multiple query engines through pluggable implementations
+
+### Get Job Status
+
+**Description:** Retrieves the status and results of a query job. If the job is completed, results can be
+retrieved with pagination support.
+
+```http
+GET /query/job/{jobId}?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...
+```
+
+**Path Parameters:**
+
+- `jobId` (required): The job ID returned from the submit query endpoint
+
+**Query Parameters:**
+
+- `maxResults` (optional): Maximum number of results to return (1-1000). Defaults to 1000 if not specified.
+- `nextToken` (optional): Token for pagination. Use the `nextToken` from the previous response to get the next page of
+  results.
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "COMPLETED",
+    "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59' LIMIT 10",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
+    "resultData": [
+      {
+        "column1": "value1",
+        "column2": "value2"
+      }
+    ],
+    "nextToken": "AXzl4c3EaYUFTNQNmBrZsT9jIA...",
+    "dataScannedInBytes": 2639,
+    "createdAt": 1766738293000,
+    "completedAt": 1766738295000
+  },
+  "error": null
+}
+```
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/job/e8a98c57-c987-40bd-b1f5-a6f534e371df?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...'
+```
+
+**Notes:**
+
+- Results are fetched from the query engine API at runtime, not stored in the database
+- Pagination is supported using `maxResults` and `nextToken` parameters
+- The `nextToken` is URL-encoded and should be passed as-is in subsequent requests
+- If the job is still running, the status will be "RUNNING" and `resultData` will be null
+
+### Cancel Query
+
+**Description:** Cancels a running query job. If the query is already in a final state (COMPLETED, FAILED, or CANCELLED), it cannot be cancelled and the current status is returned.
+
+```http
+DELETE /query/job/{jobId}
+```
+
+**Path Parameters:**
+
+- `jobId` (required): The job ID of the query to cancel
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "CANCELLED",
+    "message": "Query cancelled successfully",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "dataScannedInBytes": 1234,
+    "updatedAt": 1766738295000
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `jobId`: Unique identifier for the query job
+- `status`: Updated job status (CANCELLED if successful, or current status if already in final state)
+- `message`: Human-readable status message
+- `queryExecutionId`: AWS Athena query execution ID
+- `dataScannedInBytes`: Amount of data scanned before cancellation (if available)
+- `updatedAt`: Timestamp when the job was updated
+
+**Example Request (using curl):**
+
+```bash
+curl --location --request DELETE 'http://localhost:8080/query/job/e8a98c57-c987-40bd-b1f5-a6f534e371df'
+```
+
+**Notes:**
+
+- Only queries in RUNNING or SUBMITTED state can be cancelled
+- Queries in final states (COMPLETED, FAILED, CANCELLED) cannot be cancelled
+- The cancellation request is sent to the query engine (e.g., AWS Athena) to stop the query execution
+- If the query has no execution ID yet, it will be marked as CANCELLED in the database
+
+### Get Query History
+
+**Description:** Retrieves a paginated list of historical queries for a specific user, ordered by submission time (most recent first). The endpoint automatically checks the status of up to 20 running queries in parallel and updates their status in the database before returning results.
+
+```http
+GET /query/history?limit=20&offset=0
+```
+
+**Headers:**
+
+- `user-email` (required): Email address of the user whose query history to retrieve
+
+**Query Parameters:**
+
+- `limit` (optional, default: 20): Maximum number of queries to return
+- `offset` (optional, default: 0): Pagination offset
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "queries": [
+      {
+        "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+        "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'",
+        "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+        "status": "COMPLETED",
+        "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
+        "errorMessage": null,
+        "dataScannedInBytes": 2639,
+        "createdAt": 1766738293000,
+        "updatedAt": 1766738295000,
+        "completedAt": 1766738295000
+      }
+    ],
+    "total": 1,
+    "limit": 20,
+    "offset": 0
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `queries`: Array of query history items
+  - `jobId`: Unique identifier for the query job
+  - `queryString`: The query string that was executed
+  - `queryExecutionId`: AWS Athena query execution ID
+  - `status`: Job status (SUBMITTED, RUNNING, COMPLETED, FAILED, CANCELLED)
+  - `resultLocation`: S3 location where results are stored (if completed)
+  - `errorMessage`: Error message (if failed)
+  - `dataScannedInBytes`: Amount of data scanned by the query in bytes
+  - `createdAt`: Job creation timestamp (from AWS API)
+  - `updatedAt`: Last update timestamp (from AWS API)
+  - `completedAt`: Job completion timestamp (from AWS API, if completed)
+- `total`: Total number of queries in the result set
+- `limit`: Maximum number of queries per page
+- `offset`: Pagination offset
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/history?limit=20&offset=0' \
+  --header 'user-email: user@example.com'
+```
+
+**Notes:**
+
+- Queries are ordered by submission time (most recent first)
+- The endpoint automatically checks the status of up to 20 running queries in parallel
+- Running queries are updated in the database with their latest status from the query engine
+- All timestamps (`createdAt`, `updatedAt`, `completedAt`) are sourced from the AWS Athena API, not generated by the application
+
+### Get Query Statistics
+
+**Description:** Retrieves aggregated statistics for all queries run by a specific user within an optional date range. Statistics include summary metrics, data scanned, and execution time information.
+
+```http
+GET /query/stats?startDate=2026-01-01T00:00:00&endDate=2026-01-12T23:59:59
+```
+
+**Headers:**
+
+- `user-email` (required): Email address of the user whose query statistics to retrieve
+
+**Query Parameters:**
+
+- `startDate` (optional): Start date in ISO-8601 format (e.g., "2026-01-01T00:00:00"). If not provided, statistics are calculated from the earliest query.
+- `endDate` (optional): End date in ISO-8601 format (e.g., "2026-01-12T23:59:59"). If not provided, statistics are calculated up to the latest query.
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "summary": {
+      "totalQueries": 150,
+      "completedQueries": 140,
+      "failedQueries": 8,
+      "cancelledQueries": 2,
+      "runningQueries": 0
+    },
+    "data": {
+      "totalDataScanned": 52428800,
+      "averageDataScanned": 349525,
+      "maxDataScanned": 10485760,
+      "minDataScanned": 1024
+    },
+    "time": {
+      "totalExecutionTime": 450000,
+      "averageExecutionTime": 3214,
+      "maxExecutionTime": 30000,
+      "minExecutionTime": 100,
+      "totalEngineExecutionTime": 420000,
+      "averageEngineExecutionTime": 3000,
+      "totalQueryQueueTime": 5000,
+      "averageQueryQueueTime": 35
+    },
+    "period": {
+      "startDate": "2026-01-01T00:00:00",
+      "endDate": "2026-01-12T23:59:59"
+    },
+    "queries": [
+      {
+        "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+        "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025",
+        "status": "COMPLETED",
+        "dataScannedInBytes": 2639,
+        "executionTimeMillis": 1500,
+        "createdAt": 1766738293000,
+        "completedAt": 1766738295000
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `summary`: Summary statistics
+  - `totalQueries`: Total number of queries
+  - `completedQueries`: Number of completed queries
+  - `failedQueries`: Number of failed queries
+  - `cancelledQueries`: Number of cancelled queries
+  - `runningQueries`: Number of currently running queries
+- `data`: Data scanning statistics (in bytes)
+  - `totalDataScanned`: Total data scanned across all queries
+  - `averageDataScanned`: Average data scanned per query
+  - `maxDataScanned`: Maximum data scanned in a single query
+  - `minDataScanned`: Minimum data scanned in a single query
+- `time`: Execution time statistics (in milliseconds)
+  - `totalExecutionTime`: Total execution time across all queries
+  - `averageExecutionTime`: Average execution time per query
+  - `maxExecutionTime`: Maximum execution time for a single query
+  - `minExecutionTime`: Minimum execution time for a single query
+  - `totalEngineExecutionTime`: Total engine execution time
+  - `averageEngineExecutionTime`: Average engine execution time
+  - `totalQueryQueueTime`: Total time queries spent in queue
+  - `averageQueryQueueTime`: Average queue time per query
+- `period`: Date range for the statistics
+  - `startDate`: Start date of the period
+  - `endDate`: End date of the period
+- `queries`: Array of individual query items with their statistics
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/stats?startDate=2026-01-01T00:00:00&endDate=2026-01-12T23:59:59' \
+  --header 'user-email: user@example.com'
+```
+
+**Notes:**
+
+- Statistics are calculated from data stored in the database
+- Execution time metrics (`executionTimeMillis`, `engineExecutionTimeMillis`, `queryQueueTimeMillis`) are sourced from AWS Athena API
+- If `startDate` or `endDate` are not provided, statistics are calculated for all queries
+- Only queries with available statistics are included in the calculations
+
+### Get Tables and Columns
+
+**Description:** Retrieves metadata for all tables and their columns from the configured Athena database. This endpoint queries the `information_schema` to provide a complete catalog of available tables and their structure.
+
+```http
+GET /query/tables
+```
+
+**Success Response:**
+
+```json
+{
+  "data": [
+    {
+      "tableName": "otel_data",
+      "tableSchema": "pulse_athena_db",
+      "tableType": "EXTERNAL_TABLE",
+      "columns": [
+        {
+          "columnName": "timestamp",
+          "dataType": "timestamp",
+          "ordinalPosition": 1,
+          "isNullable": "YES"
+        },
+        {
+          "columnName": "year",
+          "dataType": "int",
+          "ordinalPosition": 2,
+          "isNullable": "NO"
+        },
+        {
+          "columnName": "month",
+          "dataType": "int",
+          "ordinalPosition": 3,
+          "isNullable": "NO"
+        }
+      ]
+    }
+  ],
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- Array of table metadata objects:
+  - `tableName`: Name of the table
+  - `tableSchema`: Schema/database name
+  - `tableType`: Type of table (e.g., "EXTERNAL_TABLE", "VIEW")
+  - `columns`: Array of column metadata:
+    - `columnName`: Name of the column
+    - `dataType`: Data type of the column
+    - `ordinalPosition`: Position of the column in the table (1-based)
+    - `isNullable`: Whether the column allows NULL values ("YES" or "NO")
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/tables'
+```
+
+**Notes:**
+
+- Tables are sorted alphabetically by name
+- Columns within each table are sorted by ordinal position
+- This endpoint queries Athena's `information_schema` database
+- The database name is determined from the Athena configuration
 
 ## Symbol File Upload
 
@@ -1969,6 +2496,58 @@ CONFIG_SERVICE_APPLICATION_SERVER_HOST=0.0.0.0
 VAULT_SERVICE_GOOGLE_CLIENT_ID=your-google-client-id
 VAULT_SERVICE_JWT_SECRET=your-jwt-secret
 ```
+
+**Query Engine Configuration**
+
+The query service supports multiple query engines through pluggable implementations. Currently, AWS Athena is the default implementation.
+
+**Athena Configuration:**
+
+Configuration is done via `src/main/resources/conf/athena-default.conf` or environment-specific config files:
+
+```hocon
+athena {
+  athenaRegion = "ap-south-1"
+  database = "pulse_athena_db"
+  outputLocation = "s3://puls-otel-config/"
+  awsAccessKeyId = ${?AWS_ACCESS_KEY_ID}
+  awsSecretAccessKey = ${?AWS_SECRET_ACCESS_KEY}
+  awsSessionToken = ${?AWS_SESSION_TOKEN}
+}
+```
+
+**AWS Credentials:**
+
+The application supports AWS credentials through multiple methods:
+
+1. **Environment Variables** (recommended for local development):
+   - `AWS_ACCESS_KEY_ID`: AWS access key ID
+   - `AWS_SECRET_ACCESS_KEY`: AWS secret access key
+   - `AWS_SESSION_TOKEN`: AWS session token (optional, for temporary credentials)
+
+2. **Config File**: Credentials can be specified in the config file (mapped from environment variables as shown above)
+
+3. **AWS SDK Default Credential Provider Chain**: If credentials are not provided via environment variables or config file, the AWS SDK automatically looks for credentials in the following order:
+   - Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
+   - Java system properties
+   - Web identity token from AWS STS
+   - Shared credentials file (`~/.aws/credentials`)
+   - EC2 instance profile credentials
+   - ECS container credentials
+   - Lambda execution environment credentials
+
+**Note:** For production deployments, it's recommended to use IAM roles (EC2 instance profiles, ECS task roles, or Lambda execution roles) rather than hardcoding credentials. For local development, use environment variables or AWS credential files.
+
+**Adding Support for Other Query Engines:**
+
+To add support for a new query engine (e.g., BigQuery, GCP):
+
+1. Implement the `QueryClient` interface with engine-specific logic
+2. Implement the `QueryJobDao` interface (or reuse existing implementation if compatible)
+3. Create a Guice module that binds `QueryClient` and `QueryJobDao` to your implementations
+4. The `QueryService` implementation will automatically work with your new engine
+
+The service architecture is designed to be engine-agnostic, making it easy to switch between or support multiple query engines simultaneously.
 
 ### Running Tests
 
