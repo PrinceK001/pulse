@@ -59,13 +59,13 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
 import java.util.function.Predicate
+import kotlin.system.measureNanoTime
 
 internal class PulseSDKImpl :
     PulseSDK,
     CoroutineScope by MainScope() {
     override fun isInitialized(): Boolean = isInitialised
 
-    @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
     override fun initialize(
         application: Application,
         endpointBaseUrl: String,
@@ -82,8 +82,47 @@ internal class PulseSDKImpl :
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         if (isInitialized()) {
+            PulseOtelUtils.logDebug(TAG) { "Initialisation skipped already initialised" }
             return
         }
+        measureNanoTime {
+            initializeInternal(
+                application,
+                endpointBaseUrl,
+                tracerProviderCustomizer,
+                loggerProviderCustomizer,
+                spanEndpointConnectivity,
+                logEndpointConnectivity,
+                metricEndpointConnectivity,
+                resource,
+                instrumentations,
+                endpointHeaders,
+                sessionConfig,
+                globalAttributes,
+                diskBuffering,
+            )
+        }.also {
+            PulseOtelUtils.logDebug(TAG) { "Initialisation succeeded in $it ns" }
+        }
+        isInitialised = true
+    }
+
+    @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
+    private fun initializeInternal(
+        application: Application,
+        endpointBaseUrl: String,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
+        spanEndpointConnectivity: EndpointConnectivity,
+        logEndpointConnectivity: EndpointConnectivity,
+        metricEndpointConnectivity: EndpointConnectivity,
+        resource: (ResourceBuilder.() -> Unit)?,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
+        endpointHeaders: Map<String, String>,
+        sessionConfig: SessionConfig,
+        globalAttributes: (() -> Attributes)?,
+        diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
+    ) {
         this.application = application
 
         val sharedPrefs =
@@ -98,6 +137,8 @@ internal class PulseSDKImpl :
                 json.decodeFromString<PulseSdkConfig>(it)
             }
 
+        PulseOtelUtils.logDebug(TAG) { "currentSdkConfig config version = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}" }
+
         @Suppress("InjectDispatcher") // we are not exposing this dispatchers to client
         launch(Dispatchers.IO) {
             val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
@@ -105,9 +146,17 @@ internal class PulseSDKImpl :
             val newConfig =
                 PulseSdkConfigRestProvider(apiCache) {
                     "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
-                }.provide() ?: return@launch
-            sharedPrefs.edit(commit = true) {
-                putString(PrefsName.PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
+                }.provide()
+            val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
+            PulseOtelUtils.logDebug(TAG) {
+                "newConfigVersion = ${newConfig?.version ?: "newConfig is null"}, " +
+                    "oldConfigVersion = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}, " +
+                    "shouldUpdate = $isDifferentVersion"
+            }
+            if (isDifferentVersion) {
+                sharedPrefs.edit(commit = true) {
+                    putString(PrefsName.PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
+                }
             }
         }
 
@@ -160,15 +209,21 @@ internal class PulseSDKImpl :
 
         val finalSpanEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.spanCollectorUrl), headers = emptyMap())
+                val url = it.signals.spanCollectorUrl
+                PulseOtelUtils.logDebug(TAG) { "spanCollectorUrl = $url" }
+                HttpEndpointConnectivity(url = url, headers = emptyMap())
             } ?: spanEndpointConnectivity
         val finalLogEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.logsCollectorUrl), headers = emptyMap())
+                val url = it.signals.logsCollectorUrl
+                PulseOtelUtils.logDebug(TAG) { "logsCollectorUrl = $url" }
+                HttpEndpointConnectivity(url = url, headers = emptyMap())
             } ?: logEndpointConnectivity
         val finalMetricEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.metricCollectorUrl), headers = emptyMap())
+                val url = it.signals.metricCollectorUrl
+                PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = $url" }
+                HttpEndpointConnectivity(url = url, headers = emptyMap())
             } ?: metricEndpointConnectivity
 
         val otlpSpanExporter: SpanExporter =
@@ -214,6 +269,7 @@ internal class PulseSDKImpl :
                 val enabledFeatures = getEnabledFeatures()
                 enumValues<PulseFeatureName>().forEach { feature ->
                     if (feature !in enabledFeatures) {
+                        PulseOtelUtils.logDebug(TAG) { "Disabling feature = $feature" }
                         when (feature) {
                             PulseFeatureName.JAVA_CRASH -> {
                                 config.suppressInstrumentation("crash")
@@ -317,7 +373,6 @@ internal class PulseSDKImpl :
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
             )
-        isInitialised = true
     }
 
     private fun createSignalsProcessors(
@@ -562,6 +617,7 @@ internal class PulseSDKImpl :
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
+        private const val TAG = "AndroidSDK"
 
         internal object PrefsName {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"

@@ -1,6 +1,5 @@
 package io.opentelemetry.android.instrumentation.interaction.library
 
-import android.util.Log
 import com.pulse.android.core.InteractionManager
 import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionAttributesSpanAppender.Companion.createInteractionAttributes
@@ -18,10 +17,6 @@ internal class InteractionLogListener(
         logRecord: ReadWriteLogRecord,
     ) {
         if (logRecord.bodyValue?.type == ValueType.STRING) {
-            Log.d(
-                InteractionInstrumentation.LOG_TAG,
-                "onEmit in log processor = ${logRecord.bodyValue?.asString() ?: "null"}",
-            )
             interactionManager.addEvent(
                 logRecord.bodyValue?.asString() ?: error("Null not possible"),
                 params = logRecord.attributes.asMap().mapKeys { it.key.key },

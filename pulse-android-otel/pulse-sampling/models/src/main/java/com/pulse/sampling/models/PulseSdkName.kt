@@ -29,9 +29,9 @@ public enum class PulseSdkName {
 
     public companion object {
         internal const val ANDROID_JAVA_SDK_NAME_STR = "pulse_android_java"
-        private const val ANDROID_RN_SDK_NAME_STR = "pulse_android_rn"
-        private const val IOS_SWIFT_SDK_NAME_STR = "pulse_ios_swift"
-        private const val IOS_RN_SDK_NAME_STR = "pulse_ios_rn"
+        internal const val ANDROID_RN_SDK_NAME_STR = "pulse_android_rn"
+        internal const val IOS_SWIFT_SDK_NAME_STR = "pulse_ios_swift"
+        internal const val IOS_RN_SDK_NAME_STR = "pulse_ios_rn"
 
         public fun fromName(telemetrySdkName: String?): PulseSdkName =
             when (telemetrySdkName?.lowercase()) {
