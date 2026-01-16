@@ -717,6 +717,29 @@ public class AlertsDao {
         });
   }
 
+  public Maybe<AlertNotificationChannelResponseDto> getNotificationChannelDetailsById(@NotNull Integer notificationChannelId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL_BY_ID).rxExecute(Tuple.of(notificationChannelId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching notification channel details from db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        })
+        .flatMapMaybe(rowSet -> {
+          if (rowSet.size() == 0) {
+            log.error("Notification channel not found: {}", notificationChannelId);
+            return Maybe.empty();
+          }
+          Row row = rowSet.iterator().next();
+          return Maybe.just(AlertNotificationChannelResponseDto.builder()
+              .notificationChannelId(row.getInteger("notification_channel_id"))
+              .name(row.getString("name"))
+              .type(row.getString("type"))
+              .config(row.getString("config"))
+              .isActive(row.getBoolean("is_active"))
+              .build());
+        });
+  }
+
   public Single<Boolean> updateNotificationChannel(@NotNull Integer notificationChannelId, @NotNull String name, @NotNull String type, @NotNull String config) {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.UPDATE_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(name, type, config, notificationChannelId))
         .onErrorResumeNext(error -> {

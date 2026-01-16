@@ -301,6 +301,8 @@ public class AlertsQuery {
   public static final String GET_NOTIFICATION_CHANNEL = "SELECT type, config, is_active "
       + "FROM notification_channels "
       + "WHERE notification_channel_id = ? AND is_active = TRUE;";
+  
+  public static final String GET_NOTIFICATION_CHANNEL_BY_ID = "SELECT * FROM notification_channels WHERE notification_channel_id = ?;";
 
   public static final String GET_SCOPE_STATE = "SELECT state "
       + "FROM alert_scope "

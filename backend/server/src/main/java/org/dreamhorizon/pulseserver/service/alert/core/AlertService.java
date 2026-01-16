@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service.alert.core;
 import static org.dreamhorizon.pulseserver.constant.Constants.ALERT_EVALUATE_AND_TRIGGER_ALERT;
 
 import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -251,6 +252,10 @@ public class AlertService {
 
   public Single<Boolean> createAlertNotificationChannel(@NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {
     return alertsDao.createNotificationChannel(notificationChannel.getName(), notificationChannel.getType(), notificationChannel.getConfig());
+  }
+
+  public Maybe<AlertNotificationChannelResponseDto> getAlertNotificationChannelById(@NotNull Integer notificationChannelId) {
+    return alertsDao.getNotificationChannelDetailsById(notificationChannelId);
   }
 
   public Single<Boolean> updateAlertNotificationChannel(@NotNull Integer notificationChannelId, @NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {

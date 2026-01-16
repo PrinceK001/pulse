@@ -128,10 +128,6 @@ VALUES
     (2, 'Warning: Degraded performance, elevated errors, or risk of user impact. Should be investigated soon but is not a full outage.'),
     (3, 'Info: Informational or low-risk condition. No immediate action required; useful for visibility, trend analysis, or validation of changes.');
 
-INSERT INTO notification_channels (name, type, config)
-VALUES
-    ('Incident management', 'slack', 'http://whistlebot.local/declare-incident');
-
 -- Insert Scope Types
 INSERT INTO scope_types (name, label) VALUES
     ('interaction', 'Interactions'),

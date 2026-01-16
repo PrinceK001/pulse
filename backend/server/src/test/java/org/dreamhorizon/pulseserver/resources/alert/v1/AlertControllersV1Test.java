@@ -210,6 +210,16 @@ class AlertControllersV1Test {
   }
 
   @Nested
+  class TestGetAlertNotificationChannelByIdController {
+
+    @Test
+    void shouldInitializeController() {
+      GetAlertNotificationChannelById controller = new GetAlertNotificationChannelById(alertService);
+      assertNotNull(controller);
+    }
+  }
+
+  @Nested
   class TestCreateTagController {
 
     @Test

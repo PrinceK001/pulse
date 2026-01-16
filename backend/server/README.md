@@ -2576,6 +2576,56 @@ curl -X PUT 'http://localhost:8080/v1/alert/notificationChannels/2' \
   }'
 ```
 
+### Get Alert Notification Channel by ID
+
+**Description:** Returns a specific notification channel by its ID. Returns the channel even if it's inactive.
+
+```http
+GET /v1/alert/notificationChannels/{notificationChannelId}
+```
+
+**Path Parameters:**
+
+- `notificationChannelId` (required): The ID of the notification channel to retrieve
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "notification_channel_id": 1,
+    "name": "Incident management",
+    "type": "slack",
+    "config": "http://whistlebot.local/declare-incident",
+    "is_active": true
+  },
+  "error": null
+}
+```
+
+**cURL Example:**
+
+```bash
+curl -X GET 'http://localhost:8080/v1/alert/notificationChannels/1' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZXYtdXNlciIsImVtYWlsIjoiZGV2LXVzZXJAbG9jYWxob3N0LmxvY2FsIiwibmFtZSI6IkRldmVsb3BtZW50IFVzZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzY3NzgxNjIxLCJleHAiOjE3Njc4NjgwMjF9.BHFrH5H8YP-jxiTyxmU5aPypaWTKlZ7E5kSo0ES5Em4'
+```
+
+**Error Response (404):**
+
+```json
+{
+  "status": 404,
+  "data": null,
+  "error": {
+    "message": "Not Found",
+    "cause": "Notification channel not found",
+    "code": "404"
+  }
+}
+```
+
 ### Delete Alert Notification Channel
 
 **Description:** Soft deletes a notification channel by setting `is_active = FALSE`. The channel will no longer be returned by the GET endpoint and will not be used for alert notifications.
