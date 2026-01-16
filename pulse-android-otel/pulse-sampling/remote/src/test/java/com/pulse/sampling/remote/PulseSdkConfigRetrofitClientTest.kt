@@ -53,10 +53,10 @@ class PulseSdkConfigRetrofitClientTest {
                                 {
                                     "name": "os_version",
                                     "sdks": [
-                                        "android_java",
-                                        "android_rn",
-                                        "ios_native",
-                                        "ios_rn"
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
                                     ],
                                     "value": "27",
                                     "sessionSampleRate": 1
@@ -64,10 +64,10 @@ class PulseSdkConfigRetrofitClientTest {
                                 {
                                     "name": "app_version",
                                     "sdks": [
-                                        "android_java",
-                                        "android_rn",
-                                        "ios_native",
-                                        "ios_rn"
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
                                     ],
                                     "value": "5.4.0",
                                     "sessionSampleRate": 1
@@ -75,10 +75,10 @@ class PulseSdkConfigRetrofitClientTest {
                                 {
                                     "name": "country",
                                     "sdks": [
-                                        "android_java",
-                                        "android_rn",
-                                        "ios_native",
-                                        "ios_rn"
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
                                     ],
                                     "value": "IN",
                                     "sessionSampleRate": 1
@@ -86,10 +86,10 @@ class PulseSdkConfigRetrofitClientTest {
                                 {
                                     "name": "platform",
                                     "sdks": [
-                                        "android_java",
-                                        "android_rn",
-                                        "ios_native",
-                                        "ios_rn"
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
                                     ],
                                     "value": "5.4.0",
                                     "sessionSampleRate": 1
@@ -97,10 +97,10 @@ class PulseSdkConfigRetrofitClientTest {
                                 {
                                     "name": "state",
                                     "sdks": [
-                                        "android_java",
-                                        "android_rn",
-                                        "ios_native",
-                                        "ios_rn"
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
                                     ],
                                     "value": "MH",
                                     "sessionSampleRate": 1
@@ -123,10 +123,10 @@ class PulseSdkConfigRetrofitClientTest {
                                             "baggage"
                                         ],
                                         "sdks": [
-                                            "android_java",
-                                            "android_rn",
-                                            "ios_native",
-                                            "ios_rn"
+                                            "pulse_android_java",
+                                            "pulse_android_rn",
+                                            "pulse_ios_swift",
+                                            "pulse_ios_rn"
                                         ]
                                     },
                                     {
@@ -144,10 +144,10 @@ class PulseSdkConfigRetrofitClientTest {
                                             "baggage"
                                         ],
                                         "sdks": [
-                                            "android_java",
-                                            "android_rn",
-                                            "ios_native",
-                                            "ios_rn"
+                                            "pulse_android_java",
+                                            "pulse_android_rn",
+                                            "pulse_ios_swift",
+                                            "pulse_ios_rn"
                                         ]
                                     }
                                 ]
@@ -169,10 +169,10 @@ class PulseSdkConfigRetrofitClientTest {
                                             "baggage"
                                         ],
                                         "sdks": [
-                                            "android_java",
-                                            "android_rn",
-                                            "ios_native",
-                                            "ios_rn"
+                                            "pulse_android_java",
+                                            "pulse_android_rn",
+                                            "pulse_ios_swift",
+                                            "pulse_ios_rn"
                                         ]
                                     },
                                     {
@@ -190,10 +190,10 @@ class PulseSdkConfigRetrofitClientTest {
                                             "baggage"
                                         ],
                                         "sdks": [
-                                            "android_java",
-                                            "android_rn",
-                                            "ios_native",
-                                            "ios_rn"
+                                            "pulse_android_java",
+                                            "pulse_android_rn",
+                                            "pulse_ios_swift",
+                                            "pulse_ios_rn"
                                         ]
                                     }
                                 ]
@@ -218,10 +218,10 @@ class PulseSdkConfigRetrofitClientTest {
                                             "baggage"
                                         ],
                                         "sdks": [
-                                            "android_java",
-                                            "android_rn",
-                                            "ios_native",
-                                            "ios_rn"
+                                            "pulse_android_java",
+                                            "pulse_android_rn",
+                                            "pulse_ios_swift",
+                                            "pulse_ios_rn"
                                         ]
                                     }
                                 ]
@@ -246,10 +246,10 @@ class PulseSdkConfigRetrofitClientTest {
                                         "baggage"
                                     ],
                                     "sdks": [
-                                        "android_java",
-                                        "android_rn",
-                                        "ios_native",
-                                        "ios_rn"
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
                                     ]
                                 },
                                 {
@@ -267,10 +267,10 @@ class PulseSdkConfigRetrofitClientTest {
                                         "baggage"
                                     ],
                                     "sdks": [
-                                        "android_java",
-                                        "android_rn",
-                                        "ios_native",
-                                        "ios_rn"
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
                                     ]
                                 }
                             ],
@@ -298,10 +298,10 @@ class PulseSdkConfigRetrofitClientTest {
                                             "baggage"
                                         ],
                                         "sdks": [
-                                            "android_java",
-                                            "android_rn",
-                                            "ios_native",
-                                            "ios_rn"
+                                            "pulse_android_java",
+                                            "pulse_android_rn",
+                                            "pulse_ios_swift",
+                                            "pulse_ios_rn"
                                         ]
                                     }
                                 }
@@ -317,10 +317,10 @@ class PulseSdkConfigRetrofitClientTest {
                                 "featureName": "java_crash",
                                 "sessionSampleRate": 0.8,
                                 "sdks": [
-                                    "android_java",
-                                    "android_rn",
-                                    "ios_native",
-                                    "ios_rn"
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
                                 ]
                             }
                         ]
@@ -351,10 +351,14 @@ class PulseSdkConfigRetrofitClientTest {
             assertThat(config.sampling.criticalEventPolicies).isNotNull
             assertThat(config.sampling.criticalEventPolicies!!.alwaysSend).hasSize(2)
             assertThat(
-                config.sampling.criticalEventPolicies!!
-                    .alwaysSend[0]
-                    .name,
-            ).isEqualTo("crash")
+                config.sampling.criticalEventPolicies!!.alwaysSend[0],
+            ).extracting({ it.name }, { it.sdks.toSet() }, { it.scopes.toSet() })
+                .containsExactly(
+                    "crash",
+                    setOf(PulseSdkName.ANDROID_JAVA, PulseSdkName.ANDROID_RN, PulseSdkName.IOS_SWIFT, PulseSdkName.IOS_RN),
+                    setOf(PulseSignalScope.LOGS, PulseSignalScope.TRACES, PulseSignalScope.METRICS, PulseSignalScope.BAGGAGE),
+                )
+
             assertThat(
                 config.sampling.criticalEventPolicies!!
                     .alwaysSend[0]
@@ -437,13 +441,13 @@ class PulseSdkConfigRetrofitClientTest {
                             "rules": [
                                 {
                                     "name": "unknown_device_attr",
-                                    "sdks": ["android_java", "unknown_sdk", "ios_rn"],
+                                    "sdks": ["pulse_android_java", "unknown_sdk", "pulse_ios_rn"],
                                     "value": "test",
                                     "sessionSampleRate": 0.8
                                 },
                                 {
                                     "name": "os_version",
-                                    "sdks": ["android_java"],
+                                    "sdks": ["pulse_android_java"],
                                     "value": "value",
                                     "sessionSampleRate": 0.9
                                 }
@@ -454,7 +458,7 @@ class PulseSdkConfigRetrofitClientTest {
                                         "name": "test_event",
                                         "props": [],
                                         "scopes": ["logs", "unknown_scope", "traces"],
-                                        "sdks": ["android_java", "future_sdk"]
+                                        "sdks": ["pulse_android_java", "future_sdk"]
                                     }
                                 ]
                             }

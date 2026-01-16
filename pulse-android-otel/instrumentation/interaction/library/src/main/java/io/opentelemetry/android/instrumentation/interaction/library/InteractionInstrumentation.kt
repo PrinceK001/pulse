@@ -144,7 +144,6 @@ class InteractionInstrumentation :
             }
         }
 
-        internal const val LOG_TAG = "InteractionInstr"
         const val INSTRUMENTATION_NAME = "android-interaction"
     }
 }

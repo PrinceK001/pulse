@@ -32,9 +32,9 @@ public object PulseSdkConfigFakeUtils {
             signals =
                 PulseSignalConfig(
                     scheduleDurationMs = scheduleDurationMs,
-                    logsCollectorUrl = collectorUrl + "v1/logs/",
-                    spanCollectorUrl = collectorUrl + "v1/spans/",
-                    metricCollectorUrl = collectorUrl + "v1/metrics/",
+                    logsCollectorUrl = collectorUrl + "v1/logs",
+                    spanCollectorUrl = collectorUrl + "v1/spans",
+                    metricCollectorUrl = collectorUrl + "v1/metrics",
                     attributesToDrop = attributesToDrop,
                     attributesToAdd = attributesToAdd,
                     filters =
