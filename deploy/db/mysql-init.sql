@@ -186,7 +186,13 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
     ('SCREEN_DAILY_USERS', 'Daily Users Count', 'screen'),
     ('ERROR_RATE', 'Error Rate (%)', 'screen'),
     ('SCREEN_TIME', 'Screen Time (s)', 'screen'),
-    ('LOAD_TIME', 'Load Time (ms)', 'screen');
+    ('LOAD_TIME', 'Load Time (ms)', 'screen'),
+    ('CRASH_FREE_USERS_PERCENTAGE', 'Crash Free Users Percentage (%)', 'screen'),
+    ('CRASH_FREE_SESSIONS_PERCENTAGE', 'Crash Free Sessions Percentage (%)', 'screen'),
+    ('ANR_FREE_USERS_PERCENTAGE', 'ANR Free Users Percentage (%)', 'screen'),
+    ('ANR_FREE_SESSIONS_PERCENTAGE', 'ANR Free Sessions Percentage (%)', 'screen'),
+    ('NON_FATAL_FREE_USERS_PERCENTAGE', 'Non-Fatal Free Users Percentage (%)', 'screen'),
+    ('NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'Non-Fatal Free Sessions Percentage (%)', 'screen');
 
 -- Insert network_api scope metrics
 INSERT INTO alert_metrics (name, label, scope) VALUES
@@ -206,6 +212,30 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';
 -- FLUSH PRIVILEGES;
+
+-- Athena job tracking table
+CREATE TABLE IF NOT EXISTS athena_job (
+    job_id VARCHAR(255) PRIMARY KEY,
+    query_string TEXT NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    query_execution_id VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'RUNNING',
+    result_location VARCHAR(500),
+    error_message TEXT,
+    data_scanned_in_bytes BIGINT NULL,
+    execution_time_millis BIGINT NULL,
+    engine_execution_time_millis BIGINT NULL,
+    query_queue_time_millis BIGINT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    INDEX idx_status (status),
+    INDEX idx_query_execution_id (query_execution_id),
+    INDEX idx_created_at (created_at),
+    INDEX idx_user_email (user_email),
+    INDEX idx_user_email_created_at (user_email, created_at)
+);
+
 
 -- Display summary
 SELECT 'Database initialization completed successfully!' AS status;

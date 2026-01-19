@@ -12,6 +12,7 @@ import {
   IconDeviceDesktop,
   IconNetwork,
   IconUsers,
+  IconDatabaseSearch,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -47,6 +48,7 @@ import { AlertListingPage } from "../screens/AlertListingPage";
 import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
+import { RealTimeQuery } from "../screens/RealTimeQuery";
 
 export const APP_NAME: string = "Pulse";
 
@@ -219,6 +221,12 @@ export const ROUTES: Routes = {
     path: "/configure-alert/*",
     element: AlertForm,
   },
+  QUERY_BUILDER: {
+    key: "QUERY_BUILDER",
+    basePath: "/query-builder",
+    path: "/query-builder",
+    element: RealTimeQuery,
+  },
 };
 
 export const NAVBAR_ITEMS: NavbarItems = [
@@ -262,6 +270,14 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconNetwork,
     routeTo: ROUTES.NETWORK_LIST.basePath,
     path: ROUTES.NETWORK_LIST.path,
+    iconSize: 25,
+  },
+  
+  {
+    tabName: "Query Builder",
+    icon: IconDatabaseSearch,
+    routeTo: ROUTES.QUERY_BUILDER.basePath,
+    path: ROUTES.QUERY_BUILDER.path,
     iconSize: 25,
   },
   {
@@ -439,12 +455,17 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   CANCEL_QUERY: {
     key: "CANCEL_QUERY",
-    apiPath: `/v2/cancelQueryRequest`,
-    method: API_METHODS.POST,
+    apiPath: `/query/job`, // DELETE /query/job/{jobId}
+    method: API_METHODS.DELETE,
   },
   GET_QUERY_HISTORY: {
     key: "GET_QUERY_HISTORY",
-    apiPath: `/v2/getQuery/user`,
+    apiPath: `/query/history`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_STATS: {
+    key: "GET_QUERY_STATS",
+    apiPath: `/query/stats`,
     method: API_METHODS.GET,
   },
   GET_SUGGESTED_QUERIES: {
@@ -622,6 +643,11 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_SDK_SCOPES_AND_SDKS: {
     key: "GET_SDK_SCOPES_AND_SDKS",
     apiPath: `/v1/configs/scopes-sdks`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_TABLES: {
+    key: "GET_QUERY_TABLES",
+    apiPath: `/query/tables`,
     method: API_METHODS.GET,
   },
 };

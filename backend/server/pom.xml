@@ -110,6 +110,18 @@
             <version>${vertx.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-kafka-client</artifactId>
+            <version>4.5.8</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>3.9.1</version>
+        </dependency>
+
 
         <dependency>
             <groupId>io.vertx</groupId>
@@ -173,6 +185,18 @@
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct-processor</artifactId>
             <version>${mapstruct.version}</version>
+        </dependency>
+
+        <!-- AWS SDK for Athena -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>athena</artifactId>
+            <version>2.20.162</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>2.20.162</version>
         </dependency>
 
         <!-- JUnit Jupiter for new tests -->
@@ -624,6 +648,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/error/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/resources/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/rest/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>

@@ -44,8 +44,12 @@ export function createReactNavigationIntegration(
   const features = getFeaturesFromRemoteConfig();
   const screenSessionTracking =
     features?.screen_session ?? options?.screenSessionTracking ?? true;
-  const screenNavigationTracking = options?.screenNavigationTracking ?? true;
-  const screenInteractiveTracking = options?.screenInteractiveTracking ?? false;
+  const screenNavigationTracking =
+    features?.rn_screen_load ?? options?.screenNavigationTracking ?? true;
+  const screenInteractiveTracking =
+    features?.rn_screen_interactive ??
+    options?.screenInteractiveTracking ??
+    false;
 
   let navigationContainer: NavigationContainer | undefined;
   let recentRouteKeys: string[] = [];

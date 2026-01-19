@@ -768,9 +768,9 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 0.05, "/checkout/confirm": 0.03 } },
-          { alias: "B", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 3000, "/checkout/confirm": 2500 } },
-          { alias: "C", metric: "NET_5XX_RATE", metric_operator: "GREATER_THAN", threshold: { "/checkout/initiate": 0.01 } },
+          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 0.05, "post_https://api.fancode.com/v1/checkout/confirm": 0.03 } },
+          { alias: "B", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 3000, "post_https://api.fancode.com/v1/checkout/confirm": 2500 } },
+          { alias: "C", metric: "NET_5XX_RATE", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 0.01 } },
         ],
         condition_expression: "A && B || C",
         evaluation_period: 900,
@@ -874,7 +874,7 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "/search/products": 2000, "/search/suggest": 500 } },
+          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "get_https://api.fancode.com/v1/search/products": 2000, "get_https://api.fancode.com/v1/search/suggest": 500 } },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -952,7 +952,7 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "/payment/process": 5000, "/payment/verify": 3000 } },
+          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/payment/process": 5000, "post_https://api.fancode.com/v1/payment/verify": 3000 } },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -1030,7 +1030,7 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "/api/v2/experimental": 0.01 } },
+          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "get_https://api.fancode.com/v2/experimental": 0.01 } },
         ],
         condition_expression: "A",
         evaluation_period: 900,
@@ -1392,9 +1392,9 @@ export class MockDataStore {
           ],
         },
         scheduleDurationMs: 5000,
-        logsCollectorUrl: 'http://localhost:4318/v1/logs',
-        metricCollectorUrl: 'http://localhost:4318/v1/metrics',
-        spanCollectorUrl: 'http://localhost:4318/v1/traces',
+        logsCollectorUrl: 'http://10.0.2.2:4318/v1/logs',
+        metricCollectorUrl: 'http://10.0.2.2:4318/v1/metrics',
+        spanCollectorUrl: 'http://10.0.2.2:4318/v1/traces',
         attributesToDrop: [
           {
             id: generateId(),
@@ -1414,8 +1414,8 @@ export class MockDataStore {
         attributesToAdd: [],
       },
       interaction: {
-        collectorUrl: 'http://localhost:4318/v1/interactions',
-        configUrl: 'http://localhost:8080/v1/configs/active',
+        collectorUrl: 'http://10.0.2.2:4318/v1/traces/v1/interactions',
+        configUrl: 'http://10.0.2.2:8080/v1/interaction-configs/',
         beforeInitQueueSize: 100,
       },
       features: [
@@ -1452,6 +1452,18 @@ export class MockDataStore {
         {
           id: generateId(),
           featureName: 'rn_navigation',
+          sessionSampleRate: 0,
+          sdks: ['android_rn', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'rn_screen_load',
+          sessionSampleRate: 0,
+          sdks: ['android_rn', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'rn_screen_interactive',
           sessionSampleRate: 0,
           sdks: ['android_rn', 'ios_rn'],
         },
@@ -1575,7 +1587,7 @@ type SdkEnumV1 = 'android_java' | 'android_rn' | 'ios_native' | 'ios_rn';
 type ScopeEnumV1 = 'logs' | 'traces' | 'metrics' | 'baggage';
 type FilterModeV1 = 'blacklist' | 'whitelist';
 type SamplingRuleNameV1 = 'os_version' | 'app_version' | 'country' | 'platform' | 'state' | 'device' | 'network';
-type FeatureNameV1 = 'interaction' | 'java_crash' | 'js_crash' | 'java_anr' | 'network_change' | 'network_instrumentation' | 'screen_session' | 'custom_events' | 'rn_navigation';
+type FeatureNameV1 = 'interaction' | 'java_crash' | 'js_crash' | 'java_anr' | 'network_change' | 'network_instrumentation' | 'screen_session' | 'custom_events' | 'rn_navigation' | 'rn_screen_load' | 'rn_screen_interactive';
 
 interface EventPropMatchV1 {
   name: string;
