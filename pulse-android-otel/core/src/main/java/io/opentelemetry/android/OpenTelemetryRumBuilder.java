@@ -66,7 +66,6 @@ import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder;
 import io.opentelemetry.sdk.trace.SpanProcessor;
-import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -548,7 +547,7 @@ public final class OpenTelemetryRumBuilder {
                         .setResource(resource)
                         .addSpanProcessor(new SessionIdSpanAppender(sessionProvider));
 
-        BatchSpanProcessor batchSpanProcessor = BatchSpanProcessor.builder(spanExporter).build();
+        SB batchSpanProcessor = SB.builder(spanExporter).build();
         tracerProviderBuilder.addSpanProcessor(batchSpanProcessor);
 
         for (BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>
@@ -569,8 +568,9 @@ public final class OpenTelemetryRumBuilder {
                         .addLogRecordProcessor(
                                 new GlobalAttributesLogRecordAppender(
                                         config.getGlobalAttributesSupplier()));
-        LogRecordProcessor batchLogsProcessor =
-                BatchLogRecordProcessor.builder(logsExporter).build();
+        NB batchLogsProcessor = NB.builder(logsExporter).build();
+//        LogRecordProcessor batchLogsProcessor =
+//                BatchLogRecordProcessor.builder(logsExporter).build();
         loggerProviderBuilder.addLogRecordProcessor(batchLogsProcessor);
         for (BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>
                 customizer : loggerProviderCustomizers) {

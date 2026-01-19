@@ -1,6 +1,7 @@
 package com.pulse.sampling.core.exporters
 
 import android.content.Context
+import android.util.Log
 import com.pulse.otel.utils.matchesFromRegexCache
 import com.pulse.otel.utils.toMap
 import com.pulse.sampling.core.PulseSessionConfigParser
@@ -283,6 +284,7 @@ public class PulseSamplingSignalProcessors internal constructor(
             .features
             .filter { currentSdkName in it.sdks && it.sessionSampleRate == 1F }
             .map { it.featureName }
+            .also { Log.d("PulseOtelSdk:AndroidSDK", "feature sdk = ${sdkConfig.features.map { it.sdks }.joinToString()}") }
 
     private inline fun <E> List<E>.anyOrNone(
         shouldMatchAny: Boolean,

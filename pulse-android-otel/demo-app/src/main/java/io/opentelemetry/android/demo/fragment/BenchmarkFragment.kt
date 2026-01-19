@@ -204,6 +204,11 @@ private fun launchBenchmark(
                 } else {
                     0L
                 }
+
+                PulseSDK.INSTANCE.trackEvent(
+                    "benchmark_started",
+                    System.currentTimeMillis(),
+                )
                 
                 repeat(safeThreads) { threadIndex ->
                     val share = base + if (threadIndex < remainder) 1 else 0
@@ -217,7 +222,7 @@ private fun launchBenchmark(
                                     "benchMarkThreadIndex" to threadIndex,
                                     "benchMarkEventIndex" to eventIndex.toInt() + 1,
                                     "benchMarkTotalLogs" to totalLogs.toInt(),
-                                    "benchMarkFiredEvent" to firedEvent.updateAndGet { it + 1 }.also { /*Log.d("benchmark", "firedEvent: $it")*/ }
+                                    "benchMarkFiredEvent" to firedEvent.updateAndGet { it + 1 }
                                 ),
                             )
                             eventIndex++

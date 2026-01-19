@@ -338,7 +338,7 @@ internal class PulseSDKImpl :
                             }
 
                             PulseFeatureName.CUSTOM_EVENTS -> {
-                                isCustomEventEnabled = false
+                                isCustomEventEnabled = true
                             }
 
                             PulseFeatureName.RN_SCREEN_LOAD -> {

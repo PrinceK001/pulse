@@ -35,7 +35,7 @@ public object PulseSdkConfigFakeUtils {
                     logsCollectorUrl = collectorUrl + "v1/logs",
                     spanCollectorUrl = collectorUrl + "v1/spans",
                     metricCollectorUrl = collectorUrl + "v1/metrics",
-                    customEventCollectorUrl = "v1/custom-event",
+                    customEventCollectorUrl = collectorUrl + "v1/custom-events",
                     attributesToDrop = attributesToDrop,
                     attributesToAdd = attributesToAdd,
                     filters =

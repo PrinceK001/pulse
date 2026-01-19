@@ -84,7 +84,7 @@ public enum class PulseAttributeType {
 
 @Keep
 @Serializable
-public class PulseAttributeValue internal constructor(
+public class  PulseAttributeValue internal constructor(
     @SerialName("name")
     public val name: String,
     @SerialName("value")
