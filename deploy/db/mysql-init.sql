@@ -38,6 +38,101 @@ CREATE TABLE pulse_sdk_configs (
   config_json JSON NOT NULL
 );
 
+-- Insert default SDK configuration
+INSERT INTO pulse_sdk_configs (description, is_active, created_by, config_json)
+VALUES (
+  'Default initial configuration',
+  TRUE,
+  'system',
+  '{
+    "sampling": {
+      "default": {
+        "sessionSampleRate": 1
+      },
+      "rules": [],
+      "criticalEventPolicies": {
+        "alwaysSend": []
+      },
+      "criticalSessionPolicies": {
+        "alwaysSend": []
+      }
+    },
+    "signals": {
+      "filters": {
+        "mode": "blacklist",
+        "values": []
+      },
+      "scheduleDurationMs": 5000,
+      "logsCollectorUrl": "http://10.0.2.2:4318/v1/logs",
+      "metricCollectorUrl": "http://10.0.2.2:4318/v1/metrics",
+      "spanCollectorUrl": "http://10.0.2.2:4318/v1/traces",
+      "attributesToDrop": [],
+      "attributesToAdd": []
+    },
+    "interaction": {
+      "collectorUrl": "http://10.0.2.2:4318/v1/traces/v1/interactions",
+      "configUrl": "http://10.0.2.2:8080/v1/interaction-configs/",
+      "beforeInitQueueSize": 100
+    },
+    "features": [
+      {
+        "featureName": "interaction",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "java_crash",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "js_crash",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "java_anr",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "network_change",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "network_instrumentation",
+        "sessionSampleRate": 0,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "screen_session",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "custom_events",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "rn_navigation",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "rn_screen_load",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "rn_screen_interactive",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      }
+    ]
+  }'
+);
 
 CREATE TABLE severity
 (
