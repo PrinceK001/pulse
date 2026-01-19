@@ -7,7 +7,6 @@ package io.opentelemetry.android.instrumentation.internal
 
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
-import java.util.ServiceLoader
 
 /**
  * This class is internal and is hence not for public use. Its APIs are unstable and can change
@@ -15,10 +14,10 @@ import java.util.ServiceLoader
  */
 class AndroidInstrumentationLoaderImpl : AndroidInstrumentationLoader {
     private val instrumentations: MutableMap<Class<out AndroidInstrumentation>, AndroidInstrumentation> by lazy {
-        ServiceLoader
-            .load(AndroidInstrumentation::class.java)
-            .associateBy { it.javaClass }
-            .toMutableMap()
+        PulseFastServiceLoader.load(
+            AndroidInstrumentation::class.java,
+            AndroidInstrumentation::class.java.classLoader
+        ).associateBy { it.javaClass }.toMutableMap()
     }
 
     @Suppress("UNCHECKED_CAST")
