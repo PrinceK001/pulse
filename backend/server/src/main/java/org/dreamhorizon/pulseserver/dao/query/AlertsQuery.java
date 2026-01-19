@@ -13,7 +13,8 @@ public class AlertsQuery {
           A.evaluation_interval,
           A.severity_id,
           A.notification_channel_id,
-          NC.notification_webhook_url AS notification_webhook_url,
+          NC.type AS notification_type,
+          NC.config AS notification_config,
           A.created_by,
           A.updated_by,
           A.created_at AS alert_created_at,
@@ -151,7 +152,8 @@ public class AlertsQuery {
           FA.last_snoozed_at,\s
           FA.snoozed_from,\s
           FA.snoozed_until,\s
-          NC.notification_webhook_url,\s
+          NC.type AS notification_type,\s
+          NC.config AS notification_config,\s
           (SELECT total_count FROM TotalAlertCount) AS total_count\s
       FROM\s
           AlertFilterWithLimitAndOffset FA
@@ -171,7 +173,8 @@ public class AlertsQuery {
           A.evaluation_interval,
           A.severity_id,
           A.notification_channel_id,
-          NC.notification_webhook_url AS notification_webhook_url,
+          NC.type AS notification_type,
+          NC.config AS notification_config,
           A.created_by,
           A.updated_by,
           A.created_at AS alert_created_at,
@@ -245,9 +248,13 @@ public class AlertsQuery {
   public static final String GET_SEVERITIES = "SELECT * FROM severity;";
   public static final String CREATE_SEVERITY = "INSERT INTO severity(name, description) VALUES (?,?);";
 
-  public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM notification_channels;";
+  public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM notification_channels WHERE is_active = TRUE;";
   public static final String CREATE_NOTIFICATION_CHANNEL =
-      "INSERT INTO notification_channels(name, notification_webhook_url) VALUES (?,?);";
+      "INSERT INTO notification_channels(name, type, config, is_active) VALUES (?,?,?,TRUE);";
+  public static final String UPDATE_NOTIFICATION_CHANNEL =
+      "UPDATE notification_channels SET name = ?, type = ?, config = ? WHERE notification_channel_id = ? AND is_active = TRUE;";
+  public static final String DELETE_NOTIFICATION_CHANNEL =
+      "UPDATE notification_channels SET is_active = FALSE WHERE notification_channel_id = ?;";
 
   public static final String CREATE_TAG = "INSERT INTO tags(name) VALUES (?);";
   public static final String GET_TAGS_FOR_ALERT =
@@ -291,9 +298,11 @@ public class AlertsQuery {
       + "state) "
       + "VALUES (?,?,?);";
 
-  public static final String GET_NOTIFICATION_WEBHOOK_URL = "SELECT notification_webhook_url "
+  public static final String GET_NOTIFICATION_CHANNEL = "SELECT type, config, is_active "
       + "FROM notification_channels "
-      + "WHERE notification_channel_id = ?;";
+      + "WHERE notification_channel_id = ? AND is_active = TRUE;";
+  
+  public static final String GET_NOTIFICATION_CHANNEL_BY_ID = "SELECT * FROM notification_channels WHERE notification_channel_id = ?;";
 
   public static final String GET_SCOPE_STATE = "SELECT state "
       + "FROM alert_scope "

@@ -2400,6 +2400,14 @@ Content-Type: application/json
 GET /v1/alert/notificationChannels
 ```
 
+**cURL Example:**
+
+```bash
+curl -X GET 'http://localhost:8080/v1/alert/notificationChannels' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}'
+```
+
 **Response:**
 
 ```json
@@ -2409,7 +2417,16 @@ GET /v1/alert/notificationChannels
     {
       "notification_channel_id": 1,
       "name": "Incident management",
-      "notification_webhook_url": "http://whistlebot.local/declare-incident"
+      "type": "slack",
+      "config": "http://whistlebot.local/declare-incident",
+      "is_active": true
+    },
+    {
+      "notification_channel_id": 2,
+      "name": "Team Email",
+      "type": "email",
+      "config": "team@example.com",
+      "is_active": true
     }
   ],
   "error": null
@@ -2420,7 +2437,11 @@ GET /v1/alert/notificationChannels
 
 - `notification_channel_id`: Unique identifier for the notification channel
 - `name`: Name of the notification channel
-- `notification_webhook_url`: Webhook URL for sending notifications
+- `type`: Notification type (`slack` or `email`)
+- `config`: Configuration value (string, not JSON)
+  - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
+  - For `email`: Email address (e.g., `team@example.com`)
+- `is_active`: Boolean indicating if the channel is active (only active channels are returned)
 
 ### Create Alert Notification Channel
 
@@ -2432,6 +2453,7 @@ Content-Type: application/json
 
 {
   "name": "PagerDuty",
+  "type": "slack",
   "config": "http://whistlebot.local/declare-incident"
 }
 ```
@@ -2439,7 +2461,10 @@ Content-Type: application/json
 **Request Body:**
 
 - `name` (required): Channel name
-- `config` (required): Notification webhook URL (stored as `notification_webhook_url` in the database)
+- `type` (required): Notification type (`slack` or `email`)
+- `config` (required): Configuration value (string)
+  - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
+  - For `email`: Email address (e.g., `recipient@example.com`)
 
 **Response:**
 
@@ -2450,6 +2475,193 @@ Content-Type: application/json
   "error": null
 }
 ```
+
+**cURL Example for Slack:**
+
+```bash
+curl -X POST 'http://localhost:8080/v1/alert/notificationChannels' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{
+    "name": "Slack Channel",
+    "type": "slack",
+    "config": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  }'
+```
+
+**cURL Example for Email:**
+
+```bash
+curl -X POST 'http://localhost:8080/v1/alert/notificationChannels' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{
+    "name": "Team Email",
+    "type": "email",
+    "config": "team@example.com"
+  }'
+```
+
+**Notes:**
+
+- When an alert is triggered during evaluation, the system automatically fetches the notification channel configuration from the database using the `notification_channel_id` associated with the alert
+- Only active notification channels (`is_active = TRUE`) are used for sending notifications during alert evaluation
+- For `slack` type channels, the `config` field contains the webhook URL directly, and notifications are sent to that URL
+- For `email` type channels, the `config` field contains the email address directly (email sending implementation can be added later)
+- The notification channel details (type and config) are retrieved from the `notification_channels` table at the time of alert evaluation
+- Only active channels are returned by the GET endpoint
+
+### Update Alert Notification Channel
+
+**Description:** Updates an existing notification channel.
+
+```http
+PUT /v1/alert/notificationChannels/{notificationChannelId}
+Content-Type: application/json
+
+{
+  "name": "Updated Channel Name",
+  "type": "slack",
+  "config": "https://hooks.slack.com/services/NEW/WEBHOOK/URL"
+}
+```
+
+**Path Parameters:**
+
+- `notificationChannelId` (required): The ID of the notification channel to update
+
+**Request Body:**
+
+- `name` (required): Updated channel name
+- `type` (required): Notification type (`slack` or `email`)
+- `config` (required): Updated configuration value (string)
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+**cURL Example:**
+
+```bash
+curl -X PUT 'http://localhost:8080/v1/alert/notificationChannels/1' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{
+    "name": "Updated Slack Channel",
+    "type": "slack",
+    "config": "https://hooks.slack.com/services/NEW/WEBHOOK/URL"
+  }'
+```
+
+**cURL Example for Email Update:**
+
+```bash
+curl -X PUT 'http://localhost:8080/v1/alert/notificationChannels/2' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{
+    "name": "Updated Team Email",
+    "type": "email",
+    "config": "updated-team@example.com"
+  }'
+```
+
+### Get Alert Notification Channel by ID
+
+**Description:** Returns a specific notification channel by its ID. Returns the channel even if it's inactive.
+
+```http
+GET /v1/alert/notificationChannels/{notificationChannelId}
+```
+
+**Path Parameters:**
+
+- `notificationChannelId` (required): The ID of the notification channel to retrieve
+ 
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "notification_channel_id": 1,
+    "name": "Incident management",
+    "type": "slack",
+    "config": "http://whistlebot.local/declare-incident",
+    "is_active": true
+  },
+  "error": null
+}
+```
+
+**cURL Example:**
+
+```bash
+curl -X GET 'http://localhost:8080/v1/alert/notificationChannels/1' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}'
+```
+
+**Error Response (404):**
+
+```json
+{
+  "status": 404,
+  "data": null,
+  "error": {
+    "message": "Not Found",
+    "cause": "Notification channel not found",
+    "code": "404"
+  }
+}
+```
+
+### Delete Alert Notification Channel
+
+**Description:** Soft deletes a notification channel by setting `is_active = FALSE`. The channel will no longer be returned by the GET endpoint and will not be used for alert notifications.
+
+```http
+DELETE /v1/alert/notificationChannels/{notificationChannelId}
+```
+
+**Path Parameters:**
+
+- `notificationChannelId` (required): The ID of the notification channel to delete
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+**cURL Example:**
+
+```bash
+curl -X DELETE 'http://localhost:8080/v1/alert/notificationChannels/1' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}'
+```
+
+**Notes:**
+
+- This is a soft delete operation - the channel is marked as inactive but not removed from the database
+- Deleted channels will not appear in the GET notification channels list
+- Deleted channels will not be used for sending notifications during alert evaluation
+- To reactivate a deleted channel, you can update it using the UPDATE endpoint (though the current implementation requires the channel to be active for updates)
 
 ## 🗄️ Database Schema
 

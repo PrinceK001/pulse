@@ -38,6 +38,101 @@ CREATE TABLE pulse_sdk_configs (
   config_json JSON NOT NULL
 );
 
+-- Insert default SDK configuration
+INSERT INTO pulse_sdk_configs (description, is_active, created_by, config_json)
+VALUES (
+  'Default initial configuration',
+  TRUE,
+  'system',
+  '{
+    "sampling": {
+      "default": {
+        "sessionSampleRate": 1
+      },
+      "rules": [],
+      "criticalEventPolicies": {
+        "alwaysSend": []
+      },
+      "criticalSessionPolicies": {
+        "alwaysSend": []
+      }
+    },
+    "signals": {
+      "filters": {
+        "mode": "blacklist",
+        "values": []
+      },
+      "scheduleDurationMs": 5000,
+      "logsCollectorUrl": "http://10.0.2.2:4318/v1/logs",
+      "metricCollectorUrl": "http://10.0.2.2:4318/v1/metrics",
+      "spanCollectorUrl": "http://10.0.2.2:4318/v1/traces",
+      "attributesToDrop": [],
+      "attributesToAdd": []
+    },
+    "interaction": {
+      "collectorUrl": "http://10.0.2.2:4318/v1/traces/v1/interactions",
+      "configUrl": "http://10.0.2.2:8080/v1/interaction-configs/",
+      "beforeInitQueueSize": 100
+    },
+    "features": [
+      {
+        "featureName": "interaction",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "java_crash",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "js_crash",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "java_anr",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "network_change",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "network_instrumentation",
+        "sessionSampleRate": 0,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "screen_session",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "custom_events",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "rn_navigation",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "rn_screen_load",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      },
+      {
+        "featureName": "rn_screen_interactive",
+        "sessionSampleRate": 1,
+        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+      }
+    ]
+  }'
+);
 
 CREATE TABLE severity
 (
@@ -50,7 +145,9 @@ CREATE TABLE notification_channels
 (
     notification_channel_id INT PRIMARY KEY AUTO_INCREMENT,
     name                    VARCHAR(100) NOT NULL,
-    notification_webhook_url                  TEXT
+    type                    ENUM('slack', 'email') NOT NULL,
+    config                  VARCHAR(500) NOT NULL,
+    is_active               BOOLEAN DEFAULT TRUE NOT NULL
 );
 
 
@@ -125,10 +222,6 @@ VALUES
     (1, 'Critical: Production outage or severe degradation with significant user impact. Requires immediate action and incident management.'),
     (2, 'Warning: Degraded performance, elevated errors, or risk of user impact. Should be investigated soon but is not a full outage.'),
     (3, 'Info: Informational or low-risk condition. No immediate action required; useful for visibility, trend analysis, or validation of changes.');
-
-INSERT INTO notification_channels (name, notification_webhook_url)
-VALUES
-    ('Incident management', 'http://whistlebot.local/declare-incident');
 
 -- Insert Scope Types
 INSERT INTO scope_types (name, label) VALUES
