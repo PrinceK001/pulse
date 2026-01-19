@@ -22,6 +22,7 @@ export * from "./useGetAlertScopes";
 export * from "./useGetAlertMetrics";
 export * from "./useGetAlertSeverities";
 export * from "./useGetAlertNotificationChannels";
+export * from "./useGetNotificationChannelById";
 export * from "./useCreateNotificationChannel";
 export * from "./useUpdateNotificationChannel";
 export * from "./useDeleteNotificationChannel";

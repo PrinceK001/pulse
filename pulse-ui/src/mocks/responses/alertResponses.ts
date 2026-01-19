@@ -99,10 +99,11 @@ export const mockAlertMetrics: Record<string, { scope: string; metrics: Array<{ 
 // Note: Currently only Slack is supported. Email support coming soon.
 // =============================================================================
 export const mockNotificationChannels = [
-  { notification_channel_id: 1, name: "Slack - #alerts-critical", type: "slack", config: "https://hooks.slack.com/services/xxx" },
-  { notification_channel_id: 2, name: "Slack - #engineering", type: "slack", config: "https://hooks.slack.com/services/yyy" },
-  { notification_channel_id: 3, name: "Slack - #alerts-warning", type: "slack", config: "https://hooks.slack.com/services/zzz" },
-  { notification_channel_id: 4, name: "Slack - #devops", type: "slack", config: "https://hooks.slack.com/services/aaa" },
+  { notification_channel_id: 1, name: "Slack - #alerts-critical", type: "slack", config: "https://hooks.slack.com/services/xxx", is_active: true },
+  { notification_channel_id: 2, name: "Slack - #engineering", type: "slack", config: "https://hooks.slack.com/services/yyy", is_active: true },
+  { notification_channel_id: 3, name: "Slack - #alerts-warning", type: "slack", config: "https://hooks.slack.com/services/zzz", is_active: true },
+  { notification_channel_id: 4, name: "Slack - #devops", type: "slack", config: "https://hooks.slack.com/services/aaa", is_active: true },
+  { notification_channel_id: 5, name: "Slack - #old-alerts (Deleted)", type: "slack", config: "https://hooks.slack.com/services/bbb", is_active: false },
 ];
 
 // =============================================================================
