@@ -43,6 +43,7 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
           CI: true
+          GRADLE_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
         run: |
           if [ "${{ inputs.final }}" == "true" ]; then
             ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Pfinal=true --no-build-cache --no-configuration-cache --no-parallel
