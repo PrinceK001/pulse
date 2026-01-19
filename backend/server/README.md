@@ -2405,7 +2405,7 @@ GET /v1/alert/notificationChannels
 ```bash
 curl -X GET 'http://localhost:8080/v1/alert/notificationChannels' \
   -H 'Accept: application/json' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZXYtdXNlciIsImVtYWlsIjoiZGV2LXVzZXJAbG9jYWxob3N0LmxvY2FsIiwibmFtZSI6IkRldmVsb3BtZW50IFVzZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzY3NzgxNjIxLCJleHAiOjE3Njc4NjgwMjF9.BHFrH5H8YP-jxiTyxmU5aPypaWTKlZ7E5kSo0ES5Em4'
+  -H 'Authorization: Bearer {token}'
 ```
 
 **Response:**
@@ -2482,7 +2482,7 @@ Content-Type: application/json
 curl -X POST 'http://localhost:8080/v1/alert/notificationChannels' \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZXYtdXNlciIsImVtYWlsIjoiZGV2LXVzZXJAbG9jYWxob3N0LmxvY2FsIiwibmFtZSI6IkRldmVsb3BtZW50IFVzZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzY3NzgxNjIxLCJleHAiOjE3Njc4NjgwMjF9.BHFrH5H8YP-jxiTyxmU5aPypaWTKlZ7E5kSo0ES5Em4' \
+  -H 'Authorization: Bearer {token}' \
   -d '{
     "name": "Slack Channel",
     "type": "slack",
@@ -2496,7 +2496,7 @@ curl -X POST 'http://localhost:8080/v1/alert/notificationChannels' \
 curl -X POST 'http://localhost:8080/v1/alert/notificationChannels' \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZXYtdXNlciIsImVtYWlsIjoiZGV2LXVzZXJAbG9jYWxob3N0LmxvY2FsIiwibmFtZSI6IkRldmVsb3BtZW50IFVzZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzY3NzgxNjIxLCJleHAiOjE3Njc4NjgwMjF9.BHFrH5H8YP-jxiTyxmU5aPypaWTKlZ7E5kSo0ES5Em4' \
+  -H 'Authorization: Bearer {token}' \
   -d '{
     "name": "Team Email",
     "type": "email",
@@ -2554,7 +2554,7 @@ Content-Type: application/json
 curl -X PUT 'http://localhost:8080/v1/alert/notificationChannels/1' \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZXYtdXNlciIsImVtYWlsIjoiZGV2LXVzZXJAbG9jYWxob3N0LmxvY2FsIiwibmFtZSI6IkRldmVsb3BtZW50IFVzZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzY3NzgxNjIxLCJleHAiOjE3Njc4NjgwMjF9.BHFrH5H8YP-jxiTyxmU5aPypaWTKlZ7E5kSo0ES5Em4' \
+  -H 'Authorization: Bearer {token}' \
   -d '{
     "name": "Updated Slack Channel",
     "type": "slack",
@@ -2568,7 +2568,7 @@ curl -X PUT 'http://localhost:8080/v1/alert/notificationChannels/1' \
 curl -X PUT 'http://localhost:8080/v1/alert/notificationChannels/2' \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZXYtdXNlciIsImVtYWlsIjoiZGV2LXVzZXJAbG9jYWxob3N0LmxvY2FsIiwibmFtZSI6IkRldmVsb3BtZW50IFVzZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzY3NzgxNjIxLCJleHAiOjE3Njc4NjgwMjF9.BHFrH5H8YP-jxiTyxmU5aPypaWTKlZ7E5kSo0ES5Em4' \
+  -H 'Authorization: Bearer {token}' \
   -d '{
     "name": "Updated Team Email",
     "type": "email",
@@ -2587,7 +2587,7 @@ GET /v1/alert/notificationChannels/{notificationChannelId}
 **Path Parameters:**
 
 - `notificationChannelId` (required): The ID of the notification channel to retrieve
-
+ 
 **Response:**
 
 ```json
@@ -2609,7 +2609,7 @@ GET /v1/alert/notificationChannels/{notificationChannelId}
 ```bash
 curl -X GET 'http://localhost:8080/v1/alert/notificationChannels/1' \
   -H 'Accept: application/json' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZXYtdXNlciIsImVtYWlsIjoiZGV2LXVzZXJAbG9jYWxob3N0LmxvY2FsIiwibmFtZSI6IkRldmVsb3BtZW50IFVzZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzY3NzgxNjIxLCJleHAiOjE3Njc4NjgwMjF9.BHFrH5H8YP-jxiTyxmU5aPypaWTKlZ7E5kSo0ES5Em4'
+  -H 'Authorization: Bearer {token}'
 ```
 
 **Error Response (404):**
@@ -2653,7 +2653,7 @@ DELETE /v1/alert/notificationChannels/{notificationChannelId}
 ```bash
 curl -X DELETE 'http://localhost:8080/v1/alert/notificationChannels/1' \
   -H 'Accept: application/json' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZXYtdXNlciIsImVtYWlsIjoiZGV2LXVzZXJAbG9jYWxob3N0LmxvY2FsIiwibmFtZSI6IkRldmVsb3BtZW50IFVzZXIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzY3NzgxNjIxLCJleHAiOjE3Njc4NjgwMjF9.BHFrH5H8YP-jxiTyxmU5aPypaWTKlZ7E5kSo0ES5Em4'
+  -H 'Authorization: Bearer {token}'
 ```
 
 **Notes:**
