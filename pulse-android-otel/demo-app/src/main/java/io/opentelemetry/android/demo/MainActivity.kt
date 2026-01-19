@@ -97,9 +97,7 @@ class MainActivity : ComponentActivity() {
                         LauncherButton(
                             text = "Go shopping",
                             onClick = {
-                                OtelDemoApplication.logEvent("Go shopping") {
-                                setAttribute("shopping", "true")
-                            }
+                                OtelDemoApplication.logEvent("Go shopping", mapOf("shopping" to "true"))
                                 context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
                             },
                         )

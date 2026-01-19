@@ -16,6 +16,8 @@ public class PulseSignalConfig internal constructor(
     public val metricCollectorUrl: String,
     @SerialName("spanCollectorUrl")
     public val spanCollectorUrl: String,
+    @SerialName("customEventCollectorUrl")
+    public val customEventCollectorUrl: String,
     @SerialName("attributesToDrop")
     public val attributesToDrop: List<PulseSignalMatchCondition>,
     @SerialName("attributesToAdd")
@@ -45,7 +47,7 @@ public enum class PulseSignalFilterMode {
 
 @Keep
 @Serializable
-public class PulseProp internal constructor(
+public class PulseProp(
     @SerialName("name")
     public val name: String,
     @SerialName("value")

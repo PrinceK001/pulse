@@ -22,6 +22,11 @@ public enum class PulseSignalScope {
 
     @SerialName(PulseFallbackToUnknownEnumSerializer.UNKNOWN_KEY_NAME)
     UNKNOWN,
+    ;
+
+    public companion object {
+        public val allValuesExceptUnknown: Collection<PulseSignalScope> = values().toSet() - UNKNOWN
+    }
 }
 
 private class PulseSignalScopeSerializer : PulseFallbackToUnknownEnumSerializer<PulseSignalScope>(PulseSignalScope::class)
