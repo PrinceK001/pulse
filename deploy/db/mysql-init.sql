@@ -50,7 +50,9 @@ CREATE TABLE notification_channels
 (
     notification_channel_id INT PRIMARY KEY AUTO_INCREMENT,
     name                    VARCHAR(100) NOT NULL,
-    notification_webhook_url                  TEXT
+    type                    ENUM('slack', 'email') NOT NULL,
+    config                  VARCHAR(500) NOT NULL,
+    is_active               BOOLEAN DEFAULT TRUE NOT NULL
 );
 
 
@@ -125,10 +127,6 @@ VALUES
     (1, 'Critical: Production outage or severe degradation with significant user impact. Requires immediate action and incident management.'),
     (2, 'Warning: Degraded performance, elevated errors, or risk of user impact. Should be investigated soon but is not a full outage.'),
     (3, 'Info: Informational or low-risk condition. No immediate action required; useful for visibility, trend analysis, or validation of changes.');
-
-INSERT INTO notification_channels (name, notification_webhook_url)
-VALUES
-    ('Incident management', 'http://whistlebot.local/declare-incident');
 
 -- Insert Scope Types
 INSERT INTO scope_types (name, label) VALUES

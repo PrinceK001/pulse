@@ -5,6 +5,7 @@ import {
   IconSquareRoundedX, IconClock, IconUser, IconCalendar, IconActivity,
   IconBell, IconBellOff, IconAlertTriangle, IconChevronDown, IconChevronRight,
   IconClock2, IconClockHour4, IconClockHour8, IconCalendarTime, IconCalendarWeek,
+  IconBrandSlack,
 } from "@tabler/icons-react";
 import { AlertDetailProps } from "./AlertDetail.interface";
 import classes from "./AlertDetail.module.css";
@@ -17,6 +18,7 @@ import { useResumeAlert } from "../../hooks/useResumeAlert";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
 import { useGetAlertMetrics } from "../../hooks/useGetAlertMetrics";
+import { useGetNotificationChannelById } from "../../hooks/useGetNotificationChannelById";
 import { showNotification } from "../../helpers/showNotification";
 import { formatNetworkApiScopeName, isNetworkApiScopeName } from "../AlertFormWizard/utils/scopeNameUtils";
 
@@ -88,6 +90,12 @@ export function AlertDetail(_props: AlertDetailProps) {
   // Fetch metrics based on alert's scope
   const alertScope = alertData?.data?.scope || "";
   const { data: metricsData } = useGetAlertMetrics({ scope: alertScope });
+  
+  // Fetch notification channel by ID
+  const notificationChannelId = alertData?.data?.notification_channel_id ?? null;
+  const { data: notificationChannelData } = useGetNotificationChannelById({
+    notificationChannelId,
+  });
 
   const toggleScopeExpanded = (scopeId: number) => {
     setExpandedScopes(prev => {
@@ -130,6 +138,9 @@ export function AlertDetail(_props: AlertDetailProps) {
   // Build metric labels lookup from fetched metrics
   const metricLabels: Record<string, string> = {};
   metricsData?.data?.metrics?.forEach((m) => { metricLabels[m.name] = m.label; });
+
+  // Get notification channel from fetched data
+  const notificationChannel = notificationChannelData?.data ?? null;
 
   const snoozeAlertMutation = useSnoozeAlert({
     onSettled: (data, error) => {
@@ -328,7 +339,19 @@ export function AlertDetail(_props: AlertDetailProps) {
               </div>
               <div className={classes.configItem}>
                 <span className={classes.configLabel}>Notification Channel</span>
-                <span className={classes.configValue}>Channel #{alert.notification_channel_id}</span>
+                {notificationChannel ? (
+                  <Tooltip label={notificationChannel.config} withArrow>
+                    <span className={classes.configValue} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {notificationChannel.type === 'slack' && <IconBrandSlack size={14} style={{ color: '#4a154b' }} />}
+                      {notificationChannel.name}
+                      {!notificationChannel.is_active && (
+                        <Badge size="xs" color="red" variant="light">Deleted</Badge>
+                      )}
+                    </span>
+                  </Tooltip>
+                ) : (
+                  <span className={classes.configValue}>Channel #{alert.notification_channel_id}</span>
+                )}
               </div>
               <div className={classes.configItem}>
                 <span className={classes.configLabel}>Status</span>
