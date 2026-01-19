@@ -46,7 +46,7 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
           CI: true
-          GRADLE_OPTS: "-Xmx3g -XX:MaxMetaspaceSize=2g -XX:+UseG1GC -XX:MaxDirectMemorySize=1g"
+          GRADLE_OPTS: "-Xmx3g -XX:MaxMetaspaceSize=4g -XX:+UseG1GC -XX:MaxDirectMemorySize=1g"
 
       - name: Publish Summary
         if: success()
