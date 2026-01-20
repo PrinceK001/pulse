@@ -12,9 +12,20 @@ import {
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import localizedFormat from "dayjs/plugin/localizedFormat";
-import { FlameChartNode } from "../../utils/flameChartTransform";
+import { FlameChartNode, getColorForPulseType } from "../../utils/flameChartTransform";
 import { useGetSpanDetails } from "../../../../hooks/useGetSpanDetails";
 import classes from "./DetailsSidebar.module.css";
+
+/**
+ * Format pulseType for display (capitalize, replace underscores/hyphens with spaces)
+ */
+function formatPulseType(pulseType: string | undefined): string {
+  if (!pulseType) return "Unknown";
+  return pulseType
+    .split(/[_-]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
 
 dayjs.extend(utc);
 dayjs.extend(localizedFormat);
@@ -60,16 +71,6 @@ function getStatusClass(statusCode: string): string {
   return classes.statusUnset;
 }
 
-/**
- * Get type badge class
- */
-function getTypeBadgeClass(type: string): string {
-  if (type.includes("orphan")) return classes.typeBadgeOrphan;
-  if (type === "log") return classes.typeBadgeLog;
-  if (type === "exception") return classes.typeBadgeException;
-  return classes.typeBadgeSpan;
-}
-
 export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
   const [activeTab, setActiveTab] = useState<TabType>("attributes");
 
@@ -77,13 +78,21 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
   const isException = item?.type === "exception";
   const isOrphan = item?.type?.includes("orphan") || false;
 
-  // Fetch detailed attributes on demand (not for exceptions - they have all data in metadata)
+  // Determine dataType for fetching details
+  const getDataType = (): "TRACES" | "LOGS" | "EXCEPTIONS" => {
+    if (isException) return "EXCEPTIONS";
+    if (isLog) return "LOGS";
+    return "TRACES";
+  };
+
+  // Fetch detailed attributes on demand
   const { data: details, isLoading } = useGetSpanDetails({
-    dataType: isLog ? "LOGS" : "TRACES",
+    dataType: getDataType(),
     traceId: item?.traceId || "",
     spanId: item?.spanId || "",
     timestamp: item?.metadata?.timestamp || "",
-    enabled: !!item && !isException, // Don't fetch for exceptions
+    groupId: item?.metadata?.groupId || "",
+    enabled: !!item,
   });
 
   if (!item) return null;
@@ -94,13 +103,48 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
     }
   };
 
-  // Get attributes based on type
-  const resourceAttributes = details && "resourceAttributes" in details ? details.resourceAttributes : {};
-  const mainAttributes = isLog
+  // Get attributes based on type - merge API response with pre-fetched metadata attributes
+  
+  // For resource attributes: prefer API response, fallback to pre-fetched from metadata
+  const apiResourceAttributes = details && "resourceAttributes" in details ? details.resourceAttributes : {};
+  const metadataResourceAttributes = (item.metadata?.resourceAttributes as Record<string, string>) || {};
+  const resourceAttributes = Object.keys(apiResourceAttributes).length > 0 
+    ? apiResourceAttributes 
+    : metadataResourceAttributes;
+  
+  // For main attributes (log/span/exception attributes): prefer API response, fallback to pre-fetched
+  const apiMainAttributes = isException
     ? (details && "logAttributes" in details ? details.logAttributes : {})
-    : (details && "spanAttributes" in details ? details.spanAttributes : {});
-  const events = !isLog && details && "events" in details ? details.events : [];
-  const links = !isLog && details && "links" in details ? details.links : [];
+    : isLog
+      ? (details && "logAttributes" in details ? details.logAttributes : {})
+      : (details && "spanAttributes" in details ? details.spanAttributes : {});
+  const metadataMainAttributes = isLog 
+    ? ((item.metadata?.logAttributes as Record<string, string>) || {})
+    : {};
+  
+  // Build simple metadata attributes from item.metadata (excluding internal/complex fields)
+  const simpleMetadataAttributes: Record<string, string> = {};
+  if (item.metadata) {
+    const excludeKeys = ["timestamp", "pulseType", "logAttributes", "resourceAttributes"]; // These are shown elsewhere or handled separately
+    for (const [key, value] of Object.entries(item.metadata)) {
+      if (!excludeKeys.includes(key) && value !== undefined && value !== null && value !== "" && typeof value !== "object") {
+        simpleMetadataAttributes[key] = String(value);
+      }
+    }
+  }
+  
+  // Merge: API attributes take precedence, then pre-fetched attributes, then simple metadata
+  const mainAttributes = { 
+    ...simpleMetadataAttributes, 
+    ...metadataMainAttributes, 
+    ...apiMainAttributes 
+  };
+  
+  // Exception-specific details from API
+  const exceptionDetails = isException && details && "exceptionStackTrace" in details ? details : null;
+  
+  const events = !isLog && !isException && details && "events" in details ? details.events : [];
+  const links = !isLog && !isException && details && "links" in details ? details.links : [];
 
   const renderAttributeList = (attrs: Record<string, string>, emptyMessage: string) => {
     const entries = Object.entries(attrs);
@@ -215,8 +259,14 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
 
               <Box className={classes.metaItem}>
                 <Text className={classes.metaLabel}>Type</Text>
-                <Badge className={`${classes.typeBadge} ${getTypeBadgeClass(item.type)}`}>
-                  {item.type.replace("-", " ")}
+                <Badge 
+                  className={classes.typeBadge}
+                  style={{ 
+                    backgroundColor: getColorForPulseType(item.metadata?.pulseType || ""),
+                    color: "#ffffff",
+                  }}
+                >
+                  {formatPulseType(item.metadata?.pulseType)}
                 </Badge>
               </Box>
 
@@ -252,7 +302,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                     <IconClock size={12} style={{ marginRight: 4 }} />
                     Timestamp
                   </Text>
-                  <Text className={classes.metaValue} style={{ fontFamily: "monospace", fontSize: 12 }}>
+                  <Text className={classes.metaValueMono}>
                     {formatTimestamp(item.metadata.timestamp)}
                   </Text>
                 </Box>
@@ -266,7 +316,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                       <IconClock size={12} style={{ marginRight: 4 }} />
                       Start Time
                     </Text>
-                    <Text className={classes.metaValue} style={{ fontFamily: "monospace", fontSize: 12 }}>
+                    <Text className={classes.metaValueMono}>
                       {formatTimestamp(item.metadata.timestamp)}
                     </Text>
                   </Box>
@@ -275,7 +325,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                       <IconClock size={12} style={{ marginRight: 4 }} />
                       End Time
                     </Text>
-                    <Text className={classes.metaValue} style={{ fontFamily: "monospace", fontSize: 12 }}>
+                    <Text className={classes.metaValueMono}>
                       {(() => {
                         // Parse as UTC, add duration, then convert to local time
                         const startTime = dayjs.utc(item.metadata.timestamp);
@@ -294,14 +344,14 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                   <IconHash size={12} style={{ marginRight: 4 }} />
                   Trace ID
                 </Text>
-                <Text className={classes.metaValue} style={{ fontSize: 11 }}>
+                <Text className={classes.metaValueMono}>
                   {item.traceId}
                 </Text>
               </Box>
 
               <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
                 <Text className={classes.metaLabel}>Span ID</Text>
-                <Text className={classes.metaValue} style={{ fontSize: 11 }}>
+                <Text className={classes.metaValueMono}>
                   {item.spanId}
                 </Text>
               </Box>
@@ -309,7 +359,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
               {item.parentSpanId && (
                 <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
                   <Text className={classes.metaLabel}>Parent Span ID</Text>
-                  <Text className={classes.metaValue} style={{ fontSize: 11 }}>
+                  <Text className={classes.metaValueMono}>
                     {item.parentSpanId}
                   </Text>
                 </Box>
@@ -349,35 +399,138 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
 
             {/* Exception Details */}
             {isException && (
-              <Box style={{ marginTop: 16 }}>
-                {item.metadata?.exceptionType && (
-                  <Box mb="sm">
-                    <Text className={classes.metaLabel}>Exception Type</Text>
-                    <Text className={classes.metaValue} style={{ color: "#dc2626", fontFamily: "monospace" }}>
-                      {item.metadata.exceptionType}
+              <Box mt="md">
+                {/* Exception Type */}
+                {(exceptionDetails?.exceptionType || item.metadata?.exceptionType) && (
+                  <Box className={classes.exceptionSection}>
+                    <Text className={classes.exceptionSectionLabel}>Exception Type</Text>
+                    <Text className={classes.exceptionType}>
+                      {exceptionDetails?.exceptionType || item.metadata?.exceptionType}
                     </Text>
                   </Box>
                 )}
-                {item.metadata?.exceptionMessage && (
-                  <Box mb="sm">
-                    <Text className={classes.metaLabel} mb={4}>Message</Text>
-                    <Box className={classes.bodyContent} style={{ borderColor: "rgba(220, 38, 38, 0.3)" }}>
-                      {item.metadata.exceptionMessage}
+                
+                {/* Exception Message */}
+                {(exceptionDetails?.exceptionMessage || item.metadata?.exceptionMessage) && (
+                  <Box className={classes.exceptionSection}>
+                    <Text className={classes.exceptionSectionLabel}>Message</Text>
+                    <Text className={classes.exceptionMessage}>
+                      {exceptionDetails?.exceptionMessage || item.metadata?.exceptionMessage}
+                    </Text>
+                  </Box>
+                )}
+                
+                {/* Screen & Interactions Row */}
+                {((exceptionDetails?.screenName || item.metadata?.screenName) || 
+                  (exceptionDetails?.interactions && exceptionDetails.interactions.length > 0)) && (
+                  <Box className={classes.exceptionSection}>
+                    <Text className={classes.exceptionSectionLabel}>Context</Text>
+                    <Box className={classes.infoCard}>
+                      {(exceptionDetails?.screenName || item.metadata?.screenName) && (
+                        <Box className={classes.infoItem} mb="xs">
+                          <Text className={classes.infoLabel}>Screen</Text>
+                          <Text className={classes.screenBadge}>
+                            {exceptionDetails?.screenName || item.metadata?.screenName}
+                          </Text>
+                        </Box>
+                      )}
+                      {exceptionDetails?.interactions && exceptionDetails.interactions.length > 0 && (
+                        <Box className={classes.infoItem}>
+                          <Text className={classes.infoLabel}>Active Interactions</Text>
+                          <Box className={classes.interactionsList}>
+                            {exceptionDetails.interactions.map((interaction, idx) => (
+                              <Text key={idx} className={classes.interactionBadge}>
+                                {interaction}
+                              </Text>
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
                     </Box>
                   </Box>
                 )}
-                {item.metadata?.screenName && (
-                  <Box mb="sm">
-                    <Text className={classes.metaLabel}>Screen</Text>
-                    <Text className={classes.metaValue}>{item.metadata.screenName}</Text>
+                
+                {/* Device/App Info - Grid Layout */}
+                {exceptionDetails && (exceptionDetails.platform || exceptionDetails.osVersion || 
+                  exceptionDetails.deviceModel || exceptionDetails.appVersion || 
+                  exceptionDetails.sdkVersion || exceptionDetails.userId) && (
+                  <Box className={classes.exceptionSection}>
+                    <Text className={classes.exceptionSectionLabel}>Device & App</Text>
+                    <Box className={classes.infoCard}>
+                      <Box className={classes.infoGrid}>
+                        {exceptionDetails.platform && (
+                          <Box className={classes.infoItem}>
+                            <Text className={classes.infoLabel}>Platform</Text>
+                            <Text className={classes.infoValue}>{exceptionDetails.platform}</Text>
+                          </Box>
+                        )}
+                        {exceptionDetails.osVersion && (
+                          <Box className={classes.infoItem}>
+                            <Text className={classes.infoLabel}>OS Version</Text>
+                            <Text className={classes.infoValue}>{exceptionDetails.osVersion}</Text>
+                          </Box>
+                        )}
+                        {exceptionDetails.deviceModel && (
+                          <Box className={classes.infoItem}>
+                            <Text className={classes.infoLabel}>Device</Text>
+                            <Text className={classes.infoValue}>{exceptionDetails.deviceModel}</Text>
+                          </Box>
+                        )}
+                        {exceptionDetails.appVersion && (
+                          <Box className={classes.infoItem}>
+                            <Text className={classes.infoLabel}>App Version</Text>
+                            <Text className={classes.infoValue}>{exceptionDetails.appVersion}</Text>
+                          </Box>
+                        )}
+                        {exceptionDetails.sdkVersion && (
+                          <Box className={classes.infoItem}>
+                            <Text className={classes.infoLabel}>SDK Version</Text>
+                            <Text className={classes.infoValue}>{exceptionDetails.sdkVersion}</Text>
+                          </Box>
+                        )}
+                        {exceptionDetails.userId && (
+                          <Box className={classes.infoItem}>
+                            <Text className={classes.infoLabel}>User ID</Text>
+                            <Text className={classes.infoValue}>{exceptionDetails.userId}</Text>
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
                   </Box>
                 )}
-                {item.metadata?.groupId && (
-                  <Box mb="sm">
-                    <Text className={classes.metaLabel}>Group ID</Text>
-                    <Text className={classes.metaValue} style={{ fontFamily: "monospace", fontSize: 11 }}>
-                      {item.metadata.groupId}
-                    </Text>
+                
+                {/* Stack Trace */}
+                {exceptionDetails?.exceptionStackTrace && (
+                  <Box className={classes.exceptionSection}>
+                    <Text className={classes.exceptionSectionLabel}>Stack Trace</Text>
+                    <Box className={classes.stackTrace}>
+                      {exceptionDetails.exceptionStackTrace}
+                    </Box>
+                  </Box>
+                )}
+                
+                {/* Grouping Info */}
+                {((exceptionDetails?.groupId || item.metadata?.groupId) || exceptionDetails?.fingerprint) && (
+                  <Box className={classes.exceptionSection}>
+                    <Text className={classes.exceptionSectionLabel}>Grouping</Text>
+                    <Box className={classes.infoCard}>
+                      {(exceptionDetails?.groupId || item.metadata?.groupId) && (
+                        <Box className={classes.infoItem} mb="xs">
+                          <Text className={classes.infoLabel}>Group ID</Text>
+                          <Text className={classes.monoValue}>
+                            {exceptionDetails?.groupId || item.metadata?.groupId}
+                          </Text>
+                        </Box>
+                      )}
+                      {exceptionDetails?.fingerprint && (
+                        <Box className={classes.infoItem}>
+                          <Text className={classes.infoLabel}>Fingerprint</Text>
+                          <Text className={classes.monoValue}>
+                            {exceptionDetails.fingerprint}
+                          </Text>
+                        </Box>
+                      )}
+                    </Box>
                   </Box>
                 )}
               </Box>
@@ -390,36 +543,34 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
             )}
           </Box>
 
-          {/* Tabs for Attributes/Events/Links - not shown for exceptions */}
-          {!isException && (
-            <Box className={classes.tabs}>
-              <button
-                className={`${classes.tab} ${activeTab === "attributes" ? classes.tabActive : ""}`}
-                onClick={() => setActiveTab("attributes")}
-              >
-                <IconTag size={14} style={{ marginRight: 4 }} />
-                Attributes
-              </button>
-              {!isLog && (
-                <>
-                  <button
-                    className={`${classes.tab} ${activeTab === "events" ? classes.tabActive : ""}`}
-                    onClick={() => setActiveTab("events")}
-                  >
-                    <IconList size={14} style={{ marginRight: 4 }} />
-                    Events ({events?.length || 0})
-                  </button>
-                  <button
-                    className={`${classes.tab} ${activeTab === "links" ? classes.tabActive : ""}`}
-                    onClick={() => setActiveTab("links")}
-                  >
-                    <IconLink size={14} style={{ marginRight: 4 }} />
-                    Links ({links?.length || 0})
-                  </button>
-                </>
-              )}
-            </Box>
-          )}
+          {/* Tabs for Attributes/Events/Links */}
+          <Box className={classes.tabs}>
+            <button
+              className={`${classes.tab} ${activeTab === "attributes" ? classes.tabActive : ""}`}
+              onClick={() => setActiveTab("attributes")}
+            >
+              <IconTag size={14} style={{ marginRight: 4 }} />
+              Attributes
+            </button>
+            {!isLog && !isException && (
+              <>
+                <button
+                  className={`${classes.tab} ${activeTab === "events" ? classes.tabActive : ""}`}
+                  onClick={() => setActiveTab("events")}
+                >
+                  <IconList size={14} style={{ marginRight: 4 }} />
+                  Events ({events?.length || 0})
+                </button>
+                <button
+                  className={`${classes.tab} ${activeTab === "links" ? classes.tabActive : ""}`}
+                  onClick={() => setActiveTab("links")}
+                >
+                  <IconLink size={14} style={{ marginRight: 4 }} />
+                  Links ({links?.length || 0})
+                </button>
+              </>
+            )}
+          </Box>
 
           {/* Tab Content */}
           {isLoading ? (
@@ -434,7 +585,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                   <Box className={classes.section}>
                     <Box className={classes.sectionHeader}>
                       <Text className={classes.sectionTitle}>
-                        {isLog ? "Log Attributes" : "Span Attributes"}
+                        {isException ? "Log Attributes" : isLog ? "Log Attributes" : "Span Attributes"}
                       </Text>
                       <Badge className={classes.sectionBadge}>
                         {Object.keys(mainAttributes).length}

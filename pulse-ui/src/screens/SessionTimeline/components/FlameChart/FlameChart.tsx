@@ -311,8 +311,8 @@ export function FlameChart({
   // Transform filtered data to flame-chart-js format (memoized)
   const flameChartData = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return null;
-    return toFlameChartJsFormat(filteredData);
-  }, [filteredData]);
+    return toFlameChartJsFormat(filteredData, sessionDuration);
+  }, [filteredData, sessionDuration]);
 
   // Keep nodeByIdMap in a ref so select handler always has latest version
   const nodeByIdMapRef = useRef(nodeByIdMap);
@@ -494,7 +494,7 @@ export function FlameChart({
         // Try to find the correct topmost node
         const result = findTopmostNodeAtPosition(mouse.x, mouse.y, renderEngine);
         
-        let nodeData: { start: number; duration: number; name: string; children?: any[] };
+        let nodeData: { start: number; duration: number; name: string; children?: any[]; type?: string };
         
         if (result) {
           nodeData = {
@@ -502,6 +502,7 @@ export function FlameChart({
             duration: result.node.duration,
             name: result.node.name,
             children: result.node.children,
+            type: result.node.type,
           };
         } else if (hoveredRegion.data?.source) {
           nodeData = hoveredRegion.data.source;
@@ -509,9 +510,12 @@ export function FlameChart({
           return;
         }
         
-        const { start, duration, name, children } = nodeData;
+        const { start, duration, name, children, type } = nodeData;
         const timeUnits = renderEngine.getTimeUnits();
         const nodeAccuracy = renderEngine.getAccuracy() + 2;
+        
+        // Check if this is a point-in-time event (log, exception) with zero actual duration
+        const isPointInTimeEvent = type === "log" || type === "exception" || type === "orphan-log";
         
         // Calculate self time by merging overlapping child intervals
         // This correctly handles cases where children overlap each other
@@ -565,14 +569,29 @@ export function FlameChart({
         const startTimeStr = dayjs(absoluteStart).format("HH:mm:ss.SSS");
         const endTimeStr = dayjs(absoluteEnd).format("HH:mm:ss.SSS");
         
-        const tooltipData = [
+        // Build tooltip data
+        const tooltipData: { text: string }[] = [
           { text: name },
-          { text: `duration: ${duration.toFixed(nodeAccuracy)} ${timeUnits}${children?.length ? ` (self ${selfTime.toFixed(nodeAccuracy)} ${timeUnits})` : ""}` },
-          { text: `start: ${start.toFixed(nodeAccuracy)} ${timeUnits}` },
-          { text: `────────────────` },
-          { text: `🕐 Start: ${startTimeStr}` },
-          { text: `🕐 End: ${endTimeStr}` },
         ];
+        
+        // For point-in-time events, show actual duration as 0
+        if (isPointInTimeEvent) {
+          tooltipData.push({ text: `duration: 0 ${timeUnits} (instant event)` });
+          tooltipData.push({ text: `ℹ️ Bar width is for visibility only` });
+        } else {
+          tooltipData.push({ 
+            text: `duration: ${duration.toFixed(nodeAccuracy)} ${timeUnits}${children?.length ? ` (self ${selfTime.toFixed(nodeAccuracy)} ${timeUnits})` : ""}` 
+          });
+        }
+        
+        tooltipData.push({ text: `start: ${start.toFixed(nodeAccuracy)} ${timeUnits}` });
+        tooltipData.push({ text: `────────────────` });
+        tooltipData.push({ text: `🕐 Time: ${startTimeStr}` });
+        
+        // Only show end time for non-instant events
+        if (!isPointInTimeEvent) {
+          tooltipData.push({ text: `🕐 End: ${endTimeStr}` });
+        }
         
         renderEngine.renderTooltipFromData(tooltipData, mouse);
       };
@@ -732,29 +751,65 @@ export function FlameChart({
     }
   }, [sessionDuration]);
 
-  // Scroll to highlighted trace
-  useEffect(() => {
-    if (!highlightTraceId || !flameChartRef.current || !data.length) return;
+  // Track if we've already scrolled to the highlighted trace (to only do it once on initial load)
+  const hasScrolledToHighlight = useRef(false);
 
-    // Find node with matching traceId
-    const findNode = (nodes: FlameChartNode[]): FlameChartNode | null => {
+  // Scroll to and highlight trace on initial load
+  useEffect(() => {
+    // Only run once on initial load when we have data and a chart instance
+    if (
+      !highlightTraceId ||
+      !flameChartRef.current ||
+      !filteredData.length ||
+      hasScrolledToHighlight.current
+    ) {
+      return;
+    }
+
+    // Find the root span node with matching traceId (prefer root spans for better context)
+    const findRootNodeForTrace = (nodes: FlameChartNode[]): FlameChartNode | null => {
+      // First, look for root-level nodes with matching traceId
+      for (const node of nodes) {
+        if (node.traceId === highlightTraceId && node.type === "span") {
+          return node;
+        }
+      }
+      // Fallback: search in children if not found at root level
       for (const node of nodes) {
         if (node.traceId === highlightTraceId) {
           return node;
         }
-        const found = findNode(node.children);
+        const found = findRootNodeForTrace(node.children);
         if (found) return found;
       }
       return null;
     };
 
-    const targetNode = findNode(data);
+    const targetNode = findRootNodeForTrace(filteredData);
     if (targetNode) {
-      const targetStart = Math.max(0, targetNode.start - 100);
-      const targetEnd = targetNode.start + targetNode.duration + 100;
-      flameChartRef.current.setZoom(targetStart, targetEnd);
+      // Small delay to ensure flame chart is fully rendered
+      const timeoutId = setTimeout(() => {
+        if (!flameChartRef.current) return;
+
+        // Calculate zoom range with padding for context
+        const padding = Math.max(100, targetNode.duration * 0.2); // 20% padding or minimum 100ms
+        const targetStart = Math.max(0, targetNode.start - padding);
+        const targetEnd = targetNode.start + targetNode.duration + padding;
+
+        // Zoom to the trace
+        flameChartRef.current.setZoom(targetStart, targetEnd);
+
+        hasScrolledToHighlight.current = true;
+      }, 300); // 300ms delay to ensure chart is rendered
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [highlightTraceId, data]);
+  }, [highlightTraceId, filteredData]);
+
+  // Reset the scroll flag when highlightTraceId changes (e.g., navigating to a different trace)
+  useEffect(() => {
+    hasScrolledToHighlight.current = false;
+  }, [highlightTraceId]);
 
   if (isLoading) {
     return (

@@ -76,9 +76,14 @@ interface RawLogRow {
   spanId: string;
   timestamp: string;
   severityText: string;
+  severityNumber: number;
   body: string;
   eventName: string;
   pulseType: string;
+  serviceName: string;
+  scopeName: string;
+  logAttributesJson: string;
+  resourceAttributesJson: string;
 }
 
 interface RawExceptionRow {
@@ -135,9 +140,14 @@ function parseLogRow(
     spanId: String(getField("spanid") || ""),
     timestamp: String(getField("timestamp") || ""),
     severityText: String(getField("severitytext") || ""),
+    severityNumber: Number(getField("severitynumber") || 0),
     body: String(getField("body") || ""),
     eventName: String(getField("eventname") || ""),
     pulseType: String(getField("pulsetype") || ""),
+    serviceName: String(getField("servicename") || ""),
+    scopeName: String(getField("scopename") || ""),
+    logAttributesJson: String(getField("logattributesjson") || "{}"),
+    resourceAttributesJson: String(getField("resourceattributesjson") || "{}"),
   };
 }
 
@@ -323,6 +333,20 @@ export function transformToFlameChart(
       const parsed = parseLogRow(logsData.fields, row);
       const ts = dayjs.utc(parsed.timestamp);
 
+      // Parse JSON attributes
+      let logAttributes: Record<string, any> = {};
+      let resourceAttributes: Record<string, any> = {};
+      try {
+        logAttributes = JSON.parse(parsed.logAttributesJson || "{}");
+      } catch {
+        // Ignore parse errors
+      }
+      try {
+        resourceAttributes = JSON.parse(parsed.resourceAttributesJson || "{}");
+      } catch {
+        // Ignore parse errors
+      }
+
       const item: FlameChartItem = {
         id: `log-${parsed.traceId}-${parsed.spanId}-${ts.valueOf()}`,
         name: parsed.eventName || parsed.body?.substring(0, 50) || "Log",
@@ -335,10 +359,16 @@ export function transformToFlameChart(
         parentSpanId: undefined, // Logs don't have parent span ID directly
         metadata: {
           severityText: parsed.severityText,
+          severityNumber: parsed.severityNumber,
           body: parsed.body,
           eventName: parsed.eventName,
           pulseType: parsed.pulseType,
           timestamp: parsed.timestamp,
+          serviceName: parsed.serviceName,
+          scopeName: parsed.scopeName,
+          // Store parsed attributes for display in sidebar
+          logAttributes,
+          resourceAttributes,
         },
       };
 
@@ -531,6 +561,37 @@ export function transformToFlameChart(
     }
   }
 
+  // Handle exceptions - add as root nodes (they are point-in-time events)
+  const exceptionItems = items.filter((item) => item.type === "exception");
+  for (const exception of exceptionItems) {
+    const exceptionNode: FlameChartNode = {
+      ...exception,
+      children: [],
+    };
+    
+    // Try to attach to parent span if spanId exists
+    if (exception.spanId && spanIdToItem.has(exception.spanId)) {
+      const findAndAttach = (nodes: FlameChartNode[]): boolean => {
+        for (const node of nodes) {
+          if (node.spanId === exception.spanId) {
+            node.children.push(exceptionNode);
+            return true;
+          }
+          if (findAndAttach(node.children)) return true;
+        }
+        return false;
+      };
+      
+      if (!findAndAttach(rootNodes)) {
+        // Couldn't attach to parent span, add as root node
+        rootNodes.push(exceptionNode);
+      }
+    } else {
+      // No parent span, add as root node
+      rootNodes.push(exceptionNode);
+    }
+  }
+
   // Sort root nodes by start time
   rootNodes.sort((a, b) => a.start - b.start);
 
@@ -569,25 +630,120 @@ export interface ExtendedFlameChartData extends FlameChartData {
 }
 
 /**
+ * Calculate minimum visible duration for point-in-time events (logs, exceptions)
+ * This ensures they are visible on the timeline regardless of session length
+ */
+function calculateMinVisibleDuration(sessionDuration: number): number {
+  // Use 0.5% of session duration, with a minimum of 50ms and maximum of 500ms
+  const percentageBased = sessionDuration * 0.005;
+  return Math.max(50, Math.min(percentageBased, 500));
+}
+
+/**
+ * Check if a node type is a point-in-time event (no real duration)
+ */
+function isPointInTimeEvent(type: string): boolean {
+  return type === "log" || type === "exception" || type === "orphan-log";
+}
+
+/**
+ * Offset overlapping point-in-time events so they render side-by-side instead of on top of each other.
+ * Groups events by start time (within a threshold) and offsets them.
+ * @param nodes - Array of nodes at the same level
+ * @param minVisibleDuration - The visual duration used for point-in-time events
+ * @returns Map of node id to offset value
+ */
+function calculateOverlapOffsets(
+  nodes: FlameChartNode[],
+  minVisibleDuration: number
+): Map<string, number> {
+  const offsets = new Map<string, number>();
+  
+  // Only process point-in-time events
+  const pointEvents = nodes.filter(n => isPointInTimeEvent(n.type) || n.duration === 0);
+  
+  if (pointEvents.length <= 1) {
+    return offsets;
+  }
+  
+  // Sort by start time
+  const sorted = [...pointEvents].sort((a, b) => a.start - b.start);
+  
+  // Group events that would visually overlap
+  // Two events overlap if their visual bars would intersect
+  // (start2 < start1 + minVisibleDuration)
+  let currentEnd = -Infinity;
+  let overlapCount = 0;
+  
+  for (const event of sorted) {
+    if (event.start < currentEnd) {
+      // This event overlaps with previous ones - offset it
+      overlapCount++;
+      // Offset by a fraction of the minVisibleDuration so events stack horizontally
+      offsets.set(event.id, overlapCount * minVisibleDuration * 0.6);
+    } else {
+      // No overlap, reset counter
+      overlapCount = 0;
+    }
+    // Update the end of the current "group"
+    currentEnd = Math.max(currentEnd, event.start + minVisibleDuration);
+  }
+  
+  return offsets;
+}
+
+/**
  * Convert FlameChartNode tree to flame-chart-js data format
  * Note: We include all our custom properties so they come back with the select event
+ * @param nodes - The nodes to convert
+ * @param sessionDuration - Total session duration in ms, used to calculate minimum visible width for point events
  */
-export function toFlameChartJsFormat(nodes: FlameChartNode[]): ExtendedFlameChartData[] {
-  return nodes.map((node) => ({
-    // Required flame-chart-js fields
-    name: node.name,
-    start: node.start,
-    duration: Math.max(node.duration, 1), // Ensure minimum duration for visibility
-    type: node.type,
-    color: node.color,
-    children: node.children.length > 0 ? toFlameChartJsFormat(node.children) : undefined,
-    // Our custom fields - library will pass these back in select event
-    id: node.id,
-    traceId: node.traceId,
-    spanId: node.spanId,
-    parentSpanId: node.parentSpanId,
-    metadata: node.metadata,
-  }));
+export function toFlameChartJsFormat(
+  nodes: FlameChartNode[],
+  sessionDuration: number = 10000
+): ExtendedFlameChartData[] {
+  const minVisibleDuration = calculateMinVisibleDuration(sessionDuration);
+  
+  // Convert a list of nodes, handling overlap at this level
+  const convertNodeList = (nodeList: FlameChartNode[]): ExtendedFlameChartData[] => {
+    // Calculate offsets for overlapping point-in-time events at this level
+    const overlapOffsets = calculateOverlapOffsets(nodeList, minVisibleDuration);
+    
+    return nodeList.map((node) => {
+      // For point-in-time events (logs, exceptions), use minimum visible duration
+      // For spans with actual duration, use actual duration (with small minimum for very short spans)
+      let displayDuration: number;
+      if (isPointInTimeEvent(node.type) || node.duration === 0) {
+        displayDuration = minVisibleDuration;
+      } else {
+        displayDuration = Math.max(node.duration, 1);
+      }
+      
+      // Apply overlap offset if needed
+      const offset = overlapOffsets.get(node.id) || 0;
+      const displayStart = node.start + offset;
+      
+      return {
+        // Required flame-chart-js fields
+        name: node.name,
+        start: displayStart,
+        duration: displayDuration,
+        type: node.type,
+        color: node.color,
+        children: node.children.length > 0 
+          ? convertNodeList(node.children)
+          : undefined,
+        // Our custom fields - library will pass these back in select event
+        id: node.id,
+        traceId: node.traceId,
+        spanId: node.spanId,
+        parentSpanId: node.parentSpanId,
+        metadata: node.metadata,
+      };
+    });
+  };
+  
+  return convertNodeList(nodes);
 }
 
 /**

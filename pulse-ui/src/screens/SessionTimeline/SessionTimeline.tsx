@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Button, Paper, Group, Text, Badge, Loader } from "@mantine/core";
 import { IconArrowLeft, IconClock, IconDeviceMobile, IconHash } from "@tabler/icons-react";
@@ -48,7 +48,6 @@ export function SessionTimeline() {
   const navigate = useNavigate();
   const [selectedItem, setSelectedItem] = useState<FlameChartNode | null>(null);
   const flameChartContainerRef = useRef<HTMLDivElement>(null);
-  const hasScrolledToTrace = useRef(false);
 
   // Get time range from URL params, or fallback to last 30 days
   const timeRange = useMemo(() => {
@@ -141,18 +140,6 @@ export function SessionTimeline() {
     setSelectedItem(null);
   };
 
-  // Scroll to highlighted trace on initial load
-  useEffect(() => {
-    if (
-      highlightTraceId &&
-      flameChartData.length > 0 &&
-      !hasScrolledToTrace.current &&
-      flameChartContainerRef.current
-    ) {
-      // The FlameChart component handles scrolling internally
-      hasScrolledToTrace.current = true;
-    }
-  }, [highlightTraceId, flameChartData]);
 
   // Loading state
   if (isLoading) {

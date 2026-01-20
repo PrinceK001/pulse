@@ -4,6 +4,7 @@ import {
   GetSpanDetailsParams,
   SpanDetailsResponse,
   LogDetailsResponse,
+  ExceptionDetailsResponse,
 } from "./useGetSpanDetails.interface";
 import { makeRequest } from "../../helpers/makeRequest";
 import dayjs from "dayjs";
@@ -170,9 +171,10 @@ const fetchLogDetails = async (
   timestamp: string
 ): Promise<LogDetailsResponse> => {
   const ts = dayjs.utc(timestamp);
-  // Use a tighter time range for logs
-  const startTime = ts.subtract(1, "second").toISOString();
-  const endTime = ts.add(1, "second").toISOString();
+  // Use a wider time range for logs to ensure we find the record
+  // (timestamp precision might vary between storage and query)
+  const startTime = ts.subtract(1, "minute").toISOString();
+  const endTime = ts.add(1, "minute").toISOString();
 
   // Build filters - always filter by TraceId
   const filters: any[] = [
@@ -250,6 +252,163 @@ const fetchLogDetails = async (
 };
 
 /**
+ * Fetches detailed attributes for a specific exception from stack_trace_events table
+ */
+const fetchExceptionDetails = async (
+  traceId: string,
+  timestamp: string,
+  groupId?: string
+): Promise<ExceptionDetailsResponse> => {
+  const ts = dayjs.utc(timestamp);
+  // Use a wider time range for exceptions
+  const startTime = ts.subtract(1, "minute").toISOString();
+  const endTime = ts.add(1, "minute").toISOString();
+
+  // Build filters
+  const filters: any[] = [];
+  
+  // Prefer groupId + timestamp for exact match, fallback to traceId
+  if (groupId) {
+    filters.push({ field: "GroupId", operator: "EQ", value: [groupId] });
+  } else if (traceId) {
+    filters.push({ field: "TraceId", operator: "EQ", value: [traceId] });
+  }
+
+  const requestBody = {
+    dataType: "EXCEPTIONS",
+    timeRange: { start: startTime, end: endTime },
+    select: [
+      // Attributes as JSON
+      {
+        function: "CUSTOM",
+        param: { expression: "toJSONString(ResourceAttributes)" },
+        alias: "resourceAttributes",
+      },
+      {
+        function: "CUSTOM",
+        param: { expression: "toJSONString(LogAttributes)" },
+        alias: "logAttributes",
+      },
+      {
+        function: "CUSTOM",
+        param: { expression: "toJSONString(ScopeAttributes)" },
+        alias: "scopeAttributes",
+      },
+      // Exception details
+      { function: "COL", param: { field: "ExceptionStackTrace" }, alias: "exceptionStackTrace" },
+      { function: "COL", param: { field: "ExceptionStackTraceRaw" }, alias: "exceptionStackTraceRaw" },
+      { function: "COL", param: { field: "ExceptionMessage" }, alias: "exceptionMessage" },
+      { function: "COL", param: { field: "ExceptionType" }, alias: "exceptionType" },
+      { function: "COL", param: { field: "Title" }, alias: "title" },
+      { function: "COL", param: { field: "EventName" }, alias: "eventName" },
+      // Context
+      { function: "COL", param: { field: "ScreenName" }, alias: "screenName" },
+      { function: "COL", param: { field: "Interactions" }, alias: "interactions" },
+      { function: "COL", param: { field: "UserId" }, alias: "userId" },
+      // Device/app info
+      { function: "COL", param: { field: "Platform" }, alias: "platform" },
+      { function: "COL", param: { field: "OsVersion" }, alias: "osVersion" },
+      { function: "COL", param: { field: "DeviceModel" }, alias: "deviceModel" },
+      { function: "COL", param: { field: "AppVersion" }, alias: "appVersion" },
+      { function: "COL", param: { field: "AppVersionCode" }, alias: "appVersionCode" },
+      { function: "COL", param: { field: "SdkVersion" }, alias: "sdkVersion" },
+      { function: "COL", param: { field: "BundleId" }, alias: "bundleId" },
+      // Grouping
+      { function: "COL", param: { field: "GroupId" }, alias: "groupId" },
+      { function: "COL", param: { field: "Signature" }, alias: "signature" },
+      { function: "COL", param: { field: "Fingerprint" }, alias: "fingerprint" },
+    ],
+    filters,
+    limit: 1,
+  };
+
+  const dataQuery = API_ROUTES.DATA_QUERY;
+
+  const response = await makeRequest<{ fields: string[]; rows: any[][] }>({
+    url: `${API_BASE_URL}${dataQuery.apiPath}`,
+    init: {
+      method: dataQuery.method,
+      body: JSON.stringify(requestBody),
+    },
+  });
+
+  if (!response?.data?.rows?.[0]) {
+    return {
+      resourceAttributes: {},
+      logAttributes: {},
+      scopeAttributes: {},
+      exceptionStackTrace: "",
+      exceptionStackTraceRaw: "",
+      exceptionMessage: "",
+      exceptionType: "",
+      title: "",
+      eventName: "",
+      screenName: "",
+      interactions: [],
+      userId: "",
+      platform: "",
+      osVersion: "",
+      deviceModel: "",
+      appVersion: "",
+      appVersionCode: "",
+      sdkVersion: "",
+      bundleId: "",
+      groupId: "",
+      signature: "",
+      fingerprint: "",
+    };
+  }
+
+  const row = response.data.rows[0];
+  const fields = response.data.fields;
+  const getField = (name: string) => {
+    const index = fields.findIndex((f: string) => f.toLowerCase() === name.toLowerCase());
+    return index >= 0 ? row[index] : null;
+  };
+
+  // Parse interactions array
+  let interactions: string[] = [];
+  const interactionsRaw = getField("interactions");
+  if (Array.isArray(interactionsRaw)) {
+    interactions = interactionsRaw.map(String);
+  } else if (typeof interactionsRaw === "string") {
+    try {
+      const parsed = JSON.parse(interactionsRaw);
+      if (Array.isArray(parsed)) {
+        interactions = parsed.map(String);
+      }
+    } catch {
+      // Not valid JSON
+    }
+  }
+
+  return {
+    resourceAttributes: parseJsonMap(getField("resourceAttributes")),
+    logAttributes: parseJsonMap(getField("logAttributes")),
+    scopeAttributes: parseJsonMap(getField("scopeAttributes")),
+    exceptionStackTrace: String(getField("exceptionStackTrace") || ""),
+    exceptionStackTraceRaw: String(getField("exceptionStackTraceRaw") || ""),
+    exceptionMessage: String(getField("exceptionMessage") || ""),
+    exceptionType: String(getField("exceptionType") || ""),
+    title: String(getField("title") || ""),
+    eventName: String(getField("eventName") || ""),
+    screenName: String(getField("screenName") || ""),
+    interactions,
+    userId: String(getField("userId") || ""),
+    platform: String(getField("platform") || ""),
+    osVersion: String(getField("osVersion") || ""),
+    deviceModel: String(getField("deviceModel") || ""),
+    appVersion: String(getField("appVersion") || ""),
+    appVersionCode: String(getField("appVersionCode") || ""),
+    sdkVersion: String(getField("sdkVersion") || ""),
+    bundleId: String(getField("bundleId") || ""),
+    groupId: String(getField("groupId") || ""),
+    signature: String(getField("signature") || ""),
+    fingerprint: String(getField("fingerprint") || ""),
+  };
+};
+
+/**
  * Parse JSON string to map object
  */
 function parseJsonMap(value: unknown): Record<string, string> {
@@ -280,19 +439,23 @@ export const useGetSpanDetails = ({
   traceId,
   spanId,
   timestamp,
+  groupId,
   enabled = true,
 }: GetSpanDetailsParams) => {
   return useQuery({
-    queryKey: ["spanDetails", dataType, traceId, spanId, timestamp],
+    queryKey: ["spanDetails", dataType, traceId, spanId, timestamp, groupId],
     queryFn: async () => {
+      if (dataType === "EXCEPTIONS") {
+        return fetchExceptionDetails(traceId, timestamp, groupId);
+      }
       if (dataType === "LOGS") {
         return fetchLogDetails(traceId, spanId, timestamp);
       }
       return fetchSpanDetails(traceId, spanId, timestamp);
     },
     refetchOnWindowFocus: false,
-    // For logs, we only need traceId; for spans, we need both traceId and spanId
-    enabled: enabled && !!traceId && (dataType === "LOGS" || !!spanId),
+    // For logs/exceptions, we only need traceId or groupId; for spans, we need both traceId and spanId
+    enabled: enabled && (!!traceId || !!groupId) && (dataType === "LOGS" || dataType === "EXCEPTIONS" || !!spanId),
     staleTime: Infinity, // Cache forever since details don't change
   });
 };
