@@ -33,7 +33,7 @@ resource "aws_launch_template" "pulse_backend" {
     name = var.instance_profile_name
   }
 
-  vpc_security_group_ids = [var.security_group_id]
+  vpc_security_group_ids = var.ec2_security_group_ids
 
   instance_market_options {
     market_type = "spot"
@@ -76,8 +76,8 @@ resource "aws_lb" "pulse_backend" {
   name                       = "pulse-backend-alb"
   internal                   = true
   load_balancer_type         = "application"
-  subnets                    = var.subnet_ids
-  security_groups            = var.vpc_security_group_ids
+  subnets                    = var.alb_subnet_ids
+  security_groups            = var.alb_security_group_ids
   enable_deletion_protection = false
 }
 
@@ -130,7 +130,7 @@ resource "aws_autoscaling_group" "pulse_backend" {
   max_size         = var.instance_count
   desired_capacity = var.instance_count
 
-  vpc_zone_identifier = var.subnet_ids
+  vpc_zone_identifier = var.ec2_subnet_ids
   target_group_arns   = [aws_lb_target_group.pulse_backend.arn]
 
   health_check_type         = "EC2"

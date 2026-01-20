@@ -9,10 +9,10 @@ echo "Starting user-data script at $(date)"
 echo "Cloning pulse repository to /opt/bin..."
 mkdir -p /opt/bin
 cd /opt/bin
-if [ -d "pulse" ]; then
-    rm -rf pulse
-fi
-git clone https://github.com/dream-horizon-org/pulse.git
+#if [ -d "pulse" ]; then
+#    rm -rf pulse
+#fi
+#git clone https://github.com/dream-horizon-org/pulse.git
 
 #!/usr/bin/env bash
 echo "### Running build for dashboard...."
@@ -63,7 +63,6 @@ rsync -av \
   --exclude='.vscode' \
   --exclude='.eslintcache' \
   --exclude='.yarn' \
-  --exclude='.env' \
   ./pulse/pulse-ui/ ./pulse/target/pulse-ui | grep "total"
 
 cd pulse/pulse-ui || exit
@@ -84,10 +83,10 @@ yarn --version
 ENV_FILE=".env"
 ENV="prod"
 
-# Remove existing Pulse environment variables to avoid duplicates
-%{ for env_var in env_vars ~}
-sed -i '/^${env_var.key}=/d' "$ENV_FILE" 2>/dev/null || true
-%{ endfor ~}
+## Remove existing Pulse environment variables to avoid duplicates
+#%{ for env_var in env_vars ~}
+#sed -i '/^${env_var.key}=/d' "$ENV_FILE" 2>/dev/null || true
+#%{ endfor ~}
 
 
 export DEPLOYMENT=production

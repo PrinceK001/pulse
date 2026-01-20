@@ -21,20 +21,26 @@ variable "instance_count" {
   type        = number
 }
 
-variable "subnet_ids" {
+variable "ec2_subnet_ids" {
   description = "Subnets for instances (ASG)"
   type        = list(string)
 }
 
-variable "vpc_security_group_ids" {
+variable "alb_subnet_ids" {
+  description = "Subnets for alb"
+  type        = list(string)
+}
+
+variable "alb_security_group_ids" {
   description = "Public subnets for the ALB"
   type        = list(string)
 }
 
-variable "security_group_id" {
-  description = "Instance security group"
-  type        = string
+variable "ec2_security_group_ids" {
+  description = "Public subnets for the instance"
+  type        = list(string)
 }
+
 
 variable "ssh_key_name" {
   description = "Existing SSH keypair name"
