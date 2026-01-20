@@ -1,9 +1,9 @@
 /**
  * Settings Page
  * Container for various configuration options including SDK Configuration
+ * Uses React Router for sub-navigation between settings sections
  */
 
-import { useState } from 'react';
 import {
   Box,
   Text,
@@ -21,13 +21,16 @@ import {
   IconShield,
   IconChevronRight,
 } from '@tabler/icons-react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { SamplingConfig } from '../SamplingConfig';
+import { NotificationChannels } from './components/NotificationChannels';
 import classes from './Settings.module.css';
 
 type SettingsTab = 'sdk-config' | 'notifications' | 'security';
 
 interface SettingsNavItem {
   id: SettingsTab;
+  path: string;
   label: string;
   description: string;
   icon: React.ElementType;
@@ -38,20 +41,21 @@ interface SettingsNavItem {
 const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   {
     id: 'sdk-config',
+    path: 'sdk-config',
     label: 'SDK Configuration',
     description: 'Control what data your app sends to Pulse',
     icon: IconAdjustments,
   },
   {
     id: 'notifications',
+    path: 'notifications',
     label: 'Notifications',
-    description: 'Manage alert preferences',
+    description: 'Manage notification channels',
     icon: IconBell,
-    badge: 'Coming Soon',
-    disabled: true,
   },
   {
     id: 'security',
+    path: 'security',
     label: 'Security & Access',
     description: 'API keys and permissions',
     icon: IconShield,
@@ -60,31 +64,34 @@ const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   },
 ];
 
-export function Settings() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('sdk-config');
+// Coming Soon placeholder component
+function ComingSoonSection({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <Box className={classes.comingSoon}>
+      <Icon size={48} style={{ opacity: 0.3 }} />
+      <Text size="lg" fw={600} mt="md">{title}</Text>
+      <Text c="dimmed">Coming soon...</Text>
+    </Box>
+  );
+}
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'sdk-config':
-        return <SamplingConfig />;
-      case 'notifications':
-        return (
-          <Box className={classes.comingSoon}>
-            <IconBell size={48} style={{ opacity: 0.3 }} />
-            <Text size="lg" fw={600} mt="md">Notifications</Text>
-            <Text c="dimmed">Coming soon...</Text>
-          </Box>
-        );
-      case 'security':
-        return (
-          <Box className={classes.comingSoon}>
-            <IconShield size={48} style={{ opacity: 0.3 }} />
-            <Text size="lg" fw={600} mt="md">Security & Access</Text>
-            <Text c="dimmed">Coming soon...</Text>
-          </Box>
-        );
-      default:
-        return null;
+export function Settings() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Determine active tab from current path
+  const getActiveTab = (): SettingsTab => {
+    const path = location.pathname;
+    if (path.includes('/notifications')) return 'notifications';
+    if (path.includes('/security')) return 'security';
+    return 'sdk-config';
+  };
+
+  const activeTab = getActiveTab();
+
+  const handleNavClick = (item: SettingsNavItem) => {
+    if (!item.disabled) {
+      navigate(`/settings/${item.path}`);
     }
   };
 
@@ -117,7 +124,7 @@ export function Settings() {
               description={item.description}
               leftSection={<item.icon size={20} />}
               rightSection={<IconChevronRight size={14} />}
-              onClick={() => !item.disabled && setActiveTab(item.id)}
+              onClick={() => handleNavClick(item)}
               disabled={item.disabled}
               variant="light"
               styles={{
@@ -134,11 +141,15 @@ export function Settings() {
         </Stack>
       </Paper>
 
-      {/* Main Content */}
+      {/* Main Content - Routed */}
       <Box className={classes.content}>
-        {renderContent()}
+        <Routes>
+          <Route index element={<Navigate to="sdk-config" replace />} />
+          <Route path="sdk-config/*" element={<SamplingConfig />} />
+          <Route path="notifications" element={<NotificationChannels />} />
+          <Route path="security" element={<ComingSoonSection icon={IconShield} title="Security & Access" />} />
+        </Routes>
       </Box>
     </Box>
   );
 }
-

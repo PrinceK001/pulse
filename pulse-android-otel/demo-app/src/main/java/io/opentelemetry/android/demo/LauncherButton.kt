@@ -22,23 +22,25 @@ import androidx.compose.ui.unit.sp
 fun LauncherButton(
     text: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     Row {
         Spacer(modifier = Modifier.height(5.dp))
     }
-    Row {
-        Button(
-            onClick = onClick,
-            border = BorderStroke(1.dp, Color.Gray),
-            modifier = Modifier.padding(16.dp).height(75.dp),
-            colors =
-                ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = Color(0xFF425CC7),
-                ),
-            content = {
-                CenterText(text = text, fontSize = 24.sp)
-            },
-        )
-    }
+    Button(
+        onClick = onClick,
+        border = BorderStroke(1.dp, Color.Gray),
+        modifier = Modifier
+            .padding(16.dp)
+            .height(75.dp),
+        enabled = enabled,
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = Color(0xFF425CC7),
+            ),
+        content = {
+            CenterText(text = text, fontSize = 24.sp)
+        },
+    )
 }

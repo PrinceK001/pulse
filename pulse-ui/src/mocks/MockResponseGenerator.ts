@@ -17,6 +17,15 @@ import {
   mockAlertFilters,
   mockAlertTags,
 } from "./responses/alertResponses";
+import {
+  mockTableMetadata,
+  generateMockQueryResults,
+  createQueryJob,
+  getQueryJobStatus,
+  shouldReturnImmediate,
+  generateMockQueryHistory,
+  cancelQueryJob,
+} from "./responses/realtimeQueryResponses";
 
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
@@ -150,9 +159,20 @@ export class MockResponseGenerator {
       return this.handleDashboardFiltersEndpoint(pathname, method, request);
     }
 
-    // Job endpoints
+    // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
     if (
-      pathname.includes("/job") ||
+      pathname.includes("/query/metadata/table") ||
+      pathname.includes("/query/tables") ||
+      pathname.includes("/query/history") ||
+      pathname.includes("/query/job/") ||
+      (pathname.endsWith("/query") && method === "POST")
+    ) {
+      return this.handleRealtimeQueryEndpoints(pathname, method, request);
+    }
+
+    // Job endpoints (CI Job endpoints, not query jobs)
+    if (
+      (pathname.includes("/job") && !pathname.includes("/query/job/")) ||
       pathname.includes("/getJobs") ||
       pathname.includes("/v1/interactions") ||
       pathname.includes("/getJobDetails") ||
@@ -404,7 +424,6 @@ export class MockResponseGenerator {
             "network_instrumentation",
             "screen_session",
             "custom_events",
-            "rn_navigation",
             "rn_screen_load",
             "rn_screen_interactive",
           ]
@@ -1308,10 +1327,95 @@ export class MockResponseGenerator {
       return { data: metricsData, status: 200 };
     }
 
+    // GET /v1/alert/notificationChannels/:id - Returns a single notification channel by ID
+    // @see backend GetAlertNotificationChannelById.java
+    // NOTE: This must come BEFORE the general GET to avoid being caught by the more general route
+    const channelByIdMatch = pathname.match(/\/alert\/notificationChannels\/(\d+)$/);
+    if (channelByIdMatch && method === "GET") {
+      const channelId = parseInt(channelByIdMatch[1]);
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET_NOTIFICATION_CHANNEL_BY_ID - ID:", channelId);
+      }
+      const channel = mockNotificationChannels.find(
+        (c) => c.notification_channel_id === channelId
+      );
+      if (channel) {
+        return { data: channel, status: 200 };
+      }
+      return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Notification channel not found", cause: "" } };
+    }
+
     // GET /v1/alert/notificationChannels - Returns notification channels
     // @see backend AlertNotificationChannelResponseDto.java
     if (pathname.includes("/alert/notificationChannels") && method === "GET") {
-      return { data: mockNotificationChannels, status: 200 };
+      // Filter to only return active channels for the list endpoint
+      const activeChannels = mockNotificationChannels.filter((c) => c.is_active);
+      return { data: activeChannels, status: 200 };
+    }
+
+    // POST /v1/alert/notificationChannels - Create notification channel
+    // @see backend CreateAlertNotificationChannelRequestDto.java
+    if (pathname.includes("/alert/notificationChannels") && method === "POST") {
+      const body = JSON.parse(request.body || "{}");
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] CREATE_NOTIFICATION_CHANNEL - Body:", body);
+      }
+      // Add to mock channels (in memory only)
+      const newChannel = {
+        notification_channel_id: mockNotificationChannels.length + 1,
+        name: body.name,
+        type: body.type,
+        config: body.config,
+        is_active: true,
+      };
+      mockNotificationChannels.push(newChannel);
+      return { data: true, status: 200 };
+    }
+
+    // PUT /v1/alert/notificationChannels/:id - Update notification channel
+    if (pathname.includes("/alert/notificationChannels/") && method === "PUT") {
+      const channelIdMatch = pathname.match(/\/notificationChannels\/(\d+)/);
+      if (channelIdMatch) {
+        const channelId = parseInt(channelIdMatch[1]);
+        const body = JSON.parse(request.body || "{}");
+        if (this.config.shouldLog()) {
+          console.log("[Mock Server] UPDATE_NOTIFICATION_CHANNEL - ID:", channelId, "Body:", body);
+        }
+        // Update in mock channels (in memory only)
+        const channelIndex = mockNotificationChannels.findIndex(
+          (c) => c.notification_channel_id === channelId
+        );
+        if (channelIndex !== -1) {
+          mockNotificationChannels[channelIndex] = {
+            ...mockNotificationChannels[channelIndex],
+            name: body.name,
+            type: body.type,
+            config: body.config,
+          };
+          return { data: true, status: 200 };
+        }
+        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+      }
+    }
+
+    // DELETE /v1/alert/notificationChannels/:id - Delete notification channel
+    if (pathname.includes("/alert/notificationChannels/") && method === "DELETE") {
+      const channelIdMatch = pathname.match(/\/notificationChannels\/(\d+)/);
+      if (channelIdMatch) {
+        const channelId = parseInt(channelIdMatch[1]);
+        if (this.config.shouldLog()) {
+          console.log("[Mock Server] DELETE_NOTIFICATION_CHANNEL - ID:", channelId);
+        }
+        // Remove from mock channels (in memory only)
+        const channelIndex = mockNotificationChannels.findIndex(
+          (c) => c.notification_channel_id === channelId
+        );
+        if (channelIndex !== -1) {
+          mockNotificationChannels.splice(channelIndex, 1);
+          return { data: true, status: 200 };
+        }
+        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+      }
     }
 
     // GET /v1/alert/filters - Returns filter options
@@ -2476,6 +2580,228 @@ export class MockResponseGenerator {
         },
       },
       status: 200,
+    };
+  }
+
+  /**
+   * Handle Real-time Querying endpoints
+   * - POST /query/metadata/table - Get table metadata (columns, types)
+   * - POST /query - Submit a SQL query
+   * - GET /query/job/{jobId} - Get job status and results
+   */
+  private handleRealtimeQueryEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // Get table metadata (legacy POST endpoint)
+    if (pathname.includes("/query/metadata/table") && method === "POST") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] Returning table metadata for otel_data");
+      }
+      return {
+        data: mockTableMetadata,
+        status: 200,
+      };
+    }
+
+    // Get table metadata (new GET endpoint)
+    // Response must be an array of TableMetadata matching TableMetadataResponse type
+    if (pathname.includes("/query/tables") && method === "GET") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET /query/tables - Returning table metadata");
+      }
+      return {
+        data: [
+          {
+            tableName: mockTableMetadata.tableName,
+            tableSchema: mockTableMetadata.databaseName,
+            tableType: "TABLE",
+            columns: mockTableMetadata.columns.map((col, index) => ({
+              columnName: col.name,
+              dataType: col.type,
+              ordinalPosition: index + 1,
+              isNullable: "YES",
+            })),
+          },
+        ],
+        status: 200,
+      };
+    }
+
+    // Get query history
+    if (pathname.includes("/query/history") && method === "GET") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET /query/history - Returning query history");
+      }
+      const history = generateMockQueryHistory();
+      return {
+        data: history,
+        status: 200,
+      };
+    }
+
+    // Cancel query job (DELETE)
+    if (pathname.includes("/query/job/") && method === "DELETE") {
+      const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
+      const jobId = jobIdMatch ? jobIdMatch[1] : "";
+      
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] DELETE /query/job/ - Cancelling job:", jobId);
+      }
+      
+      const result = cancelQueryJob(jobId);
+      return {
+        data: result,
+        status: 200,
+      };
+    }
+
+    // Submit query
+    if (pathname.endsWith("/query") && method === "POST") {
+      let requestBody: { queryString?: string; sql?: string } = {};
+      try {
+        if (request.body) {
+          requestBody = JSON.parse(request.body);
+        }
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Invalid request body",
+            cause: "Could not parse JSON body",
+          },
+        };
+      }
+
+      // Support both 'queryString' (interface) and 'sql' (legacy)
+      const sql = requestBody.queryString || requestBody.sql || "";
+      if (!sql.trim()) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_QUERY",
+            message: "SQL query is required",
+            cause: "Empty SQL query provided",
+          },
+        };
+      }
+
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] Submitting query:", sql.substring(0, 100) + "...");
+      }
+
+      // Check if we should return immediate results
+      if (shouldReturnImmediate(sql)) {
+        const results = generateMockQueryResults(sql);
+        return {
+          data: {
+            jobId: `query_${Date.now()}`,
+            status: "COMPLETED",
+            message: "Query completed successfully",
+            resultData: results.rows,
+            nextToken: results.nextToken,
+            dataScannedInBytes: results.dataScannedInBytes,
+            createdAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+          },
+          status: 200,
+        };
+      }
+
+      // Otherwise, create a job for async execution
+      const job = createQueryJob(sql);
+      return {
+        data: {
+          jobId: job.jobId,
+          status: job.status,
+          message: "Query queued for execution",
+          resultData: null,
+          createdAt: new Date().toISOString(),
+        },
+        status: 200,
+      };
+    }
+
+    // Get job status
+    if (pathname.includes("/query/job/") && method === "GET") {
+      // Extract job ID from pathname (stop at / or ? or end of string)
+      const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
+      let jobId = jobIdMatch ? jobIdMatch[1] : "";
+      
+      // Also strip query params if somehow included
+      if (jobId.includes("?")) {
+        jobId = jobId.split("?")[0];
+      }
+
+      if (!jobId) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Job ID is required",
+            cause: "No job ID provided in URL",
+          },
+        };
+      }
+
+      console.log("[Mock Server] Getting job status for:", jobId);
+
+      const jobStatus = getQueryJobStatus(jobId);
+      console.log("[Mock Server] Job status result:", JSON.stringify(jobStatus));
+      
+      // Map SUCCEEDED to COMPLETED to match interface expectations
+      const statusMap: Record<string, string> = {
+        "SUCCEEDED": "COMPLETED",
+        "QUEUED": "QUEUED",
+        "RUNNING": "RUNNING",
+        "FAILED": "FAILED",
+      };
+      const mappedStatus = statusMap[jobStatus.status] || jobStatus.status;
+      
+      let response;
+      if (mappedStatus === "COMPLETED" && jobStatus.results) {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+            resultData: jobStatus.results.rows,
+            nextToken: jobStatus.results.nextToken,
+            dataScannedInBytes: jobStatus.results.dataScannedInBytes,
+            completedAt: new Date().toISOString(),
+          },
+          status: 200,
+        };
+      } else if (mappedStatus === "FAILED") {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+            errorMessage: jobStatus.error || "Query execution failed",
+          },
+          status: 200,
+        };
+      } else {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+          },
+          status: 200,
+        };
+      }
+
+      console.log("[Mock Server] Returning job status response:", JSON.stringify(response));
+      return response;
+    }
+
+    return {
+      data: { message: "Real-time query endpoint not implemented" },
+      status: 404,
     };
   }
 

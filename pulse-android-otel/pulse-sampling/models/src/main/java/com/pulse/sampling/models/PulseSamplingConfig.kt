@@ -32,7 +32,7 @@ public class PulseSessionSamplingRule internal constructor(
     @SerialName("value")
     public val value: String,
     @SerialName("sdks")
-    public val sdks: Set<PulseSdkName>,
+    public val sdks: Collection<PulseSdkName>,
     @SerialName("sessionSampleRate")
     public val sessionSampleRate: SamplingRate,
 ) {

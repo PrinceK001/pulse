@@ -54,6 +54,7 @@ internal class PulseSdkConfigRestProviderTest {
                             "logsCollectorUrl": "http://localhost:4318/v1/logs",
                             "metricCollectorUrl": "http://localhost:4318/v1/metrics",
                             "spanCollectorUrl": "http://localhost:4318/v1/traces",
+                            "customEventCollectorUrl": "http://localhost:4318/v1/traces",
                             "attributesToDrop": [],
                             "attributesToAdd": [],
                             "filters": {
