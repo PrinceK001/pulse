@@ -536,6 +536,7 @@ class PulseConfigModelsTest {
           .logsCollectorUrl("http://logs.example.com")
           .metricCollectorUrl("http://metrics.example.com")
           .spanCollectorUrl("http://spans.example.com")
+          .customEventCollectorUrl("http://custom-events.example.com")
           .filters(filters)
           .attributesToDrop(attributesToDrop)
           .attributesToAdd(attributesToAdd)
@@ -545,6 +546,7 @@ class PulseConfigModelsTest {
       assertEquals("http://logs.example.com", signalsConfig.getLogsCollectorUrl());
       assertEquals("http://metrics.example.com", signalsConfig.getMetricCollectorUrl());
       assertEquals("http://spans.example.com", signalsConfig.getSpanCollectorUrl());
+      assertEquals("http://custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
       assertEquals(filters, signalsConfig.getFilters());
       assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
       assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
@@ -558,6 +560,7 @@ class PulseConfigModelsTest {
       signalsConfig.setLogsCollectorUrl("http://new-logs.example.com");
       signalsConfig.setMetricCollectorUrl("http://new-metrics.example.com");
       signalsConfig.setSpanCollectorUrl("http://new-spans.example.com");
+      signalsConfig.setCustomEventCollectorUrl("http://new-custom-events.example.com");
       signalsConfig.setFilters(new PulseConfig.FilterConfig());
       signalsConfig.setAttributesToDrop(new ArrayList<>());
       signalsConfig.setAttributesToAdd(new ArrayList<>());
@@ -566,6 +569,33 @@ class PulseConfigModelsTest {
       assertEquals("http://new-logs.example.com", signalsConfig.getLogsCollectorUrl());
       assertEquals("http://new-metrics.example.com", signalsConfig.getMetricCollectorUrl());
       assertEquals("http://new-spans.example.com", signalsConfig.getSpanCollectorUrl());
+      assertEquals("http://new-custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
+    }
+
+    /**
+     * Tests that customEventCollectorUrl can be set to null.
+     * This verifies the field is optional and handles null values correctly.
+     */
+    @Test
+    void shouldHandleNullCustomEventCollectorUrl() {
+      PulseConfig.SignalsConfig signalsConfig = PulseConfig.SignalsConfig.builder()
+          .customEventCollectorUrl(null)
+          .build();
+
+      assertEquals(null, signalsConfig.getCustomEventCollectorUrl());
+    }
+
+    /**
+     * Tests that customEventCollectorUrl can be set to an empty string.
+     * This verifies edge case handling for empty URL values.
+     */
+    @Test
+    void shouldHandleEmptyCustomEventCollectorUrl() {
+      PulseConfig.SignalsConfig signalsConfig = new PulseConfig.SignalsConfig();
+
+      signalsConfig.setCustomEventCollectorUrl("");
+
+      assertEquals("", signalsConfig.getCustomEventCollectorUrl());
     }
   }
 

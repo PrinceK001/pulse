@@ -279,11 +279,12 @@ export const DEFAULT_PULSE_CONFIG: PulseConfig = {
     logsCollectorUrl: 'http://10.0.2.2:4318/v1/logs',
     metricCollectorUrl: 'http://10.0.2.2:4318/v1/metrics',
     spanCollectorUrl: 'http://10.0.2.2:4318/v1/traces',
+    customEventCollectorUrl: 'http://10.0.2.2:4318/v1/events',
     attributesToDrop: [],
     attributesToAdd: [],
   },
   interaction: {
-    collectorUrl: 'http://10.0.2.2:4318/v1/traces/v1/interactions',
+    collectorUrl: 'http://10.0.2.2:4318/v1/traces',
     configUrl: 'http://10.0.2.2:8080/v1/interaction-configs/',
     beforeInitQueueSize: 100,
   },
