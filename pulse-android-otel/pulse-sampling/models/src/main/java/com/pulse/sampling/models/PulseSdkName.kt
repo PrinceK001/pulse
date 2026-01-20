@@ -32,6 +32,7 @@ public enum class PulseSdkName {
         internal const val ANDROID_RN_SDK_NAME_STR = "pulse_android_rn"
         internal const val IOS_SWIFT_SDK_NAME_STR = "pulse_ios_swift"
         internal const val IOS_RN_SDK_NAME_STR = "pulse_ios_rn"
+        public val allValuesExceptUnknown: Collection<PulseSdkName> = PulseSdkName.values().toSet() - UNKNOWN
 
         public fun fromName(telemetrySdkName: String?): PulseSdkName =
             when (telemetrySdkName?.lowercase()) {

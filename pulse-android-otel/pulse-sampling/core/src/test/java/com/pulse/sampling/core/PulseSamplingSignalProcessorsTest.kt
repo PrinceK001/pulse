@@ -4,6 +4,7 @@ package com.pulse.sampling.core
 
 import android.content.Context
 import com.pulse.otel.utils.toAttributes
+import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.models.PulseAttributeType
 import com.pulse.sampling.models.PulseCriticalEventPolicies
 import com.pulse.sampling.models.PulseSdkConfig

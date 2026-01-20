@@ -91,6 +91,9 @@ public class ConfigController {
       if (signals.getSpanCollectorUrl() == null || signals.getSpanCollectorUrl().isBlank()) {
         signals.setSpanCollectorUrl(applicationConfig.getSpanCollectorUrl());
       }
+      if (signals.getCustomEventCollectorUrl() == null || signals.getCustomEventCollectorUrl().isBlank()) {
+        signals.setCustomEventCollectorUrl(applicationConfig.getCustomEventCollectorUrl());
+      }
     }
   }
 

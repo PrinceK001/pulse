@@ -1,8 +1,12 @@
-package com.pulse.sampling.core
+package com.pulse.sampling.core.exporters
 
 import android.content.Context
 import com.pulse.otel.utils.matchesFromRegexCache
 import com.pulse.otel.utils.toMap
+import com.pulse.sampling.core.PulseSessionConfigParser
+import com.pulse.sampling.core.PulseSessionParser
+import com.pulse.sampling.core.PulseSignalMatcher
+import com.pulse.sampling.core.PulseSignalsAttrMatcher
 import com.pulse.sampling.models.PulseAttributeType
 import com.pulse.sampling.models.PulseAttributesToAddEntry
 import com.pulse.sampling.models.PulseFeatureName
