@@ -21,6 +21,14 @@ public class AlertNotificationChannelResponseDto {
   String name;
 
   @NotNull
-  @JsonProperty("notification_webhook_url")
-  String notificationWebhookUrl;
+  @JsonProperty("type")
+  String type;
+
+  @NotNull
+  @JsonProperty("config")
+  String config;
+
+  @NotNull
+  @JsonProperty("is_active")
+  Boolean isActive;
 }

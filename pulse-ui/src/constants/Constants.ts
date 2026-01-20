@@ -12,6 +12,7 @@ import {
   IconDeviceDesktop,
   IconNetwork,
   IconUsers,
+  IconDatabaseSearch,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -47,6 +48,7 @@ import { AlertListingPage } from "../screens/AlertListingPage";
 import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
+import { RealTimeQuery } from "../screens/RealTimeQuery";
 
 export const APP_NAME: string = "Pulse";
 
@@ -219,7 +221,21 @@ export const ROUTES: Routes = {
     path: "/configure-alert/*",
     element: AlertForm,
   },
+  QUERY_BUILDER: {
+    key: "QUERY_BUILDER",
+    basePath: "/query-builder",
+    path: "/query-builder",
+    element: RealTimeQuery,
+  },
 };
+
+// Settings sub-routes (handled internally by Settings component)
+// Use these paths for programmatic navigation
+export const SETTINGS_PATHS = {
+  SDK_CONFIG: "/settings/sdk-config",
+  NOTIFICATIONS: "/settings/notifications",
+  SECURITY: "/settings/security",
+} as const;
 
 export const NAVBAR_ITEMS: NavbarItems = [
   {
@@ -262,6 +278,14 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconNetwork,
     routeTo: ROUTES.NETWORK_LIST.basePath,
     path: ROUTES.NETWORK_LIST.path,
+    iconSize: 25,
+  },
+  
+  {
+    tabName: "Query Builder",
+    icon: IconDatabaseSearch,
+    routeTo: ROUTES.QUERY_BUILDER.basePath,
+    path: ROUTES.QUERY_BUILDER.path,
     iconSize: 25,
   },
   {
@@ -439,12 +463,17 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   CANCEL_QUERY: {
     key: "CANCEL_QUERY",
-    apiPath: `/v2/cancelQueryRequest`,
-    method: API_METHODS.POST,
+    apiPath: `/query/job`, // DELETE /query/job/{jobId}
+    method: API_METHODS.DELETE,
   },
   GET_QUERY_HISTORY: {
     key: "GET_QUERY_HISTORY",
-    apiPath: `/v2/getQuery/user`,
+    apiPath: `/query/history`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_STATS: {
+    key: "GET_QUERY_STATS",
+    apiPath: `/query/stats`,
     method: API_METHODS.GET,
   },
   GET_SUGGESTED_QUERIES: {
@@ -593,6 +622,26 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/alert/notificationChannels`,
     method: API_METHODS.GET,
   },
+  CREATE_NOTIFICATION_CHANNEL: {
+    key: "CREATE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_NOTIFICATION_CHANNEL: {
+    key: "UPDATE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_NOTIFICATION_CHANNEL: {
+    key: "DELETE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.DELETE,
+  },
+  GET_NOTIFICATION_CHANNEL_BY_ID: {
+    key: "GET_NOTIFICATION_CHANNEL_BY_ID",
+    apiPath: `/v1/alert/notificationChannels/{notificationChannelId}`,
+    method: API_METHODS.GET,
+  },
   // SDK Configuration API Routes
   GET_ALL_SDK_CONFIGS: {
     key: "GET_ALL_SDK_CONFIGS",
@@ -622,6 +671,11 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_SDK_SCOPES_AND_SDKS: {
     key: "GET_SDK_SCOPES_AND_SDKS",
     apiPath: `/v1/configs/scopes-sdks`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_TABLES: {
+    key: "GET_QUERY_TABLES",
+    apiPath: `/query/tables`,
     method: API_METHODS.GET,
   },
 };
@@ -822,13 +876,14 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 };
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
-  FOOTER_MESSAGE: "Facing problems? Ping us on #pulse-feedback",
+  FOOTER_MESSAGE: "Have questions? Join our Discord community",
+  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
   HELP_LINK:
-    "https://dream11.atlassian.net/wiki/spaces/FE/pages/3583705154/Pulse+Demo",
+    "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {

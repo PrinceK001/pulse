@@ -114,6 +114,16 @@ export function InfraConfig({
                 disabled={disabled}
                 leftSection={<IconLink size={16} />}
               />
+
+              <TextInput
+                label="Clickstream Events Collector URL"
+                description="Endpoint for Clickstream events"
+                placeholder="http://localhost:4318/v1/events"
+                value={signals.customEventCollectorUrl || ''}
+                onChange={(e) => handleSignalChange('customEventCollectorUrl', e.currentTarget.value)}
+                disabled={disabled}
+                leftSection={<IconLink size={16} />}
+              />
             </Stack>
           </Paper>
 

@@ -247,7 +247,7 @@ class PulseConfigModelsTest {
     void shouldCreateWithBuilder() {
       List<PulseConfig.EventPropMatch> props = new ArrayList<>();
       List<Scope> scopes = Arrays.asList(Scope.logs, Scope.traces);
-      List<Sdk> sdks = Arrays.asList(Sdk.android_java);
+      List<Sdk> sdks = Arrays.asList(Sdk.pulse_android_java);
 
       PulseConfig.EventFilter eventFilter = PulseConfig.EventFilter.builder()
           .name("testEvent")
@@ -269,7 +269,7 @@ class PulseConfigModelsTest {
       eventFilter.setName("eventName");
       eventFilter.setProps(new ArrayList<>());
       eventFilter.setScopes(Arrays.asList(Scope.metrics));
-      eventFilter.setSdks(Arrays.asList(Sdk.ios_native));
+      eventFilter.setSdks(Arrays.asList(Sdk.pulse_ios_swift));
 
       assertEquals("eventName", eventFilter.getName());
       assertNotNull(eventFilter.getProps());
@@ -381,7 +381,7 @@ class PulseConfigModelsTest {
     void shouldCreateWithBuilder() {
       PulseConfig.SamplingRule samplingRule = PulseConfig.SamplingRule.builder()
           .name(rules.os_version)
-          .sdks(Arrays.asList(Sdk.android_java))
+          .sdks(Arrays.asList(Sdk.pulse_android_java))
           .value("14")
           .sessionSampleRate(1.0)
           .build();
@@ -396,7 +396,7 @@ class PulseConfigModelsTest {
       PulseConfig.SamplingRule samplingRule = new PulseConfig.SamplingRule();
 
       samplingRule.setName(rules.app_version);
-      samplingRule.setSdks(Arrays.asList(Sdk.ios_native));
+      samplingRule.setSdks(Arrays.asList(Sdk.pulse_ios_swift));
       samplingRule.setValue("2.0.0");
       samplingRule.setSessionSampleRate(0.8);
 
@@ -462,7 +462,7 @@ class PulseConfigModelsTest {
     void shouldCreateWithBuilder() {
       List<PulseConfig.EventPropMatch> props = new ArrayList<>();
       List<Scope> scopes = Arrays.asList(Scope.logs);
-      List<Sdk> sdks = Arrays.asList(Sdk.android_java);
+      List<Sdk> sdks = Arrays.asList(Sdk.pulse_android_java);
 
       PulseConfig.CriticalPolicyRule rule = PulseConfig.CriticalPolicyRule.builder()
           .name("crashEvent")
@@ -536,6 +536,7 @@ class PulseConfigModelsTest {
           .logsCollectorUrl("http://logs.example.com")
           .metricCollectorUrl("http://metrics.example.com")
           .spanCollectorUrl("http://spans.example.com")
+          .customEventCollectorUrl("http://custom-events.example.com")
           .filters(filters)
           .attributesToDrop(attributesToDrop)
           .attributesToAdd(attributesToAdd)
@@ -545,6 +546,7 @@ class PulseConfigModelsTest {
       assertEquals("http://logs.example.com", signalsConfig.getLogsCollectorUrl());
       assertEquals("http://metrics.example.com", signalsConfig.getMetricCollectorUrl());
       assertEquals("http://spans.example.com", signalsConfig.getSpanCollectorUrl());
+      assertEquals("http://custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
       assertEquals(filters, signalsConfig.getFilters());
       assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
       assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
@@ -558,6 +560,7 @@ class PulseConfigModelsTest {
       signalsConfig.setLogsCollectorUrl("http://new-logs.example.com");
       signalsConfig.setMetricCollectorUrl("http://new-metrics.example.com");
       signalsConfig.setSpanCollectorUrl("http://new-spans.example.com");
+      signalsConfig.setCustomEventCollectorUrl("http://new-custom-events.example.com");
       signalsConfig.setFilters(new PulseConfig.FilterConfig());
       signalsConfig.setAttributesToDrop(new ArrayList<>());
       signalsConfig.setAttributesToAdd(new ArrayList<>());
@@ -566,6 +569,33 @@ class PulseConfigModelsTest {
       assertEquals("http://new-logs.example.com", signalsConfig.getLogsCollectorUrl());
       assertEquals("http://new-metrics.example.com", signalsConfig.getMetricCollectorUrl());
       assertEquals("http://new-spans.example.com", signalsConfig.getSpanCollectorUrl());
+      assertEquals("http://new-custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
+    }
+
+    /**
+     * Tests that customEventCollectorUrl can be set to null.
+     * This verifies the field is optional and handles null values correctly.
+     */
+    @Test
+    void shouldHandleNullCustomEventCollectorUrl() {
+      PulseConfig.SignalsConfig signalsConfig = PulseConfig.SignalsConfig.builder()
+          .customEventCollectorUrl(null)
+          .build();
+
+      assertEquals(null, signalsConfig.getCustomEventCollectorUrl());
+    }
+
+    /**
+     * Tests that customEventCollectorUrl can be set to an empty string.
+     * This verifies edge case handling for empty URL values.
+     */
+    @Test
+    void shouldHandleEmptyCustomEventCollectorUrl() {
+      PulseConfig.SignalsConfig signalsConfig = new PulseConfig.SignalsConfig();
+
+      signalsConfig.setCustomEventCollectorUrl("");
+
+      assertEquals("", signalsConfig.getCustomEventCollectorUrl());
     }
   }
 
@@ -621,7 +651,7 @@ class PulseConfigModelsTest {
       PulseConfig.FeatureConfig featureConfig = PulseConfig.FeatureConfig.builder()
           .featureName(Features.java_crash)
           .sessionSampleRate(1.0)
-          .sdks(Arrays.asList(Sdk.android_java))
+          .sdks(Arrays.asList(Sdk.pulse_android_java))
           .build();
 
       assertEquals(Features.java_crash, featureConfig.getFeatureName());
@@ -635,7 +665,7 @@ class PulseConfigModelsTest {
 
       featureConfig.setFeatureName(Features.java_anr);
       featureConfig.setSessionSampleRate(0.5);
-      featureConfig.setSdks(Arrays.asList(Sdk.android_rn, Sdk.ios_rn));
+      featureConfig.setSdks(Arrays.asList(Sdk.pulse_android_rn, Sdk.pulse_ios_rn));
 
       assertEquals(Features.java_anr, featureConfig.getFeatureName());
       assertEquals(0.5, featureConfig.getSessionSampleRate());

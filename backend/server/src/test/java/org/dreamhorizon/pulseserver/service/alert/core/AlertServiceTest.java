@@ -563,10 +563,41 @@ class AlertServiceTest {
     void shouldCreateNotificationChannel() {
       CreateAlertNotificationChannelRequestDto request = new CreateAlertNotificationChannelRequestDto();
       request.setName("Slack");
-      request.setConfig("{}");
-      when(alertsDao.createNotificationChannel(anyString(), anyString())).thenReturn(Single.just(true));
+      request.setType("slack");
+      request.setConfig("https://webhook.url");
+      when(alertsDao.createNotificationChannel(anyString(), anyString(), anyString())).thenReturn(Single.just(true));
 
       Boolean result = alertService.createAlertNotificationChannel(request).blockingGet();
+
+      assertTrue(result);
+    }
+  }
+
+  @Nested
+  class TestUpdateAlertNotificationChannel {
+
+    @Test
+    void shouldUpdateNotificationChannel() {
+      CreateAlertNotificationChannelRequestDto request = new CreateAlertNotificationChannelRequestDto();
+      request.setName("Updated Slack");
+      request.setType("slack");
+      request.setConfig("https://new.webhook.url");
+      when(alertsDao.updateNotificationChannel(anyInt(), anyString(), anyString(), anyString())).thenReturn(Single.just(true));
+
+      Boolean result = alertService.updateAlertNotificationChannel(1, request).blockingGet();
+
+      assertTrue(result);
+    }
+  }
+
+  @Nested
+  class TestDeleteAlertNotificationChannel {
+
+    @Test
+    void shouldDeleteNotificationChannel() {
+      when(alertsDao.deleteNotificationChannel(anyInt())).thenReturn(Single.just(true));
+
+      Boolean result = alertService.deleteAlertNotificationChannel(1).blockingGet();
 
       assertTrue(result);
     }
@@ -776,7 +807,8 @@ class AlertServiceTest {
         .evaluationPeriod(1)
         .severityId(1)
         .notificationChannelId(1)
-        .notificationWebhookUrl("url")
+        .notificationType("slack")
+        .notificationConfig("https://webhook.url")
         .createdBy("user")
         .updatedBy("user")
         .createdAt(Timestamp.valueOf(LocalDateTime.now(ZoneOffset.UTC)))

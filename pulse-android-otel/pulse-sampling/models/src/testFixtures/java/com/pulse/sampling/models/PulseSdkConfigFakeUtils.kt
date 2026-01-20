@@ -32,9 +32,10 @@ public object PulseSdkConfigFakeUtils {
             signals =
                 PulseSignalConfig(
                     scheduleDurationMs = scheduleDurationMs,
-                    logsCollectorUrl = collectorUrl + "v1/logs/",
-                    spanCollectorUrl = collectorUrl + "v1/spans/",
-                    metricCollectorUrl = collectorUrl + "v1/metrics/",
+                    logsCollectorUrl = collectorUrl + "v1/logs",
+                    spanCollectorUrl = collectorUrl + "v1/spans",
+                    metricCollectorUrl = collectorUrl + "v1/metrics",
+                    customEventCollectorUrl = "v1/custom-event",
                     attributesToDrop = attributesToDrop,
                     attributesToAdd = attributesToAdd,
                     filters =
@@ -73,7 +74,7 @@ public object PulseSdkConfigFakeUtils {
     public fun createFakeSessionSamplingRule(
         name: PulseDeviceAttributeName = PulseDeviceAttributeName.OS_VERSION,
         value: String = ".*",
-        sdks: Set<PulseSdkName> = setOf(PulseSdkName.CURRENT_SDK_NAME),
+        sdks: Set<PulseSdkName> = setOf(PulseSdkName.ANDROID_JAVA),
         sessionSampleRate: SamplingRate = 1.0f,
     ): PulseSessionSamplingRule =
         PulseSessionSamplingRule(
@@ -87,7 +88,7 @@ public object PulseSdkConfigFakeUtils {
         name: String = ".*",
         props: Set<PulseProp> = emptySet(),
         scopes: Set<PulseSignalScope> = setOf(PulseSignalScope.TRACES, PulseSignalScope.LOGS),
-        sdks: Set<PulseSdkName> = setOf(PulseSdkName.CURRENT_SDK_NAME),
+        sdks: Set<PulseSdkName> = setOf(PulseSdkName.ANDROID_JAVA),
     ): PulseSignalMatchCondition =
         PulseSignalMatchCondition(
             name = name,
