@@ -1,3 +1,11 @@
+/**
+ * Flame Chart Transform
+ * 
+ * Main transformation logic for converting API data to flame chart format.
+ * Transforms trace, log, and exception data from ClickHouse into a hierarchical
+ * tree structure suitable for flame chart visualization.
+ */
+
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 
@@ -212,6 +220,18 @@ export function getColorForPulseType(pulseType: string): string {
 }
 
 /**
+ * Format pulseType for display (capitalize, replace dots/underscores/hyphens with spaces)
+ * e.g., "app.jank.frozen" -> "App Jank Frozen"
+ */
+export function formatPulseType(pulseType: string | undefined): string {
+  if (!pulseType) return "Unknown";
+  return pulseType
+    .split(/[._-]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
  * Get color based on span type or severity (legacy - for backwards compatibility)
  */
 export function getSpanColor(spanType: string, statusCode: string): string {
@@ -349,7 +369,7 @@ export function transformToFlameChart(
 
       const item: FlameChartItem = {
         id: `log-${parsed.traceId}-${parsed.spanId}-${ts.valueOf()}`,
-        name: parsed.eventName || parsed.body?.substring(0, 50) || "Log",
+        name: formatPulseType(parsed.pulseType) || parsed.eventName || "Log",
         start: ts.valueOf(),
         duration: 0, // Logs are point-in-time events
         type: "log",
@@ -383,14 +403,17 @@ export function transformToFlameChart(
       const parsed = parseExceptionRow(exceptionsData.fields, row);
       const ts = dayjs.utc(parsed.timestamp);
 
-      // Determine exception type for display
-      let displayName = parsed.title || parsed.exceptionType || parsed.eventName || "Exception";
-      if (parsed.eventName.includes("crash")) {
-        displayName = `🔴 Crash: ${displayName}`;
-      } else if (parsed.eventName.includes("anr")) {
-        displayName = `🟠 ANR: ${displayName}`;
-      } else if (parsed.eventName.includes("non_fatal")) {
-        displayName = `🟡 Non-Fatal: ${displayName}`;
+      // Use pulseType as primary display name, with emoji prefix based on event type
+      const pulseTypeDisplay = formatPulseType(parsed.pulseType);
+      let displayName = pulseTypeDisplay !== "Unknown" ? pulseTypeDisplay : (parsed.title || parsed.exceptionType || "Exception");
+      
+      // Add emoji prefix based on exception severity
+      if (parsed.eventName?.includes("crash")) {
+        displayName = `🔴 ${displayName}`;
+      } else if (parsed.eventName?.includes("anr")) {
+        displayName = `🟠 ${displayName}`;
+      } else if (parsed.eventName?.includes("non_fatal")) {
+        displayName = `🟡 ${displayName}`;
       }
 
       const item: FlameChartItem = {
@@ -538,22 +561,22 @@ export function transformToFlameChart(
       };
       
       if (!findAndAttach(rootNodes)) {
-        // Couldn't attach, treat as orphan
+        // Couldn't attach, treat as orphan but keep original color
         const orphanNode: FlameChartNode = {
           ...log,
           type: "orphan-log",
-          color: "#bdbdbd",
+          // Keep the original pulseType color instead of grey
           children: [],
         };
         rootNodes.push(orphanNode);
         orphanItems.push(log);
       }
     } else {
-      // Orphan log - no parent span found
+      // Orphan log - no parent span found, but keep original color
       const orphanNode: FlameChartNode = {
         ...log,
         type: "orphan-log",
-        color: "#bdbdbd",
+        // Keep the original pulseType color instead of grey
         children: [],
       };
       rootNodes.push(orphanNode);

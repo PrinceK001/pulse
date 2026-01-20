@@ -1,3 +1,11 @@
+/**
+ * DetailsSidebar Component
+ * 
+ * Slide-out panel that displays detailed information about a selected
+ * timeline item (span, log, or exception). Fetches additional details
+ * from the API and displays attributes, events, and links.
+ */
+
 import { useState } from "react";
 import { Box, Text, Button, Loader, ScrollArea, Badge } from "@mantine/core";
 import {
@@ -11,24 +19,18 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import localizedFormat from "dayjs/plugin/localizedFormat";
-import { FlameChartNode, getColorForPulseType } from "../../utils/flameChartTransform";
+
+import { FlameChartNode, getColorForPulseType, formatPulseType } from "../../utils/flameChartTransform";
+import { formatDuration, formatTimestamp } from "../../utils/formatters";
 import { useGetSpanDetails } from "../../../../hooks/useGetSpanDetails";
+import { ExceptionDetails, AttributeList } from "./components";
 import classes from "./DetailsSidebar.module.css";
 
-/**
- * Format pulseType for display (capitalize, replace underscores/hyphens with spaces)
- */
-function formatPulseType(pulseType: string | undefined): string {
-  if (!pulseType) return "Unknown";
-  return pulseType
-    .split(/[_-]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-}
-
 dayjs.extend(utc);
-dayjs.extend(localizedFormat);
+
+// ============================================================================
+// Types
+// ============================================================================
 
 interface DetailsSidebarProps {
   item: FlameChartNode | null;
@@ -36,30 +38,6 @@ interface DetailsSidebarProps {
 }
 
 type TabType = "attributes" | "events" | "links";
-
-/**
- * Format duration for display
- */
-function formatDuration(ms: number): string {
-  if (ms < 1) {
-    return `${(ms * 1000).toFixed(0)}µs`;
-  }
-  if (ms < 1000) {
-    return `${ms.toFixed(2)}ms`;
-  }
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-/**
- * Format timestamp to human readable with milliseconds in local timezone
- */
-function formatTimestamp(timestamp: string | undefined): string {
-  if (!timestamp) return "—";
-  // Parse as UTC then convert to local time
-  const dt = dayjs.utc(timestamp).local();
-  if (!dt.isValid()) return "—";
-  return dt.format("MMM D, YYYY HH:mm:ss.SSS");
-}
 
 /**
  * Get status badge class
@@ -146,23 +124,6 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
   const events = !isLog && !isException && details && "events" in details ? details.events : [];
   const links = !isLog && !isException && details && "links" in details ? details.links : [];
 
-  const renderAttributeList = (attrs: Record<string, string>, emptyMessage: string) => {
-    const entries = Object.entries(attrs);
-    if (entries.length === 0) {
-      return <Box className={classes.emptyAttributes}>{emptyMessage}</Box>;
-    }
-
-    return (
-      <Box className={classes.attributeList}>
-        {entries.map(([key, value]) => (
-          <Box key={key} className={classes.attributeItem}>
-            <Text className={classes.attributeKey}>{key}</Text>
-            <Text className={classes.attributeValue}>{String(value)}</Text>
-          </Box>
-        ))}
-      </Box>
-    );
-  };
 
   const renderEvents = () => {
     if (!events || events.length === 0) {
@@ -175,7 +136,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
           <Box key={idx} className={classes.eventItem}>
             <Box className={classes.eventHeader}>
               <Text className={classes.eventName}>{event.name}</Text>
-              <Text className={classes.eventTimestamp}>{event.timestamp}</Text>
+              <Text className={classes.eventTimestamp}>{formatTimestamp(event.timestamp)}</Text>
             </Box>
             {Object.keys(event.attributes).length > 0 && (
               <Box className={classes.attributeList}>
@@ -397,143 +358,9 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
               </Box>
             )}
 
-            {/* Exception Details */}
+            {/* Exception Details - Extracted to sub-component */}
             {isException && (
-              <Box mt="md">
-                {/* Exception Type */}
-                {(exceptionDetails?.exceptionType || item.metadata?.exceptionType) && (
-                  <Box className={classes.exceptionSection}>
-                    <Text className={classes.exceptionSectionLabel}>Exception Type</Text>
-                    <Text className={classes.exceptionType}>
-                      {exceptionDetails?.exceptionType || item.metadata?.exceptionType}
-                    </Text>
-                  </Box>
-                )}
-                
-                {/* Exception Message */}
-                {(exceptionDetails?.exceptionMessage || item.metadata?.exceptionMessage) && (
-                  <Box className={classes.exceptionSection}>
-                    <Text className={classes.exceptionSectionLabel}>Message</Text>
-                    <Text className={classes.exceptionMessage}>
-                      {exceptionDetails?.exceptionMessage || item.metadata?.exceptionMessage}
-                    </Text>
-                  </Box>
-                )}
-                
-                {/* Screen & Interactions Row */}
-                {((exceptionDetails?.screenName || item.metadata?.screenName) || 
-                  (exceptionDetails?.interactions && exceptionDetails.interactions.length > 0)) && (
-                  <Box className={classes.exceptionSection}>
-                    <Text className={classes.exceptionSectionLabel}>Context</Text>
-                    <Box className={classes.infoCard}>
-                      {(exceptionDetails?.screenName || item.metadata?.screenName) && (
-                        <Box className={classes.infoItem} mb="xs">
-                          <Text className={classes.infoLabel}>Screen</Text>
-                          <Text className={classes.screenBadge}>
-                            {exceptionDetails?.screenName || item.metadata?.screenName}
-                          </Text>
-                        </Box>
-                      )}
-                      {exceptionDetails?.interactions && exceptionDetails.interactions.length > 0 && (
-                        <Box className={classes.infoItem}>
-                          <Text className={classes.infoLabel}>Active Interactions</Text>
-                          <Box className={classes.interactionsList}>
-                            {exceptionDetails.interactions.map((interaction, idx) => (
-                              <Text key={idx} className={classes.interactionBadge}>
-                                {interaction}
-                              </Text>
-                            ))}
-                          </Box>
-                        </Box>
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                
-                {/* Device/App Info - Grid Layout */}
-                {exceptionDetails && (exceptionDetails.platform || exceptionDetails.osVersion || 
-                  exceptionDetails.deviceModel || exceptionDetails.appVersion || 
-                  exceptionDetails.sdkVersion || exceptionDetails.userId) && (
-                  <Box className={classes.exceptionSection}>
-                    <Text className={classes.exceptionSectionLabel}>Device & App</Text>
-                    <Box className={classes.infoCard}>
-                      <Box className={classes.infoGrid}>
-                        {exceptionDetails.platform && (
-                          <Box className={classes.infoItem}>
-                            <Text className={classes.infoLabel}>Platform</Text>
-                            <Text className={classes.infoValue}>{exceptionDetails.platform}</Text>
-                          </Box>
-                        )}
-                        {exceptionDetails.osVersion && (
-                          <Box className={classes.infoItem}>
-                            <Text className={classes.infoLabel}>OS Version</Text>
-                            <Text className={classes.infoValue}>{exceptionDetails.osVersion}</Text>
-                          </Box>
-                        )}
-                        {exceptionDetails.deviceModel && (
-                          <Box className={classes.infoItem}>
-                            <Text className={classes.infoLabel}>Device</Text>
-                            <Text className={classes.infoValue}>{exceptionDetails.deviceModel}</Text>
-                          </Box>
-                        )}
-                        {exceptionDetails.appVersion && (
-                          <Box className={classes.infoItem}>
-                            <Text className={classes.infoLabel}>App Version</Text>
-                            <Text className={classes.infoValue}>{exceptionDetails.appVersion}</Text>
-                          </Box>
-                        )}
-                        {exceptionDetails.sdkVersion && (
-                          <Box className={classes.infoItem}>
-                            <Text className={classes.infoLabel}>SDK Version</Text>
-                            <Text className={classes.infoValue}>{exceptionDetails.sdkVersion}</Text>
-                          </Box>
-                        )}
-                        {exceptionDetails.userId && (
-                          <Box className={classes.infoItem}>
-                            <Text className={classes.infoLabel}>User ID</Text>
-                            <Text className={classes.infoValue}>{exceptionDetails.userId}</Text>
-                          </Box>
-                        )}
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-                
-                {/* Stack Trace */}
-                {exceptionDetails?.exceptionStackTrace && (
-                  <Box className={classes.exceptionSection}>
-                    <Text className={classes.exceptionSectionLabel}>Stack Trace</Text>
-                    <Box className={classes.stackTrace}>
-                      {exceptionDetails.exceptionStackTrace}
-                    </Box>
-                  </Box>
-                )}
-                
-                {/* Grouping Info */}
-                {((exceptionDetails?.groupId || item.metadata?.groupId) || exceptionDetails?.fingerprint) && (
-                  <Box className={classes.exceptionSection}>
-                    <Text className={classes.exceptionSectionLabel}>Grouping</Text>
-                    <Box className={classes.infoCard}>
-                      {(exceptionDetails?.groupId || item.metadata?.groupId) && (
-                        <Box className={classes.infoItem} mb="xs">
-                          <Text className={classes.infoLabel}>Group ID</Text>
-                          <Text className={classes.monoValue}>
-                            {exceptionDetails?.groupId || item.metadata?.groupId}
-                          </Text>
-                        </Box>
-                      )}
-                      {exceptionDetails?.fingerprint && (
-                        <Box className={classes.infoItem}>
-                          <Text className={classes.infoLabel}>Fingerprint</Text>
-                          <Text className={classes.monoValue}>
-                            {exceptionDetails.fingerprint}
-                          </Text>
-                        </Box>
-                      )}
-                    </Box>
-                  </Box>
-                )}
-              </Box>
+              <ExceptionDetails item={item} exceptionDetails={exceptionDetails} />
             )}
 
             {isOrphan && (
@@ -591,7 +418,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                         {Object.keys(mainAttributes).length}
                       </Badge>
                     </Box>
-                    {renderAttributeList(mainAttributes, "No attributes found")}
+                    <AttributeList attributes={mainAttributes} emptyMessage="No attributes found" />
                   </Box>
 
                   <Box className={classes.section}>
@@ -601,7 +428,7 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                         {Object.keys(resourceAttributes).length}
                       </Badge>
                     </Box>
-                    {renderAttributeList(resourceAttributes, "No resource attributes found")}
+                    <AttributeList attributes={resourceAttributes} emptyMessage="No resource attributes found" />
                   </Box>
                 </>
               )}

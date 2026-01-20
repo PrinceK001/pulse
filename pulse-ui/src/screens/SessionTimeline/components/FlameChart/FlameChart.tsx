@@ -11,7 +11,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { FlameChartNode, toFlameChartJsFormat, getColorForPulseType } from "../../utils/flameChartTransform";
+import { FlameChartNode, toFlameChartJsFormat, getColorForPulseType, formatPulseType } from "../../utils/flameChartTransform";
 import classes from "./FlameChart.module.css";
 
 dayjs.extend(utc);
@@ -72,13 +72,6 @@ interface LegendItem {
   matches: (node: FlameChartNode) => boolean;
 }
 
-// Format pulse type for display (capitalize, replace underscores)
-function formatPulseType(type: string): string {
-  return type
-    .split(/[_-]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}
 
 // Extract unique pulse types from data using metadata.pulseType
 function extractPulseTypes(nodes: FlameChartNode[]): Set<string> {
