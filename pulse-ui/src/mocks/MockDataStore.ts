@@ -1404,10 +1404,10 @@ export class MockDataStore {
           ],
         },
         scheduleDurationMs: 5000,
-        logsCollectorUrl: 'http://10.0.2.2:4318/v1/logs/',
-        metricCollectorUrl: 'http://10.0.2.2:4318/v1/metrics/',
-        spanCollectorUrl: 'http://10.0.2.2:4318/v1/traces/',
-        customEventCollectorUrl: 'http://10.0.2.2:4318/v1/events/',
+        logsCollectorUrl: 'http://10.0.2.2:4318/v1/logs',
+        metricCollectorUrl: 'http://10.0.2.2:4318/v1/metrics',
+        spanCollectorUrl: 'http://10.0.2.2:4318/v1/traces',
+        customEventCollectorUrl: 'http://10.0.2.2:4318/v1/events',
         attributesToDrop: [
           {
             id: generateId(),

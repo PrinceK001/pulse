@@ -88,7 +88,7 @@ export function InfraConfig({
               <TextInput
                 label="Logs Collector URL"
                 description="OTLP endpoint for log records"
-                placeholder="http://10.0.2.2:4318/v1/logs/"
+                placeholder="http://10.0.2.2:4318/v1/logs"
                 value={signals.logsCollectorUrl || ''}
                 onChange={(e) => handleSignalChange('logsCollectorUrl', e.currentTarget.value)}
                 disabled={disabled}
@@ -98,7 +98,7 @@ export function InfraConfig({
               <TextInput
                 label="Metrics Collector URL"
                 description="OTLP endpoint for metric data"
-                placeholder="http://10.0.2.2:4318/v1/metrics/"
+                placeholder="http://10.0.2.2:4318/v1/metrics"
                 value={signals.metricCollectorUrl || ''}
                 onChange={(e) => handleSignalChange('metricCollectorUrl', e.currentTarget.value)}
                 disabled={disabled}
@@ -108,7 +108,7 @@ export function InfraConfig({
               <TextInput
                 label="Spans Collector URL"
                 description="OTLP endpoint for trace spans"
-                placeholder="http://10.0.2.2:4318/v1/traces/"
+                placeholder="http://10.0.2.2:4318/v1/traces"
                 value={signals.spanCollectorUrl || ''}
                 onChange={(e) => handleSignalChange('spanCollectorUrl', e.currentTarget.value)}
                 disabled={disabled}
@@ -118,7 +118,7 @@ export function InfraConfig({
               <TextInput
                 label="Clickstream Events Collector URL"
                 description="Endpoint for Clickstream events"
-                placeholder="http://localhost:4318/v1/events/"
+                placeholder="http://localhost:4318/v1/events"
                 value={signals.customEventCollectorUrl || ''}
                 onChange={(e) => handleSignalChange('customEventCollectorUrl', e.currentTarget.value)}
                 disabled={disabled}
