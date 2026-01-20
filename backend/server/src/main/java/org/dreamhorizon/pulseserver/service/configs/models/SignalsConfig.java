@@ -30,6 +30,9 @@ public class SignalsConfig {
   @JsonProperty("spanCollectorUrl")
   private String spanCollectorUrl;
 
+  @JsonProperty("customEventCollectorUrl")
+  private String customEventCollectorUrl;
+
   @JsonProperty("attributesToDrop")
   private List<EventFilter> attributesToDrop;
 

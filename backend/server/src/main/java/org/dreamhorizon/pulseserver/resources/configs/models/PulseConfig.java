@@ -242,6 +242,9 @@ public class PulseConfig {
     @JsonProperty("spanCollectorUrl")
     private String spanCollectorUrl;
 
+    @JsonProperty("customEventCollectorUrl")
+    private String customEventCollectorUrl;
+
     @NotNull
     @JsonProperty("attributesToDrop")
     private List<EventFilter> attributesToDrop;

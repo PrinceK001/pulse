@@ -164,7 +164,8 @@ class AlertModelsTest {
           .evaluationInterval(300)
           .severityId(1)
           .notificationChannelId(1)
-          .notificationWebhookUrl("http://webhook.url")
+          .notificationType("slack")
+          .notificationConfig("http://webhook.url")
           .createdBy("user")
           .updatedBy("user")
           .createdAt(now)
@@ -186,7 +187,8 @@ class AlertModelsTest {
       assertEquals(300, dto.getEvaluationInterval());
       assertEquals(1, dto.getSeverityId());
       assertEquals(1, dto.getNotificationChannelId());
-      assertEquals("http://webhook.url", dto.getNotificationWebhookUrl());
+      assertEquals("slack", dto.getNotificationType());
+      assertEquals("http://webhook.url", dto.getNotificationConfig());
       assertEquals("user", dto.getCreatedBy());
       assertEquals("user", dto.getUpdatedBy());
       assertTrue(dto.getIsActive());
@@ -209,7 +211,8 @@ class AlertModelsTest {
       dto.setEvaluationInterval(600);
       dto.setSeverityId(2);
       dto.setNotificationChannelId(2);
-      dto.setNotificationWebhookUrl("http://new.url");
+      dto.setNotificationType("email");
+      dto.setNotificationConfig("team@example.com");
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
       dto.setCreatedAt(now);
@@ -404,11 +407,13 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      AlertNotificationChannelResponseDto dto = new AlertNotificationChannelResponseDto(1, "Slack", "http://slack.webhook");
+      AlertNotificationChannelResponseDto dto = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "http://slack.webhook", true);
 
       assertEquals(1, dto.getNotificationChannelId());
       assertEquals("Slack", dto.getName());
-      assertEquals("http://slack.webhook", dto.getNotificationWebhookUrl());
+      assertEquals("slack", dto.getType());
+      assertEquals("http://slack.webhook", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
@@ -416,11 +421,16 @@ class AlertModelsTest {
       AlertNotificationChannelResponseDto dto = AlertNotificationChannelResponseDto.builder()
           .notificationChannelId(2)
           .name("Email")
-          .notificationWebhookUrl("http://email.webhook")
+          .type("email")
+          .config("team@example.com")
+          .isActive(true)
           .build();
 
       assertEquals(2, dto.getNotificationChannelId());
       assertEquals("Email", dto.getName());
+      assertEquals("email", dto.getType());
+      assertEquals("team@example.com", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
@@ -429,17 +439,21 @@ class AlertModelsTest {
 
       dto.setNotificationChannelId(3);
       dto.setName("PagerDuty");
-      dto.setNotificationWebhookUrl("http://pagerduty.webhook");
+      dto.setType("slack");
+      dto.setConfig("http://pagerduty.webhook");
+      dto.setIsActive(true);
 
       assertEquals(3, dto.getNotificationChannelId());
       assertEquals("PagerDuty", dto.getName());
-      assertEquals("http://pagerduty.webhook", dto.getNotificationWebhookUrl());
+      assertEquals("slack", dto.getType());
+      assertEquals("http://pagerduty.webhook", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      AlertNotificationChannelResponseDto dto1 = new AlertNotificationChannelResponseDto(1, "Slack", "url");
-      AlertNotificationChannelResponseDto dto2 = new AlertNotificationChannelResponseDto(1, "Slack", "url");
+      AlertNotificationChannelResponseDto dto1 = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "url", true);
+      AlertNotificationChannelResponseDto dto2 = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "url", true);
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());
@@ -1116,10 +1130,11 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto("Slack", "{\"webhook\":\"url\"}");
+      CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto("Slack", "slack", "http://webhook.url");
 
       assertEquals("Slack", dto.getName());
-      assertEquals("{\"webhook\":\"url\"}", dto.getConfig());
+      assertEquals("slack", dto.getType());
+      assertEquals("http://webhook.url", dto.getConfig());
     }
 
     @Test
@@ -1127,16 +1142,18 @@ class AlertModelsTest {
       CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto();
 
       dto.setName("Email");
-      dto.setConfig("{\"email\":\"test@test.com\"}");
+      dto.setType("email");
+      dto.setConfig("test@test.com");
 
       assertEquals("Email", dto.getName());
-      assertEquals("{\"email\":\"test@test.com\"}", dto.getConfig());
+      assertEquals("email", dto.getType());
+      assertEquals("test@test.com", dto.getConfig());
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      CreateAlertNotificationChannelRequestDto dto1 = new CreateAlertNotificationChannelRequestDto("Slack", "{}");
-      CreateAlertNotificationChannelRequestDto dto2 = new CreateAlertNotificationChannelRequestDto("Slack", "{}");
+      CreateAlertNotificationChannelRequestDto dto1 = new CreateAlertNotificationChannelRequestDto("Slack", "slack", "http://webhook.url");
+      CreateAlertNotificationChannelRequestDto dto2 = new CreateAlertNotificationChannelRequestDto("Slack", "slack", "http://webhook.url");
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());

@@ -8,7 +8,7 @@
 // ============================================================================
 
 // SDK platforms - matches backend Sdk enum
-export type SdkEnum = 'android_java' | 'android_rn' | 'ios_native' | 'ios_rn';
+export type SdkEnum = 'pulse_android_java' | 'pulse_android_rn' | 'pulse_ios_swift' | 'pulse_ios_rn';
 
 // Telemetry scopes - matches backend Scope enum
 export type ScopeEnum = 'logs' | 'traces' | 'metrics' | 'baggage';
@@ -36,7 +36,6 @@ export type FeatureName =
   | 'network_instrumentation'
   | 'screen_session'
   | 'custom_events'
-  | 'rn_navigation'
   | 'rn_screen_load'
   | 'rn_screen_interactive';
 
@@ -138,6 +137,7 @@ export interface SignalsConfig {
   logsCollectorUrl?: string; // Auto-filled by backend if not provided
   metricCollectorUrl?: string; // Auto-filled by backend if not provided
   spanCollectorUrl?: string; // Auto-filled by backend if not provided
+  customEventCollectorUrl?: string; // Auto-filled by backend if not provided
   attributesToDrop: EventFilter[];
   attributesToAdd?: AttributeToAdd[];
 }

@@ -33,7 +33,8 @@ export type AlertListItem = {
   evaluation_interval: number;
   severity_id: number;
   notification_channel_id: number;
-  notification_webhook_url: string;
+  notification_type: string;
+  notification_config: string;
   created_by: string;
   updated_by: string | null;
   created_at: string;

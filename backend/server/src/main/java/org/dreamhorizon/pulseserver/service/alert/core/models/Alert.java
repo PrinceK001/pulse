@@ -60,7 +60,10 @@ public class Alert {
   Integer notificationChannelId;
 
   @NotNull
-  String notificationWebhookUrl;
+  String notificationType;
+
+  @NotNull
+  String notificationConfig;
 
   @NotNull
   String createdBy;

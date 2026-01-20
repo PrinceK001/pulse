@@ -83,9 +83,7 @@ fun AstronomyShopScreen() {
                 ) {
                     composable(BottomNavItem.List.route) {
                         ProductList(products = products) { productId ->
-                            OtelDemoApplication.logEvent("Telescope selected") {
-                                setAttribute("product.id", productId)
-                            }
+                            OtelDemoApplication.logEvent("Telescope selected", mapOf("product.id" to productId))
                             astronomyShopNavController.navigateToProductDetail(productId)
                         }
                     }
