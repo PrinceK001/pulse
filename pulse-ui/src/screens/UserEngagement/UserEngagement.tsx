@@ -3,7 +3,7 @@ import utc from "dayjs/plugin/utc";
 import { useMemo } from "react";
 import { ActiveSessionsGraph } from "../Home/components/ActiveSessionsGraph";
 import { UserEngagementGraph } from "../Home/components/UserEngagementGraph";
-import { EngagementBreakdown } from "./components";
+import { EngagementBreakdown, ChurnAnalyticsDashboard } from "./components";
 import classes from "./UserEngagement.module.css";
 import { UserEngagementProps } from "./UserEngagement.interface";
 import {
@@ -153,6 +153,10 @@ export function UserEngagement(_props: UserEngagementProps) {
           customAttributeOptions={customAttributeOptions}
           customAttributeData={customAttributeData}
         />
+      </div>
+
+      <div className={classes.section}>
+        <ChurnAnalyticsDashboard />
       </div>
     </div>
   );

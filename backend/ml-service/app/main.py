@@ -4,7 +4,7 @@ FastAPI service for churn prediction using ML models
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import numpy as np
 import logging
 from app.model import ChurnMLModel
@@ -67,6 +67,46 @@ class BatchPredictionResponse(BaseModel):
     predictions: List[ChurnPredictionResponse]
 
 
+class PatternDiscoveryRequest(BaseModel):
+    """Request for pattern discovery"""
+    users: List[ChurnPredictionRequest]
+
+
+class PatternDiscoveryResponse(BaseModel):
+    """Response for pattern discovery"""
+    patterns: List[Dict[str, Any]]
+
+
+class RootCauseAnalysisRequest(BaseModel):
+    """Request for root cause analysis"""
+    users: List[ChurnPredictionRequest]
+
+
+class RootCauseAnalysisResponse(BaseModel):
+    """Response for root cause analysis"""
+    root_causes: List[Dict[str, Any]]
+    aggregate_importance: Dict[str, float]
+    correlations: Dict[str, float]
+
+
+class TrendAnalysisRequest(BaseModel):
+    """Request for trend analysis"""
+    users: List[ChurnPredictionRequest]
+    historical_users: Optional[List[ChurnPredictionRequest]] = None
+
+
+class TrendAnalysisResponse(BaseModel):
+    """Response for trend analysis"""
+    trend_direction: str
+    trend_strength: float
+    statistical_significance: bool
+    deviation_from_expected: float
+    is_anomaly: bool
+    current_mean: float
+    expected_value: Optional[float] = None
+    p_value: Optional[float] = None
+
+
 @app.post("/predict", response_model=ChurnPredictionResponse)
 async def predict_churn(request: ChurnPredictionRequest):
     """
@@ -106,7 +146,7 @@ async def predict_churn(request: ChurnPredictionRequest):
 @app.post("/predict/batch", response_model=BatchPredictionResponse)
 async def predict_churn_batch(request: BatchPredictionRequest):
     """
-    Predict churn risk for multiple users
+    Predict churn risk for multiple users (optimized batch processing)
     """
     try:
         logger.info(f"Predicting churn for {len(request.users)} users")
@@ -124,12 +164,17 @@ async def predict_churn_batch(request: BatchPredictionRequest):
             else:
                 risk_level = "LOW"
             
+            # Optionally include feature importance (can be disabled for performance)
+            importance = None
+            if len(request.users) <= 100:  # Only for small batches
+                importance = model.get_feature_importance(features)
+            
             predictions.append(ChurnPredictionResponse(
                 user_id=user_request.user_id,
                 risk_score=risk_score,
                 churn_probability=float(probability),
                 risk_level=risk_level,
-                feature_importance=None  # Skip for batch to improve performance
+                feature_importance=importance
             ))
         
         return BatchPredictionResponse(predictions=predictions)
@@ -148,6 +193,158 @@ async def health():
     }
 
 
+@app.post("/analyze/patterns", response_model=PatternDiscoveryResponse)
+async def discover_patterns(request: PatternDiscoveryRequest):
+    """
+    ML-based pattern discovery using clustering
+    Automatically discovers common churn patterns
+    """
+    try:
+        logger.info(f"Discovering patterns for {len(request.users)} users")
+        
+        # Extract features and predictions
+        features_list = []
+        predictions = []
+        
+        for user_request in request.users:
+            features = model.extract_features(user_request)
+            probability = model.predict(features)
+            features_list.append(features[0])
+            predictions.append(probability)
+        
+        features_array = np.array(features_list)
+        predictions_array = np.array(predictions)
+        
+        # Discover patterns
+        patterns = model.discover_churn_patterns(features_array, predictions_array)
+        
+        return PatternDiscoveryResponse(patterns=patterns)
+        
+    except Exception as e:
+        logger.error(f"Error in pattern discovery: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Pattern discovery error: {str(e)}")
+
+
+@app.post("/analyze/root-causes", response_model=RootCauseAnalysisResponse)
+async def analyze_root_causes(request: RootCauseAnalysisRequest):
+    """
+    ML-based root cause analysis using feature importance
+    Identifies which features contribute most to churn risk
+    """
+    try:
+        logger.info(f"Analyzing root causes for {len(request.users)} users")
+        
+        # Extract features and predictions
+        features_list = []
+        predictions = []
+        
+        for user_request in request.users:
+            features = model.extract_features(user_request)
+            probability = model.predict(features)
+            features_list.append(features[0])
+            predictions.append(probability)
+        
+        features_array = np.array(features_list)
+        predictions_array = np.array(predictions)
+        
+        # Analyze root causes
+        analysis = model.analyze_root_causes(features_array, predictions_array)
+        
+        return RootCauseAnalysisResponse(
+            root_causes=analysis.get('root_causes', []),
+            aggregate_importance=analysis.get('aggregate_importance', {}),
+            correlations=analysis.get('correlations', {})
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in root cause analysis: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Root cause analysis error: {str(e)}")
+
+
+@app.post("/analyze/trends", response_model=TrendAnalysisResponse)
+async def analyze_trends(request: TrendAnalysisRequest):
+    """
+    ML-based trend analysis using time series regression
+    Detects trends and anomalies in churn patterns
+    """
+    try:
+        logger.info(f"Analyzing trends: {len(request.users)} current users")
+        
+        # Extract current predictions
+        current_predictions = []
+        for user_request in request.users:
+            features = model.extract_features(user_request)
+            probability = model.predict(features)
+            current_predictions.append(probability)
+        
+        current_array = np.array(current_predictions)
+        
+        # Extract historical predictions if provided
+        historical_array = None
+        if request.historical_users and len(request.historical_users) > 0:
+            logger.info(f"Using {len(request.historical_users)} historical users for trend analysis")
+            historical_predictions = []
+            for user_request in request.historical_users:
+                features = model.extract_features(user_request)
+                probability = model.predict(features)
+                historical_predictions.append(probability)
+            historical_array = np.array(historical_predictions)
+        
+        # Analyze trends
+        if historical_array is not None:
+            trend_analysis = model.analyze_trends(current_array, historical_array)
+        else:
+            # Just detect anomalies in current data
+            anomaly_analysis = model.detect_anomalies(current_array)
+            trend_analysis = {
+                'trend_direction': 'unknown',
+                'trend_strength': 0.0,
+                'statistical_significance': False,
+                'deviation_from_expected': 0.0,
+                'is_anomaly': anomaly_analysis.get('is_spike', False),
+                'current_mean': anomaly_analysis.get('current_mean', 0.0),
+                'expected_value': None,
+                'p_value': None
+            }
+        
+        return TrendAnalysisResponse(**trend_analysis)
+        
+    except Exception as e:
+        logger.error(f"Error in trend analysis: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Trend analysis error: {str(e)}")
+
+
+@app.post("/analyze/anomalies")
+async def detect_anomalies(request: BatchPredictionRequest):
+    """
+    ML-based anomaly detection using Isolation Forest
+    Detects unusual patterns in churn predictions
+    """
+    try:
+        logger.info(f"Detecting anomalies for {len(request.users)} users")
+        
+        # Extract features and predictions
+        features_list = []
+        predictions = []
+        
+        for user_request in request.users:
+            features = model.extract_features(user_request)
+            probability = model.predict(features)
+            features_list.append(features[0])
+            predictions.append(probability)
+        
+        predictions_array = np.array(predictions)
+        
+        # Detect anomalies
+        anomaly_analysis = model.detect_anomalies(predictions_array)
+        
+        return anomaly_analysis
+        
+    except Exception as e:
+        logger.error(f"Error in anomaly detection: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Anomaly detection error: {str(e)}")
+
+
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -157,6 +354,10 @@ async def root():
         "endpoints": {
             "predict": "/predict",
             "batch_predict": "/predict/batch",
+            "analyze_patterns": "/analyze/patterns",
+            "analyze_root_causes": "/analyze/root-causes",
+            "analyze_trends": "/analyze/trends",
+            "detect_anomalies": "/analyze/anomalies",
             "health": "/health"
         }
     }

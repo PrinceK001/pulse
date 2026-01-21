@@ -244,6 +244,9 @@ services:
       - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}
       - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}
       - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}
+      # ML Service Configuration
+      - CONFIG_SERVICE_APPLICATION_MLSERVICEBASEURL=${CONFIG_SERVICE_APPLICATION_MLSERVICEBASEURL:-http://pulse-ml-service:8000}
+      
       # Query Engine Configuration
       - CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE:-athena}
       # Athena Configuration (only used when QUERY_ENGINE=athena)
@@ -308,6 +311,29 @@ services:
       # Mount config files if needed for runtime configuration
       - ../backend/pulse-alerts-cron/src/main/resources/config:/app/config:ro
 
+  # Pulse ML Service (Python/FastAPI ML Service for Churn Prediction)
+  pulse-ml-service:
+    build:
+      context: ../backend/ml-service
+      dockerfile: Dockerfile
+    container_name: pulse-ml-service
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      # Mount models directory to persist trained models
+      - ml-models:/app/models
+
 networks:
   pulse-network:
     driver: bridge
@@ -316,5 +342,7 @@ volumes:
   mysql-data:
     driver: local
   clickhouse-data:
+    driver: local
+  ml-models:
     driver: local
 

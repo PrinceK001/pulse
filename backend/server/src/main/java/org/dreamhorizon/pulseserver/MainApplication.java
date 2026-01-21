@@ -17,6 +17,7 @@ import org.dreamhorizon.pulseserver.module.ConfigModule;
 import org.dreamhorizon.pulseserver.module.InteractionModule;
 import org.dreamhorizon.pulseserver.module.UploadInteractionDetailModule;
 import org.dreamhorizon.pulseserver.module.ValidationModule;
+import org.dreamhorizon.pulseserver.module.ChurnModule;
 import org.dreamhorizon.pulseserver.util.MaintenanceUtil;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
@@ -65,7 +66,8 @@ public class MainApplication extends Launcher {
         new ValidationModule(),
         new UploadInteractionDetailModule(vertx),
         new InteractionModule(),
-        new QueryEngineModule()
+        new QueryEngineModule(),
+        new ChurnModule()
     };
   }
 }

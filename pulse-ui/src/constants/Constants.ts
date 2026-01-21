@@ -496,6 +496,26 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/api/v1/interaction/insights`,
     method: API_METHODS.POST,
   },
+  GET_CHURN_PREDICTIONS: {
+    key: "GET_CHURN_PREDICTIONS",
+    apiPath: `/api/v1/churn/predictions`,
+    method: API_METHODS.POST,
+  },
+  GET_CHURN_PREDICTION_FOR_USER: {
+    key: "GET_CHURN_PREDICTION_FOR_USER",
+    apiPath: `/api/v1/churn/predictions/user`,
+    method: API_METHODS.GET,
+  },
+  GET_CHURN_RISK_BY_SEGMENT: {
+    key: "GET_CHURN_RISK_BY_SEGMENT",
+    apiPath: `/api/v1/churn/predictions/segments`,
+    method: API_METHODS.GET,
+  },
+  GET_CHURN_ANALYTICS: {
+    key: "GET_CHURN_ANALYTICS",
+    apiPath: `/api/v1/churn/analytics`,
+    method: API_METHODS.POST,
+  },
   GET_USER_DETAIL: {
     key: "GET_USER_DETAIL",
     apiPath: `/user`,

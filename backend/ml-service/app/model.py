@@ -1,16 +1,28 @@
 """
 ML Model wrapper for churn prediction
 Handles model loading, feature extraction, and prediction
+Enhanced with SHAP, pattern discovery, and anomaly detection
 """
 import pickle
 import os
 import numpy as np
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List, Tuple
 import logging
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import DBSCAN
+from sklearn.ensemble import IsolationForest
+from scipy import stats
 
 logger = logging.getLogger(__name__)
+
+# Try to import SHAP, but make it optional
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    logger.warning("SHAP not available. Install with: pip install shap")
 
 
 class ChurnMLModel:
@@ -165,6 +177,334 @@ class ChurnMLModel:
             logger.warning(f"Error getting feature importance: {str(e)}")
         
         return None
+    
+    def get_shap_values(self, features: np.ndarray) -> Optional[np.ndarray]:
+        """
+        Get SHAP values for explainability
+        Shows how each feature contributes to THIS specific prediction
+        """
+        if not SHAP_AVAILABLE or self.model is None:
+            return None
+        
+        try:
+            # Only works with tree-based models (XGBoost, RandomForest, etc.)
+            if hasattr(self.model, 'predict_proba'):
+                explainer = shap.TreeExplainer(self.model)
+                shap_values = explainer.shap_values(features)
+                # Return absolute values for easier interpretation
+                return np.abs(shap_values)
+        except Exception as e:
+            logger.warning(f"Error getting SHAP values: {str(e)}")
+        
+        return None
+    
+    def discover_churn_patterns(
+        self, 
+        features_list: np.ndarray, 
+        predictions: np.ndarray
+    ) -> List[Dict[str, Any]]:
+        """
+        Use ML clustering to discover patterns automatically
+        Instead of rule-based pattern identification
+        """
+        if len(features_list) < 10:
+            logger.warning("Not enough samples for pattern discovery")
+            return []
+        
+        try:
+            # Combine features + predictions for clustering
+            predictions_reshaped = predictions.reshape(-1, 1)
+            X = np.hstack([features_list, predictions_reshaped])
+            
+            # Scale features for clustering
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
+            
+            # DBSCAN finds patterns automatically (density-based clustering)
+            # eps: maximum distance between samples in same cluster
+            # min_samples: minimum samples in a cluster
+            clusters = DBSCAN(eps=0.5, min_samples=max(5, len(X) // 20)).fit(X_scaled)
+            
+            # Analyze each cluster
+            patterns = []
+            unique_labels = set(clusters.labels_)
+            
+            for cluster_id in unique_labels:
+                if cluster_id == -1:  # Noise points
+                    continue
+                
+                cluster_mask = clusters.labels_ == cluster_id
+                cluster_features = features_list[cluster_mask]
+                cluster_predictions = predictions[cluster_mask]
+                
+                # Characterize this pattern
+                pattern = {
+                    'pattern_id': int(cluster_id),
+                    'user_count': int(cluster_mask.sum()),
+                    'avg_risk_score': float(cluster_predictions.mean() * 100),
+                    'avg_churn_probability': float(cluster_predictions.mean()),
+                    'characteristics': self._characterize_cluster(cluster_features)
+                }
+                patterns.append(pattern)
+            
+            # Sort by user count (most common patterns first)
+            patterns.sort(key=lambda x: x['user_count'], reverse=True)
+            
+            return patterns[:10]  # Return top 10 patterns
+            
+        except Exception as e:
+            logger.error(f"Error in pattern discovery: {str(e)}", exc_info=True)
+            return []
+    
+    def _characterize_cluster(self, cluster_features: np.ndarray) -> Dict[str, Any]:
+        """
+        Characterize a cluster by analyzing feature averages
+        """
+        feature_names = self.feature_names or [
+            "sessions_7d", "sessions_30d", "days_since", "avg_duration",
+            "unique_screens", "crash_count", "anr_count", "frozen_rate",
+            "session_frequency", "engagement_decline", "performance_score"
+        ]
+        
+        avg_features = cluster_features.mean(axis=0)
+        
+        characteristics = {}
+        for i, name in enumerate(feature_names):
+            if i < len(avg_features):
+                characteristics[name] = float(avg_features[i])
+        
+        # Identify key characteristics
+        key_characteristics = []
+        if characteristics.get('days_since', 0) > 14:
+            key_characteristics.append('inactive')
+        if characteristics.get('crash_count', 0) >= 2:
+            key_characteristics.append('high_crashes')
+        if characteristics.get('sessions_7d', 0) == 0:
+            key_characteristics.append('no_sessions')
+        if characteristics.get('frozen_rate', 0) > 0.2:
+            key_characteristics.append('high_frozen_frames')
+        if characteristics.get('engagement_decline', 0) > 0.5:
+            key_characteristics.append('declining_engagement')
+        
+        characteristics['key_indicators'] = key_characteristics
+        return characteristics
+    
+    def detect_anomalies(
+        self, 
+        current_predictions: np.ndarray, 
+        historical_predictions: Optional[np.ndarray] = None
+    ) -> Dict[str, Any]:
+        """
+        Use ML to detect anomalies in churn patterns
+        Instead of static thresholds
+        """
+        try:
+            if historical_predictions is not None and len(historical_predictions) > 0:
+                # Compare current vs historical
+                X = np.vstack([
+                    current_predictions.reshape(-1, 1),
+                    historical_predictions.reshape(-1, 1)
+                ])
+            else:
+                # Just analyze current distribution
+                X = current_predictions.reshape(-1, 1)
+            
+            # Isolation Forest detects anomalies
+            contamination = min(0.1, max(0.01, 10.0 / len(X)))  # 1-10% contamination
+            iso_forest = IsolationForest(contamination=contamination, random_state=42)
+            anomaly_labels = iso_forest.fit_predict(X)
+            
+            # Calculate statistics
+            current_mean = float(current_predictions.mean())
+            current_std = float(current_predictions.std())
+            
+            anomaly_count = int((anomaly_labels == -1).sum())
+            anomaly_percentage = float(anomaly_count / len(anomaly_labels) * 100)
+            
+            # Detect if there's a significant spike
+            is_spike = False
+            spike_severity = 0.0
+            
+            if historical_predictions is not None and len(historical_predictions) > 0:
+                historical_mean = float(historical_predictions.mean())
+                historical_std = float(historical_predictions.std())
+                
+                # Z-score test for spike
+                if historical_std > 0:
+                    z_score = (current_mean - historical_mean) / historical_std
+                    is_spike = abs(z_score) > 2.0  # 2 standard deviations
+                    spike_severity = abs(z_score)
+            
+            return {
+                'anomaly_count': anomaly_count,
+                'anomaly_percentage': anomaly_percentage,
+                'is_spike': is_spike,
+                'spike_severity': float(spike_severity),
+                'current_mean': current_mean,
+                'current_std': current_std,
+                'anomaly_indices': np.where(anomaly_labels == -1)[0].tolist() if len(X) < 10000 else []
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in anomaly detection: {str(e)}", exc_info=True)
+            return {
+                'anomaly_count': 0,
+                'anomaly_percentage': 0.0,
+                'is_spike': False,
+                'spike_severity': 0.0,
+                'current_mean': 0.0,
+                'current_std': 0.0
+            }
+    
+    def analyze_root_causes(
+        self, 
+        features_list: np.ndarray, 
+        predictions: np.ndarray
+    ) -> Dict[str, Any]:
+        """
+        ML-based root cause analysis using feature importance
+        Aggregates feature importance across all predictions
+        """
+        if self.model is None:
+            return {}
+        
+        try:
+            # Aggregate feature importance
+            aggregate_importance = {}
+            feature_names = self.feature_names or [
+                "sessions_7d", "sessions_30d", "days_since", "avg_duration",
+                "unique_screens", "crash_count", "anr_count", "frozen_rate",
+                "session_frequency", "engagement_decline", "performance_score"
+            ]
+            
+            # Get global feature importance from model
+            if hasattr(self.model, 'feature_importances_'):
+                global_importance = self.model.feature_importances_
+            else:
+                # Fallback: calculate from SHAP if available
+                if SHAP_AVAILABLE:
+                    try:
+                        explainer = shap.TreeExplainer(self.model)
+                        shap_values = explainer.shap_values(features_list[:min(100, len(features_list))])
+                        global_importance = np.abs(shap_values).mean(axis=0)
+                    except:
+                        # Use uniform importance as last resort
+                        global_importance = np.ones(len(feature_names)) / len(feature_names)
+                else:
+                    global_importance = np.ones(len(feature_names)) / len(feature_names)
+            
+            # Create importance dict
+            for i, name in enumerate(feature_names):
+                if i < len(global_importance):
+                    aggregate_importance[name] = float(global_importance[i])
+            
+            # Normalize to sum to 1.0
+            total = sum(aggregate_importance.values())
+            if total > 0:
+                aggregate_importance = {k: v / total for k, v in aggregate_importance.items()}
+            
+            # Calculate correlation with high risk predictions
+            high_risk_mask = predictions >= 0.7  # 70%+ churn probability
+            correlations = {}
+            
+            if high_risk_mask.sum() > 0:
+                for i, name in enumerate(feature_names):
+                    if i < features_list.shape[1]:
+                        feature_values = features_list[:, i]
+                        # Correlation between feature and high risk
+                        if feature_values.std() > 0:
+                            correlation = np.corrcoef(feature_values, predictions)[0, 1]
+                            correlations[name] = float(correlation) if not np.isnan(correlation) else 0.0
+            
+            # Sort by importance
+            sorted_causes = sorted(
+                aggregate_importance.items(), 
+                key=lambda x: x[1], 
+                reverse=True
+            )[:10]
+            
+            return {
+                'root_causes': [
+                    {
+                        'feature': cause[0],
+                        'importance': cause[1],
+                        'correlation_with_high_risk': correlations.get(cause[0], 0.0)
+                    }
+                    for cause in sorted_causes
+                ],
+                'aggregate_importance': aggregate_importance,
+                'correlations': correlations
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in root cause analysis: {str(e)}", exc_info=True)
+            return {}
+    
+    def analyze_trends(
+        self, 
+        current_metrics: np.ndarray, 
+        historical_metrics: np.ndarray
+    ) -> Dict[str, Any]:
+        """
+        Use ML regression to detect trends
+        Instead of simple percentage comparison
+        """
+        try:
+            if len(historical_metrics) < 3:
+                # Not enough data for trend analysis
+                current_mean = float(current_metrics.mean()) if len(current_metrics) > 0 else 0.0
+                return {
+                    'trend_direction': 'insufficient_data',
+                    'trend_strength': 0.0,
+                    'statistical_significance': False,
+                    'deviation_from_expected': 0.0,
+                    'is_anomaly': False,
+                    'current_mean': current_mean,
+                    'expected_value': None,
+                    'p_value': None
+                }
+            
+            # Time series regression
+            X = np.array(range(len(historical_metrics))).reshape(-1, 1)
+            y = historical_metrics
+            
+            # Linear regression
+            slope, intercept, r_value, p_value, std_err = stats.linregress(
+                range(len(historical_metrics)), historical_metrics
+            )
+            
+            # Predict next period
+            next_period = len(historical_metrics)
+            expected_value = slope * next_period + intercept
+            
+            # Compare with actual
+            actual_value = float(current_metrics.mean())
+            deviation = actual_value - expected_value
+            
+            # Determine if anomaly (2 standard errors)
+            is_anomaly = abs(deviation) > 2 * std_err if std_err > 0 else False
+            
+            return {
+                'trend_direction': 'increasing' if slope > 0 else 'decreasing',
+                'trend_strength': float(abs(slope)),
+                'statistical_significance': p_value < 0.05,
+                'p_value': float(p_value),
+                'deviation_from_expected': float(deviation),
+                'expected_value': float(expected_value),
+                'current_mean': actual_value,  # Use current_mean instead of actual_value
+                'is_anomaly': bool(is_anomaly),
+                'r_squared': float(r_value ** 2)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in trend analysis: {str(e)}", exc_info=True)
+            return {
+                'trend_direction': 'error',
+                'trend_strength': 0.0,
+                'statistical_significance': False,
+                'deviation_from_expected': 0.0,
+                'is_anomaly': False
+            }
     
     def is_loaded(self) -> bool:
         """Check if model is loaded"""
