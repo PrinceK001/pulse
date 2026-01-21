@@ -1,0 +1,12 @@
+{
+  "user_id": "high_risk_user",
+  "sessions_last_7_days": 0,
+  "sessions_last_30_days": 5,
+  "days_since_last_session": 35,
+  "avg_session_duration": 30000,
+  "unique_screens_last_7_days": 0,
+  "crash_count_last_7_days": 3,
+  "anr_count_last_7_days": 2,
+  "frozen_frame_rate": 0.3
+}
+
