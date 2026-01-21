@@ -62,21 +62,24 @@ public class ChurnAnalyticsService {
           }
 
           // Apply stratified sampling if needed
-          List<UserChurnFeatures> featuresToProcess = features;
+          final List<UserChurnFeatures> featuresToProcess;
           if (features.size() > STRATIFIED_SAMPLING_THRESHOLD) {
             log.info("Large dataset detected ({} users), applying stratified sampling to {}", 
                 features.size(), MAX_SAMPLE_SIZE_FOR_ANALYTICS);
             featuresToProcess = stratifiedSampleFeatures(features, MAX_SAMPLE_SIZE_FOR_ANALYTICS);
+          } else {
+            featuresToProcess = features;
           }
 
           // Use ML batch prediction (1 API call instead of N)
-          return mlClient.predictChurnBatch(featuresToProcess)
+          final List<UserChurnFeatures> finalFeaturesToProcess = featuresToProcess;
+          return mlClient.predictChurnBatch(finalFeaturesToProcess)
               .flatMap(predictions -> {
                 // Get ML-driven insights in parallel
                 Single<MLRootCauseAnalysisResponse> rootCausesSingle = 
-                    mlClient.analyzeRootCauses(featuresToProcess);
+                    mlClient.analyzeRootCauses(finalFeaturesToProcess);
                 Single<MLPatternDiscoveryResponse> patternsSingle = 
-                    mlClient.discoverPatterns(featuresToProcess);
+                    mlClient.discoverPatterns(finalFeaturesToProcess);
                 
                 // Combine root causes and patterns
                 return Single.zip(
@@ -87,12 +90,12 @@ public class ChurnAnalyticsService {
                       try {
                         // For now, skip historical data (can be added later with date filtering)
                         return buildEnhancedResponse(
-                            featuresToProcess, predictions, rootCauses, patterns, null, null
+                            finalFeaturesToProcess, predictions, rootCauses, patterns, null, null
                         );
                       } catch (Exception e) {
                         log.warn("Error building enhanced response: {}", e.getMessage());
                         return buildEnhancedResponse(
-                            featuresToProcess, predictions, rootCauses, patterns, null, null
+                            finalFeaturesToProcess, predictions, rootCauses, patterns, null, null
                         );
                       }
                     }
@@ -101,9 +104,9 @@ public class ChurnAnalyticsService {
               .onErrorResumeNext(error -> {
                 log.warn("ML analysis failed, falling back to basic analytics: {}", error.getMessage());
                 // Fallback to basic analytics without ML insights
-                return mlClient.predictChurnBatch(featuresToProcess)
+                return mlClient.predictChurnBatch(finalFeaturesToProcess)
                     .map(predictions -> {
-                      return buildBasicResponse(featuresToProcess, predictions);
+                      return buildBasicResponse(finalFeaturesToProcess, predictions);
                     });
               });
         })
@@ -532,6 +535,7 @@ public class ChurnAnalyticsService {
   
   // Keep existing methods for backward compatibility
   public Single<ChurnAnalyticsResponse> getChurnAnalyticsLegacy(ChurnPredictionRequest request) {
+    return predictionService.getChurnPredictions(request)
         .map(response -> {
           List<ChurnRiskUser> users = response.getUsers();
           

@@ -66,11 +66,10 @@ public class ChurnPredictionService {
                             .build();
                       })
               )
-              .toList()
-              .toSingle();
+              .toList();
         })
         .map(riskUsers -> {
-          // Apply filters
+          // Apply filters - riskUsers is List<ChurnRiskUser> from Observable.toList()
           List<ChurnRiskUser> filtered = riskUsers.stream()
               .filter(user -> {
                 // Apply risk level filter if specified

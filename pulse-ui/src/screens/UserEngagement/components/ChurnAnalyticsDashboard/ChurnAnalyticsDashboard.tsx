@@ -12,6 +12,7 @@ import {
   Tabs,
   Table,
   Tooltip,
+  Box,
 } from "@mantine/core";
 import {
   IconAlertTriangle,
@@ -23,11 +24,11 @@ import {
   IconCode,
   IconActivity,
   IconBulb,
-  IconWrench,
+  IconSettings,
   IconTrendingUp,
-  IconShapes,
+  IconChartPie,
 } from "@tabler/icons-react";
-import { useGetChurnAnalytics, ChurnAnalyticsResponse } from "../../../../hooks/useGetChurnAnalytics";
+import { useGetChurnAnalytics, ChurnAnalyticsResponse, SegmentStats } from "../../../../hooks/useGetChurnAnalytics";
 import { useState } from "react";
 import classes from "./ChurnAnalyticsDashboard.module.css";
 
@@ -62,13 +63,17 @@ export function ChurnAnalyticsDashboard() {
     return "green";
   };
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: number | undefined | null) => {
+    if (num === undefined || num === null || isNaN(num)) return "0";
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toString();
   };
 
-  const formatPercentage = (num: number) => `${num.toFixed(1)}%`;
+  const formatPercentage = (num: number | undefined | null) => {
+    if (num === undefined || num === null || isNaN(num)) return "0.0%";
+    return `${num.toFixed(1)}%`;
+  };
 
   return (
     <div className={classes.container}>
@@ -90,9 +95,11 @@ export function ChurnAnalyticsDashboard() {
                 <Text size="xs" tt="uppercase" fw={700} c="dimmed">
                   Overall Health
                 </Text>
-                <Text fw={700} size="xl" c={getRiskColor(analytics.averageRiskScore)}>
+                <Text fw={700} size="xl" c={getRiskColor(analytics.averageRiskScore || 0)}>
                   {formatPercentage(
-                    ((analytics.lowRiskCount / analytics.totalUsers) * 100) || 0
+                    analytics.totalUsers
+                      ? ((analytics.lowRiskCount || 0) / analytics.totalUsers) * 100
+                      : 0
                   )}
                 </Text>
                 <Text size="xs" c="dimmed" mt={4}>
@@ -110,13 +117,15 @@ export function ChurnAnalyticsDashboard() {
                   At Risk Users
                 </Text>
                 <Text fw={700} size="xl" c="red">
-                  {formatNumber(analytics.highRiskCount + analytics.mediumRiskCount)}
+                  {formatNumber((analytics.highRiskCount || 0) + (analytics.mediumRiskCount || 0))}
                 </Text>
                 <Text size="xs" c="dimmed" mt={4}>
                   {formatPercentage(
-                    ((analytics.highRiskCount + analytics.mediumRiskCount) /
-                      analytics.totalUsers) *
-                      100
+                    analytics.totalUsers
+                      ? (((analytics.highRiskCount || 0) + (analytics.mediumRiskCount || 0)) /
+                          analytics.totalUsers) *
+                        100
+                      : 0
                   )}{" "}
                   of total
                 </Text>
@@ -131,11 +140,11 @@ export function ChurnAnalyticsDashboard() {
                 <Text size="xs" tt="uppercase" fw={700} c="dimmed">
                   Avg Churn Risk
                 </Text>
-                <Text fw={700} size="xl" c={getRiskColor(analytics.averageRiskScore)}>
-                  {analytics.averageRiskScore.toFixed(1)}
+                <Text fw={700} size="xl" c={getRiskColor(analytics.averageRiskScore || 0)}>
+                  {(analytics.averageRiskScore || 0).toFixed(1)}
                 </Text>
                 <Text size="xs" c="dimmed" mt={4}>
-                  {formatPercentage(analytics.overallChurnProbability * 100)} probability
+                  {formatPercentage((analytics.overallChurnProbability || 0) * 100)} probability
                 </Text>
               </div>
               <IconTrendingDown size={40} color="var(--mantine-color-orange-6)" />
@@ -181,13 +190,13 @@ export function ChurnAnalyticsDashboard() {
             <Tabs.Tab value="root-causes" leftSection={<IconBulb size={16} />}>
               Root Causes (ML)
             </Tabs.Tab>
-            <Tabs.Tab value="priority-fixes" leftSection={<IconWrench size={16} />}>
+            <Tabs.Tab value="priority-fixes" leftSection={<IconSettings size={16} />}>
               Priority Fixes
             </Tabs.Tab>
             <Tabs.Tab value="trends" leftSection={<IconTrendingUp size={16} />}>
               Trends & Anomalies
             </Tabs.Tab>
-            <Tabs.Tab value="patterns" leftSection={<IconShapes size={16} />}>
+            <Tabs.Tab value="patterns" leftSection={<IconChartPie size={16} />}>
               Patterns (ML)
             </Tabs.Tab>
           </Tabs.List>
@@ -202,7 +211,9 @@ export function ChurnAnalyticsDashboard() {
                 </Title>
                 <Stack gap="sm">
                   {Object.entries(analytics.riskDistribution || {}).map(([range, count]) => {
-                    const percentage = (count / analytics.totalUsers) * 100;
+                    const countNum = typeof count === 'number' ? count : 0;
+                    const totalUsers = analytics.totalUsers || 1;
+                    const percentage = (countNum / totalUsers) * 100;
                     const [min, max] = range.split("-").map(Number);
                     const color = getRiskColor((min + max) / 2);
                     return (
@@ -213,7 +224,7 @@ export function ChurnAnalyticsDashboard() {
                           </Text>
                           <Group gap="xs">
                             <Text size="sm" c="dimmed">
-                              {formatNumber(count)}
+                              {formatNumber(countNum)}
                             </Text>
                             <Text size="sm" fw={600} c={color}>
                               {formatPercentage(percentage)}
@@ -371,16 +382,17 @@ export function ChurnAnalyticsDashboard() {
                       <Group justify="space-between" mb={4}>
                         <Text size="sm">Users with Crashes</Text>
                         <Text size="sm" fw={600}>
-                          {formatNumber(analytics.performanceImpact.usersWithCrashes)} (
+                          {formatNumber(analytics.performanceImpact?.usersWithCrashes)} (
                           {formatPercentage(
-                            (analytics.performanceImpact.usersWithCrashes / analytics.totalUsers) *
-                              100
+                            analytics.totalUsers && analytics.performanceImpact?.usersWithCrashes
+                              ? (analytics.performanceImpact.usersWithCrashes / analytics.totalUsers) * 100
+                              : 0
                           )}
                           )
                         </Text>
                       </Group>
                       <Text size="xs" c="dimmed">
-                        Avg: {analytics.performanceImpact.avgCrashRate.toFixed(1)} crashes/user
+                        Avg: {(analytics.performanceImpact?.avgCrashRate || 0).toFixed(1)} crashes/user
                       </Text>
                     </div>
 
@@ -388,9 +400,11 @@ export function ChurnAnalyticsDashboard() {
                       <Group justify="space-between" mb={4}>
                         <Text size="sm">Users with ANRs</Text>
                         <Text size="sm" fw={600}>
-                          {formatNumber(analytics.performanceImpact.usersWithAnrs)} (
+                          {formatNumber(analytics.performanceImpact?.usersWithAnrs)} (
                           {formatPercentage(
-                            (analytics.performanceImpact.usersWithAnrs / analytics.totalUsers) * 100
+                            analytics.totalUsers && analytics.performanceImpact?.usersWithAnrs
+                              ? (analytics.performanceImpact.usersWithAnrs / analytics.totalUsers) * 100
+                              : 0
                           )}
                           )
                         </Text>
@@ -593,7 +607,7 @@ export function ChurnAnalyticsDashboard() {
                           </div>
                         </SimpleGrid>
                         {cause.affectedSegments && cause.affectedSegments.length > 0 && (
-                          <div mt="sm">
+                          <Box mt="sm">
                             <Text size="xs" c="dimmed" mb={4}>Affected Segments:</Text>
                             <Group gap="xs">
                               {cause.affectedSegments.slice(0, 5).map((segment, i) => (
@@ -602,7 +616,7 @@ export function ChurnAnalyticsDashboard() {
                                 </Badge>
                               ))}
                             </Group>
-                          </div>
+                          </Box>
                         )}
                       </Paper>
                     ))}
@@ -715,7 +729,7 @@ export function ChurnAnalyticsDashboard() {
                             </Text>
                           </Table.Td>
                           <Table.Td>
-                            <Tooltip label={fix.fixDescription} multiline width={300}>
+                            <Tooltip label={fix.fixDescription} multiline>
                               <Text size="sm" c="dimmed" style={{ maxWidth: 200 }} truncate>
                                 {fix.fixDescription}
                               </Text>
@@ -907,7 +921,7 @@ export function ChurnAnalyticsDashboard() {
                           </div>
                         </SimpleGrid>
                         {pattern.commonSegments && pattern.commonSegments.length > 0 && (
-                          <div mt="sm">
+                          <Box mt="sm">
                             <Text size="xs" c="dimmed" mb={4}>Common Segments:</Text>
                             <Group gap="xs">
                               {pattern.commonSegments.slice(0, 5).map((segment, i) => (
@@ -916,7 +930,7 @@ export function ChurnAnalyticsDashboard() {
                                 </Badge>
                               ))}
                             </Group>
-                          </div>
+                          </Box>
                         )}
                       </Paper>
                     ))}
@@ -942,7 +956,7 @@ function SegmentTable({
   formatPercentage,
   getRiskColor,
 }: {
-  segments: Record<string, ChurnAnalyticsResponse.SegmentStats> | undefined;
+  segments: Record<string, SegmentStats> | undefined;
   title: string;
   formatNumber: (num: number) => string;
   formatPercentage: (num: number) => string;
@@ -1011,7 +1025,6 @@ function SegmentTable({
                 <Tooltip
                   label={stats.topRiskFactors?.join(", ")}
                   multiline
-                  width={300}
                 >
                   <Text size="sm" c="dimmed" style={{ maxWidth: 200 }} truncate>
                     {stats.topRiskFactors?.[0] || "N/A"}

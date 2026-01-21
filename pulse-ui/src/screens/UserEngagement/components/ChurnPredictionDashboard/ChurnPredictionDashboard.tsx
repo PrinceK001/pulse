@@ -105,7 +105,6 @@ export function ChurnPredictionDashboard() {
             </div>
           }
           multiline
-          width={300}
         >
           <Text size="sm" c="dimmed" style={{ maxWidth: 200 }} truncate>
             {user.primaryRiskFactors.length > 0 

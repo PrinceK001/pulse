@@ -37,7 +37,7 @@ public class ChurnFeatureExtractor {
     String query = buildFeatureExtractionQuery(request, sevenDaysAgo, thirtyDaysAgo, now);
 
     return clickhouseQueryService.executeQueryOrCreateJob(
-        QueryConfiguration.newQuery(query),
+        QueryConfiguration.newQuery(query).build(),
         UserChurnFeatures.class
     )
         .map(result -> {
