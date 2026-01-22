@@ -8,7 +8,7 @@ import { Pulse, SpanStatusCode } from '../index';
 import type { PulseAttributes } from '../pulse.interface';
 import { extractHttpAttributes } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
-import { ATTRIBUTE_KEYS, PHASE_VALUES } from '../pulse.constants';
+import { ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import { normalizeHeaderName } from './header-utils';
 
 export function setNetworkSpanAttributes(
@@ -20,7 +20,7 @@ export function setNetworkSpanAttributes(
   let attributes: PulseAttributes = {
     [ATTRIBUTE_KEYS.HTTP_METHOD]: method,
     [ATTRIBUTE_KEYS.HTTP_URL]: startContext.url,
-    [ATTRIBUTE_KEYS.PULSE_TYPE]: `network.${endContext.status ?? 0}`,
+    [ATTRIBUTE_KEYS.PULSE_TYPE]: `${PULSE_TYPES.NETWORK}.${endContext.status ?? 0}`,
     [ATTRIBUTE_KEYS.HTTP_REQUEST_TYPE]: startContext.type,
     [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS,
   };
@@ -79,7 +79,6 @@ export function createNetworkSpan(
   let baseAttributes: PulseAttributes = {
     [ATTRIBUTE_KEYS.HTTP_METHOD]: method,
     [ATTRIBUTE_KEYS.HTTP_URL]: startContext.url,
-    [ATTRIBUTE_KEYS.PULSE_TYPE]: PHASE_VALUES.NETWORK,
     [ATTRIBUTE_KEYS.HTTP_REQUEST_TYPE]: interceptorType,
   };
 
