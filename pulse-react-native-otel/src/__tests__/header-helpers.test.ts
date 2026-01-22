@@ -1,7 +1,8 @@
+// No mocks needed! These are pure utility functions with no native module dependencies
 import {
   normalizeHeaderName,
   shouldCaptureHeader,
-} from '../network-interceptor/initialization';
+} from '../network-interceptor/header-utils';
 
 describe('normalizeHeaderName', () => {
   describe('basic normalization', () => {

@@ -6,7 +6,8 @@ import { RequestTracker } from './request-tracker';
 import { getAbsoluteUrl } from '../utility';
 import type { Span } from '../index';
 import { createNetworkSpan, completeNetworkSpan } from './span-helpers';
-import { getHeaderConfig, shouldCaptureHeader } from './initialization';
+import { getHeaderConfig } from './initialization';
+import { shouldCaptureHeader } from './header-utils';
 
 interface RequestData {
   method: string;
