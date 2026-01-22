@@ -6,6 +6,7 @@ import { RequestTracker } from './request-tracker';
 import { getAbsoluteUrl } from '../utility';
 import type { Span } from '../index';
 import { createNetworkSpan, completeNetworkSpan } from './span-helpers';
+import { getHeaderConfig, shouldCaptureHeader } from './initialization';
 
 interface RequestData {
   method: string;
@@ -48,6 +49,28 @@ function createXmlHttpRequestTracker(
   };
   isXHRIntercepted = true;
 
+  // Store request headers before send
+  const requestHeadersMap = new WeakMap<
+    XMLHttpRequest,
+    Record<string, string>
+  >();
+  const originalSetRequestHeader = xhr.prototype.setRequestHeader;
+  xhr.prototype.setRequestHeader = function setRequestHeader(
+    name: string,
+    value: string
+  ): void {
+    const headerConfig = getHeaderConfig();
+    const requestHeadersList = headerConfig.requestHeaders ?? [];
+    if (
+      requestHeadersList.length > 0 &&
+      shouldCaptureHeader(name, requestHeadersList)
+    ) {
+      const existing = requestHeadersMap.get(this) || {};
+      requestHeadersMap.set(this, { ...existing, [name]: value });
+    }
+    originalSetRequestHeader.call(this, name, value);
+  };
+
   const originalSend = xhr.prototype.send;
   xhr.prototype.send = function send(
     body?: Document | XMLHttpRequestBodyInit | null
@@ -58,10 +81,28 @@ function createXmlHttpRequestTracker(
       if (existingHandler)
         this.removeEventListener('readystatechange', existingHandler);
 
+      // Capture request headers
+      const headerConfig = getHeaderConfig();
+      const capturedRequestHeaders = requestHeadersMap.get(this);
+      const requestHeadersList = headerConfig.requestHeaders ?? [];
+      const filteredRequestHeaders: Record<string, string> | undefined =
+        capturedRequestHeaders && requestHeadersList.length > 0
+          ? Object.fromEntries(
+              Object.entries(capturedRequestHeaders).filter(([name]) =>
+                shouldCaptureHeader(name, requestHeadersList)
+              )
+            )
+          : undefined;
+
       const startContext: RequestStartContext = {
         type: 'xmlhttprequest',
         method: requestData.method,
         url: requestData.url,
+        requestHeaders:
+          filteredRequestHeaders &&
+          Object.keys(filteredRequestHeaders).length > 0
+            ? filteredRequestHeaders
+            : undefined,
       };
 
       this.setRequestHeader('X-Pulse-RN-Tracked', 'true');
@@ -74,13 +115,56 @@ function createXmlHttpRequestTracker(
         if (this.readyState === xhr.DONE && onRequestEnd) {
           const activeSpan = trackedSpans.get(this);
 
+          // Capture response headers
+          const responseHeaderConfig = getHeaderConfig();
+          const capturedResponseHeaders: Record<string, string> = {};
+          const responseHeadersList =
+            responseHeaderConfig.responseHeaders ?? [];
+          if (responseHeadersList.length > 0) {
+            try {
+              const allHeaders = this.getAllResponseHeaders();
+              if (allHeaders) {
+                const headerLines = allHeaders.trim().split(/[\r\n]+/);
+                for (const line of headerLines) {
+                  const parts = line.split(': ');
+                  if (parts.length === 2) {
+                    const [name, value] = parts;
+                    if (
+                      name &&
+                      value &&
+                      shouldCaptureHeader(name, responseHeadersList)
+                    ) {
+                      capturedResponseHeaders[name] = value;
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // Headers may not be available in some cases (CORS, etc.)
+              console.debug('[Pulse] Could not read response headers:', e);
+            }
+          }
+
           // Determine request outcome based on status code
           let endContext: RequestEndContext;
 
+          const responseHeaders =
+            Object.keys(capturedResponseHeaders).length > 0
+              ? capturedResponseHeaders
+              : undefined;
+
           if (this.status <= 0 || this.status >= 400) {
-            endContext = { state: 'error', status: this.status };
+            endContext = {
+              state: 'error',
+              status: this.status,
+              responseHeaders,
+            };
           } else {
-            endContext = { state: 'success', status: this.status };
+            endContext = {
+              state: 'success',
+              status: this.status,
+              responseHeaders,
+            };
           }
 
           if (activeSpan) {
@@ -92,6 +176,9 @@ function createXmlHttpRequestTracker(
             );
             trackedSpans.delete(this);
           }
+
+          // Clean up
+          requestHeadersMap.delete(this);
 
           onRequestEnd(endContext);
         }

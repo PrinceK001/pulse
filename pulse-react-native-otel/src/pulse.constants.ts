@@ -22,6 +22,8 @@ export enum ATTRIBUTE_KEYS {
   HTTP_URL = 'http.url',
   HTTP_STATUS_CODE = 'http.status_code',
   HTTP_REQUEST_TYPE = 'http.request.type',
+  HTTP_REQUEST_HEADER = 'http.request.header',
+  HTTP_RESPONSE_HEADER = 'http.response.header',
   ERROR_MESSAGE = 'error.message',
   ERROR_STACK = 'error.stack',
 }

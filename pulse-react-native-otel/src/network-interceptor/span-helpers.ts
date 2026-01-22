@@ -9,6 +9,7 @@ import type { PulseAttributes } from '../pulse.interface';
 import { extractHttpAttributes } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
 import { ATTRIBUTE_KEYS, PHASE_VALUES } from '../pulse.constants';
+import { normalizeHeaderName } from './initialization';
 
 export function setNetworkSpanAttributes(
   span: Span,
@@ -41,6 +42,32 @@ export function setNetworkSpanAttributes(
       attributes[ATTRIBUTE_KEYS.ERROR_STACK] = endContext.error.stack;
     }
     span.recordException(endContext.error, attributes);
+  }
+
+  // Add request headers following OpenTelemetry HTTP semantic conventions
+  // Format: http.request.header.<normalized_name>
+  // Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/http/
+  if (startContext.requestHeaders) {
+    for (const [headerName, headerValue] of Object.entries(
+      startContext.requestHeaders
+    )) {
+      const normalizedName = normalizeHeaderName(headerName);
+      attributes[`${ATTRIBUTE_KEYS.HTTP_REQUEST_HEADER}.${normalizedName}`] =
+        headerValue;
+    }
+  }
+
+  // Add response headers following OpenTelemetry HTTP semantic conventions
+  // Format: http.response.header.<normalized_name>
+  // Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/http/
+  if (endContext.responseHeaders) {
+    for (const [headerName, headerValue] of Object.entries(
+      endContext.responseHeaders
+    )) {
+      const normalizedName = normalizeHeaderName(headerName);
+      attributes[`${ATTRIBUTE_KEYS.HTTP_RESPONSE_HEADER}.${normalizedName}`] =
+        headerValue;
+    }
   }
 
   span.setAttributes(attributes);
