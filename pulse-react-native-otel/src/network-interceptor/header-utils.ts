@@ -1,15 +1,8 @@
 /**
- * Header utility functions for OpenTelemetry HTTP semantic conventions
- * These are pure utility functions with no dependencies on native modules.
- *
- * Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/http/
- */
-
-/**
  * Normalizes header name according to OpenTelemetry HTTP semantic conventions:
  * - Lowercase
  * - Dashes replaced by underscores
- *
+ * - Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/http/
  * @example
  * normalizeHeaderName('Content-Type') => 'content_type'
  * normalizeHeaderName('X-Request-ID') => 'x_request_id'
@@ -20,7 +13,6 @@ export function normalizeHeaderName(headerName: string): string {
 
 /**
  * Checks if a header should be captured based on configuration.
- * Performs case-insensitive comparison.
  */
 export function shouldCaptureHeader(
   headerName: string,

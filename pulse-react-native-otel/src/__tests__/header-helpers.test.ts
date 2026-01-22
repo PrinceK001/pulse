@@ -1,4 +1,3 @@
-// No mocks needed! These are pure utility functions with no native module dependencies
 import {
   normalizeHeaderName,
   shouldCaptureHeader,
@@ -189,17 +188,13 @@ describe('shouldCaptureHeader', () => {
       expect(shouldCaptureHeader('Content-Length', responseHeaders)).toBe(true);
       expect(shouldCaptureHeader('X-Request-ID', responseHeaders)).toBe(true);
       expect(shouldCaptureHeader('Set-Cookie', responseHeaders)).toBe(true);
-      expect(shouldCaptureHeader('Cache-Control', responseHeaders)).toBe(
-        false
-      );
+      expect(shouldCaptureHeader('Cache-Control', responseHeaders)).toBe(false);
     });
 
     it('handles custom headers', () => {
       const customHeaders = ['X-API-Key', 'X-Client-Version', 'X-Pulse-ID'];
       expect(shouldCaptureHeader('X-API-Key', customHeaders)).toBe(true);
-      expect(shouldCaptureHeader('X-Client-Version', customHeaders)).toBe(
-        true
-      );
+      expect(shouldCaptureHeader('X-Client-Version', customHeaders)).toBe(true);
       expect(shouldCaptureHeader('X-Pulse-ID', customHeaders)).toBe(true);
       expect(shouldCaptureHeader('X-Other-Header', customHeaders)).toBe(false);
     });
@@ -207,13 +202,9 @@ describe('shouldCaptureHeader', () => {
 
   describe('OpenTelemetry semantic conventions compatibility', () => {
     it('works with normalized header names from OpenTelemetry spec', () => {
-      // OpenTelemetry uses format: http.request.header.<normalized_name>
-      // where normalized_name is lowercase with underscores
       const headerList = ['Content-Type', 'X-Request-ID'];
       expect(shouldCaptureHeader('Content-Type', headerList)).toBe(true);
       expect(shouldCaptureHeader('X-Request-ID', headerList)).toBe(true);
-      // After normalization, these become 'content_type' and 'x_request_id'
-      // which match the OpenTelemetry convention
     });
   });
 });

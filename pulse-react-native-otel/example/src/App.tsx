@@ -12,13 +12,8 @@ import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
 import AndroidFeaturesExample from './examples/AndroidFeaturesExample';
 import InteractionDemo from './examples/InteractionDemo';
 
-// Configure Pulse with network header capture
-// Headers specified here will be captured and added to span attributes
-// following OpenTelemetry HTTP semantic conventions:
-// https://opentelemetry.io/docs/specs/semconv/registry/attributes/http/
 Pulse.start({
   networkHeaders: {
-    // Request headers to capture (case-insensitive matching)
     requestHeaders: [
       'Content-Type',
       'Authorization',
@@ -28,7 +23,6 @@ Pulse.start({
       'Accept',
       'X-API-Key',
     ],
-    // Response headers to capture (case-insensitive matching)
     responseHeaders: [
       'Content-Type',
       'Content-Length',

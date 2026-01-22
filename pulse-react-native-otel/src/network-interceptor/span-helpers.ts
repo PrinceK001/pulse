@@ -44,9 +44,6 @@ export function setNetworkSpanAttributes(
     span.recordException(endContext.error, attributes);
   }
 
-  // Add request headers following OpenTelemetry HTTP semantic conventions
-  // Format: http.request.header.<normalized_name>
-  // Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/http/
   if (startContext.requestHeaders) {
     for (const [headerName, headerValue] of Object.entries(
       startContext.requestHeaders
@@ -57,9 +54,6 @@ export function setNetworkSpanAttributes(
     }
   }
 
-  // Add response headers following OpenTelemetry HTTP semantic conventions
-  // Format: http.response.header.<normalized_name>
-  // Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/http/
   if (endContext.responseHeaders) {
     for (const [headerName, headerValue] of Object.entries(
       endContext.responseHeaders

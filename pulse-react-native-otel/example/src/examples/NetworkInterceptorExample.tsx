@@ -259,7 +259,7 @@ export default function NetworkInterceptorDemo() {
             'X-Request-ID': 'test-request-123',
             'X-Custom-Header': 'test-value',
             'Authorization': 'Bearer test-token',
-            'User-Agent': 'Pulse-RN-Test/1.0'
+            'User-Agent': 'Pulse-RN-Test/1.0',
           },
         }
       );
