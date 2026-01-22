@@ -7,7 +7,7 @@ import { getAbsoluteUrl } from '../utility';
 import type { Span } from '../index';
 import { createNetworkSpan, completeNetworkSpan } from './span-helpers';
 import { getHeaderConfig } from './initialization';
-import { shouldCaptureHeader } from './header-utils';
+import { shouldCaptureHeader } from './header-helper';
 
 interface RequestData {
   method: string;

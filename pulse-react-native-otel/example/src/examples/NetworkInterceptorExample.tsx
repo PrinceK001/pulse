@@ -243,37 +243,6 @@ export default function NetworkInterceptorDemo() {
     }
   };
 
-  // Test request with custom headers to demonstrate header capture
-  const testRequestWithHeaders = async () => {
-    setLoading('headers');
-    try {
-      console.log(
-        '[Pulse Network] 🌐 Testing request with custom headers for capture...'
-      );
-      const response = await fetch(
-        'https://jsonplaceholder.typicode.com/posts/1',
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Request-ID': 'test-request-123',
-            'X-Custom-Header': 'test-value',
-            'Authorization': 'Bearer test-token',
-            'User-Agent': 'Pulse-RN-Test/1.0',
-          },
-        }
-      );
-      const data = await response.json();
-      showResult(
-        `Request with headers completed! Check logs for captured headers. Response: ${data.title}`
-      );
-    } catch (error: any) {
-      showResult(`Request with Headers Error: ${error.message}`, true);
-    } finally {
-      setLoading(null);
-    }
-  };
-
   return (
     <View style={styles.fullContainer}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -367,26 +336,6 @@ export default function NetworkInterceptorDemo() {
             onPress={testAxiosError}
             disabled={loading !== null}
             color="#F44336"
-          />
-        </View>
-
-        {/* Header Capture Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Header Capture</Text>
-          <Text style={styles.sectionDescription}>
-            Test request/response header capture. Headers must be configured in
-            Pulse.start() with networkHeaders config.
-          </Text>
-
-          <Button
-            title={
-              loading === 'headers'
-                ? 'Loading...'
-                : 'Request with Custom Headers'
-            }
-            onPress={testRequestWithHeaders}
-            disabled={loading !== null}
-            color="#607D8B"
           />
         </View>
 

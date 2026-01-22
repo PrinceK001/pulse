@@ -1,7 +1,7 @@
 import createXmlHttpRequestTracker from './request-tracker-xhr';
 import type { NetworkHeaderConfig } from '../config';
 // Re-export header utilities for convenience (they're in a separate file to avoid dependency issues)
-export { normalizeHeaderName, shouldCaptureHeader } from './header-utils';
+export { normalizeHeaderName, shouldCaptureHeader } from './header-helper';
 
 let isInitialized = false;
 let headerConfig: NetworkHeaderConfig = {

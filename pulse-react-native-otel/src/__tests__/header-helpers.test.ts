@@ -1,7 +1,7 @@
 import {
   normalizeHeaderName,
   shouldCaptureHeader,
-} from '../network-interceptor/header-utils';
+} from '../network-interceptor/header-helper';
 
 describe('normalizeHeaderName', () => {
   describe('basic normalization', () => {

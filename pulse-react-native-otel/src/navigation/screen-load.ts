@@ -1,10 +1,6 @@
 import { Pulse, type Span } from '../index';
 import { Platform } from 'react-native';
-import {
-  SPAN_NAMES,
-  ATTRIBUTE_KEYS,
-  PULSE_TYPES,
-} from '../pulse.constants';
+import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import type { NavigationRoute } from './navigation.interface';
 import { LOG_TAGS } from './utils';
 

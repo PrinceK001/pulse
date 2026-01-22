@@ -9,7 +9,7 @@ import type { PulseAttributes } from '../pulse.interface';
 import { extractHttpAttributes } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
 import { ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
-import { normalizeHeaderName } from './header-utils';
+import { normalizeHeaderName } from './header-helper';
 
 export function setNetworkSpanAttributes(
   span: Span,

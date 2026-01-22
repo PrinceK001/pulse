@@ -14,23 +14,8 @@ import InteractionDemo from './examples/InteractionDemo';
 
 Pulse.start({
   networkHeaders: {
-    requestHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Request-ID',
-      'X-Custom-Header',
-      'User-Agent',
-      'Accept',
-      'X-API-Key',
-    ],
-    responseHeaders: [
-      'Content-Type',
-      'Content-Length',
-      'X-Request-ID',
-      'X-Custom-Header',
-      'Set-Cookie',
-      'Cache-Control',
-    ],
+    requestHeaders: ['Content-Type', 'Authorization'],
+    responseHeaders: ['Content-Type', 'Cache-Control'],
   },
 });
 
