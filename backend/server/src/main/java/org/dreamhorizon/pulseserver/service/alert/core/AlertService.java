@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service.alert.core;
 import static org.dreamhorizon.pulseserver.constant.Constants.ALERT_EVALUATE_AND_TRIGGER_ALERT;
 
 import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -18,21 +19,23 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
-import org.dreamhorizon.pulseserver.dto.request.alerts.AddAlertToCronManager;
-import org.dreamhorizon.pulseserver.dto.request.alerts.AlertTagMapRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.CreateAlertNotificationChannelRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.CreateAlertSeverityRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.DeleteAlertFromCronManager;
-import org.dreamhorizon.pulseserver.dto.request.alerts.GetAlertsListRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.UpdateAlertInCronManager;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertEvaluationHistoryResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertFiltersResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertNotificationChannelResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertSeverityResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertTagsResponseDto;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopesResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagMapRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertNotificationChannelRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertSeverityRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.GetAlertsListRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.DeleteSnoozeRequest;
@@ -198,7 +201,8 @@ public class AlertService {
         getAlertsListRequestDto.getLimit(),
         getAlertsListRequestDto.getOffset(),
         getAlertsListRequestDto.getCreatedBy(),
-        getAlertsListRequestDto.getUpdatedBy()
+        getAlertsListRequestDto.getUpdatedBy(),
+        getAlertsListRequestDto.getStatus()
     ).flatMap(alertsResponse -> {
       List<Alert> updatedAlerts = alertsResponse
           .getAlerts()
@@ -230,8 +234,8 @@ public class AlertService {
         .build();
   }
 
-  public Single<List<AlertEvaluationHistoryResponseDto>> getAlertEvaluationHistory(@NotNull Integer alertId) {
-    return alertsDao.getEvaluationHistoryOfAlert(alertId);
+  public Single<List<ScopeEvaluationHistoryDto>> getAlertEvaluationHistoryByScope(@NotNull Integer alertId) {
+    return alertsDao.getEvaluationHistoryByAlert(alertId);
   }
 
   public Single<List<AlertSeverityResponseDto>> getAlertSeverities() {
@@ -247,7 +251,19 @@ public class AlertService {
   }
 
   public Single<Boolean> createAlertNotificationChannel(@NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {
-    return alertsDao.createNotificationChannel(notificationChannel.getName(), notificationChannel.getConfig());
+    return alertsDao.createNotificationChannel(notificationChannel.getName(), notificationChannel.getType(), notificationChannel.getConfig());
+  }
+
+  public Maybe<AlertNotificationChannelResponseDto> getAlertNotificationChannelById(@NotNull Integer notificationChannelId) {
+    return alertsDao.getNotificationChannelDetailsById(notificationChannelId);
+  }
+
+  public Single<Boolean> updateAlertNotificationChannel(@NotNull Integer notificationChannelId, @NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {
+    return alertsDao.updateNotificationChannel(notificationChannelId, notificationChannel.getName(), notificationChannel.getType(), notificationChannel.getConfig());
+  }
+
+  public Single<Boolean> deleteAlertNotificationChannel(@NotNull Integer notificationChannelId) {
+    return alertsDao.deleteNotificationChannel(notificationChannelId);
   }
 
   public Single<Boolean> createTag(@NotNull String tag) {
@@ -288,4 +304,21 @@ public class AlertService {
   public Single<AlertFiltersResponseDto> getAlertFilters() {
     return alertsDao.getAlertsFilters();
   }
+
+  public Single<AlertScopesResponseDto> getAlertScopes() {
+    return alertsDao.getAlertScopes()
+        .map(scopes -> AlertScopesResponseDto.builder()
+            .scopes(scopes)
+            .build());
+  }
+
+  public Single<AlertMetricsResponseDto> getAlertMetrics(String scope) {
+    return alertsDao.getMetricsByScope(scope)
+        .map(metrics -> AlertMetricsResponseDto.builder()
+            .scope(scope)
+            .metrics(metrics)
+            .build());
+  }
+
 }
+

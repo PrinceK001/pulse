@@ -57,7 +57,7 @@ class OtelDemoApplication : Application() {
             ) {
                 interaction {
                     enabled(true)
-                    setConfigUrl { "http://10.0.2.2:8080/v1/interactions/all-active-interactions" }
+                    setConfigUrl { "http://10.0.2.2:8080/v1/interaction-configs/" }
                 }
                 activity {
                     enabled(true)
@@ -107,12 +107,10 @@ class OtelDemoApplication : Application() {
 
         fun logEvent(
             log: String,
-            scopeName: String = "PulseSdk",
-            builder: LogRecordBuilder.() -> LogRecordBuilder = { this }
+            params: Map<String, Any?>? = null
         ) {
             Log.d(RumConstants.OTEL_RUM_LOG_TAG, "logEvent called with log = $log")
-            val logger = rum.getOpenTelemetry().logsBridge.loggerBuilder(scopeName).build()
-            logger.logRecordBuilder().setBody(log).builder().emit()
+            PulseSDK.INSTANCE.trackEvent(log, System.currentTimeMillis(), params.orEmpty())
         }
     }
 }

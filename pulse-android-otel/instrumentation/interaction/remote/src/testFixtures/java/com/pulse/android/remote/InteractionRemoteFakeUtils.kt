@@ -1,3 +1,5 @@
+@file:Suppress("RedundantVisibilityModifier", "unused") // explicit api requires public modifier mentioned
+
 package com.pulse.android.remote
 
 import com.pulse.android.remote.models.InteractionAttrsEntry
@@ -28,6 +30,7 @@ public object InteractionRemoteFakeUtils {
             uptimeUpperLimitInMs = uptimeUpperLimitInNano / 1000_000,
             thresholdInMs = thresholdInNanos / 1000_000,
             shouldThrowOnWrongConfig = shouldThrowOnWrongConfig,
+            description = "fake-description",
         )
 
     public fun createFakeInteractionAttrsEntry(

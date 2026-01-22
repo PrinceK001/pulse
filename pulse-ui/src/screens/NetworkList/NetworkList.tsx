@@ -1,15 +1,16 @@
 import { Box, TextInput, Group, ScrollArea, Select } from "@mantine/core";
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDebouncedValue } from "@mantine/hooks";
 import { NetworkListProps, NetworkApi } from "./NetworkList.interface";
 import classes from "./NetworkList.module.css";
 import { NetworkApiCard } from "../ScreenDetail/components/NetworkApiCard";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
+import { CardSkeleton } from "../../components/Skeletons";
 import {
   ROUTES,
-  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
+  DEFAULT_QUICK_TIME_FILTER,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
 import {
   DataQueryRequestBody,
@@ -21,7 +22,9 @@ import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { encodeNetworkId } from "./utils/networkIdUtils";
-import { STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
+import { useAnalytics } from "../../hooks/useAnalytics";
+import { useFilterStore } from "../../stores/useFilterStore";
 
 dayjs.extend(utc);
 
@@ -36,37 +39,41 @@ export function NetworkList({
   externalFilters = [],
 }: NetworkListProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { trackClick, trackSearch, trackFilter } = useAnalytics("NetworkList");
   const [searchStr, setSearchStr] = useState<string>("");
   const [debouncedSearchStr] = useDebouncedValue(searchStr, 300);
   const [searchFilterType, setSearchFilterType] =
     useState<SearchFilterType>("url");
 
-  // Initialize default time range (LAST_1_HOUR)
+  // Use filter store for time range state (like AppVitals does)
+  const {
+    startTime: storeStartTime,
+    endTime: storeEndTime,
+    quickTimeRangeString,
+    quickTimeRangeFilterIndex,
+    handleTimeFilterChange: storeHandleTimeFilterChange,
+    initializeFromUrlParams,
+    selectedTimeFilter,
+  } = useFilterStore();
+
+  // Initialize default time range (Last 24 hours)
   const getDefaultTimeRange = () => {
-    return getStartAndEndDateTimeString(
-      CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-      2,
-    );
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
-  // Use external time if provided, otherwise use local state
-  const [localStartTime, setLocalStartTime] = useState<string>(() => {
-    return getDefaultTimeRange().startDate;
-  });
-  const [localEndTime, setLocalEndTime] = useState<string>(() => {
-    return getDefaultTimeRange().endDate;
-  });
-  const [quickTimeRangeString] = useState<string>(
-    CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-  );
-  const [quickTimeRangeFilterIndex] = useState<number>(3); // Index 3 = LAST_1_HOUR
+  // Initialize filter store from URL params
+  useEffect(() => {
+    initializeFromUrlParams(searchParams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
-  const startTime = externalStartTime || localStartTime;
-  const endTime = externalEndTime || localEndTime;
+  // Use external time if provided, otherwise use store values
+  const startTime = externalStartTime || storeStartTime || getDefaultTimeRange().startDate;
+  const endTime = externalEndTime || storeEndTime || getDefaultTimeRange().endDate;
 
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
-    setLocalStartTime(value.startDate || "");
-    setLocalEndTime(value.endDate || "");
+    storeHandleTimeFilterChange(value);
   };
 
   // Query network APIs
@@ -77,7 +84,7 @@ export function NetworkList({
       value: string[];
     }> = [
       {
-        field: "SpanType",
+        field: "PulseType",
         operator: "LIKE" as const,
         value: ["%network%"],
       },
@@ -86,7 +93,7 @@ export function NetworkList({
     // Add screen name filter only if provided
     if (screenName) {
       filters.push({
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "EQ" as const,
         value: [screenName],
       });
@@ -127,12 +134,12 @@ export function NetworkList({
     // Format times to UTC ISO format
     const formatToUTC = (time: string): string => {
       if (!time) return "";
-      // If already in ISO format, return as is
+      // If already in ISO format, parse and ensure valid
       if (time.includes("T") || time.includes("Z")) {
-        return time;
+        return dayjs.utc(time).toISOString();
       }
-      // Convert "YYYY-MM-DD HH:mm:ss" to UTC ISO format
-      return dayjs.utc(time).toISOString();
+      // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
+      return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
     };
 
 
@@ -145,13 +152,6 @@ export function NetworkList({
         end: formatToUTC(endTime),
       },
       select: [
-        {
-          function: "CUSTOM" as const,
-          param: {
-            expression: "SpanAttributes['http.method']",
-          },
-          alias: "method",
-        },
         {
           function: "CUSTOM" as const,
           param: {
@@ -187,23 +187,21 @@ export function NetworkList({
           },
           alias: "all_sessions",
         },
-        {
-          function: "CUSTOM" as const,
-          param: {
-            expression: "SpanAttributes['http.status_code']",
-          },
-          alias: "status_code",
-        },
+        // {
+        //   function: "CUSTOM" as const,
+        //   param: {
+        //     expression: "SpanAttributes['http.status_code']",
+        //   },
+        //   alias: "status_code",
+        // },
         ...(screenName ? [{
           function: "COL" as const,
-          param: { field: `SpanAttributes['${SpanType.SCREEN_NAME}']` },
+          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
           alias: "screen_name",
         }] : []),
       ],
       groupBy: [
-        "method",
         "url",
-        "status_code",
         ...(screenName ? ["screen_name"] : []),
       ],
       orderBy: [
@@ -223,6 +221,13 @@ export function NetworkList({
     externalFilters,
     showFilters,
   ]);
+
+  // Track search queries
+  useEffect(() => {
+    if (debouncedSearchStr.trim()) {
+      trackSearch(debouncedSearchStr, undefined);
+    }
+  }, [debouncedSearchStr, trackSearch]);
 
   const { data, isLoading, isError } = useGetDataQuery({
     requestBody,
@@ -256,8 +261,8 @@ export function NetworkList({
           ? ((totalRequests - successRequests) / totalRequests) * 100
           : 0;
 
-      // Generate unique ID from endpoint and method (base64 encoded for URL safety)
-      const id = encodeNetworkId(method, url);
+      // Generate unique ID from endpoint URL (base64 encoded for URL safety)
+      const id = encodeNetworkId(url);
 
       return {
         id,
@@ -287,6 +292,7 @@ export function NetworkList({
   };
 
   const onApiClick = (apiId: string) => {
+    trackClick(`NetworkAPI: ${apiId}`);
     const url = `${ROUTES.NETWORK_DETAIL.basePath}/${apiId}`;
     if (screenName) {
       navigate(`${url}?screenName=${encodeURIComponent(screenName)}`);
@@ -296,12 +302,21 @@ export function NetworkList({
   };
 
   const renderContent = () => {
-    // Show loading state
+    // Show loading state with skeleton cards
     if (isLoading) {
       return (
-        <Box className={classes.loader}>
-          <LoaderWithMessage loadingMessage="Loading Network APIs..." />
-        </Box>
+        <ScrollArea className={classes.scrollArea}>
+          <Box className={classes.apiListContainer}>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <CardSkeleton
+                key={index}
+                height={100}
+                showHeader
+                contentRows={1}
+              />
+            ))}
+          </Box>
+        </ScrollArea>
       );
     }
 
@@ -367,13 +382,14 @@ export function NetworkList({
               <Select
                 value={searchFilterType}
                 onChange={(value) => {
-                  setSearchFilterType((value as SearchFilterType) || "url");
+                  const newType = (value as SearchFilterType) || "url";
+                  trackFilter("searchFilterType", newType);
+                  setSearchFilterType(newType);
                   setSearchStr(""); // Clear search value when filter type changes
                 }}
                 data={[
                   { value: "method", label: "Method" },
                   { value: "url", label: "URL" },
-                  { value: "endpoint", label: "Endpoint" },
                   { value: "status_code", label: "Status Code" },
                 ]}
                 size="sm"
@@ -412,11 +428,11 @@ export function NetworkList({
             </Group>
             <DateTimeRangePicker
               handleTimefilterChange={handleTimeFilterChange}
-              selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex}
-              defaultQuickTimeFilterIndex={3}
-              defaultQuickTimeFilterString={quickTimeRangeString}
-              defaultEndTime={endTime}
-              defaultStartTime={startTime}
+              selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : DEFAULT_QUICK_TIME_FILTER_INDEX}
+              defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
+              defaultQuickTimeFilterString={quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
             />
           </Group>
         </Box>

@@ -1,11 +1,24 @@
 package io.opentelemetry.android.demo.shop.ui.products
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -13,20 +26,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.opentelemetry.android.demo.shop.clients.ImageLoader
-import io.opentelemetry.android.demo.gothamFont
-import io.opentelemetry.android.demo.shop.model.Product
-import io.opentelemetry.android.demo.shop.ui.components.QuantityChooser
-import androidx.lifecycle.viewmodel.compose.viewModel
-import io.opentelemetry.android.demo.shop.ui.cart.CartViewModel
-import io.opentelemetry.android.demo.shop.ui.components.UpPressButton
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.opentelemetry.android.demo.OtelDemoApplication
+import io.opentelemetry.android.demo.gothamFont
+import io.opentelemetry.android.demo.shop.clients.ImageLoader
 import io.opentelemetry.android.demo.shop.clients.ProductCatalogClient
 import io.opentelemetry.android.demo.shop.clients.RecommendationService
-import io.opentelemetry.android.demo.shop.ui.components.SlowCometAnimation
+import io.opentelemetry.android.demo.shop.model.Product
+import io.opentelemetry.android.demo.shop.ui.cart.CartViewModel
 import io.opentelemetry.android.demo.shop.ui.components.ConfirmPopup
+import io.opentelemetry.android.demo.shop.ui.components.QuantityChooser
+import io.opentelemetry.android.demo.shop.ui.components.SlowCometAnimation
+import io.opentelemetry.android.demo.shop.ui.components.UpPressButton
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -136,15 +148,18 @@ fun AddToCartButton(
                     onSlowRenderChange(true)
                 }
             }
-            OtelDemoApplication.logEvent("Add to cart") {
-                setAttribute("product.id", product.id)
-                setAttribute("quantity", quantity)
-            }
+            OtelDemoApplication.logEvent(
+                "Add to cart",
+                mapOf(
+                    "product.id" to product.id,
+                    "quantity" to quantity,
+                )
+            )
             cartViewModel.addProduct(product, quantity)
         },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp),
     ) {
         Text(text = "Add to Cart")
     }

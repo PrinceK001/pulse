@@ -29,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.dreamhorizon.pulseserver.service.interaction.UploadInteractionDetailService;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -41,9 +42,14 @@ class InteractionServiceImplTest {
         @Mock
         InteractionDao interactionDao;
 
+        @Mock
+        UploadInteractionDetailService uploadInteractionDetailService;
+
         @BeforeEach
         void setUp() {
-                interactionService = new InteractionServiceImpl(interactionDao);
+                Mockito.lenient().when(uploadInteractionDetailService.pushInteractionDetailsToObjectStore())
+                        .thenReturn(Single.just(EmptyResponse.emptyResponse));
+                interactionService = new InteractionServiceImpl(interactionDao, uploadInteractionDetailService);
         }
 
         @Nested
@@ -895,7 +901,7 @@ class InteractionServiceImplTest {
                                         .thenReturn(Single.error(new RuntimeException("Database error")));
 
                         TestObserver<List<InteractionDetails>> actual = interactionService
-                                        .getAllActiveAndRunningInteractions().test();
+                                        .getInteractionConfig().test();
 
                         actual.assertError(RuntimeException.class);
                         Mockito.verify(interactionDao, Mockito.times(1)).getAllActiveAndRunningInteractions();
@@ -944,7 +950,7 @@ class InteractionServiceImplTest {
                                         .thenReturn(Single.just(expectedInteractions));
 
                         TestObserver<List<InteractionDetails>> actual = interactionService
-                                        .getAllActiveAndRunningInteractions().test();
+                                        .getInteractionConfig().test();
 
                         actual.assertNoErrors()
                                         .assertValue(interactions -> {

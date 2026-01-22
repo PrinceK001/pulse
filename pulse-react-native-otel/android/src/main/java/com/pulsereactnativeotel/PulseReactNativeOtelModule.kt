@@ -1,15 +1,22 @@
 package com.pulsereactnativeotel
 
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.pulse.android.sdk.PulseSDK
+import android.content.Context
 import android.os.Looper
 import android.util.Log
 import android.os.Handler
+import com.pulse.sampling.models.PulseSdkConfig
+import com.pulse.sampling.models.PulseSdkName
+import com.pulse.sampling.models.PulseFeatureName
+import kotlinx.serialization.json.Json
 
 @ReactModule(name = PulseReactNativeOtelModule.NAME)
-class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
+internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
   NativePulseReactNativeOtelSpec(reactContext) {
 
   override fun getName(): String {
@@ -18,6 +25,11 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
 
   override fun isInitialized(): Boolean {
     return PulseSDK.INSTANCE.isInitialized()
+  }
+
+  override fun setCurrentScreenName(screenName: String): Boolean {
+    ReactNativeScreenNameTracker.setCurrentScreenName(screenName)
+    return true
   }
 
   override fun trackEvent(event: String, observedTimeMs: Double, properties: ReadableMap?): Boolean {
@@ -30,8 +42,8 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return true
   }
 
-  override fun startSpan(name: String, attributes: ReadableMap?): String {
-    return PulseReactNativeOtelTracer.startSpan(name, attributes)
+  override fun startSpan(name: String, inheritContext: Boolean, attributes: ReadableMap?): String {
+    return PulseReactNativeOtelTracer.startSpan(name, inheritContext, attributes)
   }
 
   override fun endSpan(spanId: String, statusCode: String?): Boolean {
@@ -54,6 +66,11 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return  true
   }
 
+  override fun discardSpan(spanId: String): Boolean {
+    PulseReactNativeOtelTracer.discardSpan(spanId)
+    return true
+  }
+
   override fun setUserId(id: String?) {
     PulseSDK.INSTANCE.setUserId(id)
   }
@@ -66,7 +83,7 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     properties?.let { props ->
       PulseSDK.INSTANCE.setUserProperties {
         props.entryIterator.forEach { (key, value) ->
-          value?.let { put(key, it) }
+          put(key, value)
         }
       }
     }
@@ -77,6 +94,55 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
       Log.d("[Pulse]", "Now running PostAtFrontQueue: ${Thread.currentThread().name}")
       Thread.sleep(10_000)
     }
+  }
+
+  override fun getAllFeatures(): WritableMap? {
+    val context = reactApplicationContext
+    val sharedPrefs = context.getSharedPreferences(
+      "pulse_sdk_config",
+      Context.MODE_PRIVATE
+    )
+
+    val configJson = sharedPrefs.getString("sdk_config", null)
+    if (configJson == null) {
+      return null
+    }
+
+    val json = Json {
+      ignoreUnknownKeys = true
+      isLenient = true
+    }
+    val config = json.decodeFromString<PulseSdkConfig>(configJson)
+
+    val features = Arguments.createMap()
+    val featureMap = mutableMapOf<String, Boolean>()
+
+    config.features.forEach { featureConfig ->
+      if (PulseSdkName.ANDROID_RN in featureConfig.sdks) {
+        if (featureConfig.featureName == PulseFeatureName.UNKNOWN) {
+          return@forEach
+        }
+
+        val featureNameStr = featureConfig.featureName.name.lowercase()
+        val isEnabled = featureConfig.sessionSampleRate > 0F
+        featureMap[featureNameStr] = isEnabled
+      }
+    }
+
+    val requiredFeatures = listOf(
+      "rn_screen_load",
+      "screen_session",
+      "rn_screen_interactive",
+      "network_instrumentation",
+      "custom_events",
+      "js_crash"
+    )
+
+    requiredFeatures.forEach { featureName ->
+      features.putBoolean(featureName, featureMap[featureName] ?: false)
+    }
+
+    return features
   }
 
   companion object {

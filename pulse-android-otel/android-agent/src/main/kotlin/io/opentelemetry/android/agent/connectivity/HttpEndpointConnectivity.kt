@@ -5,7 +5,7 @@
 
 package io.opentelemetry.android.agent.connectivity
 
-class HttpEndpointConnectivity private constructor(
+class HttpEndpointConnectivity(
     private val url: String,
     private val headers: Map<String, String>,
 ) : EndpointConnectivity {
@@ -24,6 +24,11 @@ class HttpEndpointConnectivity private constructor(
             baseUrl: String,
             headers: Map<String, String> = emptyMap(),
         ): HttpEndpointConnectivity = HttpEndpointConnectivity(baseUrl.trimEnd('/') + "/v1/metrics", headers)
+
+        fun forCustomEvents(
+            baseUrl: String,
+            headers: Map<String, String> = emptyMap(),
+        ): HttpEndpointConnectivity = HttpEndpointConnectivity(baseUrl.trimEnd('/') + "/v1/custom-events", headers)
     }
 
     override fun getUrl(): String = url

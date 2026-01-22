@@ -30,6 +30,7 @@ import {
   IconLogout,
   IconMessageCircle,
   IconUserCircle,
+  IconSettings,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef } from "react";
@@ -224,6 +225,21 @@ export function Navbar({
 
               <Divider />
 
+              {/* Settings Link */}
+              <Box
+                className={classes.menuItem}
+                onClick={() => navigate(ROUTES.SETTINGS.basePath)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>Settings</Text>
+                    <Text size="xs" c="dimmed">SDK Configuration & more</Text>
+                  </Box>
+                </Group>
+              </Box>
+
               {/* Help Link */}
               <Anchor
                 href={NAVBAR_CONSTANTS.HELP_LINK}
@@ -237,8 +253,13 @@ export function Navbar({
                 </Group>
               </Anchor>
 
-              {/* Footer Message */}
-              <Box className={classes.menuFooterMessage}>
+              {/* Footer Message - Discord Link */}
+              <Anchor
+                href={FOOTER_CONSTANTS.DISCORD_LINK}
+                target="_blank"
+                underline="never"
+                className={classes.menuFooterMessage}
+              >
                 <Group gap="xs" className={classes.menuFooterMessageContent}>
                   <IconMessageCircle
                     size={18}
@@ -248,7 +269,7 @@ export function Navbar({
                     {FOOTER_CONSTANTS.FOOTER_MESSAGE}
                   </Text>
                 </Group>
-              </Box>
+              </Anchor>
 
               <Divider />
 

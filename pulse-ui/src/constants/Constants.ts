@@ -5,12 +5,14 @@ import {
   ComboboxItem,
 } from "@mantine/core";
 import {
+  IconBell,
   IconListDetails,
   IconHome,
   IconActivityHeartbeat,
   IconDeviceDesktop,
   IconNetwork,
   IconUsers,
+  IconDatabaseSearch,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -27,6 +29,7 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
+  FormSteps,
 } from "../screens/CriticalInteractionForm";
 import { Login } from "../screens/Login";
 import { UniversalEventQuery } from "../screens/UniversalEventQuery/UniversalEventQuery";
@@ -39,6 +42,13 @@ import { NetworkDetail } from "../screens/NetworkDetail";
 import { NetworkList } from "../screens/NetworkList";
 import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
+import { SamplingConfig } from "../screens/SamplingConfig";
+import { Settings } from "../screens/Settings";
+import { AlertListingPage } from "../screens/AlertListingPage";
+import { AlertForm } from "../screens/AlertFormWizard";
+import { AlertDetail } from "../screens/AlertDetail";
+import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
+import { RealTimeQuery } from "../screens/RealTimeQuery";
 
 export const APP_NAME: string = "Pulse";
 
@@ -181,7 +191,51 @@ export const ROUTES: Routes = {
     path: "/coming-soon",
     element: ComingSoon,
   },
+  SDK_CONFIG: {
+    key: "SDK_CONFIG",
+    basePath: "/sdk-config",
+    path: "/sdk-config",
+    element: SamplingConfig,
+  },
+  SETTINGS: {
+    key: "SETTINGS",
+    basePath: "/settings",
+    path: "/settings/*",
+    element: Settings,
+  },
+  ALERTS: {
+    key: "ALERTS",
+    basePath: "/alerts",
+    path: "/alerts",
+    element: AlertListingPage,
+  },
+  ALERT_DETAIL: {
+    key: "ALERT_DETAIL",
+    basePath: "/alerts",
+    path: "/alerts/:alertId",
+    element: AlertDetail,
+  },
+  ALERTS_FORM: {
+    key: "ALERTS_FORM",
+    basePath: "/configure-alert",
+    path: "/configure-alert/*",
+    element: AlertForm,
+  },
+  QUERY_BUILDER: {
+    key: "QUERY_BUILDER",
+    basePath: "/query-builder",
+    path: "/query-builder",
+    element: RealTimeQuery,
+  },
 };
+
+// Settings sub-routes (handled internally by Settings component)
+// Use these paths for programmatic navigation
+export const SETTINGS_PATHS = {
+  SDK_CONFIG: "/settings/sdk-config",
+  NOTIFICATIONS: "/settings/notifications",
+  SECURITY: "/settings/security",
+} as const;
 
 export const NAVBAR_ITEMS: NavbarItems = [
   {
@@ -225,7 +279,22 @@ export const NAVBAR_ITEMS: NavbarItems = [
     routeTo: ROUTES.NETWORK_LIST.basePath,
     path: ROUTES.NETWORK_LIST.path,
     iconSize: 25,
-  }
+  },
+  
+  {
+    tabName: "Query Builder",
+    icon: IconDatabaseSearch,
+    routeTo: ROUTES.QUERY_BUILDER.basePath,
+    path: ROUTES.QUERY_BUILDER.path,
+    iconSize: 25,
+  },
+  {
+    tabName: "Alerts",
+    icon: IconBell,
+    routeTo: ROUTES.ALERTS.basePath,
+    path: ROUTES.ALERTS.path,
+    iconSize: 25,
+  },
 ];
 
 export const API_METHODS: Record<string, string> = {
@@ -394,12 +463,17 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   CANCEL_QUERY: {
     key: "CANCEL_QUERY",
-    apiPath: `/v2/cancelQueryRequest`,
-    method: API_METHODS.POST,
+    apiPath: `/query/job`, // DELETE /query/job/{jobId}
+    method: API_METHODS.DELETE,
   },
   GET_QUERY_HISTORY: {
     key: "GET_QUERY_HISTORY",
-    apiPath: `/v2/getQuery/user`,
+    apiPath: `/query/history`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_STATS: {
+    key: "GET_QUERY_STATS",
+    apiPath: `/query/stats`,
     method: API_METHODS.GET,
   },
   GET_SUGGESTED_QUERIES: {
@@ -480,6 +554,128 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_INTERACTIONLIST_FILTERS: {
     key: "GET_INTERACTIONLIST_FILTERS",
     apiPath: `/v1/interactions/filter-options`,
+    method: API_METHODS.GET,
+  },
+  // Alert API Routes
+  GET_ALERTS: {
+    key: "GET_ALERTS",
+    apiPath: `/v1/alert`,
+    method: API_METHODS.GET,
+  },
+  GET_ALERT_DETAILS: {
+    key: "GET_ALERT_DETAILS",
+    apiPath: `/v1/alert`,
+    method: API_METHODS.GET,
+  },
+  CREATE_ALERT: {
+    key: "CREATE_ALERT",
+    apiPath: `/v1/alert`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_ALERT: {
+    key: "UPDATE_ALERT",
+    apiPath: `/v1/alert`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_ALERT: {
+    key: "DELETE_ALERT",
+    apiPath: `/v1/alert`,
+    method: API_METHODS.DELETE,
+  },
+  SNOOZE_ALERT: {
+    key: "SNOOZE_ALERT",
+    apiPath: `/v1/alert/{id}/snooze`,
+    method: API_METHODS.POST,
+  },
+  RESUME_ALERT: {
+    key: "RESUME_ALERT",
+    apiPath: `/v1/alert/{id}/snooze`,
+    method: API_METHODS.DELETE,
+  },
+  GET_ALERT_EVALUATION_HISTORY: {
+    key: "GET_ALERT_EVALUATION_HISTORY",
+    apiPath: `/v1/alert/{id}/evaluationHistory`,
+    method: API_METHODS.GET,
+  },
+  GET_ALERT_FILTERS: {
+    key: "GET_ALERT_FILTERS",
+    apiPath: `/v1/alert/filters`,
+    method: API_METHODS.GET,
+  },
+  GET_ALERT_SCOPES: {
+    key: "GET_ALERT_SCOPES",
+    apiPath: `/v1/alert/scopes`,
+    method: API_METHODS.GET,
+  },
+  GET_ALERT_METRICS: {
+    key: "GET_ALERT_METRICS",
+    apiPath: `/v1/alert/metrics`,
+    method: API_METHODS.GET,
+  },
+  GET_ALERT_SEVERITIES: {
+    key: "GET_ALERT_SEVERITIES",
+    apiPath: `/v1/alert/severity`,
+    method: API_METHODS.GET,
+  },
+  GET_ALERT_NOTIFICATION_CHANNELS: {
+    key: "GET_ALERT_NOTIFICATION_CHANNELS",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.GET,
+  },
+  CREATE_NOTIFICATION_CHANNEL: {
+    key: "CREATE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_NOTIFICATION_CHANNEL: {
+    key: "UPDATE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_NOTIFICATION_CHANNEL: {
+    key: "DELETE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.DELETE,
+  },
+  GET_NOTIFICATION_CHANNEL_BY_ID: {
+    key: "GET_NOTIFICATION_CHANNEL_BY_ID",
+    apiPath: `/v1/alert/notificationChannels/{notificationChannelId}`,
+    method: API_METHODS.GET,
+  },
+  // SDK Configuration API Routes
+  GET_ALL_SDK_CONFIGS: {
+    key: "GET_ALL_SDK_CONFIGS",
+    apiPath: `/v1/configs`,
+    method: API_METHODS.GET,
+  },
+  GET_SDK_CONFIG_BY_VERSION: {
+    key: "GET_SDK_CONFIG_BY_VERSION",
+    apiPath: `/v1/configs/{version}`,
+    method: API_METHODS.GET,
+  },
+  GET_ACTIVE_SDK_CONFIG: {
+    key: "GET_ACTIVE_SDK_CONFIG",
+    apiPath: `/v1/configs/active`,
+    method: API_METHODS.GET,
+  },
+  CREATE_SDK_CONFIG: {
+    key: "CREATE_SDK_CONFIG",
+    apiPath: `/v1/configs`,
+    method: API_METHODS.POST,
+  },
+  GET_SDK_RULES_AND_FEATURES: {
+    key: "GET_SDK_RULES_AND_FEATURES",
+    apiPath: `/v1/configs/rules-features`,
+    method: API_METHODS.GET,
+  },
+  GET_SDK_SCOPES_AND_SDKS: {
+    key: "GET_SDK_SCOPES_AND_SDKS",
+    apiPath: `/v1/configs/scopes-sdks`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_TABLES: {
+    key: "GET_QUERY_TABLES",
+    apiPath: `/query/tables`,
     method: API_METHODS.GET,
   },
 };
@@ -680,13 +876,14 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 };
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
-  FOOTER_MESSAGE: "Facing problems? Ping us on #pulse-feedback",
+  FOOTER_MESSAGE: "Have questions? Join our Discord community",
+  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
   HELP_LINK:
-    "https://dream11.atlassian.net/wiki/spaces/FE/pages/3583705154/Pulse+Demo",
+    "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {
@@ -776,15 +973,21 @@ export const ALERT_FORM_CONSTANTS = {
   ALERT_SEVERITY_LABEL: "Severity",
   ALERT_SEVERITY_LABEL_INFO:
     "Severity 1-3 will create SPM alert and 4-5 will create an operator alert",
+  ALERT_SCOPE_LABEL: "Alert Scope",
+  ALERT_SCOPE_LABEL_INFO:
+    "Select the scope for which this alert should be evaluated",
   ALERT_USER_INTERACTION_LABEL: "User Interaction",
   ALERT_USER_INTERACTION_LABEL_INFO:
     "User interaction list will be fetched once you start typing.",
-  ALERT_THRESHOLD_LABEL: "Apdex score threshold",
+  ALERT_THRESHOLD_LABEL: "Threshold value",
   ALERT_THRESHOLD_LABEL_INFO:
-    "Threshold value, lower than which the alert should be triggered. It should a value between 0 and 1.",
-  ALERT_MONITORING_PERIOD_LABEL: "Monitoring period in seconds",
+    "Threshold value against which the metric will be compared.",
+  ALERT_MONITORING_PERIOD_LABEL: "Evaluation period in seconds",
   ALERT_MONITORING_PERIOD_LABEL_INFO:
-    "Monitoring period in seconds. Alert will be evaluated at every monitoring period. It should be in the range of 30 to 3600 seconds.",
+    "Time window in seconds over which the metric is evaluated. It should be in the range of 30 to 3600 seconds.",
+  ALERT_EVALUATION_INTERVAL_LABEL: "Evaluation interval in seconds",
+  ALERT_EVALUATION_INTERVAL_LABEL_INFO:
+    "How often the alert condition is checked. It should be in the range of 30 to 3600 seconds.",
   ALERT_CONDITIONS_LOGIC_LABEL: "Condition Logic",
   ALERT_CONDITIONS_LOGIC_LABEL_INFO:
     "If you choose AND, all conditions should be met to trigger the alert. If you choose OR, any one condition should be met to trigger the alert.",
@@ -812,6 +1015,16 @@ export const ALERT_FORM_CONSTANTS = {
     "Roster name to which the alert belongs for eg. 'contest_backend_schedule'. ",
   ALERT_SERVICE_COMMON_TOOLTIP:
     "Please do make sure your team and roster is onboarded on Observability Team. Reach out to @observability-oncall for confirmation",
+  ALERT_METRIC_LABEL: "Metric",
+  ALERT_METRIC_LABEL_INFO: "Select the metric to monitor for this alert",
+  ALERT_METRIC_OPERATOR_LABEL: "Operator",
+  ALERT_METRIC_OPERATOR_LABEL_INFO: "Comparison operator for the threshold",
+  ALERT_CONDITION_EXPRESSION_LABEL: "Condition Expression",
+  ALERT_CONDITION_EXPRESSION_LABEL_INFO:
+    "Expression combining alert conditions (e.g., 'A AND B', 'A OR B')",
+  ALERT_DIMENSION_FILTERS_LABEL: "Dimension Filters",
+  ALERT_DIMENSION_FILTERS_LABEL_INFO:
+    "JSON filter conditions for dimensions (optional)",
 };
 
 export const ALERT_CONDITIONS_PARAMETER_OPTIONS: Array<ComboboxItem> = [
@@ -875,6 +1088,39 @@ export const ALERT_SEVERITY_OPTIONS: Array<ComboboxItem> = [
   },
 ];
 
+export const ALERT_CONDITION_OPERATOR_OPTIONS: Array<ComboboxItem> = [
+  { value: OperatorType.EQUAL_TO.toString(), label: "Equal to" },
+  { value: OperatorType.GREATER_THAN.toString(), label: "Greater than" },
+  {
+    value: OperatorType.GREATER_THAN_OR_EQUAL_TO.toString(),
+    label: "Greater than or equal to",
+  },
+  { value: OperatorType.LESS_THAN.toString(), label: "Less than" },
+  {
+    value: OperatorType.LESS_THAN_OR_EQUAL_TO.toString(),
+    label: "Less than or equal to",
+  },
+  { value: OperatorType.NOT_EQUAL_TO.toString(), label: "Not equal to" },
+];
+
+export const ALERT_FORM_STEPS: Array<FormSteps> = [
+  {
+    label: "Add Name",
+    description: "to easily recall",
+  },
+  {
+    label: "Choose scope and metric",
+    description: "select what to monitor",
+  },
+  {
+    label: "Define thresholds",
+    description: "set alert conditions",
+  },
+  {
+    label: "Configure notification",
+    description: "choose severity and channel",
+  },
+];
 
 export const JOB_VERSIONS: Record<string, string> = {
   V0: "V0",
@@ -910,6 +1156,10 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
   THIS_WEEK: "THIS_WEEK",
   THIS_MONTH_SO_FAR: "THIS_MONTH_SO_FAR",
 };
+
+// Default time filter for the dashboard (Last 24 hours)
+export const DEFAULT_QUICK_TIME_FILTER = CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
+export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {
   NEXT_1_HOUR: "NEXT_1_HOUR",

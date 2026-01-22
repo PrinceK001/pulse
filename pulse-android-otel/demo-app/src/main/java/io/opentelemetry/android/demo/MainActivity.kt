@@ -11,7 +11,9 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,22 +84,63 @@ class MainActivity : ComponentActivity() {
                             painterResource(id = R.drawable.otel_icon),
                         )
                         val context = LocalContext.current
-                        LauncherButton(text = "Open Fragment activity", onClick = {
-                            context.startActivity(Intent(this@MainActivity, FragmentActivity::class.java))
-                        })
-                        LauncherButton(text = "Go shopping", onClick = {
-                            OtelDemoApplication.logEvent("Go shopping") {
-                                setAttribute("shopping", "true")
-                            }
-                            context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
-                        })
-                        LauncherButton(text = "Learn more", onClick = {
-                            context.startActivity(Intent(this@MainActivity, AboutActivity::class.java))
-                        })
+                        LauncherButton(
+                            text = "Open Fragment activity",
+                            onClick = {
+                                context.startActivity(
+                                    Intent(this@MainActivity, FragmentActivity::class.java).apply {
+                                        putExtra(FragmentActivity.FRAGMENT_TYPE, "ListFragment")
+                                    }
+                                )
+                            },
+                        )
+                        LauncherButton(
+                            text = "Go shopping",
+                            onClick = {
+                                OtelDemoApplication.logEvent("Go shopping", mapOf("shopping" to "true"))
+                                context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
+                            },
+                        )
+                        LauncherButton(
+                            text = "Learn more",
+                            onClick = {
+                                context.startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+                            },
+                        )
 
-                        LauncherButton(text = "Crash here", onClick = {
-                            viewModel.performSomeWork()
-                        })
+                        LauncherButton(
+                            text = "Crash here",
+                            onClick = {
+                                viewModel.performSomeWork()
+                            },
+                        )
+
+                        val locationPermissionLauncher = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.RequestPermission(),
+                        ) { isGranted: Boolean ->
+                            if (isGranted) {
+                                Log.d(TAG, "Location permission granted")
+                            } else {
+                                Log.d(TAG, "Location permission denied")
+                            }
+                        }
+
+                        LauncherButton(
+                            text = "Ask location permission",
+                            onClick = {
+                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                            },
+                        )
+
+                        LauncherButton(
+                            text = "Open benchmark screen",
+                            onClick = {
+                                Intent(this@MainActivity, FragmentActivity::class.java).apply {
+                                    putExtra(FragmentActivity.FRAGMENT_TYPE, "BenchmarkFragment")
+                                    context.startActivity(this)
+                                }
+                            },
+                        )
 
                     }
                 }
@@ -116,12 +159,13 @@ class MainActivity : ComponentActivity() {
         }
 
         if (ContextCompat.checkSelfPermission(this, phoneStatePermission)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted, request it
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(phoneStatePermission),
-                100
+                100,
             )
         }
     }

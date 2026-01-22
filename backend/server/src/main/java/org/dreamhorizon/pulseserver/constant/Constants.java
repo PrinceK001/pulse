@@ -1,24 +1,6 @@
 package org.dreamhorizon.pulseserver.constant;
 
 public final class Constants {
-
-  //PUB SUB Prefix
-  public static final String NAME = "name";
-  public static final String PARAMETERS = "parameters";
-  // GCP JOB STATUS
-  public static final String JOB_STATE_UNKNOWN = "JOB_STATE_UNKNOWN";
-  public static final String JOB_STATE_STOPPED = "JOB_STATE_STOPPED";
-  public static final String JOB_STATE_RUNNING = "JOB_STATE_RUNNING";
-  public static final String JOB_STATE_DONE = "JOB_STATE_DONE";
-  public static final String JOB_STATE_FAILED = "JOB_STATE_FAILED";
-  public static final String JOB_STATE_CANCELLED = "JOB_STATE_CANCELLED";
-  public static final String JOB_STATE_UPDATED = "JOB_STATE_UPDATED";
-  public static final String JOB_STATE_DRAINING = "JOB_STATE_DRAINING";
-  public static final String JOB_STATE_DRAINED = "JOB_STATE_DRAINED";
-  public static final String JOB_STATE_PENDING = "JOB_STATE_PENDING";
-  public static final String JOB_STATE_CANCELLING = "JOB_STATE_CANCELLING";
-  public static final String JOB_STATE_QUEUED = "JOB_STATE_QUEUED";
-  public static final String JOB_STATE_RESOURCE_CLEANING_UP = "JOB_STATE_RESOURCE_CLEANING_UP";
   //Alerts
   public static final String ALERT_EVALUATE_AND_TRIGGER_ALERT =
       "/v1/alert/evaluateAndTriggerAlert";
@@ -40,4 +22,32 @@ public final class Constants {
   public static final String HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE =
       "http_client_connection_pool_max_size";
   public static final String SHUTDOWN_STATUS = "__shutdown__";
+
+  public static final String QUERY_COMPLETED_STATUS = "Query completed";
+
+  public static final String EVENT_BUS_RESPONSE_UPDATE_ALERT_EVALUATION_LOGS_CHANNEL =
+      "athena.query.response.updateAlertEvaluationLogs";
+  public static final String EVENT_BUS_RESPONSE_UPDATE_ALERT_STATE_CHANNEL = "athena.query.response.updateAlertState";
+
+  public static final String RESULT_SET_KEY = "resultSet";
+  public static final String STATUS_KEY = "status";
+  public static final String ERROR_KEY = "error";
+  public static final String ALERT_EVALUATION_QUERY_TIME = "timeTaken";
+  public static final String ALERT_EVALUATION_START_TIME = "evaluationStartTime";
+  public static final String ALERT_EVALUATION_END_TIME = "evaluationEndTime";
+
+  public static final int QUERY_TIMEOUT_SECONDS = 3;
+  public static final int RESULT_FETCH_DELAY_MS = 200;
+  public static final int MAX_RESULT_FETCH_RETRIES = 5;
+  public static final int RESULT_FETCH_RETRY_DELAY_MS = 300;
+  public static final int QUERY_POLL_INTERVAL_MS = 200;
+  public static final int MAX_QUERY_RESULTS = 1000;
+  public static final int MIN_QUERY_RESULTS = 1;
+  public static final int ATHENA_WAIT_COMPLETION_DELAY_MS = 2000;
+
+  // Query Engine Configuration
+  public static final String QUERY_ENGINE_ENV_VAR = "CONFIG_SERVICE_APPLICATION_QUERY_ENGINE";
+  public static final String DEFAULT_QUERY_ENGINE = "athena";
+  public static final String ATHENA_ENGINE = "athena";
+  public static final String GCP_ENGINE = "gcp";
 }

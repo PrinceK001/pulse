@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.errorgrouping.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,8 +17,8 @@ public class StackTraceEvent {
   @JsonProperty("Timestamp")
   private String timestamp;
 
-  @JsonProperty("EventName")
-  private String eventName;
+  @JsonProperty("PulseType")
+  private String pulseType;
 
   @JsonProperty("Title")
   private String title;
@@ -83,4 +84,16 @@ public class StackTraceEvent {
 
   @JsonProperty("Fingerprint")
   private String fingerprint;
+
+  @JsonProperty("ScopeAttributes")
+  private Map<String, String> scopeAttributes;
+
+  @JsonProperty("LogAttributes")
+  private Map<String, String> logAttributes;
+
+  @JsonProperty("ResourceAttributes")
+  private Map<String, String> resourceAttributes;
+
+  @JsonProperty("BundleId")
+  private String bundleId;
 }

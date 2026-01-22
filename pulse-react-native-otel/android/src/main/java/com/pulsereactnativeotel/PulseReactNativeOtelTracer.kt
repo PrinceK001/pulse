@@ -13,7 +13,7 @@ import io.opentelemetry.context.Scope
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-object PulseReactNativeOtelTracer {
+internal object PulseReactNativeOtelTracer {
 
     private val tracer: Tracer by lazy {
         PulseSDK.INSTANCE.getOtelOrThrow()
@@ -26,18 +26,20 @@ object PulseReactNativeOtelTracer {
     private val idToSpan = ConcurrentHashMap<String, Span>()
     private val idToScope = ConcurrentHashMap<String, Scope>()
 
-    fun startSpan(name: String, attributes: ReadableMap?): String {
+    fun startSpan(name: String, inheritContext: Boolean, attributes: ReadableMap?): String {
         val span = tracer.spanBuilder(name)
             .setSpanKind(SpanKind.INTERNAL)
             .startSpan()
-
-        val scope = span.makeCurrent()
 
         attributes?.applyTo(span)
 
         val id = UUID.randomUUID().toString()
         idToSpan[id] = span
-        idToScope[id] = scope
+
+        if (inheritContext) {
+            val scope = span.makeCurrent()
+            idToScope[id] = scope
+        }
 
         return id
     }
@@ -85,6 +87,17 @@ object PulseReactNativeOtelTracer {
         idToScope.remove(spanId)?.close()
     }
 
+    fun discardSpan(spanId: String) {
+        idToSpan.remove(spanId)?.let { span ->
+            span.setAttribute(
+                AttributeKey.booleanKey("pulse.internal"),
+                true
+            )
+            span.end()
+        }
+        idToScope.remove(spanId)?.close()
+    }
+
     private fun ReadableMap.applyTo(span: Span) {
         entryIterator.forEach { (key, value) ->
             when (value) {
@@ -109,13 +122,16 @@ object PulseReactNativeOtelTracer {
 
         when (array.getType(0)) {
             ReadableType.String -> {
-                span.setAttribute(AttributeKey.stringArrayKey(key), array.toArrayList() as List<String>)
+              @Suppress("UNCHECKED_CAST")
+              span.setAttribute(AttributeKey.stringArrayKey(key), array.toArrayList() as List<String>)
             }
             ReadableType.Number -> {
-                span.setAttribute(AttributeKey.doubleArrayKey(key), array.toArrayList() as List<Double>)
+              @Suppress("UNCHECKED_CAST")
+              span.setAttribute(AttributeKey.doubleArrayKey(key), array.toArrayList() as List<Double>)
             }
             ReadableType.Boolean -> {
-                span.setAttribute(AttributeKey.booleanArrayKey(key), array.toArrayList() as List<Boolean>)
+              @Suppress("UNCHECKED_CAST")
+              span.setAttribute(AttributeKey.booleanArrayKey(key), array.toArrayList() as List<Boolean>)
             }
             else -> {
                 span.setAttribute(AttributeKey.stringKey(key), array.toString())

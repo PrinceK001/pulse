@@ -7,6 +7,8 @@ package io.opentelemetry.android.instrumentation.activity
 
 import android.app.Activity
 import io.mockk.every
+import io.mockk.impl.annotations.RelaxedMockK
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer
@@ -19,9 +21,10 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.RegisterExtension
-import org.mockito.Mockito
 
+@ExtendWith(MockKExtension::class)
 internal class Pre29ActivityLifecycleCallbacksTest {
     private companion object {
         @RegisterExtension
@@ -29,24 +32,34 @@ internal class Pre29ActivityLifecycleCallbacksTest {
     }
 
     private lateinit var tracers: ActivityTracerCache
+    private lateinit var foregroundBackgroundTracker: ForegroundBackgroundTracker
+
+    @RelaxedMockK
     private lateinit var visibleScreenTracker: VisibleScreenTracker
 
     @BeforeEach
     fun setup() {
         val appStartupTimer = AppStartupTimer()
         val tracer = otelTesting.openTelemetry.getTracer("testTracer")
-        visibleScreenTracker = Mockito.mock(VisibleScreenTracker::class.java)
         val extractor = mockk<ScreenNameExtractor>(relaxed = true)
         every { extractor.extract(any<Activity>()) } returns "Activity"
         tracers = ActivityTracerCache(tracer, visibleScreenTracker, appStartupTimer, extractor)
+        every { visibleScreenTracker.previouslyVisibleScreen } returns null
+        val logger =
+            otelTesting.openTelemetry.logsBridge
+                .loggerBuilder("test")
+                .build()
+        foregroundBackgroundTracker = ForegroundBackgroundTracker(logger)
     }
+
+    private fun createPre29ActivityCallbacks(): Pre29ActivityCallbacks = Pre29ActivityCallbacks(tracers, foregroundBackgroundTracker)
 
     @Test
     fun appStartup() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runAppStartupLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -77,11 +90,11 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityCreation() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityCreationLifecycle(activity)
         val spans = otelTesting.spans
         assertEquals(1, spans.size)
@@ -110,18 +123,18 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     private fun startupAppAndClearSpans(testHarness: Pre29ActivityCallbackTestHarness) {
         // make sure that the initial state has been set up & the application is started.
-        testHarness.runAppStartupLifecycle(Mockito.mock(Activity::class.java))
+        testHarness.runAppStartupLifecycle(mockk<Activity>())
         otelTesting.clearSpans()
     }
 
     @Test
     fun activityRestart() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityRestartedLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -150,16 +163,14 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityResumed() {
-        Mockito
-            .`when`<String?>(visibleScreenTracker.previouslyVisibleScreen)
-            .thenReturn("previousScreen")
+        every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
 
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityResumedLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -189,12 +200,12 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityDestroyedFromStopped() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityDestroyedFromStoppedLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -221,12 +232,12 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityDestroyedFromPaused() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityDestroyedFromPausedLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -271,12 +282,12 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityStoppedFromRunning() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityStoppedFromRunningLifecycle(activity)
 
         val spans = otelTesting.spans

@@ -5,20 +5,27 @@ import { IconArrowLeft } from "@tabler/icons-react";
 import { NetworkDetailProps, ApiCallMetrics } from "./NetworkDetail.interface";
 import classes from "./NetworkDetail.module.css";
 import vitalsClasses from "../AppVitals/AppVitals.module.css";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ErrorBreakdown } from "./components/ErrorBreakdown";
 import { NetworkIssuesByProvider } from "./components/NetworkIssuesByProvider/NetworkIssuesByProvider";
+import { StatusCodeDistribution } from "./components/StatusCodeDistribution";
+import { MethodDistribution } from "./components/MethodDistribution";
+import { StatusCodeTimeSeries } from "./components/StatusCodeTimeSeries";
+import { MethodTimeSeries } from "./components/MethodTimeSeries";
 import { decodeNetworkId } from "../NetworkList/utils/networkIdUtils";
 import {
   useGetDataQuery,
   DataQueryRequestBody,
 } from "../../hooks/useGetDataQuery";
-import { CRITICAL_INTERACTION_QUICK_TIME_FILTERS } from "../../constants";
+import { 
+  DEFAULT_QUICK_TIME_FILTER,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
+} from "../../constants";
 import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
+import { SkeletonLoader, MetricsGridSkeleton, ChartSkeleton } from "../../components/Skeletons";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 import {
@@ -27,7 +34,8 @@ import {
   FilterType,
   FILTER_OPTIONS,
 } from "./components/NetworkFilters";
-import { STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
+import { useFilterStore } from "../../stores/useFilterStore";
 
 dayjs.extend(utc);
 
@@ -41,7 +49,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
   // Get screen name from URL query params (if navigating from ScreenDetail)
   const screenNameFromUrl = searchParams.get("screenName");
 
-  // Decode the API ID to get method and url
+  // Decode the API ID to get url
   const decodedApiData = useMemo(() => {
     if (!apiId) return null;
     return decodeNetworkId(apiId);
@@ -61,28 +69,34 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     return [];
   });
 
-  // Initialize default time range (LAST_1_HOUR)
+  // Use filter store for time range state
+  const {
+    startTime: storeStartTime,
+    endTime: storeEndTime,
+    quickTimeRangeString,
+    quickTimeRangeFilterIndex,
+    handleTimeFilterChange: storeHandleTimeFilterChange,
+    initializeFromUrlParams,
+    selectedTimeFilter,
+  } = useFilterStore();
+
+  // Initialize default time range (Last 24 hours)
   const getDefaultTimeRange = () => {
-    return getStartAndEndDateTimeString(
-      CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-      2,
-    );
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
-  const [startTime, setStartTime] = useState<string>(() => {
-    return getDefaultTimeRange().startDate;
-  });
-  const [endTime, setEndTime] = useState<string>(() => {
-    return getDefaultTimeRange().endDate;
-  });
-  const [quickTimeRangeString] = useState<string>(
-    CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-  );
-  const [quickTimeRangeFilterIndex] = useState<number>(3); // Index 3 = LAST_1_HOUR
+  // Initialize filter store from URL params
+  useEffect(() => {
+    initializeFromUrlParams(searchParams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Use store values for time range
+  const startTime = storeStartTime || getDefaultTimeRange().startDate;
+  const endTime = storeEndTime || getDefaultTimeRange().endDate;
 
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
-    setStartTime(value.startDate || "");
-    setEndTime(value.endDate || "");
+    storeHandleTimeFilterChange(value);
   };
 
   const handleAddFilter = (type: FilterType, value: string) => {
@@ -102,12 +116,14 @@ export function NetworkDetail(_props: NetworkDetailProps) {
   const formatToUTC = (time: string): string => {
     if (!time) return "";
     if (time.includes("T") || time.includes("Z")) {
-      return time;
+      return dayjs.utc(time).toISOString();
     }
-    return dayjs.utc(time).toISOString();
+    // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
+    return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
   };
 
   // Build common filters from applied filters
+  // All filters use LIKE operator with wildcards for case-insensitive partial matching
   const buildCommonFilters = useMemo(() => {
     const filterArray: Array<{
       field: string;
@@ -117,45 +133,38 @@ export function NetworkDetail(_props: NetworkDetailProps) {
 
     appliedFilters.forEach((filter) => {
       let field: string;
-      let operator: "LIKE" | "EQ" = "EQ";
 
       switch (filter.type) {
-        case "AppVersionCode":
-          field = "AppVersionCode";
+        case "AppVersion":
+          field = COLUMN_NAME.APP_VERSION;
           break;
         case "DeviceModel":
-          field = "DeviceModel";
+          field = COLUMN_NAME.DEVICE_MODEL;
           break;
         case "Platform":
-          field = "Platform";
+          field = COLUMN_NAME.PLATFORM;
           break;
         case "GeoState":
-          field = "GeoState";
+          field = COLUMN_NAME.STATE;
           break;
         case "OsVersion":
-          field = "OsVersion";
+          field = COLUMN_NAME.OS_VERSION;
           break;
         case "ScreenName":
-          field = `SpanAttributes['${SpanType.SCREEN_NAME}']`;
+          field = `SpanAttributes['${PulseType.SCREEN_NAME}']`;
           break;
         case "InteractionName":
-          // Special case: use custom expression with LIKE
           field = "SpanAttributes['pulse.interaction.active.names']";
-          operator = "LIKE";
-          filterArray.push({
-            field,
-            operator,
-            value: [`%${filter.value}%`],
-          });
-          return; // Skip the default push below
+          break;
         default:
           return; // Skip unknown filter types
       }
 
+      // Use LIKE operator with wildcards for case-insensitive partial matching
       filterArray.push({
         field,
-        operator,
-        value: [filter.value],
+        operator: "LIKE",
+        value: [`%${filter.value}%`],
       });
     });
 
@@ -185,14 +194,9 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       value: string[];
     }> = [
       {
-        field: "SpanType",
+        field: "PulseType",
         operator: "LIKE" as const,
         value: ["%network%"],
-      },
-      {
-        field: "SpanAttributes['http.method']",
-        operator: "EQ" as const,
-        value: [decodedApiData.method],
       },
       {
         field: "SpanAttributes['http.url']",
@@ -211,13 +215,6 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         end: formatToUTC(endTime),
       },
       select: [
-        {
-          function: "CUSTOM" as const,
-          param: {
-            expression: "SpanAttributes['http.method']",
-          },
-          alias: "method",
-        },
         {
           function: "CUSTOM" as const,
           param: {
@@ -260,7 +257,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         },
       ],
       filters,
-      groupBy: ["method", "url"],
+      groupBy: ["url"],
     };
   }, [decodedApiData, startTime, endTime, buildCommonFilters]);
 
@@ -269,18 +266,16 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     enabled: !!decodedApiData && !!startTime && !!endTime,
   });
 
-  // Extract API data and metrics from response
+  // Extract API data from decoded URL
   const apiData = useMemo(() => {
     if (!decodedApiData) {
       return {
         endpoint: "Unknown API",
-        method: "UNKNOWN",
         screenName: undefined,
       };
     }
     return {
       endpoint: decodedApiData.url,
-      method: decodedApiData.method,
       screenName: undefined, // Can be extracted from data if needed
     };
   }, [decodedApiData]);
@@ -334,11 +329,78 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     navigate(-1);
   };
 
-  // Show loading state
+  // Show loading state with skeleton layout
   if (isLoading) {
     return (
       <div className={classes.pageContainer}>
-        <LoaderWithMessage loadingMessage="Loading network details..." />
+        {/* Header skeleton */}
+        <div className={classes.headerContainer}>
+          <SkeletonLoader height={32} width={80} radius="md" />
+          <div className={classes.titleSection}>
+            <SkeletonLoader height={24} width={200} radius="sm" />
+            <SkeletonLoader height={16} width={400} radius="sm" />
+          </div>
+        </div>
+
+        {/* Filters skeleton */}
+        <Box mb="xl" mt="md">
+          <Group gap="md">
+            <SkeletonLoader height={36} width={200} radius="md" />
+            <SkeletonLoader height={36} width={250} radius="md" />
+          </Group>
+        </Box>
+
+        {/* Stats skeleton */}
+        <Box className={vitalsClasses.statsContainer}>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={150} radius="sm" />
+            <MetricsGridSkeleton count={2} />
+          </Box>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={120} radius="sm" />
+            <MetricsGridSkeleton count={2} />
+          </Box>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={130} radius="sm" />
+            <MetricsGridSkeleton count={3} />
+          </Box>
+        </Box>
+
+        {/* Status code & method distribution skeleton */}
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
+          <Box>
+            <SkeletonLoader height={18} width={200} radius="sm" />
+            <SkeletonLoader height={14} width={320} radius="xs" />
+            <ChartSkeleton height={220} />
+          </Box>
+          <Box>
+            <SkeletonLoader height={18} width={200} radius="sm" />
+            <SkeletonLoader height={14} width={280} radius="xs" />
+            <ChartSkeleton height={220} />
+          </Box>
+        </SimpleGrid>
+
+        {/* Time series trends skeleton */}
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
+          <Box>
+            <SkeletonLoader height={18} width={180} radius="sm" />
+            <SkeletonLoader height={14} width={300} radius="xs" />
+            <ChartSkeleton height={280} />
+          </Box>
+          <Box>
+            <SkeletonLoader height={18} width={180} radius="sm" />
+            <SkeletonLoader height={14} width={260} radius="xs" />
+            <ChartSkeleton height={280} />
+          </Box>
+        </SimpleGrid>
+
+        {/* Error breakdown skeleton */}
+        <Box mt="xl">
+          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+            <ChartSkeleton height={280} />
+            <ChartSkeleton height={280} />
+          </SimpleGrid>
+        </Box>
       </div>
     );
   }
@@ -382,7 +444,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         <div className={classes.titleSection}>
           <h1 className={classes.pageTitle}>Network Details</h1>
           <Text size="sm" c="dimmed" className={classes.subtitle}>
-            {apiData.method} {apiData.endpoint}
+            {apiData.endpoint}
           </Text>
         </div>
       </div>
@@ -400,11 +462,11 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           {/* DateTime Filter */}
           <DateTimeRangePicker
             handleTimefilterChange={handleTimeFilterChange}
-            selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex}
-            defaultQuickTimeFilterIndex={3}
-            defaultQuickTimeFilterString={quickTimeRangeString}
-            defaultEndTime={endTime}
-            defaultStartTime={startTime}
+            selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : DEFAULT_QUICK_TIME_FILTER_INDEX}
+            defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
+            defaultQuickTimeFilterString={quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER}
+            defaultEndTime={selectedTimeFilter?.endDate || endTime}
+            defaultStartTime={selectedTimeFilter?.startDate || startTime}
           />
         </Group>
 
@@ -508,27 +570,43 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         </Box>
       </Box>
 
+      {/* Status Code & Method Distribution Section */}
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
+        <StatusCodeDistribution
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={buildCommonFilters}
+        />
+        <MethodDistribution
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={buildCommonFilters}
+        />
+      </SimpleGrid>
+
+      {/* Time Series Trends Section */}
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
+        <StatusCodeTimeSeries
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={buildCommonFilters}
+        />
+        <MethodTimeSeries
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={buildCommonFilters}
+        />
+      </SimpleGrid>
+
       {/* Error Breakdown Section */}
       <Box mt="xl">
-        <Box mb="md">
-          <Text
-            size="sm"
-            fw={600}
-            c="#0ba09a"
-            mb={4}
-            style={{ fontSize: "16px", letterSpacing: "-0.3px" }}
-          >
-            HTTP Error Analysis
-          </Text>
-          <Text size="xs" c="dimmed" style={{ fontSize: "12px" }}>
-            Detailed breakdown of client and server errors by status code
-          </Text>
-        </Box>
-
-        <SimpleGrid className={classes.errorBreakdownGrid} mih={200} cols={{ base: 1, lg: 2 }} spacing="lg">
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
           <ErrorBreakdown
             type="4xx"
-            method={apiData.method}
             url={apiData.endpoint}
             startTime={formatToUTC(startTime)}
             endTime={formatToUTC(endTime)}
@@ -536,7 +614,6 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           />
           <ErrorBreakdown
             type="5xx"
-            method={apiData.method}
             url={apiData.endpoint}
             startTime={formatToUTC(startTime)}
             endTime={formatToUTC(endTime)}
@@ -548,13 +625,12 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       {/* Network Issues Section */}
       <Box mt="xl">
         <NetworkIssuesByProvider
-          method={apiData.method}
           url={apiData.endpoint}
           startTime={formatToUTC(startTime)}
           endTime={formatToUTC(endTime)}
           shouldFetch={true}
           additionalFilters={buildCommonFilters}
-          showHeader={false}
+          showHeader={true}
         />
       </Box>
     </div>

@@ -23,12 +23,13 @@ kotlin {
 
 dependencies {
     implementation(projects.instrumentation.interaction.interactionRemote)
+    implementation(projects.pulseUtils)
     testImplementation(testFixtures(projects.instrumentation.interaction.interactionRemote))
     implementation(libs.okhttp)
     implementation(libs.kotlin.serialisation)
     implementation(libs.kotlin.coroutines)
-    testImplementation(project(":test-common"))
-    testImplementation(project(":session"))
+    testImplementation(projects.testCommon)
+    testImplementation(projects.session)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlin.coroutinesTest)

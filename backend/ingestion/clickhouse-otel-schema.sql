@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
 (
     `Timestamp` DateTime64(9, 'UTC') CODEC(Delta(8), ZSTD(1)),
     `TraceId` String CODEC(ZSTD(1)),
-    `SpanId` FixedString(16) CODEC(ZSTD(1)), 
+    `SpanId` FixedString(16) CODEC(ZSTD(1)),
     `ParentSpanId` FixedString(16) CODEC(ZSTD(1)),
     `TraceState` String CODEC(ZSTD(1)),
     `SpanName` LowCardinality(String) CODEC(ZSTD(1)),
@@ -22,23 +22,24 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `Links.SpanId` Array(String) CODEC(ZSTD(1)),
     `Links.TraceState` Array(String) CODEC(ZSTD(1)),
     `Links.Attributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
-    `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
+    `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''), // DEPRECATED: Use PulseType instead
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
     `SessionId` String MATERIALIZED ifNull(SpanAttributes['session.id'], ''),
-    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_id'], ''),
+    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
     `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
-    `GeoState` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['geo.region.iso_code'], ''),
-    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['geo.country.iso_code'], ''),
+    `GeoState` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.region.iso_code'], ''),
+    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
-    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['network.carrier.name'], ''),
+    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
     `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''), 
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_user_id UserId TYPE bloom_filter(0.001) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (ServiceName, SpanType, SpanName, Timestamp)
+ORDER BY (ServiceName, PulseType, SpanName, Timestamp)
 SETTINGS index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.otel_logs
@@ -59,21 +60,22 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `SessionId` String MATERIALIZED ifNull(LogAttributes['session.id'], ''),
-    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_id'], ''),
+    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
     `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
-    `GeoState` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['geo.region.iso_code'], ''),
-    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['geo.country.iso_code'], ''),
+    `GeoState` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.region.iso_code'], ''),
+    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
-    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['network.carrier.name'], ''),
+    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['network.carrier.name'], ''),
     `UserId` String MATERIALIZED ifNull(LogAttributes['user.id'], ''),
-    `EventName` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], ''), // TBD
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
+    `EventName` LowCardinality(String) CODEC(ZSTD(1)),
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (ServiceName, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
+ORDER BY (ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
@@ -95,14 +97,14 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
     `Value` Float64 CODEC(ZSTD(1)),
     `Flags` UInt32 CODEC(ZSTD(1)),
     `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
-    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_id'], ''),
+    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
     `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
-    `GeoState` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['geo.region.iso_code'], ''),
-    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['geo.country.iso_code'], ''),
+    `GeoState` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.region.iso_code'], ''),
+    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
-    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['network.carrier.name'], ''),
+    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(Attributes['network.carrier.name'], ''),
     `UserId` String MATERIALIZED ifNull(Attributes['user.id'], ''),
     `Exemplars.FilteredAttributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
     `Exemplars.TimeUnix` Array(DateTime64(9)) CODEC(ZSTD(1)),
@@ -141,6 +143,7 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `AppVersionCode`        LowCardinality(String),
     `AppVersion`            LowCardinality(String),
     `SdkVersion`            LowCardinality(String),
+    `BundleId`              String,
 
     -- Tracing (stored as hex strings; ensure lower-case at ingest)
     `TraceId`               String,
@@ -149,7 +152,12 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     -- Grouping keys
     `GroupId`               String,
     `Signature`             String,
-    `Fingerprint`           String
+    `Fingerprint`           String,
+
+    `ScopeAttributes`       Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `LogAttributes`         Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel')
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
