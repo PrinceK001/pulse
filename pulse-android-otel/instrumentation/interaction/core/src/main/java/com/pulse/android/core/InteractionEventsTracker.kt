@@ -197,12 +197,18 @@ public sealed class InteractionRunningStatus {
     }
 }
 
+private inline val List<InteractionRunningStatus>.runningInteractions: List<InteractionRunningStatus.OngoingMatch>
+    get() =
+        this
+            .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+            .filter { it.interaction == null }
+
 // todo can be inlined but AnimalSniffer task failing
 //  May be related to https://github.com/mojohaus/animal-sniffer/issues/311
 public val List<InteractionRunningStatus>.runningIds: List<String>
     get() =
         this
-            .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+            .runningInteractions
             .map { it.interactionId }
 
 // todo can be inlined but AnimalSniffer task failing
@@ -210,5 +216,5 @@ public val List<InteractionRunningStatus>.runningIds: List<String>
 public val List<InteractionRunningStatus>.runningNames: List<String>
     get() =
         this
-            .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+            .runningInteractions
             .map { it.interactionConfig.name }
