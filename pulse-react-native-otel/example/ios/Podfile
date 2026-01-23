@@ -10,7 +10,7 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 # TODO-ios: Remove this once we have a proper PulseSDK podspec
-PULSE_SDK_PATH = '/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk'
+PULSE_SDK_PATH = '<project-path>/pulse-ios-sdk'
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil

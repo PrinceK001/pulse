@@ -105,6 +105,18 @@ RCT_EXPORT_MODULE()
 - (void)triggerAnr {
 }
 
+- (NSDictionary * _Nullable)getAllFeatures {
+  // TODO: Implement actual feature flag retrieval from SDK config
+  return @{
+    @"rn_screen_load": @YES,
+    @"screen_session": @YES,
+    @"rn_screen_interactive": @YES,
+    @"network_instrumentation": @YES,
+    @"custom_events": @YES,
+    @"js_crash": @YES
+  };
+}
+
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {
