@@ -46,7 +46,7 @@ PODS:
     - Pulse-Swift-SdkResourceExtension (= 0.0.1)
     - Pulse-Swift-Sessions (= 0.0.1)
     - Pulse-Swift-SignPostIntegration (= 0.0.1)
-  - PulseReactNativeOtel (0.0.1):
+  - PulseReactNativeOtel (0.0.2):
     - boost
     - DoubleConversion
     - fast_float
@@ -2407,7 +2407,7 @@ PODS:
     - React-perflogger (= 0.81.1)
     - React-utils (= 0.81.1)
     - SocketRocket
-  - RNGestureHandler (2.29.1):
+  - RNGestureHandler (2.30.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2435,7 +2435,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNScreens (4.18.0):
+  - RNScreens (4.19.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2462,10 +2462,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNScreens/common (= 4.18.0)
+    - RNScreens/common (= 4.19.0)
     - SocketRocket
     - Yoga
-  - RNScreens/common (4.18.0):
+  - RNScreens/common (4.19.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2783,7 +2783,7 @@ SPEC CHECKSUMS:
   Pulse-Swift-Sessions: 9e73325dd15a33acb66cbd33a7f8e3832f9521de
   Pulse-Swift-SignPostIntegration: 8f8f602b0bf1c9b90f006c27c8773005210c4347
   PulseKit: 6adb820053705fe665cfb921a077059246998e18
-  PulseReactNativeOtel: 6a6847f533b222607b188d8f9780cf0a107c9faf
+  PulseReactNativeOtel: f1020951f91657fca33d9405e19c8449bd03f1ac
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: c4b9e2fd0ab200e3af72b013ed6113187c607077
   RCTRequired: e97dd5dafc1db8094e63bc5031e0371f092ae92a
@@ -2848,8 +2848,8 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 3eb9096cb139eb433965693bbe541d96eb3d3ec9
   ReactCodegen: df3910a269f7ac2f6e8d4dd2ced3ff6b30d0d647
   ReactCommon: ce5d4226dfaf9d5dacbef57b4528819e39d3a120
-  RNGestureHandler: 29bbca60c881e5243e219e3fe0016060002ed389
-  RNScreens: d821082c6dd1cb397cc0c98b026eeafaa68be479
+  RNGestureHandler: e37bdb684df1ac17c7e1d8f71a3311b2793c186b
+  RNScreens: ffbb0296608eb3560de641a711bbdb663ed1f6b4
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SwiftProtobuf: e1b437c8e31a4c5577b643249a0bb62ed4f02153
   Yoga: 11c9686a21e2cd82a094a723649d9f4507200fb0

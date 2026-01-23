@@ -88,10 +88,6 @@ RCT_EXPORT_MODULE()
   return @NO;
 }
 
-- (nonnull NSNumber *)reportException:(nonnull NSString *)errorMessage observedTimeMs:(double)observedTimeMs stackTrace:(nonnull NSString *)stackTrace isFatal:(BOOL)isFatal errorType:(nonnull NSString *)errorType attributes:(nonnull NSDictionary *)attributes { 
-  return @NO;
-}
-
 - (void)setUserId:(NSString * _Nullable)id { 
   [PulseSDK setUserId:id];
 }
