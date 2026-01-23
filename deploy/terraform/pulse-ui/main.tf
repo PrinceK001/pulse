@@ -109,8 +109,14 @@ resource "aws_lb_target_group" "pulse_ui" {
 
 resource "aws_lb_listener" "pulse_ui" {
   load_balancer_arn = aws_lb.pulse_ui.arn
-  port              = "80"
-  protocol          = "HTTP"
+  port              = "443"
+  protocol          = "HTTPS"
+
+  # The SSL Policy (TLS 1.2 or 1.3 is recommended)
+  ssl_policy        = var.ssl_policy
+
+  # Replace this with the ARN of your ACM certificate
+  certificate_arn   = var.acm_cert
 
   default_action {
     type             = "forward"

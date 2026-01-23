@@ -90,3 +90,13 @@ variable "app_env" {
   default = []
 }
 
+variable "acm_cert" {
+    description = "acm of the ssl certificate"
+    type        = string
+}
+
+variable "ssl_policy" {
+    description = "ssl policy to be used"
+    type        = string
+}
+
