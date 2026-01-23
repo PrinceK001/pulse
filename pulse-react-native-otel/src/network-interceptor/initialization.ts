@@ -1,11 +1,32 @@
 import createXmlHttpRequestTracker from './request-tracker-xhr';
+import type { NetworkHeaderConfig } from '../config';
+// Re-export header utilities for convenience (they're in a separate file to avoid dependency issues)
+export { normalizeHeaderName, shouldCaptureHeader } from './header-helper';
 
 let isInitialized = false;
+let headerConfig: NetworkHeaderConfig = {
+  requestHeaders: [],
+  responseHeaders: [],
+};
 
-export function initializeNetworkInterceptor(): void {
+export function getHeaderConfig(): NetworkHeaderConfig {
+  return headerConfig;
+}
+
+export function initializeNetworkInterceptor(
+  config?: NetworkHeaderConfig
+): void {
   if (isInitialized) {
     console.warn('[Pulse] Network interceptor already initialized');
     return;
+  }
+
+  // Store header configuration
+  if (config) {
+    headerConfig = {
+      requestHeaders: config.requestHeaders ?? [],
+      responseHeaders: config.responseHeaders ?? [],
+    };
   }
 
   console.log('[Pulse] 🔄 Starting network interceptor initialization...');
