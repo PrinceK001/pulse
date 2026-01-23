@@ -9,10 +9,11 @@ echo "Starting user-data script at $(date)"
 echo "Cloning pulse repository to /opt/bin..."
 mkdir -p /opt/bin
 cd /opt/bin
-#if [ -d "pulse" ]; then
-#    rm -rf pulse
-#fi
-#git clone https://github.com/dream-horizon-org/pulse.git
+
+if [ -d "pulse" ]; then
+    rm -rf pulse
+fi
+git clone https://github.com/dream-horizon-org/pulse.git
 
 #!/usr/bin/env bash
 echo "### Running build for dashboard...."
@@ -48,23 +49,6 @@ echo "### Using npm:  $(npm -v)"
 
 sudo apt update && sudo apt install rsync -y
 
-mkdir -p pulse/target/pulse-ui
-
-rsync -av \
-  --exclude='target' \
-  --exclude='target/*.zip' \
-  --exclude='build' \
-  --exclude='node_modules' \
-  --exclude='target' \
-  --exclude='target/*.zip' \
-  --exclude='.cache' \
-  --exclude='.git' \
-  --exclude='.husky' \
-  --exclude='.vscode' \
-  --exclude='.eslintcache' \
-  --exclude='.yarn' \
-  ./pulse/pulse-ui/ ./pulse/target/pulse-ui | grep "total"
-
 cd pulse/pulse-ui || exit
 echo "### Installing yarn..."
 npm install -g yarn
@@ -83,10 +67,13 @@ yarn --version
 ENV_FILE=".env"
 ENV="prod"
 
-## Remove existing Pulse environment variables to avoid duplicates
-#%{ for env_var in env_vars ~}
-#sed -i '/^${env_var.key}=/d' "$ENV_FILE" 2>/dev/null || true
-#%{ endfor ~}
+touch "$ENV_FILE"
+# Use a temporary file or a single sed command for efficiency
+%{ for env_var in env_vars ~}
+# We use | as a delimiter in case the key contains slashes
+# We use \Q \E or escape dots if necessary, but usually, anchors suffice
+sed -i '\|^${env_var.key}=|d' "$ENV_FILE" 2>/dev/null || true
+%{ endfor ~}
 
 
 export DEPLOYMENT=production
@@ -97,8 +84,6 @@ node --version
 export NODE_OPTIONS=--max_old_space_size=4096
 yarn install
 NODE_ENV=production PORT=3000 yarn build
-
-cd ../target/pulse-ui
 
 echo "staring pulse dashboard........................"
 pm2 start "pm2/pm2-$ENV.json" -i 1
