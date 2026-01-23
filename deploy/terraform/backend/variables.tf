@@ -61,6 +61,12 @@ variable "route53_zone_id" {
   type        = string
 }
 
+
+variable "route53_zone_id_secure" {
+  description = "Route53 hosted zone ID secure"
+  type        = string
+}
+
 variable "route53_record_name" {
   description = "DNS record name"
   type        = string
@@ -87,5 +93,15 @@ variable "app_env" {
     value = string
   }))
   default = []
+}
+
+variable "acm_cert" {
+    description = "acm of the ssl certificate"
+    type        = string
+}
+
+variable "ssl_policy" {
+    description = "ssl policy to be used"
+    type        = string
 }
 

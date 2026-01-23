@@ -118,6 +118,23 @@ resource "aws_lb_listener" "pulse_backend" {
   }
 }
 
+resource "aws_lb_listener" "pulse_backend_https" {
+  load_balancer_arn = aws_lb.pulse_backend.arn
+  port              = "443"
+  protocol          = "HTTPS"
+
+  # The SSL Policy (TLS 1.2 or 1.3 is recommended)
+  ssl_policy        = var.ssl_policy
+
+  # Replace this with the ARN of your ACM certificate
+  certificate_arn   = var.acm_cert
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.pulse_backend.arn
+  }
+}
+
 
 # -------------------------------------------------------------------
 # Autoscaling Group
@@ -165,6 +182,18 @@ resource "aws_route53_record" "pulse_backend" {
   zone_id = var.route53_zone_id
   name    = var.route53_record_name
   type    = "A" 
+
+  alias {
+    name                   = aws_lb.pulse_backend.dns_name
+    zone_id                = aws_lb.pulse_backend.zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "pulse_backend_secure" {
+  zone_id = var.route53_zone_id_secure
+  name    = var.route53_record_name
+  type    = "A"
 
   alias {
     name                   = aws_lb.pulse_backend.dns_name
