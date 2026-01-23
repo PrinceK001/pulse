@@ -31,11 +31,22 @@ If you're only making changes to the React Native/JavaScript layer, follow these
 
 ## Working with Local Pulse iOS SDK
 
-If you need to make changes to the Pulse iOS SDK itself (located in [pulse-ios-sdk](https://github.com/dream-horizon-org/pulse-ios-sdk/)), you'll need to point the Podfile to your local SDK path.
+If you need to make changes to the Pulse iOS SDK itself (located in [pulse-ios-sdk](https://github.com/dream-horizon-org/pulse-ios-sdk/)), you'll need to clone the repository and point the Podfile to your local SDK path.
 
 ### Steps
 
-1. **Update the Podfile:**
+1. **Clone the Pulse iOS SDK repository:**
+   
+   ```bash
+   git clone https://github.com/dream-horizon-org/pulse-ios-sdk.git
+   cd pulse-ios-sdk
+   # Optionally checkout a specific branch or tag
+   # git checkout <branch-name>
+   ```
+   
+   Note the absolute path where you cloned the repository (e.g., `/Users/yourname/pulse-ios-sdk`).
+
+2. **Update the Podfile:**
    
    Edit `pulse-react-native-otel/example/ios/Podfile` and update the `PULSE_SDK_PATH` variable:
 
@@ -58,13 +69,13 @@ If you need to make changes to the Pulse iOS SDK itself (located in [pulse-ios-s
 
    Replace `<absolute-path-to>` with the actual absolute path to your local `pulse-ios-sdk` repository.
 
-2. **Reinstall pods:**
+3. **Reinstall pods:**
    ```bash
    cd example/ios
    pod install
    ```
 
-3. **Run the app:**
+4. **Run the app:**
    ```bash
    # Debug build
    yarn ios
