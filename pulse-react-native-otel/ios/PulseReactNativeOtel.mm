@@ -31,8 +31,8 @@ RCT_EXPORT_MODULE()
 }
 
 - (NSString *)startSpan:(NSString *)name
+             inheritContext:(NSNumber *)inheritContext
              attributes:(NSDictionary *)attributes
-         inheritContext:(NSNumber *)inheritContext
 {
   return [PulseReactNativeOtelTracer startSpan:name attributes:attributes];
 }
@@ -105,16 +105,14 @@ RCT_EXPORT_MODULE()
 - (void)triggerAnr {
 }
 
+- (NSNumber *)setCurrentScreenName:(NSString *)screenName {
+  [ReactNativeScreenNameTracker setCurrentScreenName:screenName];
+  return @YES;
+}
+
 - (NSDictionary * _Nullable)getAllFeatures {
   // TODO: Implement actual feature flag retrieval from SDK config
-  return @{
-    @"rn_screen_load": @YES,
-    @"screen_session": @YES,
-    @"rn_screen_interactive": @YES,
-    @"network_instrumentation": @YES,
-    @"custom_events": @YES,
-    @"js_crash": @YES
-  };
+  return nil;
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

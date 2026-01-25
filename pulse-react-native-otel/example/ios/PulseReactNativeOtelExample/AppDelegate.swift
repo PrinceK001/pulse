@@ -29,10 +29,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       "global.bool": PulseAttributeValue.bool(true),
     ]
     
+    // Example: Initialize with instrumentations configuration
+    // You can configure URLSession, Sessions, SignPost, and Interaction instrumentations
     PulseSDK.initialize(
       endpointBaseUrl: "http://127.0.0.1:4318",
       endpointHeaders: nil,
-      globalAttributes: globalAttributes
+      globalAttributes: globalAttributes,
+      instrumentations: { config in
+        // Configure URLSession instrumentation
+        config.urlSession { urlSessionConfig in
+          // urlSessionConfig can be configured here
+          urlSessionConfig.enabled(true)
+        }
+        // Configure Sessions instrumentation
+        config.sessions { sessionsConfig in
+          // sessionsConfig can be configured here
+        }
+        // Configure Interaction instrumentation
+        config.interaction { interactionConfig in
+          interactionConfig.enabled(true)
+        }
+      }
     )
 
     window = UIWindow(frame: UIScreen.main.bounds)
@@ -42,6 +59,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       in: window,
       launchOptions: launchOptions
     )
+    
+    // Test: Track an event after 10 seconds to verify screen name is attached
+    DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
+      let currentTimeMs = Date().timeIntervalSince1970 * 1000
+      PulseSDK.trackEvent(
+        name: "test_event_from_app_delegate",
+        observedTimeStampInMs: currentTimeMs,
+        params: [
+          "test_param": PulseAttributeValue.string("test_value"),
+          "source": PulseAttributeValue.string("app_delegate")
+        ]
+      )
+      
+      let span = PulseSDK.startSpan(
+        name: "test_span_from_app_delegate",
+        params: [
+          "span_param": PulseAttributeValue.string("span_value")
+        ]
+      )
+      span.end()
+    }
 
     return true
   }
