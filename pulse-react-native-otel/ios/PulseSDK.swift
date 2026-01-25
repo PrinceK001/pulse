@@ -11,6 +11,7 @@ public class PulseSDK: NSObject {
         endpointBaseUrl: String,
         endpointHeaders: [String: String]?,
         globalAttributes: [String: PulseAttributeValue]?,
+        resource: ((inout [String: AttributeValue]) -> Void)? = nil,
         instrumentations: ((inout InstrumentationConfiguration) -> Void)? = nil,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = nil,
         loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil
@@ -50,10 +51,16 @@ public class PulseSDK: NSObject {
                 rnLoggerProviderCustomizer
             }
         
+        let rnResource: ((inout [String: AttributeValue]) -> Void) = { attributes in
+            attributes[ResourceAttributes.telemetrySdkName.rawValue] = AttributeValue.string(PulseAttributes.PulseSdkNames.iosRn)
+            resource?(&attributes)
+        }
+        
         PulseKit.shared.initialize(
             endpointBaseUrl: endpointBaseUrl,
             endpointHeaders: endpointHeaders,
             globalAttributes: convertedAttributes,
+            resource: rnResource,
             instrumentations: instrumentations,
             tracerProviderCustomizer: mergedTracerProviderCustomizer,
             loggerProviderCustomizer: mergedLoggerProviderCustomizer
@@ -70,6 +77,7 @@ public class PulseSDK: NSObject {
             endpointBaseUrl: endpointBaseUrl,
             endpointHeaders: endpointHeaders,
             globalAttributes: globalAttributes,
+            resource: nil,
             instrumentations: nil,
             tracerProviderCustomizer: nil,
             loggerProviderCustomizer: nil
@@ -82,6 +90,7 @@ public class PulseSDK: NSObject {
             endpointBaseUrl: endpointBaseUrl,
             endpointHeaders: nil,
             globalAttributes: nil,
+            resource: nil,
             instrumentations: nil,
             tracerProviderCustomizer: nil,
             loggerProviderCustomizer: nil
