@@ -5,10 +5,14 @@ import {
   SpanDetailsResponse,
   LogDetailsResponse,
   ExceptionDetailsResponse,
+  ExceptionStackTraceNode,
+  PlatformType,
+  ExceptionEventName,
 } from "./useGetSpanDetails.interface";
 import { makeRequest } from "../../helpers/makeRequest";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import type { AttributeValue } from "../../types/attributes";
 
 dayjs.extend(utc);
 
@@ -100,7 +104,8 @@ const fetchSpanDetails = async (
     },
   });
 
-  if (!response?.data?.rows?.[0]) {
+  const rows = response?.data?.rows ?? [];
+  if (!rows[0]) {
     return {
       resourceAttributes: {},
       spanAttributes: {},
@@ -109,8 +114,16 @@ const fetchSpanDetails = async (
     };
   }
 
-  const row = response.data.rows[0];
-  const fields = response.data.fields;
+  const row = rows[0];
+  const fields = response?.data?.fields ?? [];
+  if (fields.length === 0) {
+    return {
+      resourceAttributes: {},
+      spanAttributes: {},
+      events: [],
+      links: [],
+    };
+  }
   const getField = (name: string) => {
     const index = fields.findIndex((f: string) => f.toLowerCase() === name.toLowerCase());
     return index >= 0 ? row[index] : null;
@@ -223,7 +236,8 @@ const fetchLogDetails = async (
     },
   });
 
-  if (!response?.data?.rows?.[0]) {
+  const rows = response?.data?.rows ?? [];
+  if (!rows[0]) {
     return {
       resourceAttributes: {},
       logAttributes: {},
@@ -234,8 +248,18 @@ const fetchLogDetails = async (
     };
   }
 
-  const row = response.data.rows[0];
-  const fields = response.data.fields;
+  const row = rows[0];
+  const fields = response?.data?.fields ?? [];
+  if (fields.length === 0) {
+    return {
+      resourceAttributes: {},
+      logAttributes: {},
+      scopeAttributes: {},
+      body: "",
+      severityText: "",
+      severityNumber: 0,
+    };
+  }
   const getField = (name: string) => {
     const index = fields.findIndex((f: string) => f.toLowerCase() === name.toLowerCase());
     return index >= 0 ? row[index] : null;
@@ -258,7 +282,7 @@ const fetchExceptionDetails = async (
   traceId: string,
   timestamp: string,
   groupId?: string
-): Promise<ExceptionDetailsResponse> => {
+): Promise<ExceptionDetailsResponse | null> => {
   const ts = dayjs.utc(timestamp);
   // Use a wider time range for exceptions
   const startTime = ts.subtract(1, "minute").toISOString();
@@ -332,53 +356,84 @@ const fetchExceptionDetails = async (
     },
   });
 
-  if (!response?.data?.rows?.[0]) {
-    return {
-      resourceAttributes: {},
-      logAttributes: {},
-      scopeAttributes: {},
-      exceptionStackTrace: "",
-      exceptionStackTraceRaw: "",
-      exceptionMessage: "",
-      exceptionType: "",
-      title: "",
-      eventName: "",
-      screenName: "",
-      interactions: [],
-      userId: "",
-      platform: "",
-      osVersion: "",
-      deviceModel: "",
-      appVersion: "",
-      appVersionCode: "",
-      sdkVersion: "",
-      bundleId: "",
-      groupId: "",
-      signature: "",
-      fingerprint: "",
-    };
+  const rows = response?.data?.rows ?? [];
+  if (!rows[0]) {
+    return null;
   }
 
-  const row = response.data.rows[0];
-  const fields = response.data.fields;
+  const row = rows[0];
+  const fields = response?.data?.fields ?? [];
+  if (fields.length === 0) {
+    return null;
+  }
   const getField = (name: string) => {
     const index = fields.findIndex((f: string) => f.toLowerCase() === name.toLowerCase());
     return index >= 0 ? row[index] : null;
   };
 
   // Parse interactions array
-  let interactions: string[] = [];
+  let interactionIds: string[] = [];
   const interactionsRaw = getField("interactions");
   if (Array.isArray(interactionsRaw)) {
-    interactions = interactionsRaw.map(String);
+    interactionIds = interactionsRaw.map(String);
   } else if (typeof interactionsRaw === "string") {
     try {
       const parsed = JSON.parse(interactionsRaw);
       if (Array.isArray(parsed)) {
-        interactions = parsed.map(String);
+        interactionIds = parsed.map(String);
       }
-    } catch {
-      // Not valid JSON
+    } catch (error) {
+      console.warn("[useGetSpanDetails] Failed to parse interactions", {
+        interactionsRaw,
+        error,
+      });
+    }
+  }
+
+  const getNullableString = (name: string) => {
+    const value = getField(name);
+    if (value === null || value === undefined || value === "") return null;
+    return String(value);
+  };
+
+  const stringFieldNames = [
+    "exceptionMessage",
+    "exceptionType",
+    "title",
+    "eventName",
+    "screenName",
+    "userId",
+    "platform",
+    "osVersion",
+    "deviceModel",
+    "appVersion",
+    "appVersionCode",
+    "sdkVersion",
+    "bundleId",
+    "groupId",
+    "signature",
+    "fingerprint",
+  ] as const;
+
+  const stringFields = Object.fromEntries(
+    stringFieldNames.map((name) => [name, getNullableString(name)])
+  ) as Record<(typeof stringFieldNames)[number], string | null>;
+
+  const exceptionStackTrace = getNullableString("exceptionStackTrace");
+  const exceptionStackTraceRaw = getNullableString("exceptionStackTraceRaw");
+
+  let structuredStackTrace: ExceptionStackTraceNode[] | null = null;
+  if (exceptionStackTraceRaw) {
+    try {
+      const parsed = JSON.parse(exceptionStackTraceRaw);
+      if (Array.isArray(parsed)) {
+        structuredStackTrace = parsed as ExceptionStackTraceNode[];
+      }
+    } catch (error) {
+      console.warn("[useGetSpanDetails] Failed to parse exception stack trace", {
+        exceptionStackTraceRaw,
+        error,
+      });
     }
   }
 
@@ -386,45 +441,46 @@ const fetchExceptionDetails = async (
     resourceAttributes: parseJsonMap(getField("resourceAttributes")),
     logAttributes: parseJsonMap(getField("logAttributes")),
     scopeAttributes: parseJsonMap(getField("scopeAttributes")),
-    exceptionStackTrace: String(getField("exceptionStackTrace") || ""),
-    exceptionStackTraceRaw: String(getField("exceptionStackTraceRaw") || ""),
-    exceptionMessage: String(getField("exceptionMessage") || ""),
-    exceptionType: String(getField("exceptionType") || ""),
-    title: String(getField("title") || ""),
-    eventName: String(getField("eventName") || ""),
-    screenName: String(getField("screenName") || ""),
-    interactions,
-    userId: String(getField("userId") || ""),
-    platform: String(getField("platform") || ""),
-    osVersion: String(getField("osVersion") || ""),
-    deviceModel: String(getField("deviceModel") || ""),
-    appVersion: String(getField("appVersion") || ""),
-    appVersionCode: String(getField("appVersionCode") || ""),
-    sdkVersion: String(getField("sdkVersion") || ""),
-    bundleId: String(getField("bundleId") || ""),
-    groupId: String(getField("groupId") || ""),
-    signature: String(getField("signature") || ""),
-    fingerprint: String(getField("fingerprint") || ""),
+    exceptionStackTrace: structuredStackTrace ?? exceptionStackTrace,
+    exceptionStackTraceRaw,
+    exceptionMessage: stringFields.exceptionMessage,
+    exceptionType: stringFields.exceptionType,
+    title: stringFields.title,
+    eventName: stringFields.eventName as ExceptionEventName | null,
+    screenName: stringFields.screenName,
+    interactionIds,
+    interactions: interactionIds,
+    userId: stringFields.userId,
+    platform: (stringFields.platform as PlatformType | null) ?? null,
+    osVersion: stringFields.osVersion,
+    deviceModel: stringFields.deviceModel,
+    appVersion: stringFields.appVersion,
+    appVersionCode: stringFields.appVersionCode,
+    sdkVersion: stringFields.sdkVersion,
+    bundleId: stringFields.bundleId,
+    groupId: stringFields.groupId,
+    signature: stringFields.signature,
+    fingerprint: stringFields.fingerprint,
   };
 };
 
 /**
  * Parse JSON string to map object
  */
-function parseJsonMap(value: unknown): Record<string, string> {
+function parseJsonMap(value: unknown): Record<string, AttributeValue> {
   if (!value) return {};
   
   // If it's already an object
   if (typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, string>;
+    return value as Record<string, AttributeValue>;
   }
   
-  // If it's a JSON string
+  // If it's a JSON string, parse safely (no eval).
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
       if (typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as Record<string, string>;
+        return parsed as Record<string, AttributeValue>;
       }
     } catch {
       // Not valid JSON, return empty
@@ -445,13 +501,18 @@ export const useGetSpanDetails = ({
   return useQuery({
     queryKey: ["spanDetails", dataType, traceId, spanId, timestamp, groupId],
     queryFn: async () => {
-      if (dataType === "EXCEPTIONS") {
-        return fetchExceptionDetails(traceId, timestamp, groupId);
+      switch (dataType) {
+        case "EXCEPTIONS":
+          return fetchExceptionDetails(traceId, timestamp, groupId);
+        case "LOGS":
+          return fetchLogDetails(traceId, spanId, timestamp);
+        case "TRACES":
+          return fetchSpanDetails(traceId, spanId, timestamp);
+        default: {
+          const unreachable: never = dataType;
+          throw new Error(`Unhandled dataType: ${unreachable}`);
+        }
       }
-      if (dataType === "LOGS") {
-        return fetchLogDetails(traceId, spanId, timestamp);
-      }
-      return fetchSpanDetails(traceId, spanId, timestamp);
     },
     refetchOnWindowFocus: false,
     // For logs/exceptions, we only need traceId or groupId; for spans, we need both traceId and spanId

@@ -2,6 +2,8 @@
  * Type definitions for the Session Timeline flame chart data structures
  */
 
+import type { AttributeValue } from "../../../types/attributes";
+
 /**
  * Raw item in the flame chart before tree building
  */
@@ -15,7 +17,7 @@ export interface FlameChartItem {
   traceId: string;
   spanId: string;
   parentSpanId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
 }
 
 /**
@@ -32,7 +34,7 @@ export interface FlameChartNode {
   spanId: string;
   parentSpanId?: string;
   children: FlameChartNode[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
 }
 
 /**
@@ -55,7 +57,7 @@ export interface ExtendedFlameChartData extends FlameChartData {
   traceId?: string;
   spanId?: string;
   parentSpanId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
 }
 
 /**

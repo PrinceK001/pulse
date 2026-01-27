@@ -6,13 +6,26 @@
  */
 
 import { Box, Text } from "@mantine/core";
+import type { AttributeValue } from "../../../../../types/attributes";
 import classes from "../DetailsSidebar.module.css";
 
 interface AttributeListProps {
   /** The attributes to display as key-value pairs */
-  attributes: Record<string, string>;
+  attributes: Record<string, AttributeValue>;
   /** Message to show when there are no attributes */
   emptyMessage?: string;
+}
+
+function formatAttributeValue(value: AttributeValue): string {
+  if (value === null || value === undefined) return "—";
+  if (Array.isArray(value) || typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
 }
 
 export function AttributeList({
@@ -30,7 +43,7 @@ export function AttributeList({
       {entries.map(([key, value]) => (
         <Box key={key} className={classes.attributeItem}>
           <Text className={classes.attributeKey}>{key}</Text>
-          <Text className={classes.attributeValue}>{String(value)}</Text>
+          <Text className={classes.attributeValue}>{formatAttributeValue(value)}</Text>
         </Box>
       ))}
     </Box>

@@ -167,19 +167,6 @@
   }
 }
 
-.orphanBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 500;
-  color: #616161;
-  background: #eeeeee;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
 .timeAxis {
   position: absolute;
   top: 0;

@@ -82,7 +82,6 @@ export function SessionTimeline() {
     flameChartData,
     sessionDuration,
     sessionStartTime,
-    orphanItems,
     totalDepth,
   } = useMemo(() => {
     if (!sessionData?.traces && !sessionData?.logs && !sessionData?.exceptions) {
@@ -90,7 +89,6 @@ export function SessionTimeline() {
         flameChartData: [],
         sessionDuration: 0,
         sessionStartTime: Date.now(),
-        orphanItems: [],
         itemsMap: new Map(),
         totalDepth: 0,
       };
@@ -104,7 +102,6 @@ export function SessionTimeline() {
     const totalSpans = sessionData?.traces?.rows?.length || 0;
     const totalLogs = sessionData?.logs?.rows?.length || 0;
     const totalExceptions = sessionData?.exceptions?.rows?.length || 0;
-    const orphanCount = orphanItems.length;
 
     // Get service name from first trace if available
     let serviceName = "";
@@ -123,12 +120,11 @@ export function SessionTimeline() {
       totalLogs,
       totalExceptions,
       totalItems: totalSpans + totalLogs + totalExceptions,
-      orphanCount,
       duration: sessionDuration,
       startTime: sessionStartTime,
       serviceName,
     };
-  }, [sessionData, sessionDuration, sessionStartTime, orphanItems]);
+  }, [sessionData, sessionDuration, sessionStartTime]);
 
   // Handle item click - open details sidebar
   const handleItemClick = (item: FlameChartNode) => {
@@ -263,12 +259,6 @@ export function SessionTimeline() {
             <Text className={classes.statValue}>{formatDuration(sessionSummary.duration)}</Text>
             <Text className={classes.statLabel}>Duration</Text>
           </Box>
-          {sessionSummary.orphanCount > 0 && (
-            <Box className={classes.statCardWarning}>
-              <Text className={classes.statValue}>{sessionSummary.orphanCount}</Text>
-              <Text className={classes.statLabel}>Orphan Items</Text>
-            </Box>
-          )}
           <Box className={classes.statCard}>
             <Text className={classes.statValue}>
               <IconClock size={14} style={{ marginRight: 4 }} />

@@ -81,7 +81,7 @@ function extractPulseTypes(nodes: FlameChartNode[]): Set<string> {
     for (const node of nodeList) {
       // Get pulseType directly from metadata
       const pulseType = node.metadata?.pulseType;
-      if (pulseType) {
+      if (typeof pulseType === "string" && pulseType.length > 0) {
         types.add(pulseType);
       }
       traverse(node.children);

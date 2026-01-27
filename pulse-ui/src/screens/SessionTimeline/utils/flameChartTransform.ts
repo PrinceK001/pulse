@@ -8,6 +8,7 @@
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import type { AttributeValue } from "../../../types/attributes";
 
 dayjs.extend(utc);
 
@@ -24,7 +25,7 @@ export interface FlameChartItem {
   traceId: string;
   spanId: string;
   parentSpanId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
 }
 
 export interface FlameChartNode {
@@ -38,7 +39,7 @@ export interface FlameChartNode {
   spanId: string;
   parentSpanId?: string;
   children: FlameChartNode[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
 }
 
 export interface FlameChartData {
@@ -354,8 +355,8 @@ export function transformToFlameChart(
       const ts = dayjs.utc(parsed.timestamp);
 
       // Parse JSON attributes
-      let logAttributes: Record<string, any> = {};
-      let resourceAttributes: Record<string, any> = {};
+      let logAttributes: Record<string, AttributeValue> = {};
+      let resourceAttributes: Record<string, AttributeValue> = {};
       try {
         logAttributes = JSON.parse(parsed.logAttributesJson || "{}");
       } catch {
@@ -516,7 +517,6 @@ export function transformToFlameChart(
         } else {
           // Orphan span - parent not found
           node.type = "orphan-span";
-          node.color = "#9e9e9e"; // Grey for orphans
           traceRoots.push(node);
           orphanItems.push(span);
         }
@@ -649,7 +649,7 @@ export interface ExtendedFlameChartData extends FlameChartData {
   traceId?: string;
   spanId?: string;
   parentSpanId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
 }
 
 /**

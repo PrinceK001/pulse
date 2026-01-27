@@ -4,9 +4,10 @@
  */
 
 /**
- * Color palette for span types (legacy support)
+ * Color palette for span types from legacy spanType/statusCode fields.
+ * These are kept to support older instrumentation payloads.
  */
-const SPAN_TYPE_COLORS: Record<string, string> = {
+const SPAN_TYPE_COLORS = {
   http: "#42a5f5",
   network: "#42a5f5",
   database: "#66bb6a",
@@ -18,16 +19,16 @@ const SPAN_TYPE_COLORS: Record<string, string> = {
   crash: "#ff4d4d",
   anr: "#ff9800",
   exception: "#ff4d4d",
-};
+} as const;
 
 /**
  * Color palette for exception types
  */
-const EXCEPTION_TYPE_COLORS: Record<string, string> = {
+const EXCEPTION_TYPE_COLORS = {
   crash: "#ef4444",
   anr: "#f97316",
   non_fatal: "#eab308",
-};
+} as const;
 
 /**
  * Default colors
@@ -62,11 +63,8 @@ export function getColorForPulseType(pulseType: string): string {
 }
 
 /**
- * Get color based on span type or status (legacy - for backwards compatibility)
- * 
- * @param spanType - The span type string
- * @param statusCode - The status code (error, ok, etc.)
- * @returns Hex color string
+ * Get color based on span type or status (legacy mapping).
+ * Used for spans that only provide spanType/statusCode without pulseType.
  */
 export function getSpanColor(spanType: string, statusCode: string): string {
   // Error states take precedence

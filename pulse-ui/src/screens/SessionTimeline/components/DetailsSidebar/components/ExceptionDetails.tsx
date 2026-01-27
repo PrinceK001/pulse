@@ -20,47 +20,74 @@ interface ExceptionDetailsProps {
 }
 
 export function ExceptionDetails({ item, exceptionDetails }: ExceptionDetailsProps) {
+  const metadataScreenName =
+    item.metadata?.screenName !== undefined && item.metadata?.screenName !== null
+      ? String(item.metadata.screenName)
+      : null;
+  const metadataExceptionType =
+    item.metadata?.exceptionType !== undefined && item.metadata?.exceptionType !== null
+      ? String(item.metadata.exceptionType)
+      : null;
+  const metadataExceptionMessage =
+    item.metadata?.exceptionMessage !== undefined && item.metadata?.exceptionMessage !== null
+      ? String(item.metadata.exceptionMessage)
+      : null;
+  const metadataGroupId =
+    item.metadata?.groupId !== undefined && item.metadata?.groupId !== null
+      ? String(item.metadata.groupId)
+      : null;
+  const screenName = exceptionDetails?.screenName || metadataScreenName || null;
+  const interactionIds =
+    exceptionDetails?.interactionIds || exceptionDetails?.interactions || [];
+  const hasContext = Boolean(screenName) || interactionIds.length > 0;
+
+  const stackTrace =
+    typeof exceptionDetails?.exceptionStackTrace === "string"
+      ? exceptionDetails.exceptionStackTrace
+      : exceptionDetails?.exceptionStackTrace
+      ? JSON.stringify(exceptionDetails.exceptionStackTrace, null, 2)
+      : null;
+
   return (
     <Box mt="md">
       {/* Exception Type */}
-      {(exceptionDetails?.exceptionType || item.metadata?.exceptionType) && (
+      {(exceptionDetails?.exceptionType || metadataExceptionType) && (
         <Box className={classes.exceptionSection}>
           <Text className={classes.exceptionSectionLabel}>Exception Type</Text>
           <Text className={classes.exceptionType}>
-            {exceptionDetails?.exceptionType || item.metadata?.exceptionType}
+            {exceptionDetails?.exceptionType || metadataExceptionType}
           </Text>
         </Box>
       )}
 
       {/* Exception Message */}
-      {(exceptionDetails?.exceptionMessage || item.metadata?.exceptionMessage) && (
+      {(exceptionDetails?.exceptionMessage || metadataExceptionMessage) && (
         <Box className={classes.exceptionSection}>
           <Text className={classes.exceptionSectionLabel}>Message</Text>
           <Text className={classes.exceptionMessage}>
-            {exceptionDetails?.exceptionMessage || item.metadata?.exceptionMessage}
+            {exceptionDetails?.exceptionMessage || metadataExceptionMessage}
           </Text>
         </Box>
       )}
 
       {/* Screen & Interactions Row */}
-      {((exceptionDetails?.screenName || item.metadata?.screenName) ||
-        (exceptionDetails?.interactions && exceptionDetails.interactions.length > 0)) && (
+      {hasContext && (
         <Box className={classes.exceptionSection}>
           <Text className={classes.exceptionSectionLabel}>Context</Text>
           <Box className={classes.infoCard}>
-            {(exceptionDetails?.screenName || item.metadata?.screenName) && (
+            {screenName && (
               <Box className={classes.infoItem} mb="xs">
                 <Text className={classes.infoLabel}>Screen</Text>
                 <Text className={classes.screenBadge}>
-                  {exceptionDetails?.screenName || item.metadata?.screenName}
+                  {screenName}
                 </Text>
               </Box>
             )}
-            {exceptionDetails?.interactions && exceptionDetails.interactions.length > 0 && (
+            {interactionIds.length > 0 && (
               <Box className={classes.infoItem}>
                 <Text className={classes.infoLabel}>Active Interactions</Text>
                 <Box className={classes.interactionsList}>
-                  {exceptionDetails.interactions.map((interaction, idx) => (
+                  {interactionIds.map((interaction, idx) => (
                     <Text key={idx} className={classes.interactionBadge}>
                       {interaction}
                     </Text>
@@ -126,24 +153,24 @@ export function ExceptionDetails({ item, exceptionDetails }: ExceptionDetailsPro
         )}
 
       {/* Stack Trace */}
-      {exceptionDetails?.exceptionStackTrace && (
+      {stackTrace && (
         <Box className={classes.exceptionSection}>
           <Text className={classes.exceptionSectionLabel}>Stack Trace</Text>
-          <Box className={classes.stackTrace}>{exceptionDetails.exceptionStackTrace}</Box>
+          <Box className={classes.stackTrace}>{stackTrace}</Box>
         </Box>
       )}
 
       {/* Grouping Info */}
-      {((exceptionDetails?.groupId || item.metadata?.groupId) ||
+      {((exceptionDetails?.groupId || metadataGroupId) ||
         exceptionDetails?.fingerprint) && (
         <Box className={classes.exceptionSection}>
           <Text className={classes.exceptionSectionLabel}>Grouping</Text>
           <Box className={classes.infoCard}>
-            {(exceptionDetails?.groupId || item.metadata?.groupId) && (
+            {(exceptionDetails?.groupId || metadataGroupId) && (
               <Box className={classes.infoItem} mb="xs">
                 <Text className={classes.infoLabel}>Group ID</Text>
                 <Text className={classes.monoValue}>
-                  {exceptionDetails?.groupId || item.metadata?.groupId}
+                  {exceptionDetails?.groupId || metadataGroupId}
                 </Text>
               </Box>
             )}

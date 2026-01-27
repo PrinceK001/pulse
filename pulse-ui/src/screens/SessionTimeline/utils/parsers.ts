@@ -106,12 +106,12 @@ export function parseExceptionRow(
  */
 export function parseJsonSafe<T = Record<string, unknown>>(
   jsonString: string | undefined | null
-): T {
-  if (!jsonString) return {} as T;
+): T | null {
+  if (!jsonString) return null;
   try {
     return JSON.parse(jsonString) as T;
   } catch {
-    return {} as T;
+    return null;
   }
 }
 
