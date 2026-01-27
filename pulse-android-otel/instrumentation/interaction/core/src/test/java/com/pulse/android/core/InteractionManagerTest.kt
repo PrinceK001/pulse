@@ -1666,12 +1666,13 @@ class InteractionManagerTest {
         skipAdvancing: Boolean = false,
     ): String {
         if (!skipAdvancing) advanceTimeBy(1.seconds)
+        val ongoingMatchStatus =
+            interactionRunningStatus as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)
         Assertions
             .assertThat(interactionRunningStatus)
             .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
-            .extracting {
-                (it as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)).interaction
-            }.isNull()
+            .extracting { ongoingMatchStatus.interaction }
+            .isNull()
 
         previousIdToMatch?.let {
             Assertions
@@ -1683,9 +1684,9 @@ class InteractionManagerTest {
                 ).isEqualTo(it)
         }
 
-        return (
-            interactionRunningStatus as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)
-        ).interactionId
+        Assertions.assertThat(listOf(interactionRunningStatus).runningIds).containsExactly(ongoingMatchStatus.interactionId)
+
+        return interactionRunningStatus.interactionId
     }
 
     private fun TestScope.assertSingleFinalInteraction(
@@ -1734,6 +1735,7 @@ class InteractionManagerTest {
         previousIdToMatch?.let {
             Assertions.assertThat(finalInteractionOngoingStatus.interactionId).isEqualTo(it)
         }
+        Assertions.assertThat(listOf(interactionRunningStatus).runningIds).isEmpty()
         return finalInteractionOngoingStatus.interactionId to interaction
     }
 

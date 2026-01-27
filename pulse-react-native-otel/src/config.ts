@@ -10,16 +10,26 @@ import PulseReactNativeOtel from './NativePulseReactNativeOtel';
 import type { PulseFeatureConfig } from './pulse.interface';
 import { PULSE_FEATURE_NAMES } from './pulse.constants';
 
+export type NetworkHeaderConfig = {
+  requestHeaders?: string[];
+  responseHeaders?: string[];
+};
+
 export type PulseConfig = {
   autoDetectExceptions?: boolean;
   autoDetectNavigation?: boolean;
   autoDetectNetwork?: boolean;
+  networkHeaders?: NetworkHeaderConfig;
 };
 
 const defaultConfig: Required<PulseConfig> = {
   autoDetectExceptions: true,
   autoDetectNavigation: true,
   autoDetectNetwork: true,
+  networkHeaders: {
+    requestHeaders: [],
+    responseHeaders: [],
+  },
 };
 
 let currentConfig: PulseConfig = { ...defaultConfig };
@@ -48,7 +58,12 @@ function configure(config: PulseConfig): void {
   setupErrorHandler(currentConfig.autoDetectExceptions ?? true);
 
   if (currentConfig.autoDetectNetwork) {
-    initializeNetworkInterceptor();
+    initializeNetworkInterceptor(
+      currentConfig.networkHeaders ?? {
+        requestHeaders: [],
+        responseHeaders: [],
+      }
+    );
   }
 }
 
@@ -95,6 +110,10 @@ export function start(options?: PulseConfig): void {
       PULSE_FEATURE_NAMES.NETWORK_INSTRUMENTATION,
       options?.autoDetectNetwork ?? defaultConfig.autoDetectNetwork
     ),
+    networkHeaders: options?.networkHeaders ?? {
+      requestHeaders: [],
+      responseHeaders: [],
+    },
   };
 
   configure(config);
