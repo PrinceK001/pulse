@@ -44,6 +44,7 @@ import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRe
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 @Slf4j
@@ -55,6 +56,13 @@ public class InteractionDao {
   private final ClickhouseQueryService clickhouseQueryService;
   private final ObjectMapperUtil objectMapper;
   private final BaseInteractionDao baseInteractionDao;
+  
+  /**
+   * Gets the current tenant ID from the TenantContext.
+   */
+  private String getTenantId() {
+    return TenantContext.getTenantId();
+  }
 
   private static InteractionDetailUploadMetadata buildUploadMetadata(Long interactionId) {
     return InteractionDetailUploadMetadata
@@ -77,6 +85,7 @@ public class InteractionDao {
     String interactionDetailRowStr = objectMapper.writeValueAsString(interactionDetailRow);
 
     Tuple tuple = Tuple.tuple()
+        .addString(getTenantId())
         .addString(interaction.getName())
         .addString(interaction.getStatus().toString())
         .addString(interactionDetailRowStr)
@@ -131,7 +140,7 @@ public class InteractionDao {
     return d11MysqlClient
         .getReaderPool()
         .preparedQuery(GET_INTERACTION_DETAILS)
-        .rxExecute(Tuple.of(useCaseId))
+        .rxExecute(Tuple.of(getTenantId(), useCaseId))
         .flatMap(rowSet -> mapRowToInteractionDetails(useCaseId, rowSet));
   }
 
@@ -193,7 +202,7 @@ public class InteractionDao {
   public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions() {
     return d11MysqlClient.getReaderPool()
         .preparedQuery(GET_ALL_ACTIVE_AND_RUNNING_INTERACTIONS)
-        .rxExecute()
+        .rxExecute(Tuple.of(getTenantId()))
         .flatMap(rows -> {
           List<InteractionDetails> interactionDetails = new ArrayList<>();
           rows.forEach(row -> interactionDetails.add(mapInteractionRowToInteractionDetails(row)));
@@ -202,7 +211,8 @@ public class InteractionDao {
   }
 
   private String buildPaginatedGetInteractionsQuery(GetInteractionsRequest request) {
-    String query = GET_INTERACTIONS;
+    // Replace the tenant_id placeholder with the actual tenant_id
+    String query = GET_INTERACTIONS.replace("tenant_id = ?", "tenant_id = '" + getTenantId() + "'");
     if (StringUtils.isNotBlank(request.getUserEmail())) {
       query += " AND created_by = '" + request.getUserEmail() + "'";
     }
@@ -235,7 +245,7 @@ public class InteractionDao {
   public Single<InteractionFilterOptionsResponse> getInteractionFilterOptions() {
     return d11MysqlClient.getReaderPool()
         .preparedQuery(GET_INTERACTION_FILTER_OPTIONS)
-        .rxExecute()
+        .rxExecute(Tuple.of(getTenantId()))
         .flatMap(rows -> {
           Set<String> statuses = new HashSet<>();
           Set<String> createdByUsers = new HashSet<>();
