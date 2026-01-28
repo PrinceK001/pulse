@@ -1403,11 +1403,12 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      AddAlertToCronManager dto = new AddAlertToCronManager(1, 300, "http://localhost/api");
+      AddAlertToCronManager dto = new AddAlertToCronManager(1, 300, "http://localhost/api", "tenant1");
 
       assertEquals(1, dto.getId());
       assertEquals(300, dto.getInterval());
       assertEquals("http://localhost/api", dto.getUrl());
+      assertEquals("tenant1", dto.getTenantId());
     }
 
     @Test
@@ -1417,16 +1418,18 @@ class AlertModelsTest {
       dto.setId(2);
       dto.setInterval(600);
       dto.setUrl("http://new.url/api");
+      dto.setTenantId("tenant2");
 
       assertEquals(2, dto.getId());
       assertEquals(600, dto.getInterval());
       assertEquals("http://new.url/api", dto.getUrl());
+      assertEquals("tenant2", dto.getTenantId());
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      AddAlertToCronManager dto1 = new AddAlertToCronManager(1, 300, "url");
-      AddAlertToCronManager dto2 = new AddAlertToCronManager(1, 300, "url");
+      AddAlertToCronManager dto1 = new AddAlertToCronManager(1, 300, "url", "tenant1");
+      AddAlertToCronManager dto2 = new AddAlertToCronManager(1, 300, "url", "tenant1");
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());
@@ -1434,7 +1437,7 @@ class AlertModelsTest {
 
     @Test
     void shouldHaveCorrectToString() {
-      AddAlertToCronManager dto = new AddAlertToCronManager(1, 300, "url");
+      AddAlertToCronManager dto = new AddAlertToCronManager(1, 300, "url", "tenant1");
       assertNotNull(dto.toString());
       assertTrue(dto.toString().contains("1"));
     }
@@ -1498,9 +1501,10 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      UpdateAlertInCronManager dto = new UpdateAlertInCronManager(1, 600, 300, "http://localhost/api");
+      UpdateAlertInCronManager dto = new UpdateAlertInCronManager(1, "tenant1", 600, 300, "http://localhost/api");
 
       assertEquals(1, dto.getId());
+      assertEquals("tenant1", dto.getTenantId());
       assertEquals(600, dto.getNewInterval());
       assertEquals(300, dto.getOldInterval());
       assertEquals("http://localhost/api", dto.getUrl());
@@ -1511,11 +1515,13 @@ class AlertModelsTest {
       UpdateAlertInCronManager dto = new UpdateAlertInCronManager();
 
       dto.setId(2);
+      dto.setTenantId("tenant2");
       dto.setNewInterval(900);
       dto.setOldInterval(600);
       dto.setUrl("http://new.url/api");
 
       assertEquals(2, dto.getId());
+      assertEquals("tenant2", dto.getTenantId());
       assertEquals(900, dto.getNewInterval());
       assertEquals(600, dto.getOldInterval());
       assertEquals("http://new.url/api", dto.getUrl());
@@ -1523,8 +1529,8 @@ class AlertModelsTest {
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      UpdateAlertInCronManager dto1 = new UpdateAlertInCronManager(1, 600, 300, "url");
-      UpdateAlertInCronManager dto2 = new UpdateAlertInCronManager(1, 600, 300, "url");
+      UpdateAlertInCronManager dto1 = new UpdateAlertInCronManager(1, "tenant1", 600, 300, "url");
+      UpdateAlertInCronManager dto2 = new UpdateAlertInCronManager(1, "tenant1", 600, 300, "url");
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());
@@ -1532,7 +1538,7 @@ class AlertModelsTest {
 
     @Test
     void shouldHaveCorrectToString() {
-      UpdateAlertInCronManager dto = new UpdateAlertInCronManager(1, 600, 300, "url");
+      UpdateAlertInCronManager dto = new UpdateAlertInCronManager(1, "tenant1", 600, 300, "url");
       assertNotNull(dto.toString());
       assertTrue(dto.toString().contains("1"));
     }
