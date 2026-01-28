@@ -15,6 +15,10 @@ public class UpdateAlertInCronManager {
   Integer id;
 
   @NotNull
+  @JsonProperty(value = "tenantId")
+  private String tenantId;
+
+  @NotNull
   @JsonProperty("newInterval")
   Integer newInterval;
 

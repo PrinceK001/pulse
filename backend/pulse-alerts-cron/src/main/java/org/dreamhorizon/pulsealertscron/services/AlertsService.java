@@ -39,6 +39,10 @@ public class AlertsService {
             alertsResponse.getData().getAlerts().forEach(alert -> {
               String url = applicationConfig.getPulseServerUrl() + ALERT_EVALUATION_PATH + alert.getAlertId();
               alert.setUrl(url);
+              // Ensure tenantId is set (default if not provided)
+              if (alert.getTenantId() == null || alert.getTenantId().isEmpty()) {
+                alert.setTenantId("default");
+              }
               alerts.add(alert);
             });
           }

@@ -21,4 +21,8 @@ public class AddAlertToCronManager {
   @NotNull
   @JsonProperty("url")
   String url;
+
+  @NotNull
+  @JsonProperty(value = "tenantId")
+  private String tenantId;
 }

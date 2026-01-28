@@ -44,6 +44,7 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.GetAllAlertsRespon
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 @Data
@@ -94,7 +95,8 @@ public class AlertService {
     return alertCronService.createAlertCron(new AddAlertToCronManager(
         alertId,
         createAlertRequestDto.getEvaluationInterval(),
-        applicationConfig.getServiceUrl() + ALERT_EVALUATE_AND_TRIGGER_ALERT + "?alertId=" + alertId
+        applicationConfig.getServiceUrl() + ALERT_EVALUATE_AND_TRIGGER_ALERT + "?alertId=" + alertId,
+        TenantContext.getTenantId()
     )).map(created -> {
       if (!created) {
         log.error("Error while adding alert to cron manager for alertId: {}", alertId);
@@ -120,6 +122,7 @@ public class AlertService {
         })
         .flatMap(updatedAlertId -> alertCronService.updateAlertCron(new UpdateAlertInCronManager(
             alertId,
+            TenantContext.getTenantId(),
             updateAlertRequestDto.getEvaluationInterval(),
             evaluationInterval.get(),
             applicationConfig.getServiceUrl() + ALERT_EVALUATE_AND_TRIGGER_ALERT + "?alertId=" + updatedAlertId
@@ -251,15 +254,18 @@ public class AlertService {
   }
 
   public Single<Boolean> createAlertNotificationChannel(@NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {
-    return alertsDao.createNotificationChannel(notificationChannel.getName(), notificationChannel.getType(), notificationChannel.getConfig());
+    return alertsDao.createNotificationChannel(notificationChannel.getName(), notificationChannel.getType(),
+        notificationChannel.getConfig());
   }
 
   public Maybe<AlertNotificationChannelResponseDto> getAlertNotificationChannelById(@NotNull Integer notificationChannelId) {
     return alertsDao.getNotificationChannelDetailsById(notificationChannelId);
   }
 
-  public Single<Boolean> updateAlertNotificationChannel(@NotNull Integer notificationChannelId, @NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {
-    return alertsDao.updateNotificationChannel(notificationChannelId, notificationChannel.getName(), notificationChannel.getType(), notificationChannel.getConfig());
+  public Single<Boolean> updateAlertNotificationChannel(@NotNull Integer notificationChannelId,
+                                                        @NotNull CreateAlertNotificationChannelRequestDto notificationChannel) {
+    return alertsDao.updateNotificationChannel(notificationChannelId, notificationChannel.getName(), notificationChannel.getType(),
+        notificationChannel.getConfig());
   }
 
   public Single<Boolean> deleteAlertNotificationChannel(@NotNull Integer notificationChannelId) {
