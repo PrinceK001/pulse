@@ -243,6 +243,167 @@ export default function NetworkInterceptorDemo() {
     }
   };
 
+  const testAllXhrErrorScenarios = () => {
+    setLoading('xhr-all-errors');
+
+    const scenarios = [
+      { name: 'Success (200)', url: 'https://httpbin.org/status/200' },
+      { name: '400 Bad Request', url: 'https://httpbin.org/status/400' },
+      { name: '401 Unauthorized', url: 'https://httpbin.org/status/401' },
+      { name: '403 Forbidden', url: 'https://httpbin.org/status/403' },
+      { name: '404 Not Found', url: 'https://httpbin.org/status/404' },
+      { name: '500 Server Error', url: 'https://httpbin.org/status/500' },
+      { name: '502 Bad Gateway', url: 'https://httpbin.org/status/502' },
+      {
+        name: '503 Service Unavailable',
+        url: 'https://httpbin.org/status/503',
+      },
+      { name: '504 Gateway Timeout', url: 'https://httpbin.org/status/504' },
+      {
+        name: 'Timeout Error',
+        url: 'https://httpbin.org/delay/5',
+        timeout: 2000,
+      },
+      {
+        name: 'Network Error (Invalid Domain)',
+        url: 'https://this-domain-should-not-exist-12345.com/data',
+      },
+      { name: 'Connection Refused', url: 'http://127.0.0.1:9999/test' },
+      { name: 'Unexpected End of Stream', url: 'https://httpstat.us/500' },
+    ];
+
+    // Note: httpbin.org uses HTTP/2 (statusText empty). HTTP/1.1 has statusText but cannot be forced from JS.
+    // curl -I --http1.1 https://httpstat.us/404 gives "HTTP/1.1 404 NOT FOUND"
+    //curl -I https://httpbin.org/status/404 gives "HTTP/2 404"
+    scenarios.forEach((scenario, index) => {
+      setTimeout(() => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', scenario.url);
+        if (scenario.timeout) {
+          xhr.timeout = scenario.timeout;
+        }
+        xhr.send();
+      }, index * 800);
+    });
+
+    setTimeout(
+      () => {
+        showResult(
+          'All XHR error scenarios triggered. Check spans for details.',
+          false
+        );
+        setLoading(null);
+      },
+      scenarios.length * 800 + 2000
+    );
+  };
+
+  const testAllFetchErrorScenarios = () => {
+    setLoading('fetch-all-errors');
+
+    const scenarios = [
+      { name: 'Success (200)', url: 'https://httpbin.org/status/200' },
+      { name: '400 Bad Request', url: 'https://httpbin.org/status/400' },
+      { name: '401 Unauthorized', url: 'https://httpbin.org/status/401' },
+      { name: '403 Forbidden', url: 'https://httpbin.org/status/403' },
+      { name: '404 Not Found', url: 'https://httpbin.org/status/404' },
+      { name: '500 Server Error', url: 'https://httpbin.org/status/500' },
+      { name: '502 Bad Gateway', url: 'https://httpbin.org/status/502' },
+      {
+        name: '503 Service Unavailable',
+        url: 'https://httpbin.org/status/503',
+      },
+      { name: '504 Gateway Timeout', url: 'https://httpbin.org/status/504' },
+      {
+        name: 'Timeout Error',
+        url: 'https://httpbin.org/delay/5',
+        timeout: 2000,
+      },
+      {
+        name: 'Network Error (Invalid Domain)',
+        url: 'https://this-domain-should-not-exist-12345.com/data',
+      },
+      { name: 'Connection Refused', url: 'http://127.0.0.1:9999/test' },
+      { name: 'Unexpected End of Stream', url: 'https://httpstat.us/500' },
+    ];
+
+    scenarios.forEach((scenario, index) => {
+      setTimeout(() => {
+        const controller = new AbortController();
+        if (scenario.timeout) {
+          setTimeout(() => controller.abort(), scenario.timeout);
+        }
+        fetch(scenario.url, { signal: controller.signal }).catch(() => {
+          // Network interceptor captures error details automatically
+        });
+      }, index * 800);
+    });
+
+    setTimeout(
+      () => {
+        showResult(
+          'All Fetch error scenarios triggered. Check spans for details.',
+          false
+        );
+        setLoading(null);
+      },
+      scenarios.length * 800 + 2000
+    );
+  };
+
+  const testAllAxiosErrorScenarios = () => {
+    setLoading('axios-all-errors');
+
+    const scenarios = [
+      { name: 'Success (200)', url: 'https://httpbin.org/status/200' },
+      { name: '400 Bad Request', url: 'https://httpbin.org/status/400' },
+      { name: '401 Unauthorized', url: 'https://httpbin.org/status/401' },
+      { name: '403 Forbidden', url: 'https://httpbin.org/status/403' },
+      { name: '404 Not Found', url: 'https://httpbin.org/status/404' },
+      { name: '500 Server Error', url: 'https://httpbin.org/status/500' },
+      { name: '502 Bad Gateway', url: 'https://httpbin.org/status/502' },
+      {
+        name: '503 Service Unavailable',
+        url: 'https://httpbin.org/status/503',
+      },
+      { name: '504 Gateway Timeout', url: 'https://httpbin.org/status/504' },
+      {
+        name: 'Timeout Error',
+        url: 'https://httpbin.org/delay/5',
+        timeout: 2000,
+      },
+      {
+        name: 'Network Error (Invalid Domain)',
+        url: 'https://this-domain-should-not-exist-12345.com/data',
+      },
+      { name: 'Connection Refused', url: 'http://127.0.0.1:9999/test' },
+      { name: 'Unexpected End of Stream', url: 'https://httpstat.us/500' },
+    ];
+
+    scenarios.forEach((scenario, index) => {
+      setTimeout(() => {
+        const config: any = {};
+        if (scenario.timeout) {
+          config.timeout = scenario.timeout;
+        }
+        axios.get(scenario.url, config).catch(() => {
+          // Network interceptor captures error details automatically
+        });
+      }, index * 800);
+    });
+
+    setTimeout(
+      () => {
+        showResult(
+          'All Axios error scenarios triggered. Check spans for details.',
+          false
+        );
+        setLoading(null);
+      },
+      scenarios.length * 800 + 2000
+    );
+  };
+
   return (
     <View style={styles.fullContainer}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -352,6 +513,45 @@ export default function NetworkInterceptorDemo() {
             onPress={testMultipleRequests}
             disabled={loading !== null}
             color="#9C27B0"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>All Error Scenarios</Text>
+
+          <Button
+            title={
+              loading === 'xhr-all-errors'
+                ? 'Loading...'
+                : 'Test All XHR Error Scenarios'
+            }
+            onPress={testAllXhrErrorScenarios}
+            disabled={loading !== null}
+            color="#FF9800"
+          />
+          <View style={styles.space} />
+
+          <Button
+            title={
+              loading === 'fetch-all-errors'
+                ? 'Loading...'
+                : 'Test All Fetch Error Scenarios'
+            }
+            onPress={testAllFetchErrorScenarios}
+            disabled={loading !== null}
+            color="#2196F3"
+          />
+          <View style={styles.space} />
+
+          <Button
+            title={
+              loading === 'axios-all-errors'
+                ? 'Loading...'
+                : 'Test All Axios Error Scenarios'
+            }
+            onPress={testAllAxiosErrorScenarios}
+            disabled={loading !== null}
+            color="#4CAF50"
           />
         </View>
 

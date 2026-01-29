@@ -155,9 +155,41 @@ function createXmlHttpRequestTracker(
               : undefined;
 
           if (this.status <= 0 || this.status >= 400) {
+            // Extract error: responseText -> statusText -> status code. statusText often empty (HTTP/2, RN limitation, network errors).
+            let errorMessage: string | undefined;
+
+            // responseText only available when responseType is '' or 'text' (not 'blob', 'arraybuffer', etc.)
+            const canReadResponseText =
+              this.responseType === '' || this.responseType === 'text';
+            if (canReadResponseText && this.responseText?.trim()) {
+              try {
+                const json = JSON.parse(this.responseText);
+                errorMessage =
+                  json.message ||
+                  json.error?.message ||
+                  json.error ||
+                  this.responseText;
+              } catch {
+                errorMessage = this.responseText;
+              }
+            } else if (this.statusText) {
+              errorMessage = this.statusText;
+            } else if (this.status > 0) {
+              errorMessage = `HTTP ${this.status}`;
+            } else {
+              // Network error (status 0) with no responseText - use generic message
+              errorMessage = 'Network request failed';
+            }
+
+            const error = errorMessage ? new Error(errorMessage) : undefined;
+            if (error) {
+              Error.captureStackTrace?.(error, onReadyStateChange);
+            }
+
             endContext = {
               state: 'error',
               status: this.status,
+              error,
               responseHeaders,
             };
           } else {

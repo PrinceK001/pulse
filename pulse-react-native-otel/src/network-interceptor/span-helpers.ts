@@ -34,14 +34,16 @@ export function setNetworkSpanAttributes(
     attributes[ATTRIBUTE_KEYS.HTTP_STATUS_CODE] = endContext.status;
   }
 
-  if (endContext.state === 'error' && endContext.error) {
+  if (endContext.state === 'error') {
     attributes.error = true;
-    attributes[ATTRIBUTE_KEYS.ERROR_MESSAGE] =
-      endContext.error.message || String(endContext.error);
-    if (endContext.error.stack) {
-      attributes[ATTRIBUTE_KEYS.ERROR_STACK] = endContext.error.stack;
+    if (endContext.error) {
+      attributes[ATTRIBUTE_KEYS.ERROR_MESSAGE] =
+        endContext.error.message || String(endContext.error);
+      if (endContext.error.stack) {
+        attributes[ATTRIBUTE_KEYS.ERROR_STACK] = endContext.error.stack;
+      }
+      span.recordException(endContext.error, attributes);
     }
-    span.recordException(endContext.error, attributes);
   }
 
   if (startContext.requestHeaders) {
