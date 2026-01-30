@@ -38,14 +38,14 @@ public class AttributeValueConverter: NSObject {
         
         if let string = value as? String {
             return PulseAttributeValue.string(string)
+        } else if let bool = value as? Bool {
+            return PulseAttributeValue.bool(bool)
         } else if let int = value as? Int {
             return PulseAttributeValue.int(int)
         } else if let int64 = value as? Int64 {
             return PulseAttributeValue.int(Int(int64))
         } else if let double = value as? Double {
             return PulseAttributeValue.double(double)
-        } else if let bool = value as? Bool {
-            return PulseAttributeValue.bool(bool)
         } else if let stringArray = value as? [String] {
             return PulseAttributeValue.stringArray(stringArray)
         } else if let intArray = value as? [Int] {
@@ -72,14 +72,14 @@ public class AttributeValueConverter: NSObject {
         
         if let string = value as? String {
             return OpenTelemetryApi.AttributeValue.string(string)
+        } else if let bool = value as? Bool {
+            return OpenTelemetryApi.AttributeValue.bool(bool)
         } else if let int = value as? Int {
             return OpenTelemetryApi.AttributeValue.int(int)
         } else if let int64 = value as? Int64 {
             return OpenTelemetryApi.AttributeValue.int(Int(int64))
         } else if let double = value as? Double {
             return OpenTelemetryApi.AttributeValue.double(double)
-        } else if let bool = value as? Bool {
-            return OpenTelemetryApi.AttributeValue.bool(bool)
         } else if let stringArray = value as? [String] {
             let attrArray = AttributeArray(values: stringArray.map { OpenTelemetryApi.AttributeValue.string($0) })
             return OpenTelemetryApi.AttributeValue.array(attrArray)
