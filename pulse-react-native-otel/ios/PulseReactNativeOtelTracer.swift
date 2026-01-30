@@ -12,7 +12,7 @@ public class PulseReactNativeOtelTracer: NSObject {
             if _tracer == nil {
                 _tracer = PulseSDK.getOtelOrThrow()
                     .tracerProvider
-                    .get(instrumentationName: PulseOtelConstants.INSTRUMENTATION_SCOPE, instrumentationVersion: nil)
+                    .get(instrumentationName: PulseOtelConstants.INSTRUMENTATION_SCOPE, instrumentationVersion: "0.0.1")
             }
             return _tracer!
         }
