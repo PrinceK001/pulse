@@ -38,18 +38,13 @@ export default function NativeFeaturesExample() {
 
   const testNativeGet = async () => {
     if (!NativePulseExampleModule) {
-      Alert.alert(
-        'Not Available',
-        'Native network module is not available'
-      );
+      Alert.alert('Not Available', 'Native network module is not available');
       return;
     }
 
     setLoading('native-get');
     try {
-      console.log(
-        '[Pulse Network] Making GET request...'
-      );
+      console.log('[Pulse Network] Making GET request...');
       const result = await NativePulseExampleModule.makeGetRequest(
         'https://jsonplaceholder.typicode.com/posts/1'
       );
@@ -67,18 +62,13 @@ export default function NativeFeaturesExample() {
 
   const testNativePost = async () => {
     if (!NativePulseExampleModule) {
-      Alert.alert(
-        'Not Available',
-        'Native network module is not available'
-      );
+      Alert.alert('Not Available', 'Native network module is not available');
       return;
     }
 
     setLoading('native-post');
     try {
-      console.log(
-        '[Pulse Network] Making POST request...'
-      );
+      console.log('[Pulse Network] Making POST request...');
       const postBody = JSON.stringify({
         title: 'Test Post from Native',
         body: 'This is a test POST request from native',

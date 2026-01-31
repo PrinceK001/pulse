@@ -13,7 +13,6 @@ import {
 } from '@dreamhorizonorg/pulse-react-native';
 
 export default function PulseAttributesExample() {
-
   // Comprehensive attributes with all types
   const getAllTypesAttributes = (): PulseAttributes => ({
     attr_string: 'test_string_value',
@@ -108,8 +107,8 @@ export default function PulseAttributesExample() {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>PulseAttributes Testing</Text>
         <Text style={styles.subtitle}>
-            Testing PulseAttributes with all attribute types (string, number, boolean,
-          arrays)
+          Testing PulseAttributes with all attribute types (string, number,
+          boolean, arrays)
         </Text>
 
         <View style={styles.section}>
@@ -156,9 +155,7 @@ export default function PulseAttributesExample() {
             ]}
             onPress={testStartSpan}
           >
-            <Text style={styles.buttonText}>
-              4. startSpan
-            </Text>
+            <Text style={styles.buttonText}>4. startSpan</Text>
           </Pressable>
 
           <Pressable
@@ -246,4 +243,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

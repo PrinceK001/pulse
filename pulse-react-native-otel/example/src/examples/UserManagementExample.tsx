@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Pulse, type PulseAttributes } from '@dreamhorizonorg/pulse-react-native';
+import {
+  Pulse,
+  type PulseAttributes,
+} from '@dreamhorizonorg/pulse-react-native';
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -20,11 +23,11 @@ export default function UserManagementExample() {
       name: 'Test User',
       plan: 'premium',
     };
-    
+
     Pulse.setUserId(uuid);
     Pulse.setUserProperties(properties);
     Pulse.trackEvent('user_set', { action: 'user_identified' });
-    
+
     setUserId(uuid);
   };
 
@@ -32,16 +35,14 @@ export default function UserManagementExample() {
     Pulse.setUserId(null);
     Pulse.setUserProperties({});
     Pulse.trackEvent('user_removed', { action: 'user_cleared' });
-    
+
     setUserId(null);
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>User Management</Text>
-      <Text style={styles.status}>
-        User ID: {userId || '(not set)'}
-      </Text>
+      <Text style={styles.status}>User ID: {userId || '(not set)'}</Text>
 
       <Pressable
         style={({ pressed }) => [
