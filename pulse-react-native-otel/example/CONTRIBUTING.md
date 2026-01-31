@@ -4,7 +4,7 @@ This guide is for contributors who want to work on the React Native iOS implemen
 
 ## Overview
 
-Pulse React Native iOS is built on top of the [Pulse iOS SDK](https://github.com/dream-horizon-org/pulse-ios-sdk/). We expose its functionality to the React Native world using native bridges/JSI, depending on the architecture.
+Pulse React Native iOS is built on top of the **Pulse iOS SDK**. We expose its functionality to the React Native world using native bridges/JSI, depending on the architecture.
 
 ## Quick Start
 
@@ -31,7 +31,7 @@ If you're only making changes to the React Native/JavaScript layer, follow these
 
 ## Working with Local Pulse iOS SDK
 
-If you need to make changes to the Pulse iOS SDK itself (located in [pulse-ios-sdk](https://github.com/dream-horizon-org/pulse-ios-sdk/)), you'll need to clone the repository and point the Podfile to your local SDK path.
+If you need to make changes to the Pulse iOS SDK itself (located in [pulse-ios-sdk]), you'll need to clone the repository and point the Podfile to your local SDK path.
 
 ### Steps
 
