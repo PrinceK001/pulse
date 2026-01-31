@@ -6,4 +6,4 @@ The SDK provides comprehensive Real User Monitoring (RUM) capabilities including
 
 For complete documentation, installation instructions, API reference, source code, and releases, visit:
 
-**🔗 [Pulse iOS SDK Repository](https://github.com/dream-horizon-org/pulse-ios-sdk)**
+**🔗 Pulse iOS SDK Repository**
