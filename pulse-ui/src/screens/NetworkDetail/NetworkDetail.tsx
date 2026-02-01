@@ -220,7 +220,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       filters.push({
         field: "SpanAttributes['graphql.operation.type']",
         operator: "EQ" as const,
-        value: [graphqlOperationType],
+        value: [graphqlOperationType.toLowerCase()],
       });
     }
     return filters;
