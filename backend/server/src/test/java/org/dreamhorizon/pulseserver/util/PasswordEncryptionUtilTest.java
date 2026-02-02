@@ -331,6 +331,19 @@ class PasswordEncryptionUtilTest {
 
       assertTrue(isValid);
     }
+
+    @Test
+    void shouldReturnFalseOnNullPassword() {
+      // Passing null values to trigger exception path and return false
+      boolean result = encryptionUtil.verifyPassword(null, "salt", "digest");
+      assertFalse(result);
+    }
+
+    @Test
+    void shouldReturnFalseOnNullSalt() {
+      boolean result = encryptionUtil.verifyPassword("password", null, "digest");
+      assertFalse(result);
+    }
   }
 
   @Nested
