@@ -191,6 +191,16 @@ class TenantServiceTest {
       assertNotNull(result);
       assertTrue(result.isEmpty());
     }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      when(tenantDao.getAllActiveTenants())
+          .thenReturn(Flowable.error(new RuntimeException("Database error")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantService.getAllActiveTenants().toList().blockingGet());
+      assertTrue(ex.getMessage().contains("Database error"));
+    }
   }
 
   @Nested
@@ -205,6 +215,16 @@ class TenantServiceTest {
 
       assertNotNull(result);
       assertEquals(1, result.size());
+    }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      when(tenantDao.getAllTenants())
+          .thenReturn(Flowable.error(new RuntimeException("Database error")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantService.getAllTenants().toList().blockingGet());
+      assertTrue(ex.getMessage().contains("Database error"));
     }
   }
 
@@ -303,6 +323,16 @@ class TenantServiceTest {
 
       verify(tenantDao).deleteTenant("test_tenant");
     }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      when(tenantDao.deleteTenant(anyString()))
+          .thenReturn(Completable.error(new RuntimeException("Database error")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantService.deleteTenant("test_tenant").blockingAwait());
+      assertTrue(ex.getMessage().contains("Database error"));
+    }
   }
 
   @Nested
@@ -367,6 +397,27 @@ class TenantServiceTest {
           () -> tenantService.createClickhouseCredentials(request, "admin").blockingGet());
       assertTrue(ex.getMessage().contains("Database error"));
     }
+
+    @Test
+    void shouldContinueWhenPoolCreationFails() {
+      CreateCredentialsRequest request = CreateCredentialsRequest.builder()
+          .tenantId("test_tenant")
+          .clickhousePassword("password123")
+          .build();
+
+      ClickhouseCredentials mockCredentials = createMockCredentials();
+      when(credentialsDao.saveTenantCredentials(eq("test_tenant"), eq("password123")))
+          .thenReturn(Single.just(mockCredentials));
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_CREATED), eq("admin@example.com"), any(JsonObject.class)))
+          .thenReturn(Completable.complete());
+      when(poolManager.getPoolForTenant(anyString(), anyString(), anyString()))
+          .thenThrow(new RuntimeException("Pool creation failed"));
+
+      TenantInfo result = tenantService.createClickhouseCredentials(request, "admin@example.com").blockingGet();
+
+      assertNotNull(result);
+      assertEquals("test_tenant", result.getTenantId());
+    }
   }
 
   @Nested
@@ -410,6 +461,16 @@ class TenantServiceTest {
       assertNotNull(result);
       assertEquals(1, result.size());
     }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      when(credentialsDao.getAllActiveTenantCredentials())
+          .thenReturn(Flowable.error(new RuntimeException("Database error")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantService.getAllActiveClickhouseCredentials().toList().blockingGet());
+      assertTrue(ex.getMessage().contains("Database error"));
+    }
   }
 
   @Nested
@@ -434,6 +495,63 @@ class TenantServiceTest {
       assertNotNull(result);
       assertEquals("test_tenant", result.getTenantId());
     }
+
+    @Test
+    void shouldUpdateCredentialsWithNullReason() {
+      UpdateCredentialsRequest request = UpdateCredentialsRequest.builder()
+          .tenantId("test_tenant")
+          .newPassword("new_password")
+          .reason(null)
+          .build();
+
+      ClickhouseCredentials mockCredentials = createMockCredentials();
+      when(credentialsDao.updateTenantCredentials(eq("test_tenant"), eq("new_password")))
+          .thenReturn(Single.just(mockCredentials));
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_UPDATED), eq("admin@example.com"), any(JsonObject.class)))
+          .thenReturn(Completable.complete());
+
+      TenantInfo result = tenantService.updateClickhouseCredentials(request, "admin@example.com").blockingGet();
+
+      assertNotNull(result);
+      assertEquals("test_tenant", result.getTenantId());
+    }
+
+    @Test
+    void shouldContinueWhenPoolRecreationFails() {
+      UpdateCredentialsRequest request = UpdateCredentialsRequest.builder()
+          .tenantId("test_tenant")
+          .newPassword("new_password")
+          .reason("Rotation")
+          .build();
+
+      ClickhouseCredentials mockCredentials = createMockCredentials();
+      when(credentialsDao.updateTenantCredentials(eq("test_tenant"), eq("new_password")))
+          .thenReturn(Single.just(mockCredentials));
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_UPDATED), eq("admin@example.com"), any(JsonObject.class)))
+          .thenReturn(Completable.complete());
+      when(poolManager.getPoolForTenant(anyString(), anyString(), anyString()))
+          .thenThrow(new RuntimeException("Pool creation failed"));
+
+      TenantInfo result = tenantService.updateClickhouseCredentials(request, "admin@example.com").blockingGet();
+
+      assertNotNull(result);
+      assertEquals("test_tenant", result.getTenantId());
+    }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      UpdateCredentialsRequest request = UpdateCredentialsRequest.builder()
+          .tenantId("test_tenant")
+          .newPassword("new_password")
+          .build();
+
+      when(credentialsDao.updateTenantCredentials(anyString(), anyString()))
+          .thenReturn(Single.error(new RuntimeException("Database error")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantService.updateClickhouseCredentials(request, "admin").blockingGet());
+      assertTrue(ex.getMessage().contains("Database error"));
+    }
   }
 
   @Nested
@@ -449,6 +567,29 @@ class TenantServiceTest {
       tenantService.deactivateClickhouseCredentials("test_tenant", "admin@example.com").blockingAwait();
 
       verify(credentialsDao).deactivateTenantCredentials("test_tenant");
+    }
+
+    @Test
+    void shouldContinueWhenPoolCloseFailsDuringDeactivation() {
+      when(credentialsDao.deactivateTenantCredentials("test_tenant"))
+          .thenReturn(Completable.complete());
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_DEACTIVATED), eq("admin@example.com"), any(JsonObject.class)))
+          .thenReturn(Completable.complete());
+      org.mockito.Mockito.doThrow(new RuntimeException("Pool close failed"))
+          .when(poolManager).closePoolForTenant("test_tenant");
+
+      tenantService.deactivateClickhouseCredentials("test_tenant", "admin@example.com").blockingAwait();
+
+      verify(credentialsDao).deactivateTenantCredentials("test_tenant");
+    }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      when(credentialsDao.deactivateTenantCredentials(anyString()))
+          .thenReturn(Completable.error(new RuntimeException("Database error")));
+
+      assertThrows(RuntimeException.class,
+          () -> tenantService.deactivateClickhouseCredentials("test_tenant", "admin").blockingAwait());
     }
   }
 
@@ -471,6 +612,34 @@ class TenantServiceTest {
       assertNotNull(result);
       assertEquals("test_tenant", result.getTenantId());
     }
+
+    @Test
+    void shouldContinueWhenPoolCreationFailsDuringReactivation() {
+      ClickhouseCredentials mockCredentials = createMockCredentials();
+
+      when(credentialsDao.reactivateTenantCredentials("test_tenant"))
+          .thenReturn(Completable.complete());
+      when(credentialsDao.getCredentialsByTenantId("test_tenant"))
+          .thenReturn(Single.just(mockCredentials));
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_REACTIVATED), eq("admin@example.com"), any(JsonObject.class)))
+          .thenReturn(Completable.complete());
+      when(poolManager.getPoolForTenant(anyString(), anyString(), anyString()))
+          .thenThrow(new RuntimeException("Pool creation failed"));
+
+      TenantInfo result = tenantService.reactivateClickhouseCredentials("test_tenant", "admin@example.com").blockingGet();
+
+      assertNotNull(result);
+      assertEquals("test_tenant", result.getTenantId());
+    }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      when(credentialsDao.reactivateTenantCredentials(anyString()))
+          .thenReturn(Completable.error(new RuntimeException("Database error")));
+
+      assertThrows(RuntimeException.class,
+          () -> tenantService.reactivateClickhouseCredentials("test_tenant", "admin").blockingGet());
+    }
   }
 
   // ==================== AUDIT TESTS ====================
@@ -490,6 +659,16 @@ class TenantServiceTest {
       assertEquals(1, result.size());
       assertEquals("CREDENTIALS_CREATED", result.get(0).getAction());
     }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      when(credentialsDao.getAuditLogsByTenantId(anyString()))
+          .thenReturn(Flowable.error(new RuntimeException("Database error")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantService.getCredentialsAuditHistory("test_tenant").toList().blockingGet());
+      assertTrue(ex.getMessage().contains("Database error"));
+    }
   }
 
   @Nested
@@ -505,6 +684,16 @@ class TenantServiceTest {
 
       assertNotNull(result);
       assertEquals(1, result.size());
+    }
+
+    @Test
+    void shouldThrowExceptionOnDaoError() {
+      when(credentialsDao.getRecentAuditLogs(50))
+          .thenReturn(Flowable.error(new RuntimeException("Database error")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantService.getRecentCredentialsAuditLogs(50).toList().blockingGet());
+      assertTrue(ex.getMessage().contains("Database error"));
     }
   }
 
@@ -534,6 +723,20 @@ class TenantServiceTest {
       Exception ex = assertThrows(RuntimeException.class,
           () -> tenantService.refreshConnectionPool("test_tenant").blockingAwait());
       assertTrue(ex.getMessage().contains("Credentials not found"));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenPoolCreationFails() {
+      ClickhouseCredentials mockCredentials = createMockCredentials();
+      when(credentialsDao.getCredentialsByTenantId("test_tenant"))
+          .thenReturn(Single.just(mockCredentials));
+      doNothing().when(poolManager).closePoolForTenant("test_tenant");
+      when(poolManager.getPoolForTenant(anyString(), anyString(), anyString()))
+          .thenThrow(new RuntimeException("Pool creation failed"));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantService.refreshConnectionPool("test_tenant").blockingAwait());
+      assertTrue(ex.getMessage().contains("Pool creation failed"));
     }
   }
 
