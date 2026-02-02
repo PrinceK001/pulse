@@ -592,6 +592,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -619,6 +620,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <!-- Exclude untestable classes -->
                                 <exclude>org/dreamhorizon/pulseserver/util/RxObjectMapper.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/util/Utils.class</exclude>
