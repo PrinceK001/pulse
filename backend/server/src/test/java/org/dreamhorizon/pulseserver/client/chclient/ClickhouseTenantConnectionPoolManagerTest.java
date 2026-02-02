@@ -2,11 +2,14 @@ package org.dreamhorizon.pulseserver.client.chclient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
+import io.r2dbc.pool.ConnectionPool;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +22,8 @@ class ClickhouseTenantConnectionPoolManagerTest {
 
   @Mock
   private ClickhouseConfig clickhouseConfig;
+
+  private ClickhouseTenantConnectionPoolManager poolManager;
 
   @Nested
   class TestConstructor {
@@ -325,6 +330,129 @@ class ClickhouseTenantConnectionPoolManagerTest {
 
       assertThrows(RuntimeException.class, 
           () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+  }
+
+  @Nested
+  class TestWithValidPool {
+    // These tests use a real ClickHouse R2DBC URL format
+    // The pool creation will succeed even if ClickHouse is not running
+    // because connection pools are lazy by default
+    
+    private ClickhouseTenantConnectionPoolManager validPoolManager;
+    private ClickhouseConfig realConfig;
+
+    @AfterEach
+    void cleanup() {
+      if (validPoolManager != null) {
+        try {
+          validPoolManager.closeAllPools();
+        } catch (Exception e) {
+          // Ignore cleanup errors
+        }
+      }
+    }
+
+    private ClickhouseTenantConnectionPoolManager createValidPoolManager() {
+      realConfig = new ClickhouseConfig();
+      realConfig.setR2dbcUrl("r2dbc:clickhouse:http://localhost:8123/default");
+      realConfig.setUsername("default");
+      realConfig.setPassword("");
+      return new ClickhouseTenantConnectionPoolManager(realConfig);
+    }
+
+    @Test
+    void shouldCreatePoolManagerSuccessfully() {
+      validPoolManager = createValidPoolManager();
+      assertNotNull(validPoolManager);
+    }
+
+    @Test
+    void shouldGetAdminPoolSuccessfully() {
+      validPoolManager = createValidPoolManager();
+      ConnectionPool adminPool = validPoolManager.getAdminPool();
+      assertNotNull(adminPool);
+    }
+
+    @Test
+    void shouldCreateTenantPoolSuccessfully() {
+      validPoolManager = createValidPoolManager();
+      ConnectionPool tenantPool = validPoolManager.getPoolForTenant(
+          "test_tenant", "test_user", "test_password");
+      assertNotNull(tenantPool);
+    }
+
+    @Test
+    void shouldReturnCachedPoolForSameTenant() {
+      validPoolManager = createValidPoolManager();
+      ConnectionPool pool1 = validPoolManager.getPoolForTenant(
+          "cached_tenant", "user1", "pass1");
+      ConnectionPool pool2 = validPoolManager.getPoolForTenant(
+          "cached_tenant", "user1", "pass1");
+      assertEquals(pool1, pool2);
+    }
+
+    @Test
+    void shouldGetPoolStatisticsForExistingTenant() {
+      validPoolManager = createValidPoolManager();
+      validPoolManager.getPoolForTenant("stats_tenant", "user", "pass");
+      
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          validPoolManager.getPoolStatistics("stats_tenant");
+      
+      assertNotNull(stats);
+      assertTrue(stats.isActive);
+      assertEquals("stats_tenant", stats.tenantId);
+    }
+
+    @Test
+    void shouldGetPoolStatisticsForNonExistentTenant() {
+      validPoolManager = createValidPoolManager();
+      
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          validPoolManager.getPoolStatistics("non_existent");
+      
+      assertNotNull(stats);
+      assertFalse(stats.isActive);
+    }
+
+    @Test
+    void shouldClosePoolForTenant() {
+      validPoolManager = createValidPoolManager();
+      validPoolManager.getPoolForTenant("close_tenant", "user", "pass");
+      
+      assertTrue(validPoolManager.getPoolStatistics("close_tenant").isActive);
+      
+      validPoolManager.closePoolForTenant("close_tenant");
+      
+      assertFalse(validPoolManager.getPoolStatistics("close_tenant").isActive);
+    }
+
+    @Test
+    void shouldClosePoolForNonExistentTenant() {
+      validPoolManager = createValidPoolManager();
+      // Should not throw
+      validPoolManager.closePoolForTenant("non_existent_tenant");
+    }
+
+    @Test
+    void shouldCloseAllPools() {
+      validPoolManager = createValidPoolManager();
+      validPoolManager.getPoolForTenant("tenant1", "user1", "pass1");
+      validPoolManager.getPoolForTenant("tenant2", "user2", "pass2");
+      
+      validPoolManager.closeAllPools();
+      
+      assertFalse(validPoolManager.getPoolStatistics("tenant1").isActive);
+      assertFalse(validPoolManager.getPoolStatistics("tenant2").isActive);
+    }
+
+    @Test
+    void shouldThrowWhenAdminPoolIsClosed() {
+      validPoolManager = createValidPoolManager();
+      validPoolManager.closeAllPools();
+      
+      assertThrows(RuntimeException.class, () -> validPoolManager.getAdminPool());
     }
   }
 }
