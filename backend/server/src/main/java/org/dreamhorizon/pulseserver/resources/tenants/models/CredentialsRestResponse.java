@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class CredentialsRestResponse {
   private String tenantId;
   private String clickhouseUsername;
-  private String clickhousePassword; // Only returned during create/update
+  private String clickhousePassword;
   private Boolean isActive;
   private String message;
   private String createdAt;

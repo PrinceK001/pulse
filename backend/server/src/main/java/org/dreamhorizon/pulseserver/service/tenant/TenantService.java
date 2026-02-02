@@ -123,7 +123,6 @@ public class TenantService {
               .andThen(Single.just(TenantInfo.builder()
                   .tenantId(tenantId)
                   .clickhouseUsername(credentials.getClickhouseUsername())
-                  .clickhousePassword(plainPassword)
                   .isActive(true)
                   .message("ClickHouse credentials created. Please create ClickHouse user and row policies.")
                   .build()));
@@ -168,7 +167,6 @@ public class TenantService {
               .andThen(Single.just(TenantInfo.builder()
                   .tenantId(tenantId)
                   .clickhouseUsername(credentials.getClickhouseUsername())
-                  .clickhousePassword(newPassword)
                   .isActive(credentials.getIsActive())
                   .message("ClickHouse credentials updated. Update ClickHouse user password to match.")
                   .build()));
