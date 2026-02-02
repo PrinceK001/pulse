@@ -8,26 +8,26 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Thread-local context holder for tenant information.
  * This class provides access to the current tenant throughout the request lifecycle.
- * 
+ *
  * <p>In Vert.x, we use the Vert.x Context to store tenant information, which is
  * automatically propagated across async operations within the same request.</p>
  */
 @Slf4j
 public final class TenantContext {
-  
+
   private static final String TENANT_ID_KEY = "pulse.tenant.id";
   private static final String TENANT_KEY = "pulse.tenant";
-  
+
   /**
    * Fallback ThreadLocal for non-Vert.x contexts (e.g., tests, background jobs).
    */
   private static final ThreadLocal<String> TENANT_ID_HOLDER = new ThreadLocal<>();
   private static final ThreadLocal<Tenant> TENANT_HOLDER = new ThreadLocal<>();
-  
+
   private TenantContext() {
     // Utility class, no instantiation
   }
-  
+
   /**
    * Sets the current tenant ID for the request.
    *
@@ -42,7 +42,7 @@ public final class TenantContext {
     }
     log.debug("Tenant context set to: {}", tenantId);
   }
-  
+
   /**
    * Sets the current tenant for the request.
    *
@@ -63,7 +63,7 @@ public final class TenantContext {
     }
     log.debug("Tenant context set to: {}", tenant != null ? tenant.getTenantId() : null);
   }
-  
+
   /**
    * Gets the current tenant ID.
    *
@@ -77,9 +77,9 @@ public final class TenantContext {
     } else {
       tenantId = TENANT_ID_HOLDER.get();
     }
-    return tenantId != null ? tenantId : Tenant.DEFAULT_TENANT_ID;
+    return tenantId;
   }
-  
+
   /**
    * Gets the current tenant ID as an Optional.
    *
@@ -95,7 +95,7 @@ public final class TenantContext {
     }
     return Optional.ofNullable(tenantId);
   }
-  
+
   /**
    * Gets the current tenant.
    *
@@ -111,16 +111,8 @@ public final class TenantContext {
     }
     return Optional.ofNullable(tenant);
   }
-  
-  /**
-   * Gets the current tenant, returning the default tenant if not set.
-   *
-   * @return the current tenant or the default tenant
-   */
-  public static Tenant getTenantOrDefault() {
-    return getCurrentTenant().orElse(Tenant.defaultTenant());
-  }
-  
+
+
   /**
    * Clears the tenant context.
    * Should be called at the end of request processing.
@@ -136,7 +128,7 @@ public final class TenantContext {
     }
     log.debug("Tenant context cleared");
   }
-  
+
   /**
    * Checks if a tenant context is currently set.
    *
@@ -145,7 +137,7 @@ public final class TenantContext {
   public static boolean isSet() {
     return getCurrentTenantId().isPresent();
   }
-  
+
   /**
    * Requires a tenant context to be set, throwing an exception if not.
    *

@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>X-Tenant-ID header (explicit override, useful for admin operations)</li>
  *   <li>Default tenant (fallback for backward compatibility)</li>
  * </ol>
- * 
+ *
  * <p>Note: JWT-based tenant extraction can be enabled by uncommenting the relevant code
  * and adding back the JwtService dependency.</p>
  */
@@ -48,7 +48,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
    * Resolves the tenant ID from the request.
    *
    * @param requestContext the request context
-   * @return the resolved tenant ID
+   * @return the resolved tenant ID, or null if request was aborted
    */
   private String resolveTenantId(ContainerRequestContext requestContext) {
     // Priority 1: Explicit X-Tenant-ID header
@@ -58,9 +58,14 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return headerTenantId.trim();
     }
 
-    // Priority 2: Default tenant (backward compatibility)
-    log.debug("Using default tenant ID");
-    return Tenant.DEFAULT_TENANT_ID;
+    log.error("Missing required X-Tenant-ID header for path: {}",
+        requestContext.getUriInfo().getPath());
+    requestContext.abortWith(
+        jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
+            .entity("{\"error\": \"X-Tenant-ID header is required\"}")
+            .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+            .build());
+    return null;
   }
 }
 

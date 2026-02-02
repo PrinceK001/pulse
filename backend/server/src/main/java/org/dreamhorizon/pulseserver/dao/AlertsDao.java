@@ -516,7 +516,7 @@ public class AlertsDao {
 
     return Alert.builder()
         .alertId(row.getInteger("alert_id"))
-        .tenantId(Objects.requireNonNullElse(row.getString("tenant_id"), "default"))
+        .tenantId(row.getString("tenant_id"))
         .name(row.getString("name"))
         .description(row.getString("description"))
         .scope(row.getString("scope"))

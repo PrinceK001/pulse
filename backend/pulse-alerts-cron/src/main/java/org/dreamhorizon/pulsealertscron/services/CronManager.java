@@ -34,7 +34,7 @@ public class CronManager {
       CronTask newTask = CronTask.builder()
           .id(id)
           .url(url)
-          .tenantId(tenantId != null ? tenantId : "default")
+          .tenantId(tenantId)
           .build();
       cronGroups.computeIfAbsent(interval, k -> {
         startTimerForInterval(k);
@@ -138,7 +138,7 @@ public class CronManager {
 
       return webClient
           .getAbs(url)
-          .putHeader("X-Tenant-ID", tenantId != null ? tenantId : "default")
+          .putHeader("X-Tenant-ID", tenantId)
           .timeout(REQUEST_TIMEOUT_MS)
           .rxSend()
           .flatMap(response -> {

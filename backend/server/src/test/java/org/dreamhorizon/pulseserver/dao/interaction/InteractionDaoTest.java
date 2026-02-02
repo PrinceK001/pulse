@@ -36,6 +36,8 @@ import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRe
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -79,6 +81,9 @@ class InteractionDaoTest {
   @BeforeEach
   void setUp() {
     interactionDao = new InteractionDao(mysqlClient, clickhouseQueryService, objectMapper, baseInteractionDao);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("default")
+        .build());
   }
 
   @Nested

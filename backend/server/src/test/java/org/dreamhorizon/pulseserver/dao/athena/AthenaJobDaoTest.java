@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -59,6 +61,9 @@ class AthenaJobDaoTest {
     when(mysqlClient.getWriterPool()).thenReturn(writerPool);
     when(mysqlClient.getReaderPool()).thenReturn(readerPool);
     athenaJobDao = new AthenaJobDao(mysqlClient);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("test")
+        .build());
   }
 
   @Nested

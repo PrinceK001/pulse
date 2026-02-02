@@ -32,6 +32,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -52,7 +54,7 @@ class SdkConfigsDaoTest {
     // Instantiate to cover the implicit constructor
     Queries queries = new Queries();
     assertThat(queries).isNotNull();
-    
+
     assertThat(Queries.INSERT_CONFIG).contains("INSERT INTO pulse_sdk_configs");
     assertThat(Queries.GET_CONFIG_BY_VERSION).contains("SELECT config_json");
     assertThat(Queries.GET_LATEST_VERSION).contains("SELECT version");
@@ -77,6 +79,9 @@ class SdkConfigsDaoTest {
   void setUp() {
     objectMapper = new ObjectMapperUtil();
     sdkConfigsDao = new SdkConfigsDao(d11MysqlClient, objectMapper);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("test")
+        .build());
   }
 
   @Nested
@@ -88,7 +93,8 @@ class SdkConfigsDaoTest {
     void shouldGetConfigByVersionSuccessfully() {
       // Given
       long version = 1L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+      String configJson =
+          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Test Config";
 
       Row mockRow = mock(Row.class);
@@ -130,7 +136,8 @@ class SdkConfigsDaoTest {
     void shouldGetConfigByVersionWithNullDescription() {
       // Given
       long version = 1L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+      String configJson =
+          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
 
       Row mockRow = mock(Row.class);
       when(mockRow.getValue("config_json")).thenReturn(configJson);
@@ -208,7 +215,8 @@ class SdkConfigsDaoTest {
     void shouldGetLatestConfigWithBlacklistMode() {
       // Given
       long version = 5L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+      String configJson =
+          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Latest Config";
 
       // Mock for GET_LATEST_VERSION query
@@ -255,7 +263,8 @@ class SdkConfigsDaoTest {
     void shouldGetLatestConfigWithWhitelistMode() {
       // Given
       long version = 5L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+      String configJson =
+          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Latest Config";
 
       Row versionRow = mock(Row.class);
