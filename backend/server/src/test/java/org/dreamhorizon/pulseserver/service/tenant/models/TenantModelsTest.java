@@ -117,6 +117,45 @@ class TenantModelsTest {
       assertNotEquals(base, CreateTenantRequest.builder()
           .tenantId("t1").name("n1").description("d2").build());
     }
+
+    @Test
+    void shouldHandleEqualsWithNullAndNonNullFields() {
+      CreateTenantRequest withNull = CreateTenantRequest.builder().tenantId(null).build();
+      CreateTenantRequest withValue = CreateTenantRequest.builder().tenantId("t1").build();
+      assertNotEquals(withNull, withValue);
+      assertNotEquals(withValue, withNull);
+    }
+
+    @Test
+    void shouldHandleEqualsWithAllFieldsNull() {
+      CreateTenantRequest r1 = new CreateTenantRequest();
+      CreateTenantRequest r2 = new CreateTenantRequest();
+      assertEquals(r1, r2);
+    }
+
+    @Test
+    void shouldHandleHashCodeWithNullFields() {
+      CreateTenantRequest r = new CreateTenantRequest();
+      assertNotNull(r.hashCode());
+    }
+
+    @Test
+    void shouldHandleEqualsWithPartialNulls() {
+      CreateTenantRequest r1 = CreateTenantRequest.builder()
+          .tenantId("t1").name(null).description("d1").clickhousePassword(null)
+          .gcpTenantId("gcp1").domainName(null).build();
+      CreateTenantRequest r2 = CreateTenantRequest.builder()
+          .tenantId("t1").name("n1").description("d1").clickhousePassword(null)
+          .gcpTenantId("gcp1").domainName(null).build();
+      assertNotEquals(r1, r2);
+    }
+
+    @Test
+    void shouldHandleEqualsSymmetry() {
+      CreateTenantRequest r1 = CreateTenantRequest.builder().tenantId("t1").build();
+      CreateTenantRequest r2 = CreateTenantRequest.builder().tenantId("t1").build();
+      assertEquals(r1.equals(r2), r2.equals(r1));
+    }
   }
 
   @Nested
@@ -235,6 +274,68 @@ class TenantModelsTest {
           .tenantId("t1").name("n1").isActive(false).message("m1").build());
       assertNotEquals(base, TenantInfo.builder()
           .tenantId("t1").name("n1").isActive(true).message("m2").build());
+    }
+
+    @Test
+    void shouldHandleEqualsWithNullAndNonNull() {
+      TenantInfo withNull = TenantInfo.builder().tenantId(null).isActive(null).build();
+      TenantInfo withValue = TenantInfo.builder().tenantId("t1").isActive(true).build();
+      assertNotEquals(withNull, withValue);
+      assertNotEquals(withValue, withNull);
+    }
+
+    @Test
+    void shouldHandleEqualsWithAllFieldsDifferent() {
+      TenantInfo i1 = TenantInfo.builder()
+          .tenantId("t1").name("n1").description("d1").clickhouseUsername("u1")
+          .clickhousePassword("p1").isActive(true).createdAt("c1").updatedAt("u1").message("m1")
+          .build();
+      TenantInfo i2 = TenantInfo.builder()
+          .tenantId("t2").name("n2").description("d2").clickhouseUsername("u2")
+          .clickhousePassword("p2").isActive(false).createdAt("c2").updatedAt("u2").message("m2")
+          .build();
+      assertNotEquals(i1, i2);
+    }
+
+    @Test
+    void shouldHandleHashCodeWithNullFields() {
+      TenantInfo info = new TenantInfo();
+      assertNotNull(info.hashCode());
+    }
+
+    @Test
+    void shouldHandleEqualsWithOneFieldNull() {
+      TenantInfo i1 = TenantInfo.builder().tenantId("t1").clickhouseUsername(null).build();
+      TenantInfo i2 = TenantInfo.builder().tenantId("t1").clickhouseUsername("user").build();
+      assertNotEquals(i1, i2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithDescriptionDifference() {
+      TenantInfo i1 = TenantInfo.builder().description("d1").build();
+      TenantInfo i2 = TenantInfo.builder().description("d2").build();
+      assertNotEquals(i1, i2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithPasswordDifference() {
+      TenantInfo i1 = TenantInfo.builder().clickhousePassword("p1").build();
+      TenantInfo i2 = TenantInfo.builder().clickhousePassword("p2").build();
+      assertNotEquals(i1, i2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithCreatedAtDifference() {
+      TenantInfo i1 = TenantInfo.builder().createdAt("2024-01-01").build();
+      TenantInfo i2 = TenantInfo.builder().createdAt("2024-01-02").build();
+      assertNotEquals(i1, i2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithUpdatedAtDifference() {
+      TenantInfo i1 = TenantInfo.builder().updatedAt("2024-01-01").build();
+      TenantInfo i2 = TenantInfo.builder().updatedAt("2024-01-02").build();
+      assertNotEquals(i1, i2);
     }
   }
 

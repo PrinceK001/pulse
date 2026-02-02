@@ -129,6 +129,64 @@ class DaoModelsTest {
       ClickhouseCredentials c2 = ClickhouseCredentials.builder().build();
       assertEquals(c1, c2);
     }
+
+    @Test
+    void shouldHandleEqualsWithNullVsNonNull() {
+      ClickhouseCredentials c1 = ClickhouseCredentials.builder().tenantId(null).build();
+      ClickhouseCredentials c2 = ClickhouseCredentials.builder().tenantId("t1").build();
+      assertNotEquals(c1, c2);
+      assertNotEquals(c2, c1);
+    }
+
+    @Test
+    void shouldHandleHashCodeWithAllNulls() {
+      ClickhouseCredentials c = new ClickhouseCredentials();
+      assertNotNull(c.hashCode());
+    }
+
+    @Test
+    void shouldHandleEqualsWithUsernameDiff() {
+      ClickhouseCredentials c1 = ClickhouseCredentials.builder().clickhouseUsername("u1").build();
+      ClickhouseCredentials c2 = ClickhouseCredentials.builder().clickhouseUsername("u2").build();
+      assertNotEquals(c1, c2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithPasswordIgnoredAsTransient() {
+      // clickhousePassword is transient, so it's excluded from equals/hashCode
+      ClickhouseCredentials c1 = ClickhouseCredentials.builder().clickhousePassword("p1").build();
+      ClickhouseCredentials c2 = ClickhouseCredentials.builder().clickhousePassword("p2").build();
+      // Transient fields are ignored in equals, so these should be equal
+      assertEquals(c1, c2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithSaltDiff() {
+      ClickhouseCredentials c1 = ClickhouseCredentials.builder().encryptionSalt("s1").build();
+      ClickhouseCredentials c2 = ClickhouseCredentials.builder().encryptionSalt("s2").build();
+      assertNotEquals(c1, c2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithDigestDiff() {
+      ClickhouseCredentials c1 = ClickhouseCredentials.builder().passwordDigest("d1").build();
+      ClickhouseCredentials c2 = ClickhouseCredentials.builder().passwordDigest("d2").build();
+      assertNotEquals(c1, c2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithCreatedAtDiff() {
+      ClickhouseCredentials c1 = ClickhouseCredentials.builder().createdAt("2024-01-01").build();
+      ClickhouseCredentials c2 = ClickhouseCredentials.builder().createdAt("2024-01-02").build();
+      assertNotEquals(c1, c2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithUpdatedAtDiff() {
+      ClickhouseCredentials c1 = ClickhouseCredentials.builder().updatedAt("2024-01-01").build();
+      ClickhouseCredentials c2 = ClickhouseCredentials.builder().updatedAt("2024-01-02").build();
+      assertNotEquals(c1, c2);
+    }
   }
 
   @Nested
@@ -231,6 +289,40 @@ class DaoModelsTest {
           .id(1L).tenantId("t1").action("UPDATED").performedBy("admin").build());
       assertNotEquals(base, ClickhouseTenantCredentialAudit.builder()
           .id(1L).tenantId("t1").action("CREATED").performedBy("system").build());
+    }
+
+    @Test
+    void shouldHandleEqualsWithNullVsNonNull() {
+      ClickhouseTenantCredentialAudit a1 = ClickhouseTenantCredentialAudit.builder()
+          .tenantId(null).build();
+      ClickhouseTenantCredentialAudit a2 = ClickhouseTenantCredentialAudit.builder()
+          .tenantId("t1").build();
+      assertNotEquals(a1, a2);
+      assertNotEquals(a2, a1);
+    }
+
+    @Test
+    void shouldHandleHashCodeWithAllNulls() {
+      ClickhouseTenantCredentialAudit a = new ClickhouseTenantCredentialAudit();
+      assertNotNull(a.hashCode());
+    }
+
+    @Test
+    void shouldHandleEqualsWithDetailsDiff() {
+      ClickhouseTenantCredentialAudit a1 = ClickhouseTenantCredentialAudit.builder()
+          .details("details1").build();
+      ClickhouseTenantCredentialAudit a2 = ClickhouseTenantCredentialAudit.builder()
+          .details("details2").build();
+      assertNotEquals(a1, a2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithCreatedAtDiff() {
+      ClickhouseTenantCredentialAudit a1 = ClickhouseTenantCredentialAudit.builder()
+          .createdAt("2024-01-01").build();
+      ClickhouseTenantCredentialAudit a2 = ClickhouseTenantCredentialAudit.builder()
+          .createdAt("2024-01-02").build();
+      assertNotEquals(a1, a2);
     }
   }
 
@@ -349,6 +441,55 @@ class DaoModelsTest {
           .tenantId("t1").name("n1").isActive(true).gcpTenantId("gcp2").domainName("d1").build());
       assertNotEquals(base, Tenant.builder()
           .tenantId("t1").name("n1").isActive(true).gcpTenantId("gcp1").domainName("d2").build());
+    }
+
+    @Test
+    void shouldHandleEqualsWithNullVsNonNull() {
+      Tenant t1 = Tenant.builder().tenantId(null).build();
+      Tenant t2 = Tenant.builder().tenantId("t1").build();
+      assertNotEquals(t1, t2);
+      assertNotEquals(t2, t1);
+    }
+
+    @Test
+    void shouldHandleHashCodeWithAllNulls() {
+      Tenant t = new Tenant();
+      assertNotNull(t.hashCode());
+    }
+
+    @Test
+    void shouldHandleEqualsWithDescriptionDiff() {
+      Tenant t1 = Tenant.builder().description("d1").build();
+      Tenant t2 = Tenant.builder().description("d2").build();
+      assertNotEquals(t1, t2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithCreatedAtDiff() {
+      Tenant t1 = Tenant.builder().createdAt("2024-01-01").build();
+      Tenant t2 = Tenant.builder().createdAt("2024-01-02").build();
+      assertNotEquals(t1, t2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithUpdatedAtDiff() {
+      Tenant t1 = Tenant.builder().updatedAt("2024-01-01").build();
+      Tenant t2 = Tenant.builder().updatedAt("2024-01-02").build();
+      assertNotEquals(t1, t2);
+    }
+
+    @Test
+    void shouldHandleEqualsWithAllFieldsSet() {
+      Tenant t1 = Tenant.builder()
+          .tenantId("t1").name("n1").description("d1").isActive(true)
+          .createdAt("c1").updatedAt("u1").gcpTenantId("gcp1").domainName("dom1")
+          .build();
+      Tenant t2 = Tenant.builder()
+          .tenantId("t1").name("n1").description("d1").isActive(true)
+          .createdAt("c1").updatedAt("u1").gcpTenantId("gcp1").domainName("dom1")
+          .build();
+      assertEquals(t1, t2);
+      assertEquals(t1.hashCode(), t2.hashCode());
     }
   }
 }
