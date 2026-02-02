@@ -799,6 +799,7 @@ export const COOKIES_KEY: Record<string, string> = {
   ID_TOKEN: "idToken",
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
+  TENANT_ID: "tenantId",
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {
@@ -892,6 +893,15 @@ export const HEADER_CONSTANTS: Record<string, string> = {
 
 export const LOGIN_PAGE_CONSTANTS: Record<string, string> = {
   SIGNING_IN_MESSAGE: "Authenticating your credentials",
+};
+
+export const MULTI_TENANT_CONSTANTS: Record<string, string> = {
+  BADGE_LABEL: "Multi-tenant",
+  TENANT_LABEL: "Organization",
+  TENANT_PLACEHOLDER: "Select organization",
+  CURRENT_TENANT_LABEL: "Organization",
+  SIGN_IN_BUTTON: "Sign in with Google (GCP)",
+  SIGN_IN_SUBTEXT: "Sign in with Google via GCP Identity Platform",
 };
 
 export const CRITICAL_INTERACTION_FORM_STEPS: CriticalInteractionFormSteps = [

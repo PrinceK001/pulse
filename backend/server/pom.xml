@@ -142,18 +142,18 @@
             <version>${guice.version}</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/com.google.auth/google-auth-library-oauth2-http -->
-        <dependency>
-            <groupId>com.google.auth</groupId>
-            <artifactId>google-auth-library-oauth2-http</artifactId>
-            <version>1.30.1</version>
-        </dependency>
-
-        <!-- Google API Client for ID token verification -->
+        <!-- Google API Client for ID token verification (Google OAuth ID token, non-Firebase) -->
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
             <version>2.2.0</version>
+        </dependency>
+
+        <!-- Nimbus JOSE+JWT for Firebase ID token verification via JWKS (no firebase-admin; avoids google-api-core) -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>9.37.3</version>
         </dependency>
 
         <!-- JJWT for JWT token generation -->
@@ -340,28 +340,6 @@
             <scope>compile</scope>
         </dependency>
 
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
-            <version>${awssdk.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>software.amazon.awssdk</groupId>
-                    <artifactId>netty-nio-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>software.amazon.awssdk</groupId>
-                    <artifactId>apache-client</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>netty-nio-client</artifactId>
-            <version>${awssdk.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

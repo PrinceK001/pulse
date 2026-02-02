@@ -6,6 +6,9 @@ import {
   Container,
   Image,
   Button,
+  Select,
+  Badge,
+  Paper,
 } from "@mantine/core";
 import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import classes from "./Login.module.css";
@@ -14,6 +17,7 @@ import {
   COOKIES_KEY,
   LOGIN_PAGE_CONSTANTS,
   ROUTES,
+  MULTI_TENANT_CONSTANTS,
 } from "../../constants";
 import { useNavigate } from "react-router-dom";
 import { IconSquareRoundedX } from "@tabler/icons-react";
@@ -25,23 +29,35 @@ import { showNotification } from "../../helpers/showNotification";
 import { getCookies } from "../../helpers/cookies";
 import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpiration";
 import { logEvent } from "../../helpers/googleAnalytics";
+import {
+  isGcpMultiTenantEnabled,
+  getGcpTenantOptions,
+  getDefaultGcpTenantId,
+  signInWithGoogleGcp,
+} from "../../helpers/gcpAuth";
 
 export function Login() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
   const [isFetchingTokensFromServer, setIsFetchingTokensFromServer] =
     useState<boolean>(false);
+  const gcpTenantOptions = getGcpTenantOptions();
+  const defaultTenantId = getDefaultGcpTenantId();
+  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(
+    defaultTenantId ?? null,
+  );
 
-  // Check if we should show dummy login
-  // Priority: 1. Explicit GOOGLE_OAUTH_ENABLED env var, 2. Dev mode + no client ID
+  const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
+
   const googleOAuthEnabled = process.env.REACT_APP_GOOGLE_OAUTH_ENABLED;
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID ?? "";
   const isDevMode = process.env.NODE_ENV === "development";
 
   // Determine if dummy login should be shown
   const shouldShowDummyLogin =
-    googleOAuthEnabled === "false" ||
-    (isDevMode && (!googleClientId || googleClientId.trim() === ""));
+    !gcpMultiTenantEnabled &&
+    (googleOAuthEnabled === "false" ||
+      (isDevMode && (!googleClientId || googleClientId.trim() === "")));
 
   useEffect(() => {
     const refreshToken = getCookies(COOKIES_KEY.REFRESH_TOKEN);
@@ -100,6 +116,40 @@ export function Login() {
     }
   };
 
+  const onGcpSignIn = async () => {
+    const tenantId = selectedTenantId ?? defaultTenantId ?? undefined;
+    if (!tenantId) {
+      showErrorToast("Please select a tenant");
+      return;
+    }
+    setIsFetchingTokensFromServer(true);
+    logEvent("User logged in (GCP)", ROUTES.LOGIN.key);
+    try {
+      const { idToken, email, tenantId: effectiveTenantId } =
+        await signInWithGoogleGcp(tenantId);
+      const { data, error } = await authenticateUser(idToken, {
+        tenantId: effectiveTenantId ?? tenantId,
+        userEmail: email,
+      });
+      if (data) {
+        await setCookiesAfterAuthentication(data, {
+          tenantId: effectiveTenantId ?? tenantId,
+        });
+        navigate(ROUTES.HOME.basePath);
+        setIsFetchingTokensFromServer(false);
+        return;
+      }
+      if (error) {
+        showErrorToast(error.message);
+      }
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE,
+      );
+    }
+    setIsFetchingTokensFromServer(false);
+  };
+
   return (
     <Box className={classes.loginContainer}>
       <Container size="fluid" className={classes.mainWrapper}>
@@ -143,13 +193,63 @@ export function Login() {
                     <Text className={classes.loginPrompt}>
                       Sign in to get started
                     </Text>
-                    {shouldShowDummyLogin ? (
+                    {gcpMultiTenantEnabled ? (
+                      <Paper
+                        p="lg"
+                        radius="md"
+                        withBorder
+                        style={{
+                          minWidth: 280,
+                          borderColor: "rgba(14, 201, 194, 0.3)",
+                          backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        }}
+                      >
+                        <Stack gap="md" align="center">
+                          <Badge
+                            variant="light"
+                            color="teal"
+                            size="sm"
+                            radius="sm"
+                          >
+                            {MULTI_TENANT_CONSTANTS.BADGE_LABEL}
+                          </Badge>
+                          <Select
+                            label={MULTI_TENANT_CONSTANTS.TENANT_LABEL}
+                            placeholder={
+                              MULTI_TENANT_CONSTANTS.TENANT_PLACEHOLDER
+                            }
+                            data={gcpTenantOptions}
+                            value={selectedTenantId}
+                            onChange={(v) => setSelectedTenantId(v)}
+                            size="md"
+                            style={{ width: "100%" }}
+                          />
+                          <Button
+                            size="lg"
+                            radius="xl"
+                            onClick={onGcpSignIn}
+                            fullWidth
+                            style={{
+                              background:
+                                "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                              border: "none",
+                              fontWeight: 600,
+                              fontSize: "16px",
+                              padding: "12px 32px",
+                            }}
+                          >
+                            {MULTI_TENANT_CONSTANTS.SIGN_IN_BUTTON}
+                          </Button>
+                        </Stack>
+                      </Paper>
+                    ) : shouldShowDummyLogin ? (
                       <Button
                         size="lg"
                         radius="xl"
                         onClick={onDummyLogin}
                         style={{
-                          background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                          background:
+                            "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
                           border: "none",
                           fontWeight: 600,
                           fontSize: "16px",
@@ -168,9 +268,11 @@ export function Login() {
                       />
                     )}
                     <Text className={classes.loginSubtext}>
-                      {shouldShowDummyLogin
-                        ? "Development mode: Using dummy authentication"
-                        : "Access powerful analytics and insights"}
+                      {gcpMultiTenantEnabled
+                        ? MULTI_TENANT_CONSTANTS.SIGN_IN_SUBTEXT
+                        : shouldShowDummyLogin
+                          ? "Development mode: Using dummy authentication"
+                          : "Access powerful analytics and insights"}
                     </Text>
                   </Stack>
                 )}

@@ -1,6 +1,7 @@
 import { API_METHODS, COOKIES_KEY } from "../../constants";
 import { getCookies } from "../cookies";
 import { MakeRequestConfig } from "../makeRequest";
+import { getFirebaseIdToken, isGcpMultiTenantEnabled } from "../gcpAuth";
 
 // Mock server import - only loaded when needed
 let MockServer: any = null;
@@ -13,6 +14,27 @@ const getMockServer = async () => {
   }
   return MockServer;
 };
+
+async function buildAuthHeaders(): Promise<Record<string, string>> {
+  if (isGcpMultiTenantEnabled()) {
+    const firebaseToken = await getFirebaseIdToken();
+    if (firebaseToken) {
+      const tenantId = getCookies(COOKIES_KEY.TENANT_ID);
+      const base: Record<string, string> = {
+        Authorization: `Bearer ${firebaseToken}`,
+        "user-email": `${getCookies(COOKIES_KEY.USER_EMAIL)}`,
+      };
+      if (tenantId && tenantId !== "undefined") {
+        base["tenant-id"] = tenantId;
+      }
+      return base;
+    }
+  }
+  return {
+    Authorization: `${getCookies(COOKIES_KEY.TOKEN_TYPE)} ${getCookies(COOKIES_KEY.ACCESS_TOKEN)}`,
+    "user-email": `${getCookies(COOKIES_KEY.USER_EMAIL)}`,
+  };
+}
 
 export const makeRequestToServer = async (
   requestConfig: MakeRequestConfig,
@@ -38,14 +60,14 @@ export const makeRequestToServer = async (
   // Original implementation - real API call
   const { url, init } = requestConfig;
   const { headers, body, method, ...rest } = init ?? {};
+  const authHeaders = await buildAuthHeaders();
 
   return await fetch(url, {
     method: method ?? API_METHODS.GET,
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      Authorization: `${getCookies(COOKIES_KEY.TOKEN_TYPE)} ${getCookies(COOKIES_KEY.ACCESS_TOKEN)}`,
-      "user-email": `${getCookies(COOKIES_KEY.USER_EMAIL)}`,
+      ...authHeaders,
       ...(headers && { ...headers }),
     },
     ...(body && { body }),

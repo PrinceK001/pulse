@@ -21,6 +21,7 @@ import {
   COOKIES_KEY,
   FOOTER_CONSTANTS,
   HEADER_CONSTANTS,
+  MULTI_TENANT_CONSTANTS,
   NAVBAR_CONSTANTS,
   NAVBAR_ITEMS,
   ROUTES,
@@ -36,6 +37,11 @@ import Cookies from "js-cookie";
 import { useRef } from "react";
 import { googleLogout } from "@react-oauth/google";
 import { getCookies, removeAllCookies } from "../../helpers/cookies";
+import {
+  signOutFirebase,
+  isGcpMultiTenantEnabled,
+  getGcpTenantDisplayName,
+} from "../../helpers/gcpAuth";
 
 export function Navbar({
   toggle,
@@ -65,15 +71,21 @@ export function Navbar({
     navigate("/");
   };
 
-  const onLogoutClick = () => {
-    googleLogout();
+  const onLogoutClick = async () => {
+    if (isGcpMultiTenantEnabled()) {
+      await signOutFirebase();
+    } else {
+      googleLogout();
+    }
     removeAllCookies();
     navigate(ROUTES.LOGIN.basePath);
   };
 
+  const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
+  const currentTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+
   return (
     <AppShell.Navbar pt="md" pb="md" className={classes.navbarContainer}>
-      {/* Top Section: Logo and Toggle */}
       <AppShell.Section className={classes.navbarHeader}>
         <Box className={classes.logoSection}>
           {opened ? (
@@ -219,6 +231,14 @@ export function Navbar({
                     <Text size="xs" c="dimmed">
                       {getCookies(COOKIES_KEY.USER_EMAIL)}
                     </Text>
+                    {gcpMultiTenantEnabled &&
+                      currentTenantId &&
+                      currentTenantId !== "undefined" && (
+                        <Text size="xs" c="dimmed" mt={4}>
+                          {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
+                          {getGcpTenantDisplayName(currentTenantId)}
+                        </Text>
+                    )}
                   </Box>
                 </Group>
               </Box>
