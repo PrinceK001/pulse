@@ -330,7 +330,8 @@ CREATE TABLE IF NOT EXISTS athena_job (
 );
 
 CREATE TABLE IF NOT EXISTS tenants (
-    tenant_id VARCHAR(64) PRIMARY KEY,
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    tenant_id VARCHAR(64) UNIQUE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
