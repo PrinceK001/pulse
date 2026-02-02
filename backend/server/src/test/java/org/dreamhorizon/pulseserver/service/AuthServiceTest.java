@@ -134,6 +134,76 @@ class AuthServiceTest {
           : (IllegalArgumentException) t.getCause();
       assertTrue(iae.getMessage().contains("tenant-id header is required"));
     }
+
+    @Test
+    void throwsWhenFirebaseIssuerAndTenantIdPresentButFirebaseNotConfigured() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+      String payloadBase64 = java.util.Base64.getUrlEncoder().withoutPadding()
+          .encodeToString("{\"iss\":\"https://securetoken.google.com/proj1\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      String firebaseToken = "header." + payloadBase64 + ".signature";
+
+      Throwable t = assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(firebaseToken, "tenant-1").blockingGet());
+
+      IllegalArgumentException iae = t instanceof IllegalArgumentException
+          ? (IllegalArgumentException) t
+          : (IllegalArgumentException) t.getCause();
+      assertTrue(iae.getMessage().contains("Firebase ID token received but server is not configured"));
+      assertTrue(iae.getMessage().contains("CONFIG_SERVICE_APPLICATION_FIREBASEPROJECTID"));
+    }
+
+    @Test
+    void throwsWhenFirebaseIssuerAndFirebaseConfiguredButVerificationFails() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getFirebaseProjectId()).thenReturn("proj1");
+      String headerNoKid = java.util.Base64.getUrlEncoder().withoutPadding()
+          .encodeToString("{\"alg\":\"RS256\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      String payloadBase64 = java.util.Base64.getUrlEncoder().withoutPadding()
+          .encodeToString("{\"iss\":\"https://securetoken.google.com/proj1\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      String firebaseToken = headerNoKid + "." + payloadBase64 + ".signature";
+
+      Throwable t = assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(firebaseToken, "tenant-1").blockingGet());
+
+      IllegalArgumentException iae = t instanceof IllegalArgumentException
+          ? (IllegalArgumentException) t
+          : (IllegalArgumentException) t.getCause();
+      assertTrue(iae.getMessage().contains("Firebase ID token verification failed"));
+    }
+
+    @Test
+    void throwsWhenGoogleVerifierFailsWithInvalidToken() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getGoogleOAuthClientId()).thenReturn("client-id");
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+      String payloadBase64 = java.util.Base64.getUrlEncoder().withoutPadding()
+          .encodeToString("{\"iss\":\"https://accounts.google.com\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      String googleToken = "header." + payloadBase64 + ".signature";
+
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(googleToken, null).blockingGet());
+    }
+
+    @Test
+    void throwsWhenIdTokenIsNullWithGoogleEnabled() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getGoogleOAuthClientId()).thenReturn("client-id");
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(null, null).blockingGet());
+    }
+
+    @Test
+    void throwsWhenIdTokenEmptyWithGoogleEnabled() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getGoogleOAuthClientId()).thenReturn("client-id");
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken("", null).blockingGet());
+    }
   }
 
   @Nested
@@ -168,6 +238,30 @@ class AuthServiceTest {
       Single<VerifyAuthTokenResponseDto> single = authService.verifyAuthToken("Bearer bad-token");
       VerifyAuthTokenResponseDto result = single.blockingGet();
       assertFalse(result.getIsAuthTokenValid());
+    }
+
+    @Test
+    void returnsInvalidWhenJwtServiceIsAccessTokenThrows() throws Exception {
+      when(jwtService.isAccessToken("token")).thenThrow(new RuntimeException("invalid"));
+      Single<VerifyAuthTokenResponseDto> single = authService.verifyAuthToken("token");
+      VerifyAuthTokenResponseDto result = single.blockingGet();
+      assertFalse(result.getIsAuthTokenValid());
+    }
+
+    @Test
+    void returnsInvalidWhenAuthorizationHasNoBearerPrefix() throws Exception {
+      when(jwtService.isAccessToken("raw-token")).thenReturn(false);
+      Single<VerifyAuthTokenResponseDto> single = authService.verifyAuthToken("raw-token");
+      VerifyAuthTokenResponseDto result = single.blockingGet();
+      assertFalse(result.getIsAuthTokenValid());
+    }
+
+    @Test
+    void returnsValidWhenBearerLowerCase() throws Exception {
+      when(jwtService.isAccessToken("token")).thenReturn(true);
+      Single<VerifyAuthTokenResponseDto> single = authService.verifyAuthToken("bearer token");
+      VerifyAuthTokenResponseDto result = single.blockingGet();
+      assertTrue(result.getIsAuthTokenValid());
     }
   }
 
@@ -224,6 +318,20 @@ class AuthServiceTest {
       assertEquals("Bearer", result.getTokenType());
       assertEquals(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS, result.getExpiresIn());
       verify(jwtService).generateAccessToken("user1", "e@x.com", "Name");
+    }
+
+    @Test
+    void throwsWhenVerifyTokenThrows() {
+      GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
+      request.setRefreshToken("expired-refresh");
+      when(jwtService.isRefreshToken("expired-refresh")).thenReturn(true);
+      when(jwtService.verifyToken("expired-refresh")).thenThrow(new RuntimeException("Token expired"));
+
+      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+          authService.getAccessTokenFromRefreshToken(request).blockingGet());
+
+      assertTrue(ex.getMessage().contains("Failed to refresh access token"));
+      assertNotNull(ex.getCause());
     }
   }
 }

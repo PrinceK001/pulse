@@ -1,6 +1,8 @@
 package org.dreamhorizon.pulseserver.resources.v1.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
@@ -169,5 +171,34 @@ class AuthenticateTest {
         testContext.completeNow();
       });
     });
+  }
+
+  @Test
+  void getAccessAndRefreshTokensThrowsWhenAuthServiceThrows() {
+    AuthenticateRequestDto requestDto = new AuthenticateRequestDto();
+    requestDto.identifier = "token";
+    when(authService.verifyGoogleIdToken(eq("token"), any())).thenThrow(new RuntimeException("Invalid token"));
+
+    assertThrows(Throwable.class, () ->
+        authenticate.getAccessAndRefreshTokens(requestDto, null));
+  }
+
+  @Test
+  void getAccessAndRefreshTokensThrowsWithNullMessageWhenAuthServiceThrowsNullMessage() {
+    AuthenticateRequestDto requestDto = new AuthenticateRequestDto();
+    requestDto.identifier = "token";
+    when(authService.verifyGoogleIdToken(eq("token"), any()))
+        .thenThrow(new RuntimeException());
+
+    assertThrows(Throwable.class, () ->
+        authenticate.getAccessAndRefreshTokens(requestDto, null));
+  }
+
+  @Test
+  void verifyAuthTokenThrowsWhenAuthServiceThrows() {
+    when(authService.verifyAuthToken("Bearer x")).thenThrow(new RuntimeException("error"));
+
+    assertThrows(Throwable.class, () ->
+        authenticate.verifyAuthToken("Bearer x"));
   }
 }
