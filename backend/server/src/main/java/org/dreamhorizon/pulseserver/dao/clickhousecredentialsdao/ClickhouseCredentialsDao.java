@@ -204,7 +204,7 @@ public class ClickhouseCredentialsDao {
     String decryptedPassword = encryptionUtil.decryptPassword(encryptedPassword);
 
     return ClickhouseCredentials.builder()
-        .credentialId(row.getLong("credential_id"))
+        .id(row.getLong("id"))
         .tenantId(row.getString("tenant_id"))
         .clickhouseUsername(row.getString("clickhouse_username"))
         .clickhousePassword(decryptedPassword)
@@ -218,7 +218,7 @@ public class ClickhouseCredentialsDao {
 
   private ClickhouseTenantCredentialAudit mapRowToAudit(Row row) {
     return ClickhouseTenantCredentialAudit.builder()
-        .auditId(row.getLong("audit_id"))
+        .id(row.getLong("id"))
         .tenantId(row.getString("tenant_id"))
         .action(row.getString("action"))
         .performedBy(row.getString("performed_by"))

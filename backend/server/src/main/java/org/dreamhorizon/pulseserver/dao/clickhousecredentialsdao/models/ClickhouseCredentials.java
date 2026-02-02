@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClickhouseCredentials {
-  private Long credentialId;
+  private Long id;
   private String tenantId;
   private String clickhouseUsername;
   private transient String clickhousePassword;

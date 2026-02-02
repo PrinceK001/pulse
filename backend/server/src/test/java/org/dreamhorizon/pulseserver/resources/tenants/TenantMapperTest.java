@@ -217,7 +217,7 @@ class TenantMapperTest {
     @Test
     void shouldMapClickhouseTenantCredentialAuditToAuditLogRestResponse() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
-          .auditId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
@@ -228,7 +228,7 @@ class TenantMapperTest {
       AuditLogRestResponse result = mapper.toAuditLogRestResponse(audit);
 
       assertNotNull(result);
-      assertEquals(1L, result.getAuditId());
+      assertEquals(1L, result.getId());
       assertEquals("test_tenant", result.getTenantId());
       assertEquals("CREDENTIALS_CREATED", result.getAction());
       assertEquals("admin@example.com", result.getPerformedBy());
@@ -239,7 +239,7 @@ class TenantMapperTest {
     @Test
     void shouldMapAuditListToAuditListRestResponse() {
       ClickhouseTenantCredentialAudit audit1 = ClickhouseTenantCredentialAudit.builder()
-          .auditId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
@@ -247,7 +247,7 @@ class TenantMapperTest {
           .build();
 
       ClickhouseTenantCredentialAudit audit2 = ClickhouseTenantCredentialAudit.builder()
-          .auditId(2L)
+          .id(2L)
           .tenantId("test_tenant")
           .action("CREDENTIALS_UPDATED")
           .performedBy("admin@example.com")
@@ -299,7 +299,7 @@ class TenantMapperTest {
     @Test
     void shouldHandleNullAuditFields() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
-          .auditId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")

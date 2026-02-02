@@ -18,7 +18,7 @@ class ClickhouseCredentialsModelTest {
     @Test
     void shouldBuildWithAllFields() {
       ClickhouseCredentials credentials = ClickhouseCredentials.builder()
-          .credentialId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .clickhouseUsername("user_test")
           .clickhousePassword("password123")
@@ -29,7 +29,7 @@ class ClickhouseCredentialsModelTest {
           .updatedAt("2026-01-01T00:00:00")
           .build();
 
-      assertEquals(1L, credentials.getCredentialId());
+      assertEquals(1L, credentials.getId());
       assertEquals("test_tenant", credentials.getTenantId());
       assertEquals("user_test", credentials.getClickhouseUsername());
       assertEquals("password123", credentials.getClickhousePassword());
@@ -47,7 +47,7 @@ class ClickhouseCredentialsModelTest {
           .build();
 
       assertEquals("test_tenant", credentials.getTenantId());
-      assertNull(credentials.getCredentialId());
+      assertNull(credentials.getId());
       assertNull(credentials.getClickhouseUsername());
     }
   }
@@ -59,7 +59,7 @@ class ClickhouseCredentialsModelTest {
     void shouldSetAndGetAllFields() {
       ClickhouseCredentials credentials = new ClickhouseCredentials();
       
-      credentials.setCredentialId(2L);
+      credentials.setId(2L);
       credentials.setTenantId("tenant_abc");
       credentials.setClickhouseUsername("user_abc");
       credentials.setClickhousePassword("pass_abc");
@@ -69,7 +69,7 @@ class ClickhouseCredentialsModelTest {
       credentials.setCreatedAt("2026-02-01T00:00:00");
       credentials.setUpdatedAt("2026-02-02T00:00:00");
 
-      assertEquals(2L, credentials.getCredentialId());
+      assertEquals(2L, credentials.getId());
       assertEquals("tenant_abc", credentials.getTenantId());
       assertEquals("user_abc", credentials.getClickhouseUsername());
       assertEquals("pass_abc", credentials.getClickhousePassword());
@@ -87,13 +87,13 @@ class ClickhouseCredentialsModelTest {
     @Test
     void shouldBeEqualForSameValues() {
       ClickhouseCredentials cred1 = ClickhouseCredentials.builder()
-          .credentialId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .clickhouseUsername("user")
           .build();
 
       ClickhouseCredentials cred2 = ClickhouseCredentials.builder()
-          .credentialId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .clickhouseUsername("user")
           .build();
@@ -105,12 +105,12 @@ class ClickhouseCredentialsModelTest {
     @Test
     void shouldNotBeEqualForDifferentValues() {
       ClickhouseCredentials cred1 = ClickhouseCredentials.builder()
-          .credentialId(1L)
+          .id(1L)
           .tenantId("tenant_a")
           .build();
 
       ClickhouseCredentials cred2 = ClickhouseCredentials.builder()
-          .credentialId(2L)
+          .id(2L)
           .tenantId("tenant_b")
           .build();
 
@@ -151,7 +151,7 @@ class ClickhouseCredentialsModelTest {
     @Test
     void shouldGenerateToString() {
       ClickhouseCredentials credentials = ClickhouseCredentials.builder()
-          .credentialId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .clickhouseUsername("user")
           .isActive(true)
@@ -174,7 +174,7 @@ class ClickhouseCredentialsModelTest {
           1L, "tenant", "user", "pass", "salt", "digest", true, "created", "updated"
       );
 
-      assertEquals(1L, credentials.getCredentialId());
+      assertEquals(1L, credentials.getId());
       assertEquals("tenant", credentials.getTenantId());
       assertEquals("user", credentials.getClickhouseUsername());
       assertEquals("pass", credentials.getClickhousePassword());
@@ -193,7 +193,7 @@ class ClickhouseCredentialsModelTest {
     void shouldCreateWithNoArgsConstructor() {
       ClickhouseCredentials credentials = new ClickhouseCredentials();
 
-      assertNull(credentials.getCredentialId());
+      assertNull(credentials.getId());
       assertNull(credentials.getTenantId());
       assertNull(credentials.getClickhouseUsername());
     }

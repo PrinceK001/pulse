@@ -17,7 +17,7 @@ class ClickhouseTenantCredentialAuditModelTest {
     @Test
     void shouldBuildWithAllFields() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
-          .auditId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
@@ -25,7 +25,7 @@ class ClickhouseTenantCredentialAuditModelTest {
           .createdAt("2026-01-01T00:00:00")
           .build();
 
-      assertEquals(1L, audit.getAuditId());
+      assertEquals(1L, audit.getId());
       assertEquals("test_tenant", audit.getTenantId());
       assertEquals("CREDENTIALS_CREATED", audit.getAction());
       assertEquals("admin@example.com", audit.getPerformedBy());
@@ -42,7 +42,7 @@ class ClickhouseTenantCredentialAuditModelTest {
 
       assertEquals("test_tenant", audit.getTenantId());
       assertEquals("CREDENTIALS_CREATED", audit.getAction());
-      assertNull(audit.getAuditId());
+      assertNull(audit.getId());
     }
   }
 
@@ -53,14 +53,14 @@ class ClickhouseTenantCredentialAuditModelTest {
     void shouldSetAndGetAllFields() {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
       
-      audit.setAuditId(2L);
+      audit.setId(2L);
       audit.setTenantId("tenant_abc");
       audit.setAction("CREDENTIALS_UPDATED");
       audit.setPerformedBy("user@example.com");
       audit.setDetails("{\"reason\":\"rotation\"}");
       audit.setCreatedAt("2026-02-01T00:00:00");
 
-      assertEquals(2L, audit.getAuditId());
+      assertEquals(2L, audit.getId());
       assertEquals("tenant_abc", audit.getTenantId());
       assertEquals("CREDENTIALS_UPDATED", audit.getAction());
       assertEquals("user@example.com", audit.getPerformedBy());
@@ -75,13 +75,13 @@ class ClickhouseTenantCredentialAuditModelTest {
     @Test
     void shouldBeEqualForSameValues() {
       ClickhouseTenantCredentialAudit audit1 = ClickhouseTenantCredentialAudit.builder()
-          .auditId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .build();
 
       ClickhouseTenantCredentialAudit audit2 = ClickhouseTenantCredentialAudit.builder()
-          .auditId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .build();
@@ -93,12 +93,12 @@ class ClickhouseTenantCredentialAuditModelTest {
     @Test
     void shouldNotBeEqualForDifferentValues() {
       ClickhouseTenantCredentialAudit audit1 = ClickhouseTenantCredentialAudit.builder()
-          .auditId(1L)
+          .id(1L)
           .action("CREDENTIALS_CREATED")
           .build();
 
       ClickhouseTenantCredentialAudit audit2 = ClickhouseTenantCredentialAudit.builder()
-          .auditId(2L)
+          .id(2L)
           .action("CREDENTIALS_UPDATED")
           .build();
 
@@ -139,7 +139,7 @@ class ClickhouseTenantCredentialAuditModelTest {
     @Test
     void shouldGenerateToString() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
-          .auditId(1L)
+          .id(1L)
           .tenantId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin")
@@ -162,7 +162,7 @@ class ClickhouseTenantCredentialAuditModelTest {
           1L, "tenant", "CREATE", "admin", "details", "2026-01-01"
       );
 
-      assertEquals(1L, audit.getAuditId());
+      assertEquals(1L, audit.getId());
       assertEquals("tenant", audit.getTenantId());
       assertEquals("CREATE", audit.getAction());
       assertEquals("admin", audit.getPerformedBy());
@@ -178,7 +178,7 @@ class ClickhouseTenantCredentialAuditModelTest {
     void shouldCreateWithNoArgsConstructor() {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
 
-      assertNull(audit.getAuditId());
+      assertNull(audit.getId());
       assertNull(audit.getTenantId());
       assertNull(audit.getAction());
     }

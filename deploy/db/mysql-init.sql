@@ -343,7 +343,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 );
 
 CREATE TABLE IF NOT EXISTS clickhouse_tenant_credentials (
-    credential_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenant_id VARCHAR(100) NOT NULL UNIQUE,
     clickhouse_username VARCHAR(100) NOT NULL,
     clickhouse_password_encrypted TEXT NOT NULL,
@@ -357,7 +357,7 @@ CREATE TABLE IF NOT EXISTS clickhouse_tenant_credentials (
 );
 
 CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
-    audit_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenant_id VARCHAR(100) NOT NULL,
     action VARCHAR(50) NOT NULL,
     performed_by VARCHAR(255) NOT NULL,

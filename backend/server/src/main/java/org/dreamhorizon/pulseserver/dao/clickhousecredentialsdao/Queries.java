@@ -13,17 +13,17 @@ public class Queries {
           + "updated_at = CURRENT_TIMESTAMP";
 
   public static final String GET_CREDENTIALS_BY_TENANT =
-      "SELECT credential_id, tenant_id, clickhouse_username, clickhouse_password_encrypted, "
+      "SELECT id, tenant_id, clickhouse_username, clickhouse_password_encrypted, "
           + "encryption_salt, password_digest, is_active, created_at, updated_at "
           + "FROM clickhouse_tenant_credentials WHERE tenant_id = ? AND is_active = TRUE";
 
   public static final String GET_CREDENTIALS_BY_TENANT_INCLUDING_INACTIVE =
-      "SELECT credential_id, tenant_id, clickhouse_username, clickhouse_password_encrypted, "
+      "SELECT id, tenant_id, clickhouse_username, clickhouse_password_encrypted, "
           + "encryption_salt, password_digest, is_active, created_at, updated_at "
           + "FROM clickhouse_tenant_credentials WHERE tenant_id = ?";
 
   public static final String GET_ALL_ACTIVE_CREDENTIALS =
-      "SELECT credential_id, tenant_id, clickhouse_username, clickhouse_password_encrypted, "
+      "SELECT id, tenant_id, clickhouse_username, clickhouse_password_encrypted, "
           + "encryption_salt, password_digest, is_active, created_at, updated_at "
           + "FROM clickhouse_tenant_credentials WHERE is_active = TRUE";
 
@@ -70,10 +70,10 @@ public class Queries {
           + "VALUES (?, ?, ?, ?)";
 
   public static final String GET_AUDIT_BY_TENANT =
-      "SELECT audit_id, tenant_id, action, performed_by, details, created_at "
+      "SELECT id, tenant_id, action, performed_by, details, created_at "
           + "FROM clickhouse_credential_audit WHERE tenant_id = ? ORDER BY created_at DESC";
 
   public static final String GET_RECENT_AUDITS =
-      "SELECT audit_id, tenant_id, action, performed_by, details, created_at "
+      "SELECT id, tenant_id, action, performed_by, details, created_at "
           + "FROM clickhouse_credential_audit ORDER BY created_at DESC LIMIT ?";
 }

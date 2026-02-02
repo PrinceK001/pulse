@@ -329,7 +329,7 @@ class ClickhouseCredentialsBranchTest {
     void shouldSetAndGetAllFields() {
       ClickhouseCredentials cred = new ClickhouseCredentials();
       
-      cred.setCredentialId(1L);
+      cred.setId(1L);
       cred.setTenantId("t1");
       cred.setClickhouseUsername("u1");
       cred.setClickhousePassword("p1");
@@ -339,7 +339,7 @@ class ClickhouseCredentialsBranchTest {
       cred.setCreatedAt("c1");
       cred.setUpdatedAt("upd1");
       
-      assertEquals(1L, cred.getCredentialId());
+      assertEquals(1L, cred.getId());
       assertEquals("t1", cred.getTenantId());
       assertEquals("u1", cred.getClickhouseUsername());
       assertEquals("p1", cred.getClickhousePassword());
@@ -359,7 +359,7 @@ class ClickhouseCredentialsBranchTest {
       ClickhouseCredentials cred = new ClickhouseCredentials(
           1L, "tenant", "user", "pass", "salt", "digest", true, "created", "updated");
       
-      assertEquals(1L, cred.getCredentialId());
+      assertEquals(1L, cred.getId());
       assertEquals("tenant", cred.getTenantId());
       assertEquals("user", cred.getClickhouseUsername());
       assertEquals("pass", cred.getClickhousePassword());
@@ -382,7 +382,7 @@ class ClickhouseCredentialsBranchTest {
 
   private ClickhouseCredentials createFullCredentials() {
     return ClickhouseCredentials.builder()
-        .credentialId(1L)
+        .id(1L)
         .tenantId("tenant1")
         .clickhouseUsername("user1")
         .clickhousePassword("pass1")

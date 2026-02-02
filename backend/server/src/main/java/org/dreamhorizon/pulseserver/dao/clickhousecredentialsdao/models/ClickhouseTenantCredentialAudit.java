@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClickhouseTenantCredentialAudit {
-  private Long auditId;
+  private Long id;
   private String tenantId;
   private String action;
   private String performedBy;

@@ -70,7 +70,7 @@ class TenantServiceTest {
 
   private ClickhouseCredentials createMockCredentials() {
     return ClickhouseCredentials.builder()
-        .credentialId(1L)
+        .id(1L)
         .tenantId("test_tenant")
         .clickhouseUsername("tenant_test_tenant")
         .clickhousePassword("decrypted_password")
@@ -82,7 +82,7 @@ class TenantServiceTest {
 
   private ClickhouseTenantCredentialAudit createMockAudit() {
     return ClickhouseTenantCredentialAudit.builder()
-        .auditId(1L)
+        .id(1L)
         .tenantId("test_tenant")
         .action("CREDENTIALS_CREATED")
         .performedBy("admin@example.com")
