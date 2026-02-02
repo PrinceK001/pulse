@@ -11,6 +11,7 @@ import io.vertx.rxjava3.ext.web.client.WebClient;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
@@ -49,8 +50,18 @@ public class MainModule extends VertxAbstractModule {
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
     bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
 
-    bind(PasswordEncryptionUtil.class).in(Singleton.class);
-    bind(ClickhouseTenantConnectionPoolManager.class).in(Singleton.class);
+    bind(PasswordEncryptionUtil.class).toProvider(() -> {
+      ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
+      return new PasswordEncryptionUtil(config);
+    }).in(Singleton.class);
+
+    bind(ClickhouseTenantConnectionPoolManager.class).toProvider(() -> {
+      ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
+      ClickhouseTenantConnectionPoolManager manager = new ClickhouseTenantConnectionPoolManager(config);
+      SharedDataUtils.put(vertx, manager);
+      return manager;
+    }).in(Singleton.class);
+
     bind(ClickhouseCredentialsDao.class).in(Singleton.class);
     bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
     bind(SourceMapCache.class).in(Singleton.class);

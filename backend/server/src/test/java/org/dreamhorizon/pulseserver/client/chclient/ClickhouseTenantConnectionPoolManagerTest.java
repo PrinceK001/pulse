@@ -2,14 +2,11 @@ package org.dreamhorizon.pulseserver.client.chclient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,39 +14,64 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 class ClickhouseTenantConnectionPoolManagerTest {
 
   @Mock
   private ClickhouseConfig clickhouseConfig;
 
-  private ClickhouseTenantConnectionPoolManager poolManager;
-
-  @BeforeEach
-  void setup() {
-    poolManager = new ClickhouseTenantConnectionPoolManager(clickhouseConfig);
-  }
-
   @Nested
-  class TestGetPoolStatistics {
+  class TestConstructor {
 
     @Test
-    void shouldReturnZeroStatsForNonExistentTenant() {
-      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
-          poolManager.getPoolStatistics("non_existent_tenant");
+    void shouldThrowExceptionWhenConfigIsInvalid() {
+      // Constructor now calls initializeAdminPool(), so invalid config should throw
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("invalid://url");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
 
-      assertNotNull(stats);
-      assertEquals("non_existent_tenant", stats.tenantId);
-      assertEquals(0, stats.activeConnections);
-      assertEquals(0, stats.maxConnections);
-      assertFalse(stats.isActive);
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
     }
 
     @Test
-    void shouldReturnStatsWithCorrectTenantId() {
-      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
-          poolManager.getPoolStatistics("test_tenant");
+    void shouldThrowExceptionForNullUrl() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn(null);
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
 
-      assertEquals("test_tenant", stats.tenantId);
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+
+    @Test
+    void shouldThrowExceptionForNullUsername() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("r2dbc:clickhouse://localhost:8123");
+      when(clickhouseConfig.getUsername()).thenReturn(null);
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+
+    @Test
+    void shouldThrowExceptionForNullPassword() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("r2dbc:clickhouse://localhost:8123");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn(null);
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+
+    @Test
+    void shouldThrowExceptionForEmptyUrl() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
     }
   }
 
@@ -81,102 +103,6 @@ class ClickhouseTenantConnectionPoolManagerTest {
       assertEquals(10, stats.maxConnections);
       assertFalse(stats.isActive);
     }
-  }
-
-  @Nested
-  class TestInitializeAdminPool {
-
-    @Test
-    void shouldThrowExceptionWhenConfigIsInvalid() {
-      when(clickhouseConfig.getR2dbcUrl()).thenReturn("invalid://url");
-      when(clickhouseConfig.getUsername()).thenReturn("admin");
-      when(clickhouseConfig.getPassword()).thenReturn("password");
-
-      assertThrows(RuntimeException.class, () -> poolManager.initializeAdminPool());
-    }
-  }
-
-  @Nested
-  class TestGetAdminPool {
-
-    @Test
-    void shouldThrowExceptionWhenAdminPoolNotInitialized() {
-      RuntimeException exception = assertThrows(RuntimeException.class, 
-          () -> poolManager.getAdminPool());
-
-      assertEquals("Admin pool not available", exception.getMessage());
-    }
-  }
-
-  @Nested
-  class TestGetPoolForTenant {
-
-    @Test
-    void shouldThrowExceptionForInvalidConfig() {
-      when(clickhouseConfig.getR2dbcUrl()).thenReturn("invalid://url");
-
-      assertThrows(RuntimeException.class, 
-          () -> poolManager.getPoolForTenant("tenant_1", "user", "password"));
-    }
-  }
-
-  @Nested
-  class TestClosePoolForTenant {
-
-    @Test
-    void shouldHandleClosingNonExistentPool() {
-      // Should not throw exception for non-existent tenant
-      poolManager.closePoolForTenant("non_existent_tenant");
-      
-      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
-          poolManager.getPoolStatistics("non_existent_tenant");
-      assertFalse(stats.isActive);
-    }
-  }
-
-  @Nested
-  class TestCloseAllPools {
-
-    @Test
-    void shouldHandleClosingWhenNoPools() {
-      // Should not throw exception when no pools exist
-      poolManager.closeAllPools();
-      
-      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
-          poolManager.getPoolStatistics("any_tenant");
-      assertFalse(stats.isActive);
-    }
-  }
-
-  @Nested
-  class TestConstructor {
-
-    @Test
-    void shouldCreateWithConfig() {
-      ClickhouseConfig config = mock(ClickhouseConfig.class);
-      ClickhouseTenantConnectionPoolManager manager = 
-          new ClickhouseTenantConnectionPoolManager(config);
-
-      assertNotNull(manager);
-    }
-  }
-
-  @Nested
-  class TestPoolStatisticsFields {
-
-    @Test
-    void shouldAccessAllPublicFields() {
-      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
-          new ClickhouseTenantConnectionPoolManager.PoolStatistics(
-              "test_tenant", 3, 15, true
-          );
-
-      // Verify all public fields are accessible
-      assertEquals("test_tenant", stats.tenantId);
-      assertEquals(3, stats.activeConnections);
-      assertEquals(15, stats.maxConnections);
-      assertTrue(stats.isActive);
-    }
 
     @Test
     void shouldHandleZeroConnections() {
@@ -199,38 +125,57 @@ class ClickhouseTenantConnectionPoolManagerTest {
 
       assertEquals(null, stats.tenantId);
     }
+
+    @Test
+    void shouldAccessAllPublicFields() {
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics(
+              "test_tenant", 3, 15, true
+          );
+
+      // Verify all public fields are accessible
+      assertEquals("test_tenant", stats.tenantId);
+      assertEquals(3, stats.activeConnections);
+      assertEquals(15, stats.maxConnections);
+      assertTrue(stats.isActive);
+    }
+
+    @Test
+    void shouldCreatePoolStatisticsWithVariousValues() {
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats1 = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics("t1", 0, 0, false);
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats2 = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics("t2", 5, 10, true);
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats3 = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics("t3", 10, 10, true);
+
+      assertEquals("t1", stats1.tenantId);
+      assertEquals("t2", stats2.tenantId);
+      assertEquals("t3", stats3.tenantId);
+      
+      assertEquals(0, stats1.activeConnections);
+      assertEquals(5, stats2.activeConnections);
+      assertEquals(10, stats3.activeConnections);
+      
+      assertFalse(stats1.isActive);
+      assertTrue(stats2.isActive);
+      assertTrue(stats3.isActive);
+    }
   }
 
   @Nested
-  class TestMultipleOperations {
+  class TestGetPoolForTenantErrors {
 
     @Test
-    void shouldHandleMultipleClosePoolCalls() {
-      // Multiple close calls should not throw
-      poolManager.closePoolForTenant("tenant_1");
-      poolManager.closePoolForTenant("tenant_1");
-      poolManager.closePoolForTenant("tenant_2");
-      
-      assertFalse(poolManager.getPoolStatistics("tenant_1").isActive);
-    }
+    void shouldThrowExceptionForInvalidConfig() {
+      // When constructor fails, we can't test getPoolForTenant on the instance
+      // So we test that constructor throws with invalid config
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("invalid://url");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
 
-    @Test
-    void shouldHandleCloseAllPoolsMultipleTimes() {
-      poolManager.closeAllPools();
-      poolManager.closeAllPools();
-      
-      assertFalse(poolManager.getPoolStatistics("any").isActive);
-    }
-
-    @Test
-    void shouldReturnDifferentStatsForDifferentTenants() {
-      ClickhouseTenantConnectionPoolManager.PoolStatistics stats1 = 
-          poolManager.getPoolStatistics("tenant_1");
-      ClickhouseTenantConnectionPoolManager.PoolStatistics stats2 = 
-          poolManager.getPoolStatistics("tenant_2");
-      
-      assertEquals("tenant_1", stats1.tenantId);
-      assertEquals("tenant_2", stats2.tenantId);
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
     }
   }
 
@@ -238,49 +183,15 @@ class ClickhouseTenantConnectionPoolManagerTest {
   class TestExceptionMessages {
 
     @Test
-    void shouldHaveCorrectMessageForAdminPoolNotAvailable() {
-      RuntimeException ex = assertThrows(RuntimeException.class, 
-          () -> poolManager.getAdminPool());
-      
-      assertTrue(ex.getMessage().contains("Admin pool not available"));
-    }
-
-    @Test
-    void shouldThrowExceptionForNullR2dbcUrl() {
-      when(clickhouseConfig.getR2dbcUrl()).thenReturn(null);
-      
-      assertThrows(Exception.class, 
-          () -> poolManager.getPoolForTenant("tenant", "user", "pass"));
-    }
-
-    @Test
-    void shouldThrowExceptionForEmptyR2dbcUrl() {
-      when(clickhouseConfig.getR2dbcUrl()).thenReturn("");
-      
-      assertThrows(Exception.class, 
-          () -> poolManager.getPoolForTenant("tenant", "user", "pass"));
-    }
-  }
-
-  @Nested
-  class TestInitializationErrors {
-
-    @Test
-    void shouldThrowExceptionForNullUsername() {
-      when(clickhouseConfig.getR2dbcUrl()).thenReturn("r2dbc:clickhouse://localhost:8123");
-      when(clickhouseConfig.getUsername()).thenReturn(null);
-      when(clickhouseConfig.getPassword()).thenReturn("password");
-      
-      assertThrows(RuntimeException.class, () -> poolManager.initializeAdminPool());
-    }
-
-    @Test
-    void shouldThrowExceptionForNullPassword() {
-      when(clickhouseConfig.getR2dbcUrl()).thenReturn("r2dbc:clickhouse://localhost:8123");
+    void shouldThrowWithCannotInitializeMessage() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("invalid://url");
       when(clickhouseConfig.getUsername()).thenReturn("admin");
-      when(clickhouseConfig.getPassword()).thenReturn(null);
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      RuntimeException ex = assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
       
-      assertThrows(RuntimeException.class, () -> poolManager.initializeAdminPool());
+      assertTrue(ex.getMessage().contains("Cannot initialize admin pool"));
     }
   }
 }

@@ -26,8 +26,6 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
-import org.dreamhorizon.pulseserver.util.PasswordEncryptionUtil;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 @Slf4j
@@ -35,8 +33,6 @@ public class MainVerticle extends AbstractVerticle {
 
   private WebClient webClient;
   private MysqlClient mysqlClient;
-  private ClickhouseTenantConnectionPoolManager tenantPoolManager;
-  private ClickhouseCredentialsDao clickhouseCredentialsDao;
 
   @Override
   public Completable rxStart() {
@@ -60,31 +56,7 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), webClient);
           return config;
         })
-        .flatMapCompletable(config -> {
-          // Initialize multi-tenancy pools
-          ClickhouseConfig chConfig = config.getJsonObject("clickhouse", new JsonObject()).mapTo(ClickhouseConfig.class);
-          this.tenantPoolManager = new ClickhouseTenantConnectionPoolManager(chConfig);
-          PasswordEncryptionUtil encryptionUtil = new PasswordEncryptionUtil(chConfig);
-          this.clickhouseCredentialsDao = new ClickhouseCredentialsDao(mysqlClient, encryptionUtil);
-
-          return Completable.fromRunnable(() -> tenantPoolManager.initializeAdminPool())
-              .andThen(
-                  // Load and initialize all active tenant pools
-                  clickhouseCredentialsDao.getAllActiveTenantCredentials()
-                      .flatMapCompletable(credentials -> {
-                        log.info("Initializing pool for tenant: {}", credentials.getTenantId());
-                        tenantPoolManager.getPoolForTenant(
-                            credentials.getTenantId(),
-                            credentials.getClickhouseUsername(),
-                            credentials.getClickhousePassword());
-                        return Completable.complete();
-                      })
-                      .onErrorResumeNext(error -> {
-                        log.warn("Error loading tenant credentials, proceeding with admin pool only", error);
-                        return Completable.complete();
-                      })
-              );
-        })
+        .ignoreElement()
         .andThen(
             vertx.rxDeployVerticle(
                 () ->
@@ -120,13 +92,13 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public Completable rxStop() {
-    if (tenantPoolManager != null) {
-      try {
-        tenantPoolManager.closeAllPools();
-        log.info("Closed all tenant connection pools");
-      } catch (Exception e) {
-        log.warn("Error closing tenant pools", e);
-      }
+    try {
+      ClickhouseTenantConnectionPoolManager poolManager = 
+          SharedDataUtils.get(vertx.getDelegate(), ClickhouseTenantConnectionPoolManager.class);
+      poolManager.closeAllPools();
+      log.info("Closed all tenant connection pools");
+    } catch (Exception e) {
+      log.warn("Error closing tenant pools", e);
     }
     
     this.webClient.close();
