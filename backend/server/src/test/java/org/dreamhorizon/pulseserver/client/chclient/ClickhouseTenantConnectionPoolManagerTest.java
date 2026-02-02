@@ -193,5 +193,138 @@ class ClickhouseTenantConnectionPoolManagerTest {
       
       assertTrue(ex.getMessage().contains("Cannot initialize admin pool"));
     }
+
+    @Test
+    void shouldThrowWithMalformedUrl() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("malformed-url-without-protocol");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+
+    @Test
+    void shouldThrowWithSpecialCharactersInUrl() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("r2dbc://host:port/db?param=value&other=<>!@#");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+  }
+
+  @Nested
+  class TestPoolStatisticsEdgeCases {
+
+    @Test
+    void shouldHandleNegativeValues() {
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics(
+              "tenant", -1, -1, false
+          );
+
+      assertEquals(-1, stats.activeConnections);
+      assertEquals(-1, stats.maxConnections);
+    }
+
+    @Test
+    void shouldHandleMaxIntegerValues() {
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics(
+              "tenant", Integer.MAX_VALUE, Integer.MAX_VALUE, true
+          );
+
+      assertEquals(Integer.MAX_VALUE, stats.activeConnections);
+      assertEquals(Integer.MAX_VALUE, stats.maxConnections);
+    }
+
+    @Test
+    void shouldHandleEmptyTenantId() {
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics(
+              "", 0, 0, false
+          );
+
+      assertEquals("", stats.tenantId);
+    }
+
+    @Test
+    void shouldHandleLongTenantId() {
+      String longTenantId = "a".repeat(1000);
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics(
+              longTenantId, 5, 10, true
+          );
+
+      assertEquals(longTenantId, stats.tenantId);
+    }
+
+    @Test
+    void shouldHandleSpecialCharactersInTenantId() {
+      String specialTenantId = "tenant-with_special.chars@123";
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics(
+              specialTenantId, 5, 10, true
+          );
+
+      assertEquals(specialTenantId, stats.tenantId);
+    }
+
+    @Test
+    void shouldHandleUnicodeTenantId() {
+      String unicodeTenantId = "租户_テナント_tenant";
+      ClickhouseTenantConnectionPoolManager.PoolStatistics stats = 
+          new ClickhouseTenantConnectionPoolManager.PoolStatistics(
+              unicodeTenantId, 5, 10, true
+          );
+
+      assertEquals(unicodeTenantId, stats.tenantId);
+    }
+  }
+
+  @Nested
+  class TestConstructorEdgeCases {
+
+    @Test
+    void shouldThrowExceptionForWhitespaceUrl() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("   ");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+
+    @Test
+    void shouldThrowExceptionForInvalidProtocol() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("http://localhost:8123");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+
+    @Test
+    void shouldThrowExceptionForIncompleteUrl() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("r2dbc:");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
+
+    @Test
+    void shouldThrowExceptionForUrlWithInvalidHost() {
+      when(clickhouseConfig.getR2dbcUrl()).thenReturn("r2dbc:clickhouse://");
+      when(clickhouseConfig.getUsername()).thenReturn("admin");
+      when(clickhouseConfig.getPassword()).thenReturn("password");
+
+      assertThrows(RuntimeException.class, 
+          () -> new ClickhouseTenantConnectionPoolManager(clickhouseConfig));
+    }
   }
 }

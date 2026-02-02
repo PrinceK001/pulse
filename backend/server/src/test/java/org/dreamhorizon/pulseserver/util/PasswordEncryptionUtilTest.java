@@ -26,6 +26,62 @@ class PasswordEncryptionUtilTest {
   }
 
   @Nested
+  class TestConstructor {
+
+    @Test
+    void shouldThrowExceptionWhenEncryptionKeyIsNull() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey(null);
+
+      assertThrows(RuntimeException.class, () -> new PasswordEncryptionUtil(config));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenEncryptionKeyIsEmpty() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey("");
+
+      assertThrows(RuntimeException.class, () -> new PasswordEncryptionUtil(config));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenEncryptionKeyIsBlank() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey("   ");
+
+      assertThrows(RuntimeException.class, () -> new PasswordEncryptionUtil(config));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenEncryptionKeyIsInvalidBase64() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey("not-valid-base64!!!");
+
+      assertThrows(RuntimeException.class, () -> new PasswordEncryptionUtil(config));
+    }
+
+    @Test
+    void shouldInitializeSuccessfullyWithValidKey() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey(TEST_ENCRYPTION_KEY);
+
+      PasswordEncryptionUtil util = new PasswordEncryptionUtil(config);
+      assertNotNull(util);
+    }
+
+    @Test
+    void shouldThrowIllegalStateExceptionForNullKey() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey(null);
+
+      RuntimeException ex = assertThrows(RuntimeException.class, 
+          () -> new PasswordEncryptionUtil(config));
+      assertTrue(ex.getCause() instanceof IllegalStateException || 
+                 ex.getMessage().contains("Encryption key initialization failed"));
+    }
+  }
+
+  @Nested
   class TestEncryptPassword {
 
     @Test
