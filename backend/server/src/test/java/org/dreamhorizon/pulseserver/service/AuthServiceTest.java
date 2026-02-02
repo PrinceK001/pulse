@@ -204,6 +204,68 @@ class AuthServiceTest {
       assertThrows(RuntimeException.class, () ->
           authService.verifyGoogleIdToken("", null).blockingGet());
     }
+
+    @Test
+    void throwsWhenTokenHasOnlyTwoParts() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getGoogleOAuthClientId()).thenReturn("client-id");
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken("part1.part2", null).blockingGet());
+    }
+
+    @Test
+    void throwsWhenTokenPayloadHasNoIssuer() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getGoogleOAuthClientId()).thenReturn("client-id");
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+      String payloadBase64 = java.util.Base64.getUrlEncoder().withoutPadding()
+          .encodeToString("{\"sub\":\"user123\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      String token = "header." + payloadBase64 + ".signature";
+
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(token, null).blockingGet());
+    }
+
+    @Test
+    void throwsWhenTokenPayloadIsInvalidBase64() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getGoogleOAuthClientId()).thenReturn("client-id");
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+      String token = "header.not-valid-base64!!!.signature";
+
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(token, null).blockingGet());
+    }
+
+    @Test
+    void throwsWhenTokenPayloadHasIssAsNonString() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getGoogleOAuthClientId()).thenReturn("client-id");
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+      String payloadBase64 = java.util.Base64.getUrlEncoder().withoutPadding()
+          .encodeToString("{\"iss\":0}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      String token = "header." + payloadBase64 + ".signature";
+
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(token, null).blockingGet());
+    }
+
+    @Test
+    void getVerifierReusedOnSecondCall() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(true);
+      when(applicationConfig.getGoogleOAuthClientId()).thenReturn("client-id");
+      when(applicationConfig.getFirebaseProjectId()).thenReturn(null);
+      String payloadBase64 = java.util.Base64.getUrlEncoder().withoutPadding()
+          .encodeToString("{\"iss\":\"https://accounts.google.com\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      String googleToken = "header." + payloadBase64 + ".signature";
+
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(googleToken, null).blockingGet());
+      assertThrows(RuntimeException.class, () ->
+          authService.verifyGoogleIdToken(googleToken, null).blockingGet());
+    }
   }
 
   @Nested
@@ -263,6 +325,13 @@ class AuthServiceTest {
       VerifyAuthTokenResponseDto result = single.blockingGet();
       assertTrue(result.getIsAuthTokenValid());
     }
+
+    @Test
+    void returnsInvalidWhenBearerWithOnlySpaces() throws Exception {
+      Single<VerifyAuthTokenResponseDto> single = authService.verifyAuthToken("Bearer   ");
+      VerifyAuthTokenResponseDto result = single.blockingGet();
+      assertFalse(result.getIsAuthTokenValid());
+    }
   }
 
   @Nested
@@ -273,8 +342,10 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken(null);
 
-      assertThrows(RuntimeException.class, () ->
+      RuntimeException ex = assertThrows(RuntimeException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
+      assertTrue(ex.getCause() instanceof IllegalArgumentException);
+      assertTrue(ex.getCause().getMessage().contains("Refresh token is required"));
     }
 
     @Test
@@ -282,8 +353,9 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("   ");
 
-      assertThrows(RuntimeException.class, () ->
+      RuntimeException ex = assertThrows(RuntimeException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
+      assertTrue(ex.getCause() instanceof IllegalArgumentException);
     }
 
     @Test
@@ -292,8 +364,10 @@ class AuthServiceTest {
       request.setRefreshToken("not-refresh");
       when(jwtService.isRefreshToken("not-refresh")).thenReturn(false);
 
-      assertThrows(RuntimeException.class, () ->
+      RuntimeException ex = assertThrows(RuntimeException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
+      assertTrue(ex.getCause() instanceof IllegalArgumentException);
+      assertTrue(ex.getCause().getMessage().contains("Invalid token type"));
     }
 
     @Test
@@ -332,6 +406,27 @@ class AuthServiceTest {
 
       assertTrue(ex.getMessage().contains("Failed to refresh access token"));
       assertNotNull(ex.getCause());
+    }
+
+    @Test
+    void returnsNewAccessTokenWhenClaimsHaveNullEmailAndName() throws Exception {
+      GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
+      request.setRefreshToken("valid-refresh");
+      when(jwtService.isRefreshToken("valid-refresh")).thenReturn(true);
+      Claims claims = mock(Claims.class);
+      when(claims.getSubject()).thenReturn("user1");
+      when(claims.get(eq("email"), eq(String.class))).thenReturn(null);
+      when(claims.get(eq("name"), eq(String.class))).thenReturn(null);
+      when(jwtService.verifyToken("valid-refresh")).thenReturn(claims);
+      when(jwtService.generateAccessToken("user1", null, null)).thenReturn("new-access");
+
+      Single<GetAccessTokenFromRefreshTokenResponseDto> single =
+          authService.getAccessTokenFromRefreshToken(request);
+      GetAccessTokenFromRefreshTokenResponseDto result = single.blockingGet();
+
+      assertNotNull(result);
+      assertEquals("new-access", result.getAccessToken());
+      verify(jwtService).generateAccessToken("user1", null, null);
     }
   }
 }
