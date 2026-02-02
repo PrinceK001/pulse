@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `Links.SpanId` Array(String) CODEC(ZSTD(1)),
     `Links.TraceState` Array(String) CODEC(ZSTD(1)),
     `Links.Attributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
+    `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
     `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''), // DEPRECATED: Use PulseType instead
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
     `SessionId` String MATERIALIZED ifNull(SpanAttributes['session.id'], ''),
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (ServiceName, PulseType, SpanName, Timestamp)
+ORDER BY (TenantId, ServiceName, PulseType, SpanName, Timestamp)
 SETTINGS index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.otel_logs
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `SessionId` String MATERIALIZED ifNull(LogAttributes['session.id'], ''),
+    `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
@@ -75,7 +77,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
+ORDER BY (TenantId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
@@ -96,6 +98,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
     `TimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
     `Value` Float64 CODEC(ZSTD(1)),
     `Flags` UInt32 CODEC(ZSTD(1)),
+    `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
     `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
@@ -114,7 +117,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
 )
 ENGINE = MergeTree
 PARTITION BY toDate(TimeUnix)
-ORDER BY (ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
+ORDER BY (TenantId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
 SETTINGS index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.stack_trace_events
@@ -157,9 +160,10 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `ScopeAttributes`       Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes`         Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel')
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (GroupId, ExceptionType, toUnixTimestamp(Timestamp))
+ORDER BY (TenantId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
 SETTINGS index_granularity = 8192;
