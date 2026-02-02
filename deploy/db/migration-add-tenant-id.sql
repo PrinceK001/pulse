@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS tenants (
 );
 
 -- Insert a default tenant for existing data
-INSERT INTO tenants (tenant_id, name, description, is_active)
-VALUES ('default', 'Default Tenant', 'Default tenant for existing data', TRUE)
+INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
+VALUES ('default', 'Default Tenant', 'Default tenant for existing data', TRUE, "default", "default")
 ON DUPLICATE KEY UPDATE name = name;
 
 -- Add tenant_id to interaction table
