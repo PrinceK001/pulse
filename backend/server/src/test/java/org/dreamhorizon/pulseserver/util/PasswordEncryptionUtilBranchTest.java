@@ -7,20 +7,22 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-/**
- * Comprehensive tests for PasswordEncryptionUtil to cover all branches.
- */
 class PasswordEncryptionUtilBranchTest {
+
+  private static final String TEST_ENCRYPTION_KEY = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=";
 
   private PasswordEncryptionUtil util;
 
   @BeforeEach
   void setup() {
-    util = new PasswordEncryptionUtil();
+    ClickhouseConfig config = new ClickhouseConfig();
+    config.setEncryptionMasterKey(TEST_ENCRYPTION_KEY);
+    util = new PasswordEncryptionUtil(config);
   }
 
   @Nested

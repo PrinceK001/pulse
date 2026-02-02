@@ -7,17 +7,22 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 class PasswordEncryptionUtilTest {
 
+  private static final String TEST_ENCRYPTION_KEY = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=";
+
   private PasswordEncryptionUtil encryptionUtil;
 
   @BeforeEach
   void setup() {
-    encryptionUtil = new PasswordEncryptionUtil();
+    ClickhouseConfig config = new ClickhouseConfig();
+    config.setEncryptionMasterKey(TEST_ENCRYPTION_KEY);
+    encryptionUtil = new PasswordEncryptionUtil(config);
   }
 
   @Nested

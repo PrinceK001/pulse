@@ -64,7 +64,7 @@ public class MainVerticle extends AbstractVerticle {
           // Initialize multi-tenancy pools
           ClickhouseConfig chConfig = config.getJsonObject("clickhouse", new JsonObject()).mapTo(ClickhouseConfig.class);
           this.tenantPoolManager = new ClickhouseTenantConnectionPoolManager(chConfig);
-          PasswordEncryptionUtil encryptionUtil = new PasswordEncryptionUtil();
+          PasswordEncryptionUtil encryptionUtil = new PasswordEncryptionUtil(chConfig);
           this.clickhouseCredentialsDao = new ClickhouseCredentialsDao(mysqlClient, encryptionUtil);
 
           return Completable.fromRunnable(() -> tenantPoolManager.initializeAdminPool())

@@ -11,22 +11,26 @@ import javax.crypto.spec.SecretKeySpec;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 
 @Slf4j
 @Singleton
 public class PasswordEncryptionUtil {
   private static final String ALGORITHM = "AES";
   private static final String DIGEST_ALGORITHM = "SHA-256";
-  private static final String ENV_ENCRYPTION_KEY = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=";
 
   private final SecretKey secretKey;
 
   @Inject
-  public PasswordEncryptionUtil() {
+  public PasswordEncryptionUtil(ClickhouseConfig clickhouseConfig) {
     try {
-      byte[] decodedKey = Base64.getDecoder().decode(ENV_ENCRYPTION_KEY);
+      String encryptionKey = clickhouseConfig.getEncryptionMasterKey();
+      if (encryptionKey == null || encryptionKey.isBlank()) {
+        throw new IllegalStateException("encryptionMasterKey is not configured in ClickhouseConfig");
+      }
+      byte[] decodedKey = Base64.getDecoder().decode(encryptionKey);
       this.secretKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, ALGORITHM);
-      log.info("Encryption key initialized successfully");
+      log.info("Encryption key initialized successfully from ClickhouseConfig");
     } catch (Exception e) {
       log.error("Failed to initialize encryption key", e);
       throw new RuntimeException("Encryption key initialization failed", e);

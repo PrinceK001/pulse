@@ -198,7 +198,6 @@ public class ClickhouseCredentialsDao {
         .doOnError(error -> log.error("Failed to fetch recent audit logs", error));
   }
 
-  // ========== MAPPERS ==========
 
   private ClickhouseCredentials mapRowToTenantCredentials(Row row) {
     String encryptedPassword = row.getString("clickhouse_password_encrypted");
