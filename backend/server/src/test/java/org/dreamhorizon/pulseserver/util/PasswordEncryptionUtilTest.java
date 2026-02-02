@@ -374,6 +374,83 @@ class PasswordEncryptionUtilTest {
       assertEquals("salt", model.getSalt());
       assertEquals("digest", model.getDigest());
     }
+
+    @Test
+    void shouldUseSetters() {
+      PasswordEncryptionUtil.EncryptedPassword model = PasswordEncryptionUtil.EncryptedPassword.builder().build();
+      model.setEncryptedPassword("enc");
+      model.setSalt("s");
+      model.setDigest("d");
+      
+      assertEquals("enc", model.getEncryptedPassword());
+      assertEquals("s", model.getSalt());
+      assertEquals("d", model.getDigest());
+    }
+
+    @Test
+    void shouldImplementEquals() {
+      PasswordEncryptionUtil.EncryptedPassword m1 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      PasswordEncryptionUtil.EncryptedPassword m2 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      PasswordEncryptionUtil.EncryptedPassword m3 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("x").salt("s").digest("d").build();
+
+      assertEquals(m1, m2);
+      assertEquals(m1, m1);
+      assertNotEquals(m1, m3);
+      assertNotEquals(m1, null);
+      assertNotEquals(m1, "string");
+    }
+
+    @Test
+    void shouldImplementHashCode() {
+      PasswordEncryptionUtil.EncryptedPassword m1 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      PasswordEncryptionUtil.EncryptedPassword m2 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      assertEquals(m1.hashCode(), m2.hashCode());
+    }
+
+    @Test
+    void shouldImplementToString() {
+      PasswordEncryptionUtil.EncryptedPassword model = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      String str = model.toString();
+      assertNotNull(str);
+      assertTrue(str.contains("encryptedPassword") || str.contains("salt") || str.contains("digest"));
+    }
+
+    @Test
+    void shouldHandleNullFields() {
+      PasswordEncryptionUtil.EncryptedPassword m1 = PasswordEncryptionUtil.EncryptedPassword.builder().build();
+      PasswordEncryptionUtil.EncryptedPassword m2 = PasswordEncryptionUtil.EncryptedPassword.builder().build();
+      assertEquals(m1, m2);
+      assertEquals(m1.hashCode(), m2.hashCode());
+    }
+
+    @Test
+    void shouldHandleEqualsWithDifferentFields() {
+      PasswordEncryptionUtil.EncryptedPassword base = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      
+      assertNotEquals(base, PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("x").salt("s").digest("d").build());
+      assertNotEquals(base, PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("x").digest("d").build());
+      assertNotEquals(base, PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("x").build());
+    }
+
+    @Test
+    void shouldHandleNullVsNonNull() {
+      PasswordEncryptionUtil.EncryptedPassword m1 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword(null).build();
+      PasswordEncryptionUtil.EncryptedPassword m2 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").build();
+      assertNotEquals(m1, m2);
+      assertNotEquals(m2, m1);
+    }
   }
 
   @Nested

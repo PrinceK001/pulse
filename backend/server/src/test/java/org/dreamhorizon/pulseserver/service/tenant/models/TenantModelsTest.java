@@ -501,6 +501,7 @@ class TenantModelsTest {
       CreateCredentialsRequest r3 = CreateCredentialsRequest.builder().tenantId("t2").build();
 
       assertEquals(r1, r2);
+      assertEquals(r1, r1);
       assertNotEquals(r1, r3);
       assertNotEquals(r1, null);
       assertNotEquals(r1, "string");
@@ -516,7 +517,9 @@ class TenantModelsTest {
     @Test
     void shouldImplementToString() {
       CreateCredentialsRequest request = CreateCredentialsRequest.builder().tenantId("t1").build();
-      assertNotNull(request.toString());
+      String str = request.toString();
+      assertNotNull(str);
+      assertTrue(str.contains("t1") || str.contains("tenantId"));
     }
 
     @Test
@@ -526,6 +529,22 @@ class TenantModelsTest {
       CreateCredentialsRequest r2 = CreateCredentialsRequest.builder()
           .tenantId("t1").clickhousePassword("p2").build();
       assertNotEquals(r1, r2);
+    }
+
+    @Test
+    void shouldHandleNullVsNonNull() {
+      CreateCredentialsRequest r1 = CreateCredentialsRequest.builder().tenantId(null).build();
+      CreateCredentialsRequest r2 = CreateCredentialsRequest.builder().tenantId("t1").build();
+      assertNotEquals(r1, r2);
+      assertNotEquals(r2, r1);
+    }
+
+    @Test
+    void shouldHandleAllNullFields() {
+      CreateCredentialsRequest r1 = new CreateCredentialsRequest();
+      CreateCredentialsRequest r2 = new CreateCredentialsRequest();
+      assertEquals(r1, r2);
+      assertEquals(r1.hashCode(), r2.hashCode());
     }
   }
 
@@ -550,6 +569,30 @@ class TenantModelsTest {
       assertNotEquals(r1, UpdateCredentialsRequest.builder()
           .tenantId("t1").newPassword("p1").reason("r2").build());
     }
+
+    @Test
+    void shouldHandleNullVsNonNull() {
+      UpdateCredentialsRequest r1 = UpdateCredentialsRequest.builder().tenantId(null).build();
+      UpdateCredentialsRequest r2 = UpdateCredentialsRequest.builder().tenantId("t1").build();
+      assertNotEquals(r1, r2);
+      assertNotEquals(r2, r1);
+    }
+
+    @Test
+    void shouldHandleAllNullFields() {
+      UpdateCredentialsRequest r1 = new UpdateCredentialsRequest();
+      UpdateCredentialsRequest r2 = new UpdateCredentialsRequest();
+      assertEquals(r1, r2);
+      assertEquals(r1.hashCode(), r2.hashCode());
+    }
+
+    @Test
+    void shouldImplementToStringWithValues() {
+      UpdateCredentialsRequest r = UpdateCredentialsRequest.builder()
+          .tenantId("t1").newPassword("p1").reason("r1").build();
+      String str = r.toString();
+      assertNotNull(str);
+    }
   }
 
   @Nested
@@ -572,6 +615,30 @@ class TenantModelsTest {
           .tenantId("t1").name("n2").description("d1").build());
       assertNotEquals(r1, UpdateTenantRequest.builder()
           .tenantId("t1").name("n1").description("d2").build());
+    }
+
+    @Test
+    void shouldHandleNullVsNonNull() {
+      UpdateTenantRequest r1 = UpdateTenantRequest.builder().tenantId(null).build();
+      UpdateTenantRequest r2 = UpdateTenantRequest.builder().tenantId("t1").build();
+      assertNotEquals(r1, r2);
+      assertNotEquals(r2, r1);
+    }
+
+    @Test
+    void shouldHandleAllNullFields() {
+      UpdateTenantRequest r1 = new UpdateTenantRequest();
+      UpdateTenantRequest r2 = new UpdateTenantRequest();
+      assertEquals(r1, r2);
+      assertEquals(r1.hashCode(), r2.hashCode());
+    }
+
+    @Test
+    void shouldImplementToStringWithValues() {
+      UpdateTenantRequest r = UpdateTenantRequest.builder()
+          .tenantId("t1").name("n1").description("d1").build();
+      String str = r.toString();
+      assertNotNull(str);
     }
   }
 }
