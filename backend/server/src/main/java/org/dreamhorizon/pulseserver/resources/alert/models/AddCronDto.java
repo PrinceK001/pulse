@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AddAlertToCronManager {
+public class AddCronDto {
   @NotNull
   @JsonProperty("id")
   Integer id;

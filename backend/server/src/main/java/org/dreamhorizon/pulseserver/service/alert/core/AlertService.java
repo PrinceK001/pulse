@@ -21,7 +21,7 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AddCronDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
@@ -35,7 +35,7 @@ import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertSeverityRe
 import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
 import org.dreamhorizon.pulseserver.resources.alert.models.GetAlertsListRequestDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.UpdateCronDto;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.DeleteSnoozeRequest;
@@ -92,7 +92,7 @@ public class AlertService {
 
   @NotNull
   private Single<AlertResponseDto> createAlertCron(@NotNull CreateAlertRequest createAlertRequestDto, Integer alertId) {
-    return alertCronService.createAlertCron(new AddAlertToCronManager(
+    return alertCronService.createAlertCron(new AddCronDto(
         alertId,
         createAlertRequestDto.getEvaluationInterval(),
         applicationConfig.getServiceUrl() + ALERT_EVALUATE_AND_TRIGGER_ALERT + "?alertId=" + alertId,
@@ -120,7 +120,7 @@ public class AlertService {
           evaluationInterval.set(alertDetailsResponseDto.getEvaluationInterval());
           return alertsDao.updateAlert(updateAlertRequestDto);
         })
-        .flatMap(updatedAlertId -> alertCronService.updateAlertCron(new UpdateAlertInCronManager(
+        .flatMap(updatedAlertId -> alertCronService.updateAlertCron(new UpdateCronDto(
             alertId,
             TenantContext.getTenantId(),
             updateAlertRequestDto.getEvaluationInterval(),
