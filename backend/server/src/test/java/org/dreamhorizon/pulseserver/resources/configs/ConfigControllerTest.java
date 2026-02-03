@@ -32,6 +32,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,9 @@ class ConfigControllerTest {
   @BeforeEach
   void setup() {
     configController = new ConfigController(configService, applicationConfig);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("default")
+        .build());
   }
 
   @Nested
@@ -156,6 +161,7 @@ class ConfigControllerTest {
     @Test
     void shouldGetActiveConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
         // Given
         PulseConfig mockConfig = PulseConfig.builder()
             .version(5L)
@@ -184,6 +190,7 @@ class ConfigControllerTest {
     @Test
     void shouldHandleServiceErrorForActiveConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
         // Given
         when(configService.getActiveSdkConfig())
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
@@ -1127,7 +1134,7 @@ class ConfigControllerTest {
             assertNull(err);
             assertNotNull(resp.getData());
             assertEquals(20L, resp.getData().getVersion());
-            
+
             // Verify the mapper converted all nested objects
             ConfigData capturedData = configDataCaptor.getValue();
             assertNotNull(capturedData);

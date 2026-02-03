@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -59,6 +61,9 @@ class AthenaJobDaoTest {
     when(mysqlClient.getWriterPool()).thenReturn(writerPool);
     when(mysqlClient.getReaderPool()).thenReturn(readerPool);
     athenaJobDao = new AthenaJobDao(mysqlClient);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("test")
+        .build());
   }
 
   @Nested
@@ -84,8 +89,9 @@ class AthenaJobDaoTest {
       verify(preparedQuery).rxExecute(tupleCaptor.capture());
       Tuple capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getString(0)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(1)).isEqualTo(queryString);
-      assertThat(capturedTuple.getString(2)).isEqualTo(userEmail);
+      assertThat(capturedTuple.getString(1)).isNotNull(); // tenant_id
+      assertThat(capturedTuple.getString(2)).isEqualTo(queryString);
+      assertThat(capturedTuple.getString(3)).isEqualTo(userEmail);
     }
 
     @Test
@@ -127,6 +133,7 @@ class AthenaJobDaoTest {
       assertThat((Timestamp) capturedTuple.getValue(2)).isEqualTo(submissionDateTime);
       assertThat((Timestamp) capturedTuple.getValue(3)).isNotNull();
       assertThat(capturedTuple.getString(4)).isEqualTo(jobId);
+      assertThat(capturedTuple.getString(5)).isNotNull(); // tenant_id
     }
   }
 
@@ -171,6 +178,7 @@ class AthenaJobDaoTest {
       assertThat((Timestamp) capturedTuple.getValue(1)).isEqualTo(completionDateTime);
       assertThat((Timestamp) capturedTuple.getValue(2)).isNotNull();
       assertThat(capturedTuple.getString(3)).isEqualTo(jobId);
+      assertThat(capturedTuple.getString(4)).isNotNull(); // tenant_id
     }
   }
 

@@ -36,6 +36,8 @@ import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRe
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -79,6 +81,9 @@ class InteractionDaoTest {
   @BeforeEach
   void setUp() {
     interactionDao = new InteractionDao(mysqlClient, clickhouseQueryService, objectMapper, baseInteractionDao);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("default")
+        .build());
   }
 
   @Nested
@@ -289,8 +294,8 @@ class InteractionDaoTest {
   public class TestGetInteractionDetails {
 
     private final String GET_INTERACTION_DETAILS = "SELECT "
-        + "interaction_id, name, status, details, created_at, created_by, last_updated_at, updated_by "
-        + " from interaction where name = ? and is_archived = 0";
+        + "interaction_id, tenant_id, name, status, details, created_at, created_by, last_updated_at, updated_by "
+        + " from interaction where tenant_id = ? and name = ? and is_archived = 0";
 
     @Test
     void shouldThrowExceptionWhenInteractionIsNotPresent() {
@@ -312,9 +317,10 @@ class InteractionDaoTest {
       // Then
       testObserver.assertError(RuntimeException.class);
 
-      // Verify the Tuple values
+      // Verify the Tuple values (tenant_id at index 0, name at index 1)
       var capturedTuple = tupleCaptor.getValue();
-      assertThat(capturedTuple.getString(0)).isEqualTo(useCaseId);
+      assertThat(capturedTuple.getString(0)).isNotNull(); // tenant_id
+      assertThat(capturedTuple.getString(1)).isEqualTo(useCaseId);
 
       // Verify no other operations were attempted
       verifyNoMoreInteractions(mysqlClient);
@@ -386,9 +392,10 @@ class InteractionDaoTest {
       // Then
       assertThat(result).usingRecursiveComparison().isEqualTo(expectedInteraction);
 
-      // Verify the Tuple values
+      // Verify the Tuple values (tenant_id at index 0, name at index 1)
       var capturedTuple = tupleCaptor.getValue();
-      assertThat(capturedTuple.getString(0)).isEqualTo(useCaseId);
+      assertThat(capturedTuple.getString(0)).isNotNull(); // tenant_id
+      assertThat(capturedTuple.getString(1)).isEqualTo(useCaseId);
 
       // Verify no other operations were attempted
       verifyNoMoreInteractions(mysqlClient);
@@ -414,9 +421,10 @@ class InteractionDaoTest {
       // Then
       testObserver.assertError(RuntimeException.class);
 
-      // Verify the Tuple values
+      // Verify the Tuple values (tenant_id at index 0, name at index 1)
       var capturedTuple = tupleCaptor.getValue();
-      assertThat(capturedTuple.getString(0)).isEqualTo(useCaseId);
+      assertThat(capturedTuple.getString(0)).isNotNull(); // tenant_id
+      assertThat(capturedTuple.getString(1)).isEqualTo(useCaseId);
 
       // Verify no other operations were attempted
       verifyNoMoreInteractions(mysqlClient);
@@ -428,10 +436,10 @@ class InteractionDaoTest {
   @ExtendWith(MockitoExtension.class)
   public class TestGetInteractions {
 
-    String GET_INTERACTIONS_BASE_QUERY = "SELECT interaction_id, name, "
+    String GET_INTERACTIONS_BASE_QUERY = "SELECT interaction_id, tenant_id, name, "
         + " created_by, updated_by, created_at, last_updated_at, status, details, "
         + " COUNT(*) OVER() AS total_interactions FROM interaction "
-        + " WHERE is_archived = 0 ";
+        + " WHERE tenant_id = 'default' AND is_archived = 0 ";
 
     @Test
     void shouldGetInteractionsWithPagination() {
@@ -658,7 +666,7 @@ class InteractionDaoTest {
       when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
       when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_FILTER_OPTIONS))
           .thenReturn(preparedQuery);
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(rowSet));
 
       // When
@@ -687,7 +695,7 @@ class InteractionDaoTest {
       when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
       when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_FILTER_OPTIONS))
           .thenReturn(preparedQuery);
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(rowSet));
 
       // When
@@ -729,7 +737,7 @@ class InteractionDaoTest {
       when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
       when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_FILTER_OPTIONS))
           .thenReturn(preparedQuery);
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(rowSet));
 
       // When
@@ -750,7 +758,7 @@ class InteractionDaoTest {
       when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
       when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_FILTER_OPTIONS))
           .thenReturn(preparedQuery);
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(expectedError));
 
       // When
@@ -796,7 +804,7 @@ class InteractionDaoTest {
       when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
       when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_FILTER_OPTIONS))
           .thenReturn(preparedQuery);
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(rowSet));
 
       // When
