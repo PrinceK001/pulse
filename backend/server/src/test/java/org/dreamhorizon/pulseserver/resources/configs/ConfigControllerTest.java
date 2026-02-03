@@ -318,6 +318,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
@@ -350,6 +353,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
@@ -381,6 +387,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyBothDefaultUrlsWhenBothNullOrBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl(null);

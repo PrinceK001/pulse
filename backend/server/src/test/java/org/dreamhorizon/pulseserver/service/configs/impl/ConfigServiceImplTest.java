@@ -35,6 +35,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -63,6 +65,9 @@ class ConfigServiceImplTest {
 
   @BeforeEach
   void setUp() {
+    // Set up tenant context for multi-tenancy tests
+    TenantContext.setTenantId("test-tenant");
+
     when(vertx.getOrCreateContext()).thenReturn(context);
     // Mock the context.runOnContext to just run the command immediately
     doAnswer(invocation -> {
@@ -71,6 +76,11 @@ class ConfigServiceImplTest {
       return null;
     }).when(context).runOnContext(any());
     configService = new ConfigServiceImpl(vertx, sdkConfigsDao, uploadConfigDetailService);
+  }
+
+  @AfterEach
+  void tearDown() {
+    TenantContext.clear();
   }
 
   @Nested
