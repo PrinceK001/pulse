@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Single;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
@@ -37,11 +38,14 @@ class AuthServiceTest {
   @Mock
   JwtService jwtService;
 
+  @Mock
+  TenantDao tenantDao;
+
   AuthService authService;
 
   @BeforeEach
   void setUp() {
-    authService = new AuthService(applicationConfig, jwtService);
+    authService = new AuthService(applicationConfig, jwtService, tenantDao);
   }
 
   @Nested
@@ -378,8 +382,9 @@ class AuthServiceTest {
       when(claims.getSubject()).thenReturn("user1");
       when(claims.get(eq("email"), eq(String.class))).thenReturn("e@x.com");
       when(claims.get(eq("name"), eq(String.class))).thenReturn("Name");
+      when(claims.get(eq("tenantId"), eq(String.class))).thenReturn("tenant-123");
       when(jwtService.verifyToken("valid-refresh")).thenReturn(claims);
-      when(jwtService.generateAccessToken("user1", "e@x.com", "Name")).thenReturn("new-access");
+      when(jwtService.generateAccessToken("user1", "e@x.com", "Name", "tenant-123")).thenReturn("new-access");
 
       Single<GetAccessTokenFromRefreshTokenResponseDto> single =
           authService.getAccessTokenFromRefreshToken(request);
@@ -390,7 +395,7 @@ class AuthServiceTest {
       assertEquals("valid-refresh", result.getRefreshToken());
       assertEquals("Bearer", result.getTokenType());
       assertEquals(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS, result.getExpiresIn());
-      verify(jwtService).generateAccessToken("user1", "e@x.com", "Name");
+      verify(jwtService).generateAccessToken("user1", "e@x.com", "Name", "tenant-123");
     }
 
     @Test
@@ -416,8 +421,9 @@ class AuthServiceTest {
       when(claims.getSubject()).thenReturn("user1");
       when(claims.get(eq("email"), eq(String.class))).thenReturn(null);
       when(claims.get(eq("name"), eq(String.class))).thenReturn(null);
+      when(claims.get(eq("tenantId"), eq(String.class))).thenReturn(null);
       when(jwtService.verifyToken("valid-refresh")).thenReturn(claims);
-      when(jwtService.generateAccessToken("user1", null, null)).thenReturn("new-access");
+      when(jwtService.generateAccessToken("user1", null, null, null)).thenReturn("new-access");
 
       Single<GetAccessTokenFromRefreshTokenResponseDto> single =
           authService.getAccessTokenFromRefreshToken(request);
@@ -425,7 +431,7 @@ class AuthServiceTest {
 
       assertNotNull(result);
       assertEquals("new-access", result.getAccessToken());
-      verify(jwtService).generateAccessToken("user1", null, null);
+      verify(jwtService).generateAccessToken("user1", null, null, null);
     }
   }
 }

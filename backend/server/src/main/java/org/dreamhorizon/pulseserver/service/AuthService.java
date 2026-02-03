@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
@@ -32,6 +33,7 @@ public class AuthService {
 
   private final ApplicationConfig applicationConfig;
   private final JwtService jwtService;
+  private final TenantDao tenantDao;
   private volatile String firebaseJwksCache;
   private volatile long firebaseJwksCacheExpiry;
   private static final long JWKS_CACHE_TTL_MS = 3600_000L;
@@ -50,6 +52,7 @@ public class AuthService {
   // Claim keys (matching JwtService)
   private static final String CLAIM_EMAIL = "email";
   private static final String CLAIM_NAME = "name";
+  private static final String CLAIM_TENANT_ID = "tenantId";
 
   public boolean isGoogleSignInEnabled() {
     // Check explicit environment variable first
@@ -139,9 +142,9 @@ public class AuthService {
     return iss != null && iss.contains("securetoken.google.com");
   }
 
-  private AuthenticateResponseDto verifyFirebaseIdToken(String idTokenString, String requestTenantId) {
+  private Single<AuthenticateResponseDto> verifyFirebaseIdToken(String idTokenString, String requestTenantId) {
     if (!isFirebaseConfigured()) {
-      throw new IllegalArgumentException("Firebase is not configured. Set CONFIG_SERVICE_APPLICATION_FIREBASEPROJECTID.");
+      return Single.error(new IllegalArgumentException("Firebase is not configured. Set CONFIG_SERVICE_APPLICATION_FIREBASEPROJECTID."));
     }
     String projectId = applicationConfig.getFirebaseProjectId().trim();
     String expectedIssuer = "https://securetoken.google.com/" + projectId;
@@ -150,7 +153,7 @@ public class AuthService {
       String kid = signedJWT.getHeader().getKeyID();
       if (kid == null) {
         log.error("Firebase token missing kid");
-        throw new IllegalArgumentException("Invalid Firebase token: missing key ID.");
+        return Single.error(new IllegalArgumentException("Invalid Firebase token: missing key ID."));
       }
       String jwksJson = fetchFirebaseJwks();
       JWKSet jwkSet = JWKSet.parse(jwksJson);
@@ -160,64 +163,72 @@ public class AuthService {
           .orElse(null);
       if (!(jwk instanceof RSAKey rsaKey)) {
         log.error("No RSA key found for kid: {}", kid);
-        throw new IllegalArgumentException("Invalid Firebase token: unable to verify signature.");
+        return Single.error(new IllegalArgumentException("Invalid Firebase token: unable to verify signature."));
       }
       JWSVerifier verifier = new RSASSAVerifier(rsaKey);
       if (!signedJWT.verify(verifier)) {
         log.error("Firebase token signature verification failed");
-        throw new IllegalArgumentException("Invalid Firebase token: signature verification failed.");
+        return Single.error(new IllegalArgumentException("Invalid Firebase token: signature verification failed."));
       }
       var claims = signedJWT.getJWTClaimsSet();
       if (!expectedIssuer.equals(claims.getIssuer())) {
         log.error("Firebase token issuer mismatch: expected {} got {}", expectedIssuer, claims.getIssuer());
-        throw new IllegalArgumentException("Invalid Firebase token: issuer mismatch. Check your Firebase project configuration.");
+        return Single.error(new IllegalArgumentException("Invalid Firebase token: issuer mismatch. Check your Firebase project configuration."));
       }
       var audience = claims.getAudience();
       if (audience == null || !audience.contains(projectId)) {
         log.error("Firebase token audience mismatch: expected {} got {}", projectId, audience);
-        throw new IllegalArgumentException("Invalid Firebase token: audience mismatch. Check your Firebase project configuration.");
+        return Single.error(new IllegalArgumentException("Invalid Firebase token: audience mismatch. Check your Firebase project configuration."));
       }
       Date exp = claims.getExpirationTime();
       if (exp == null || exp.before(new Date())) {
         log.error("Firebase token expired or missing exp");
-        throw new IllegalArgumentException("Firebase token has expired. Please re-authenticate.");
+        return Single.error(new IllegalArgumentException("Firebase token has expired. Please re-authenticate."));
       }
+
       String tokenTenant = getFirebaseTenantFromClaims(claims);
       if (tokenTenant == null || tokenTenant.isBlank()) {
         log.error("Firebase token missing tenant claim");
-        throw new IllegalArgumentException("Firebase token missing tenant. Multi-tenant authentication requires a tenant.");
+        return Single.error(new IllegalArgumentException("Firebase token missing tenant. Multi-tenant authentication requires a tenant."));
       }
       if (!tokenTenant.trim().equals(requestTenantId.trim())) {
         log.error("tenant-id header does not match token tenant: header={} token={}", requestTenantId, tokenTenant);
-        throw new IllegalArgumentException("Tenant mismatch: tenant-id header does not match the token tenant.");
+        return Single.error(new IllegalArgumentException("Tenant mismatch: tenant-id header does not match the token tenant."));
       }
+
       String userId = claims.getSubject();
       if (userId == null || userId.isEmpty()) {
         log.error("Firebase token missing subject (user ID)");
-        throw new IllegalArgumentException("Invalid Firebase token: missing user ID.");
+        return Single.error(new IllegalArgumentException("Invalid Firebase token: missing user ID."));
       }
       String email = claims.getStringClaim("email");
       String name = claims.getStringClaim("name");
-      if (email == null) {
-        email = "";
-      }
-      if (name == null) {
-        name = "";
-      }
-      String accessToken = jwtService.generateAccessToken(userId, email, name);
-      String refreshToken = jwtService.generateRefreshToken(userId, email, name);
-      return AuthenticateResponseDto.builder()
-          .accessToken(accessToken)
-          .refreshToken(refreshToken)
-          .idToken(idTokenString)
-          .tokenType(TOKEN_TYPE_BEARER)
-          .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-          .build();
-    } catch (IllegalArgumentException e) {
-      throw e;
+      final String finalEmail = email != null ? email : "";
+      final String finalName = name != null ? name : "";
+
+      // Look up tenant from database by gcpTenantId to get our internal tenantId (reactive)
+      return tenantDao.getTenantByGcpTenantId(tokenTenant)
+          .switchIfEmpty(Single.error(new IllegalArgumentException("Tenant not found. Please contact support.")))
+          .flatMap(tenant -> {
+            if (!Boolean.TRUE.equals(tenant.getIsActive())) {
+              log.error("Tenant is not active: {}", tenant.getTenantId());
+              return Single.error(new IllegalArgumentException("Tenant is not active. Please contact support."));
+            }
+            String tenantId = tenant.getTenantId();
+            String accessToken = jwtService.generateAccessToken(userId, finalEmail, finalName, tenantId);
+            String refreshToken = jwtService.generateRefreshToken(userId, finalEmail, finalName, tenantId);
+            return Single.just(AuthenticateResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .idToken(idTokenString)
+                .tokenType(TOKEN_TYPE_BEARER)
+                .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                .build());
+          })
+          .doOnError(error -> log.error("Tenant not found in database for gcpTenantId: {}", tokenTenant));
     } catch (Exception e) {
       log.error("Firebase ID token verification failed: {}", e.getMessage(), e);
-      throw new IllegalArgumentException("Firebase token verification failed: " + e.getMessage(), e);
+      return Single.error(new IllegalArgumentException("Firebase token verification failed: " + e.getMessage(), e));
     }
   }
 
@@ -240,18 +251,17 @@ public class AuthService {
       return Single.just(createDevelopmentUser());
     }
 
-    if (StringUtils.isEmpty(requestTenantId)) {
-      throw new IllegalArgumentException(
-          "tenant-id header is required");
+    if (StringUtils.isBlank(requestTenantId)) {
+      return Single.error(new IllegalArgumentException(
+          "tenant-id header is required for Firebase (multi-tenant) authentication."));
     }
 
-    return Single.fromCallable(() -> {
-      if (!isFirebaseIssuer(JwtIssuer(idTokenString))) {
-        throw new IllegalArgumentException(
-            "Only Firebase ID tokens are supported. Please authenticate using Firebase Authentication.");
-      }
-      return verifyFirebaseIdToken(idTokenString, requestTenantId);
-    });
+    if (!isFirebaseIssuer(JwtIssuer(idTokenString))) {
+      return Single.error(new IllegalArgumentException(
+          "Only Firebase ID tokens are supported. Please authenticate using Firebase Authentication."));
+    }
+
+    return verifyFirebaseIdToken(idTokenString, requestTenantId);
   }
 
   public Single<VerifyAuthTokenResponseDto> verifyAuthToken(String authorization) {
@@ -303,8 +313,9 @@ public class AuthService {
         String userId = claims.getSubject();
         String email = claims.get(CLAIM_EMAIL, String.class);
         String name = claims.get(CLAIM_NAME, String.class);
+        String tenantId = claims.get(CLAIM_TENANT_ID, String.class);
 
-        String newAccessToken = jwtService.generateAccessToken(userId, email, name);
+        String newAccessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
 
         log.info("Successfully refreshed access token for user: {}", userId);
 
