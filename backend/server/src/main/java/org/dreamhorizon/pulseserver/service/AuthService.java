@@ -242,7 +242,7 @@ public class AuthService {
 
     if (StringUtils.isEmpty(requestTenantId)) {
       throw new IllegalArgumentException(
-          "tenant-id header is required for Firebase (multi-tenant) authentication.");
+          "tenant-id header is required");
     }
 
     return Single.fromCallable(() -> {

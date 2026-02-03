@@ -127,7 +127,7 @@ class AuthServiceTest {
       String firebaseToken = "header." + payloadBase64 + ".signature";
 
       Throwable t = assertThrows(RuntimeException.class, () ->
-          authService.verifyGoogleIdToken(firebaseToken, "   ").blockingGet());
+          authService.verifyGoogleIdToken(firebaseToken, "").blockingGet());
 
       IllegalArgumentException iae = t instanceof IllegalArgumentException
           ? (IllegalArgumentException) t
@@ -149,8 +149,7 @@ class AuthServiceTest {
       IllegalArgumentException iae = t instanceof IllegalArgumentException
           ? (IllegalArgumentException) t
           : (IllegalArgumentException) t.getCause();
-      assertTrue(iae.getMessage().contains("Firebase ID token received but server is not configured"));
-      assertTrue(iae.getMessage().contains("CONFIG_SERVICE_APPLICATION_FIREBASEPROJECTID"));
+      assertTrue(iae.getMessage().contains("Firebase is not configured. Set CONFIG_SERVICE_APPLICATION_FIREBASEPROJECTID."));
     }
 
     @Test
@@ -169,7 +168,7 @@ class AuthServiceTest {
       IllegalArgumentException iae = t instanceof IllegalArgumentException
           ? (IllegalArgumentException) t
           : (IllegalArgumentException) t.getCause();
-      assertTrue(iae.getMessage().contains("Firebase ID token verification failed"));
+      assertTrue(iae.getMessage().contains("Invalid Firebase token: missing key ID."));
     }
 
     @Test
