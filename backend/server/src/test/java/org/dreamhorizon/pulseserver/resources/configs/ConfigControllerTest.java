@@ -337,7 +337,9 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
             verify(applicationConfig, times(1)).getInteractionConfigUrl();
           });
           testContext.completeNow();
@@ -367,7 +369,9 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
         });
@@ -398,7 +402,9 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals("http://default-collector.example.com", pulseConfig.getInteraction().getCollectorUrl());
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
         });
