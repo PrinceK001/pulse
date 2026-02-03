@@ -93,6 +93,21 @@ resource "aws_lb_target_group" "vector" {
   }
 }
 
+resource "aws_lb_target_group" "otel" {
+  name        = "pulse-otel-tg"
+  port        = var.otel_listen_port
+  protocol    = "TCP"
+  vpc_id      = var.vpc_id
+  target_type = "instance"
+
+  health_check {
+    path                = var.healthcheck_path
+    port                = tostring(var.healthcheck_port)
+    matcher             = "200-399"
+    protocol            = "HTTP"
+  }
+}
+
 resource "aws_lb_listener" "vector" {
   load_balancer_arn = aws_lb.vector.arn
   port              = var.vector_listen_port
@@ -101,6 +116,17 @@ resource "aws_lb_listener" "vector" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.vector.arn
+  }
+}
+
+resource "aws_lb_listener" "otel" {
+  load_balancer_arn = aws_lb.vector.arn
+  port              = var.otel_listen_port
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.otel.arn
   }
 }
 
@@ -116,7 +142,7 @@ resource "aws_autoscaling_group" "vector" {
   desired_capacity = var.instance_count
 
   vpc_zone_identifier = var.private_ec2_subnet_ids
-  target_group_arns   = [aws_lb_target_group.vector.arn]
+  target_group_arns   = [aws_lb_target_group.vector.arn, aws_lb_target_group.otel.arn]
 
   health_check_type         = "EC2"
   health_check_grace_period = 60

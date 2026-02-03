@@ -73,6 +73,11 @@ variable "vector_listen_port" {
   type        = number
 }
 
+variable "otel_listen_port" {
+  description = "OTEL collector port"
+  type        = number
+}
+
 variable "private_nlb_subnet_ids" {
   description = "List of private subnets for the NLB"
   type        = list(string)
