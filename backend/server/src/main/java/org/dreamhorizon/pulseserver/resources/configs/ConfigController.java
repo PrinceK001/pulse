@@ -80,7 +80,9 @@ public class ConfigController {
         interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
-        interaction.setConfigUrl(applicationConfig.getInteractionConfigUrl());
+        String tenantId = TenantContext.requireTenantId();
+        String configUrl = applicationConfig.getInteractionConfigUrl() + "/" + tenantId + "/config/interaction.json";
+        interaction.setConfigUrl(configUrl);
       }
     }
   }

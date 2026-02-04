@@ -11,6 +11,7 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionConf
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 public class UploadInteractionDetailService {
@@ -46,21 +47,33 @@ public class UploadInteractionDetailService {
       List<InteractionConfig> interactions
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
+    String tenantId = TenantContext.requireTenantId();
+    String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailsS3BucketFilePath());
+    String cloudFrontAssetPath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailCloudFrontAssetPath());
 
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
             applicationConfig.getS3BucketName(),
-            applicationConfig.getInteractionDetailsS3BucketFilePath(),
+            s3FilePath,
             interactions);
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful, invalidating CloudFront cache for distribution: {}", distributionId);
+          log.info("S3 upload successful for tenant: {}, invalidating CloudFront cache for distribution: {}",
+              tenantId, distributionId);
           return cloudFrontClient
               .invalidateCache(
                   distributionId,
-                  applicationConfig.getInteractionDetailCloudFrontAssetPath());
+                  cloudFrontAssetPath);
         });
+  }
+
+  /**
+   * Constructs a tenant-aware path by prefixing the base path with tenant directory.
+   * Format: tenants/{tenantId}/{basePath}
+   */
+  private String getTenantAwarePath(String tenantId, String basePath) {
+    return String.format("tenants/%s/%s", tenantId, basePath);
   }
 
   public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {

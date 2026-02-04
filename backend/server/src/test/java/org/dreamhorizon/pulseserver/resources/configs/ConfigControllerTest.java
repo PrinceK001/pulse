@@ -318,6 +318,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
@@ -337,7 +340,9 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
             verify(applicationConfig, times(1)).getInteractionConfigUrl();
           });
           testContext.completeNow();
@@ -348,6 +353,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
@@ -367,7 +375,9 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
         });
@@ -377,6 +387,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyBothDefaultUrlsWhenBothNullOrBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl(null);
@@ -398,7 +411,9 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals("http://default-collector.example.com", pulseConfig.getInteraction().getCollectorUrl());
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
         });
