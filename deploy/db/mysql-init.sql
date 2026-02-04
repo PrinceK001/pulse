@@ -339,7 +339,8 @@ CREATE TABLE IF NOT EXISTS tenants (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     gcp_tenant_id VARCHAR(32) NOT NULL,
     domain_name VARCHAR(32) NOT NULL,
-    INDEX idx_tenant_active (is_active)
+    INDEX idx_tenant_active (is_active),
+    INDEX idx_gcp_tenant_id (gcp_tenant_id)
 );
 
 CREATE TABLE IF NOT EXISTS clickhouse_tenant_credentials (

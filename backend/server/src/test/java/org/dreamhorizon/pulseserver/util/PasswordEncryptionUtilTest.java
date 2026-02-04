@@ -26,6 +26,62 @@ class PasswordEncryptionUtilTest {
   }
 
   @Nested
+  class TestConstructor {
+
+    @Test
+    void shouldThrowExceptionWhenEncryptionKeyIsNull() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey(null);
+
+      assertThrows(RuntimeException.class, () -> new PasswordEncryptionUtil(config));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenEncryptionKeyIsEmpty() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey("");
+
+      assertThrows(RuntimeException.class, () -> new PasswordEncryptionUtil(config));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenEncryptionKeyIsBlank() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey("   ");
+
+      assertThrows(RuntimeException.class, () -> new PasswordEncryptionUtil(config));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenEncryptionKeyIsInvalidBase64() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey("not-valid-base64!!!");
+
+      assertThrows(RuntimeException.class, () -> new PasswordEncryptionUtil(config));
+    }
+
+    @Test
+    void shouldInitializeSuccessfullyWithValidKey() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey(TEST_ENCRYPTION_KEY);
+
+      PasswordEncryptionUtil util = new PasswordEncryptionUtil(config);
+      assertNotNull(util);
+    }
+
+    @Test
+    void shouldThrowIllegalStateExceptionForNullKey() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      config.setEncryptionMasterKey(null);
+
+      RuntimeException ex = assertThrows(RuntimeException.class, 
+          () -> new PasswordEncryptionUtil(config));
+      assertTrue(ex.getCause() instanceof IllegalStateException || 
+                 ex.getMessage().contains("Encryption key initialization failed"));
+    }
+  }
+
+  @Nested
   class TestEncryptPassword {
 
     @Test
@@ -275,6 +331,19 @@ class PasswordEncryptionUtilTest {
 
       assertTrue(isValid);
     }
+
+    @Test
+    void shouldReturnFalseOnNullPassword() {
+      // Passing null values to trigger exception path and return false
+      boolean result = encryptionUtil.verifyPassword(null, "salt", "digest");
+      assertFalse(result);
+    }
+
+    @Test
+    void shouldReturnFalseOnNullSalt() {
+      boolean result = encryptionUtil.verifyPassword("password", null, "digest");
+      assertFalse(result);
+    }
   }
 
   @Nested
@@ -304,6 +373,83 @@ class PasswordEncryptionUtilTest {
       assertEquals("encrypted", model.getEncryptedPassword());
       assertEquals("salt", model.getSalt());
       assertEquals("digest", model.getDigest());
+    }
+
+    @Test
+    void shouldUseSetters() {
+      PasswordEncryptionUtil.EncryptedPassword model = PasswordEncryptionUtil.EncryptedPassword.builder().build();
+      model.setEncryptedPassword("enc");
+      model.setSalt("s");
+      model.setDigest("d");
+      
+      assertEquals("enc", model.getEncryptedPassword());
+      assertEquals("s", model.getSalt());
+      assertEquals("d", model.getDigest());
+    }
+
+    @Test
+    void shouldImplementEquals() {
+      PasswordEncryptionUtil.EncryptedPassword m1 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      PasswordEncryptionUtil.EncryptedPassword m2 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      PasswordEncryptionUtil.EncryptedPassword m3 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("x").salt("s").digest("d").build();
+
+      assertEquals(m1, m2);
+      assertEquals(m1, m1);
+      assertNotEquals(m1, m3);
+      assertNotEquals(m1, null);
+      assertNotEquals(m1, "string");
+    }
+
+    @Test
+    void shouldImplementHashCode() {
+      PasswordEncryptionUtil.EncryptedPassword m1 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      PasswordEncryptionUtil.EncryptedPassword m2 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      assertEquals(m1.hashCode(), m2.hashCode());
+    }
+
+    @Test
+    void shouldImplementToString() {
+      PasswordEncryptionUtil.EncryptedPassword model = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      String str = model.toString();
+      assertNotNull(str);
+      assertTrue(str.contains("encryptedPassword") || str.contains("salt") || str.contains("digest"));
+    }
+
+    @Test
+    void shouldHandleNullFields() {
+      PasswordEncryptionUtil.EncryptedPassword m1 = PasswordEncryptionUtil.EncryptedPassword.builder().build();
+      PasswordEncryptionUtil.EncryptedPassword m2 = PasswordEncryptionUtil.EncryptedPassword.builder().build();
+      assertEquals(m1, m2);
+      assertEquals(m1.hashCode(), m2.hashCode());
+    }
+
+    @Test
+    void shouldHandleEqualsWithDifferentFields() {
+      PasswordEncryptionUtil.EncryptedPassword base = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("d").build();
+      
+      assertNotEquals(base, PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("x").salt("s").digest("d").build());
+      assertNotEquals(base, PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("x").digest("d").build());
+      assertNotEquals(base, PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").salt("s").digest("x").build());
+    }
+
+    @Test
+    void shouldHandleNullVsNonNull() {
+      PasswordEncryptionUtil.EncryptedPassword m1 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword(null).build();
+      PasswordEncryptionUtil.EncryptedPassword m2 = PasswordEncryptionUtil.EncryptedPassword.builder()
+          .encryptedPassword("e").build();
+      assertNotEquals(m1, m2);
+      assertNotEquals(m2, m1);
     }
   }
 

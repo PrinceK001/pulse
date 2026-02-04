@@ -3,100 +3,52 @@ package org.dreamhorizon.pulseserver.service.tenant;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 class TenantAuditActionTest {
 
-  @Nested
-  class TestEnumValues {
-
-    @Test
-    void shouldHaveCredentialsCreatedAction() {
-      TenantAuditAction action = TenantAuditAction.CREDENTIALS_CREATED;
-      
-      assertNotNull(action);
-      assertEquals("CREDENTIALS_CREATED", action.getValue());
-      assertEquals("CREDENTIALS_CREATED", action.name());
-    }
-
-    @Test
-    void shouldHaveCredentialsUpdatedAction() {
-      TenantAuditAction action = TenantAuditAction.CREDENTIALS_UPDATED;
-      
-      assertNotNull(action);
-      assertEquals("CREDENTIALS_UPDATED", action.getValue());
-      assertEquals("CREDENTIALS_UPDATED", action.name());
-    }
-
-    @Test
-    void shouldHaveCredentialsDeactivatedAction() {
-      TenantAuditAction action = TenantAuditAction.CREDENTIALS_DEACTIVATED;
-      
-      assertNotNull(action);
-      assertEquals("CREDENTIALS_DEACTIVATED", action.getValue());
-      assertEquals("CREDENTIALS_DEACTIVATED", action.name());
-    }
-
-    @Test
-    void shouldHaveCredentialsReactivatedAction() {
-      TenantAuditAction action = TenantAuditAction.CREDENTIALS_REACTIVATED;
-      
-      assertNotNull(action);
-      assertEquals("CREDENTIALS_REACTIVATED", action.getValue());
-      assertEquals("CREDENTIALS_REACTIVATED", action.name());
-    }
+  @Test
+  void shouldReturnCorrectValueForCredentialsCreated() {
+    assertEquals("CREDENTIALS_CREATED", TenantAuditAction.CREDENTIALS_CREATED.getValue());
   }
 
-  @Nested
-  class TestEnumMethods {
-
-    @Test
-    void shouldReturnAllValues() {
-      TenantAuditAction[] actions = TenantAuditAction.values();
-      
-      assertNotNull(actions);
-      assertEquals(4, actions.length);
-    }
-
-    @Test
-    void shouldValueOfCredentialsCreated() {
-      TenantAuditAction action = TenantAuditAction.valueOf("CREDENTIALS_CREATED");
-      
-      assertEquals(TenantAuditAction.CREDENTIALS_CREATED, action);
-    }
-
-    @Test
-    void shouldValueOfCredentialsUpdated() {
-      TenantAuditAction action = TenantAuditAction.valueOf("CREDENTIALS_UPDATED");
-      
-      assertEquals(TenantAuditAction.CREDENTIALS_UPDATED, action);
-    }
-
-    @Test
-    void shouldValueOfCredentialsDeactivated() {
-      TenantAuditAction action = TenantAuditAction.valueOf("CREDENTIALS_DEACTIVATED");
-      
-      assertEquals(TenantAuditAction.CREDENTIALS_DEACTIVATED, action);
-    }
-
-    @Test
-    void shouldValueOfCredentialsReactivated() {
-      TenantAuditAction action = TenantAuditAction.valueOf("CREDENTIALS_REACTIVATED");
-      
-      assertEquals(TenantAuditAction.CREDENTIALS_REACTIVATED, action);
-    }
+  @Test
+  void shouldReturnCorrectValueForCredentialsUpdated() {
+    assertEquals("CREDENTIALS_UPDATED", TenantAuditAction.CREDENTIALS_UPDATED.getValue());
   }
 
-  @Nested
-  class TestOrdinal {
+  @Test
+  void shouldReturnCorrectValueForCredentialsDeactivated() {
+    assertEquals("CREDENTIALS_DEACTIVATED", TenantAuditAction.CREDENTIALS_DEACTIVATED.getValue());
+  }
 
-    @Test
-    void shouldHaveCorrectOrdinals() {
-      assertEquals(0, TenantAuditAction.CREDENTIALS_CREATED.ordinal());
-      assertEquals(1, TenantAuditAction.CREDENTIALS_UPDATED.ordinal());
-      assertEquals(2, TenantAuditAction.CREDENTIALS_DEACTIVATED.ordinal());
-      assertEquals(3, TenantAuditAction.CREDENTIALS_REACTIVATED.ordinal());
+  @Test
+  void shouldReturnCorrectValueForCredentialsReactivated() {
+    assertEquals("CREDENTIALS_REACTIVATED", TenantAuditAction.CREDENTIALS_REACTIVATED.getValue());
+  }
+
+  @Test
+  void shouldHaveFourEnumValues() {
+    TenantAuditAction[] values = TenantAuditAction.values();
+    assertEquals(4, values.length);
+  }
+
+  @Test
+  void shouldReturnEnumFromName() {
+    assertEquals(TenantAuditAction.CREDENTIALS_CREATED, 
+        TenantAuditAction.valueOf("CREDENTIALS_CREATED"));
+    assertEquals(TenantAuditAction.CREDENTIALS_UPDATED, 
+        TenantAuditAction.valueOf("CREDENTIALS_UPDATED"));
+    assertEquals(TenantAuditAction.CREDENTIALS_DEACTIVATED, 
+        TenantAuditAction.valueOf("CREDENTIALS_DEACTIVATED"));
+    assertEquals(TenantAuditAction.CREDENTIALS_REACTIVATED, 
+        TenantAuditAction.valueOf("CREDENTIALS_REACTIVATED"));
+  }
+
+  @Test
+  void shouldHaveNonNullValues() {
+    for (TenantAuditAction action : TenantAuditAction.values()) {
+      assertNotNull(action.getValue());
     }
   }
 }

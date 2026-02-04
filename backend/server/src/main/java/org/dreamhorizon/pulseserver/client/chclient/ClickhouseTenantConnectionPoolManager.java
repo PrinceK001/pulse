@@ -38,9 +38,10 @@ public class ClickhouseTenantConnectionPoolManager {
   @Inject
   public ClickhouseTenantConnectionPoolManager(ClickhouseConfig baseConfig) {
     this.baseConfig = baseConfig;
+    initializeAdminPool();
   }
 
-  public void initializeAdminPool() {
+  private void initializeAdminPool() {
     try {
       ConnectionPool pool =
           createPool(
