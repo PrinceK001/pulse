@@ -329,6 +329,42 @@ CREATE TABLE IF NOT EXISTS athena_job (
     INDEX idx_user_email_created_at (user_email, created_at)
 );
 
+CREATE TABLE IF NOT EXISTS tenants (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    tenant_id VARCHAR(64) UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    gcp_tenant_id VARCHAR(32) NOT NULL,
+    domain_name VARCHAR(32) NOT NULL,
+    INDEX idx_tenant_active (is_active),
+    INDEX idx_gcp_tenant_id (gcp_tenant_id)
+);
+
+CREATE TABLE IF NOT EXISTS clickhouse_tenant_credentials (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    tenant_id VARCHAR(100) NOT NULL UNIQUE,
+    clickhouse_username VARCHAR(100) NOT NULL,
+    clickhouse_password_encrypted TEXT NOT NULL,
+    encryption_salt VARCHAR(100) NOT NULL,
+    password_digest VARCHAR(100) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ch_cred_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    INDEX idx_tenant_active (tenant_id, is_active)
+);
+
+CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    tenant_id VARCHAR(100) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    performed_by VARCHAR(255) NOT NULL,
+    details JSON,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Display summary
 SELECT 'Database initialization completed successfully!' AS status;
