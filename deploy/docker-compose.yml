@@ -200,6 +200,9 @@ services:
       - "8080:8080"
     environment:
       # AWS Credentials for S3/Athena access
+      - ENV=dev
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-credentials.json
+      - CONFIG_SERVICE_APPLICATION_FIREBASEPROJECTID=dummy
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
@@ -271,8 +274,7 @@ services:
     volumes:
       # Mount config files if needed for runtime configuration
       - ../backend/server/src/main/resources/config:/app/config:ro
-
-  # Pulse Alerts Cron Service (Java/Vert.x Cron Manager)
+      # Pulse Alerts Cron Service (Java/Vert.x Cron Manager)
   pulse-alerts-cron:
     build:
       context: ../backend/pulse-alerts-cron
