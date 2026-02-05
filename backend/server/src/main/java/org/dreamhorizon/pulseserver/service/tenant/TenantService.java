@@ -7,6 +7,7 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
@@ -15,6 +16,8 @@ import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.Clickhou
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
 import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.service.firebase.FirebaseTenantService;
+import org.dreamhorizon.pulseserver.service.firebase.models.FirebaseTenantInfo;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateCredentialsRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.TenantInfo;
@@ -29,9 +32,24 @@ public class TenantService {
   private final TenantDao tenantDao;
   private final ClickhouseCredentialsDao credentialsDao;
   private final ClickhouseTenantConnectionPoolManager poolManager;
+  private final FirebaseTenantService firebaseTenantService;
 
+  /**
+   * Creates a new tenant in the local database.
+   * 
+   * <p>The Firebase tenant must be created in Firebase Console first.
+   * Provide the GCP tenant ID from Firebase Console in the request.</p>
+   * 
+   * @param request the tenant creation request (must include gcpTenantId from Firebase Console)
+   * @return Single emitting the created tenant
+   */
   public Single<Tenant> createTenant(CreateTenantRequest request) {
     log.info("Creating tenant: {}", request.getTenantId());
+
+    if (request.getGcpTenantId() == null || request.getGcpTenantId().isBlank()) {
+      return Single.error(new IllegalArgumentException(
+          "gcpTenantId is required - create the tenant in Firebase Console first"));
+    }
 
     Tenant tenant = Tenant.builder()
         .tenantId(request.getTenantId())
@@ -43,7 +61,8 @@ public class TenantService {
         .build();
 
     return tenantDao.createTenant(tenant)
-        .doOnSuccess(t -> log.info("Tenant created: {}", t.getTenantId()))
+        .doOnSuccess(t -> log.info("Tenant created: {} with gcpTenantId: {}", 
+            t.getTenantId(), t.getGcpTenantId()))
         .doOnError(error -> log.error("Failed to create tenant: {}", request.getTenantId(), error));
   }
 
@@ -86,12 +105,58 @@ public class TenantService {
         .doOnError(error -> log.error("Failed to activate tenant: {}", tenantId, error));
   }
 
+  /**
+   * Deletes a tenant from the local database.
+   * 
+   * <p>Note: This does NOT delete the tenant from Firebase. Use {@link #deleteTenantWithFirebase}
+   * to delete from both Firebase and local database.</p>
+   * 
+   * @param tenantId the tenant ID to delete
+   * @return Completable that completes when deletion is successful
+   */
   public Completable deleteTenant(String tenantId) {
     log.info("Deleting tenant: {}", tenantId);
 
     return tenantDao.deleteTenant(tenantId)
         .doOnComplete(() -> log.info("Tenant deleted: {}", tenantId))
         .doOnError(error -> log.error("Failed to delete tenant: {}", tenantId, error));
+  }
+
+  /**
+   * Deletes a tenant from both Firebase Identity Platform and local database.
+   * 
+   * @param tenantId the local tenant ID
+   * @param deleteFromFirebase if true, also delete from Firebase
+   * @return Completable that completes when deletion is successful
+   */
+  public Completable deleteTenantWithFirebase(String tenantId, boolean deleteFromFirebase) {
+    log.info("Deleting tenant {} (deleteFromFirebase={})", tenantId, deleteFromFirebase);
+
+    if (!deleteFromFirebase) {
+      return deleteTenant(tenantId);
+    }
+
+    // Get tenant to find gcpTenantId, then delete from Firebase and local DB
+    return tenantDao.getTenantById(tenantId)
+        .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+        .flatMapCompletable(tenant -> {
+          String gcpTenantId = tenant.getGcpTenantId();
+          
+          if (gcpTenantId == null || gcpTenantId.isBlank()) {
+            log.warn("Tenant {} has no gcpTenantId, skipping Firebase deletion", tenantId);
+            return deleteTenant(tenantId);
+          }
+          
+          return firebaseTenantService.deleteTenant(gcpTenantId)
+              .doOnComplete(() -> log.info("Deleted Firebase tenant: {}", gcpTenantId))
+              .onErrorResumeNext(error -> {
+                log.warn("Failed to delete Firebase tenant {}: {}", gcpTenantId, error.getMessage());
+                // Continue with local deletion even if Firebase fails
+                return Completable.complete();
+              })
+              .andThen(deleteTenant(tenantId));
+        })
+        .doOnError(error -> log.error("Failed to delete tenant with Firebase: {}", tenantId, error));
   }
 
   public Single<Boolean> tenantExists(String tenantId) {
@@ -255,5 +320,71 @@ public class TenantService {
 
   public ClickhouseTenantConnectionPoolManager.PoolStatistics getPoolStatistics(String tenantId) {
     return poolManager.getPoolStatistics(tenantId);
+  }
+
+  // ==================== Firebase Tenant Management Methods ====================
+
+  /**
+   * Gets a tenant from Firebase by its GCP tenant ID.
+   * 
+   * @param gcpTenantId the Firebase tenant ID
+   * @return Maybe emitting the Firebase tenant info, or empty if not found
+   */
+  public Maybe<FirebaseTenantInfo> getFirebaseTenant(String gcpTenantId) {
+    return firebaseTenantService.getTenant(gcpTenantId)
+        .doOnError(error -> log.error("Failed to get Firebase tenant: {}", gcpTenantId, error));
+  }
+
+  /**
+   * Lists all tenants from Firebase Identity Platform.
+   * 
+   * @return Single emitting a list of all Firebase tenants
+   */
+  public Single<List<FirebaseTenantInfo>> listAllFirebaseTenants() {
+    return firebaseTenantService.listAllTenants()
+        .doOnError(error -> log.error("Failed to list Firebase tenants", error));
+  }
+
+  /**
+   * Updates a tenant's display name in Firebase Identity Platform.
+   * 
+   * @param gcpTenantId the Firebase tenant ID
+   * @param displayName the new display name
+   * @return Single emitting the updated Firebase tenant info
+   */
+  public Single<FirebaseTenantInfo> updateFirebaseTenant(String gcpTenantId, String displayName) {
+    return firebaseTenantService.updateTenant(gcpTenantId, displayName)
+        .doOnSuccess(tenant -> log.info("Updated Firebase tenant: {}", gcpTenantId))
+        .doOnError(error -> log.error("Failed to update Firebase tenant: {}", gcpTenantId, error));
+  }
+
+  /**
+   * Syncs a local tenant with Firebase by updating the Firebase tenant's display name.
+   * 
+   * @param tenantId the local tenant ID
+   * @return Single emitting the updated Firebase tenant info
+   */
+  public Single<FirebaseTenantInfo> syncTenantToFirebase(String tenantId) {
+    return tenantDao.getTenantById(tenantId)
+        .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+        .flatMap(tenant -> {
+          String gcpTenantId = tenant.getGcpTenantId();
+          if (gcpTenantId == null || gcpTenantId.isBlank()) {
+            return Single.error(new RuntimeException("Tenant has no gcpTenantId: " + tenantId));
+          }
+          return firebaseTenantService.updateTenant(gcpTenantId, tenant.getName());
+        })
+        .doOnSuccess(info -> log.info("Synced tenant {} to Firebase", tenantId))
+        .doOnError(error -> log.error("Failed to sync tenant to Firebase: {}", tenantId, error));
+  }
+
+  /**
+   * Checks if a Firebase tenant exists.
+   * 
+   * @param gcpTenantId the Firebase tenant ID
+   * @return Single emitting true if exists, false otherwise
+   */
+  public Single<Boolean> firebaseTenantExists(String gcpTenantId) {
+    return firebaseTenantService.tenantExists(gcpTenantId);
   }
 }

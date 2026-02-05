@@ -9,10 +9,12 @@ import org.dreamhorizon.pulseserver.resources.tenants.models.AuditLogRestRespons
 import org.dreamhorizon.pulseserver.resources.tenants.models.CreateCredentialsRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.CreateTenantRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.CredentialsRestResponse;
+import org.dreamhorizon.pulseserver.resources.tenants.models.FirebaseTenantRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateCredentialsRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateTenantRestRequest;
+import org.dreamhorizon.pulseserver.service.firebase.models.FirebaseTenantInfo;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateCredentialsRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.TenantInfo;
@@ -30,6 +32,11 @@ public abstract class TenantMapper {
 
   @Mapping(target = "clickhousePassword", ignore = true)
   public abstract CreateTenantRequest toCreateTenantRequest(CreateTenantRestRequest request);
+
+  // Firebase tenant info mapping
+  public abstract FirebaseTenantRestResponse toFirebaseTenantRestResponse(FirebaseTenantInfo info);
+  
+  public abstract List<FirebaseTenantRestResponse> toFirebaseTenantRestResponseList(List<FirebaseTenantInfo> infos);
 
   @Mapping(target = "tenantId", source = "tenantId")
   @Mapping(target = "name", source = "request.name")

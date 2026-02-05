@@ -23,6 +23,9 @@ import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import org.dreamhorizon.pulseserver.service.firebase.FirebaseAdminService;
+import org.dreamhorizon.pulseserver.service.firebase.FirebaseTenantService;
+import org.dreamhorizon.pulseserver.service.firebase.FirebaseUserService;
 import org.dreamhorizon.pulseserver.util.PasswordEncryptionUtil;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -63,6 +66,12 @@ public class MainModule extends VertxAbstractModule {
     }).in(Singleton.class);
 
     bind(ClickhouseCredentialsDao.class).in(Singleton.class);
+    
+    // Firebase Admin SDK services for multi-tenancy
+    bind(FirebaseAdminService.class).in(Singleton.class);
+    bind(FirebaseTenantService.class).in(Singleton.class);
+    bind(FirebaseUserService.class).in(Singleton.class);
+    
     bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
     bind(SourceMapCache.class).in(Singleton.class);
     bind(ErrorGroupingService.class).in(Singleton.class);

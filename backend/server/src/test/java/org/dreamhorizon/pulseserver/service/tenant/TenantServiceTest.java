@@ -23,6 +23,7 @@ import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.Clickhou
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
 import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.service.firebase.FirebaseTenantService;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateCredentialsRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.TenantInfo;
@@ -48,11 +49,14 @@ class TenantServiceTest {
   @Mock
   ClickhouseTenantConnectionPoolManager poolManager;
 
+  @Mock
+  FirebaseTenantService firebaseTenantService;
+
   TenantService tenantService;
 
   @BeforeEach
   void setup() {
-    tenantService = new TenantService(tenantDao, credentialsDao, poolManager);
+    tenantService = new TenantService(tenantDao, credentialsDao, poolManager, firebaseTenantService);
   }
 
   private Tenant createMockTenant() {
@@ -122,6 +126,7 @@ class TenantServiceTest {
       CreateTenantRequest request = CreateTenantRequest.builder()
           .tenantId("test_tenant")
           .name("Test Tenant")
+          .gcpTenantId("gcp-test-123")
           .build();
 
       when(tenantDao.createTenant(any(Tenant.class)))
@@ -130,6 +135,18 @@ class TenantServiceTest {
       Exception ex = assertThrows(RuntimeException.class,
           () -> tenantService.createTenant(request).blockingGet());
       assertTrue(ex.getMessage().contains("Database error"));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenGcpTenantIdMissing() {
+      CreateTenantRequest request = CreateTenantRequest.builder()
+          .tenantId("test_tenant")
+          .name("Test Tenant")
+          .build();
+
+      Exception ex = assertThrows(IllegalArgumentException.class,
+          () -> tenantService.createTenant(request).blockingGet());
+      assertTrue(ex.getMessage().contains("gcpTenantId is required"));
     }
   }
 

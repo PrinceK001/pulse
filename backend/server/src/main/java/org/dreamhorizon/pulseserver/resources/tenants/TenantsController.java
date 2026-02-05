@@ -21,14 +21,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.tenants.models.AuditListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.CreateCredentialsRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.CreateTenantRestRequest;
+import org.dreamhorizon.pulseserver.resources.tenants.models.CreateUserRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.CredentialsRestResponse;
+import org.dreamhorizon.pulseserver.resources.tenants.models.FirebaseTenantRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.StatusRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateCredentialsRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateTenantRestRequest;
+import org.dreamhorizon.pulseserver.resources.tenants.models.UserListRestResponse;
+import org.dreamhorizon.pulseserver.resources.tenants.models.UserRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
+import org.dreamhorizon.pulseserver.service.firebase.FirebaseUserService;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 
 @Slf4j
@@ -39,6 +44,7 @@ public class TenantsController {
   private static final TenantMapper mapper = TenantMapper.INSTANCE;
 
   private final TenantService tenantService;
+  private final FirebaseUserService firebaseUserService;
 
 
   @POST
@@ -253,5 +259,190 @@ public class TenantsController {
             .message("Connection pool refreshed successfully")
             .build()))
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  // ==================== Firebase Tenant Management Endpoints ====================
+
+  /**
+   * List all tenants from Firebase Identity Platform.
+   */
+  @GET
+  @Path("/firebase")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<java.util.List<FirebaseTenantRestResponse>>> listFirebaseTenants() {
+    return tenantService.listAllFirebaseTenants()
+        .map(mapper::toFirebaseTenantRestResponseList)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Get a specific tenant from Firebase by GCP tenant ID.
+   */
+  @GET
+  @Path("/firebase/{gcpTenantId}")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<FirebaseTenantRestResponse>> getFirebaseTenant(
+      @NotNull @PathParam("gcpTenantId") String gcpTenantId
+  ) {
+    return tenantService.getFirebaseTenant(gcpTenantId)
+        .map(mapper::toFirebaseTenantRestResponse)
+        .switchIfEmpty(io.reactivex.rxjava3.core.Single.error(
+            new RuntimeException("Firebase tenant not found: " + gcpTenantId)))
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Sync a local tenant to Firebase (updates display name in Firebase).
+   */
+  @POST
+  @Path("/{tenantId}/firebase/sync")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<FirebaseTenantRestResponse>> syncTenantToFirebase(
+      @NotNull @PathParam("tenantId") String tenantId
+  ) {
+    return tenantService.syncTenantToFirebase(tenantId)
+        .map(mapper::toFirebaseTenantRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Delete a tenant from both local database and Firebase.
+   */
+  @DELETE
+  @Path("/{tenantId}/firebase")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<StatusRestResponse>> deleteTenantWithFirebase(
+      @NotNull @PathParam("tenantId") String tenantId,
+      @QueryParam("deleteFromFirebase") @DefaultValue("true") Boolean deleteFromFirebase
+  ) {
+    return tenantService.deleteTenantWithFirebase(tenantId, deleteFromFirebase)
+        .andThen(io.reactivex.rxjava3.core.Single.just(StatusRestResponse.builder()
+            .success(true)
+            .message("Tenant deleted successfully" + 
+                (deleteFromFirebase ? " (including Firebase)" : ""))
+            .build()))
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  // ==================== Firebase User Management Endpoints ====================
+
+  /**
+   * Create a user in a Firebase tenant.
+   * 
+   * <p>Equivalent to:
+   * POST https://identitytoolkit.googleapis.com/v1/projects/{projectId}/tenants/{tenantId}/accounts
+   * </p>
+   */
+  @POST
+  @Path("/firebase/{gcpTenantId}/users")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<UserRestResponse>> createUserInTenant(
+      @NotNull @PathParam("gcpTenantId") String gcpTenantId,
+      @NotNull @Valid CreateUserRestRequest request
+  ) {
+    boolean emailVerified = request.getEmailVerified() != null ? request.getEmailVerified() : true;
+    
+    return firebaseUserService.createUser(
+            gcpTenantId, 
+            request.getEmail(), 
+            request.getDisplayName(),
+            emailVerified)
+        .map(this::mapToUserRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Get a user by email from a Firebase tenant.
+   */
+  @GET
+  @Path("/firebase/{gcpTenantId}/users")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<UserRestResponse>> getUserByEmail(
+      @NotNull @PathParam("gcpTenantId") String gcpTenantId,
+      @NotNull @QueryParam("email") String email
+  ) {
+    return firebaseUserService.getUserByEmail(gcpTenantId, email)
+        .map(this::mapToUserRestResponse)
+        .switchIfEmpty(io.reactivex.rxjava3.core.Single.error(
+            new RuntimeException("User not found: " + email)))
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * List all users in a Firebase tenant with pagination.
+   */
+  @GET
+  @Path("/firebase/{gcpTenantId}/users/list")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<UserListRestResponse>> listUsersInTenant(
+      @NotNull @PathParam("gcpTenantId") String gcpTenantId,
+      @QueryParam("maxResults") Integer maxResults,
+      @QueryParam("pageToken") String pageToken
+  ) {
+    return firebaseUserService.listUsers(gcpTenantId, maxResults, pageToken)
+        .map(result -> UserListRestResponse.builder()
+            .users(result.getUsers().stream()
+                .map(this::mapToUserRestResponse)
+                .toList())
+            .nextPageToken(result.getNextPageToken())
+            .build())
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Get a user by UID from a Firebase tenant.
+   */
+  @GET
+  @Path("/firebase/{gcpTenantId}/users/{uid}")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<UserRestResponse>> getUserByUid(
+      @NotNull @PathParam("gcpTenantId") String gcpTenantId,
+      @NotNull @PathParam("uid") String uid
+  ) {
+    return firebaseUserService.getUserByUid(gcpTenantId, uid)
+        .map(this::mapToUserRestResponse)
+        .switchIfEmpty(io.reactivex.rxjava3.core.Single.error(
+            new RuntimeException("User not found: " + uid)))
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Delete a user from a Firebase tenant.
+   */
+  @DELETE
+  @Path("/firebase/{gcpTenantId}/users/{uid}")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<StatusRestResponse>> deleteUserFromTenant(
+      @NotNull @PathParam("gcpTenantId") String gcpTenantId,
+      @NotNull @PathParam("uid") String uid
+  ) {
+    return firebaseUserService.deleteUser(gcpTenantId, uid)
+        .andThen(io.reactivex.rxjava3.core.Single.just(StatusRestResponse.builder()
+            .success(true)
+            .message("User deleted successfully")
+            .build()))
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private UserRestResponse mapToUserRestResponse(FirebaseUserService.TenantUserInfo userInfo) {
+    return UserRestResponse.builder()
+        .uid(userInfo.getUid())
+        .email(userInfo.getEmail())
+        .displayName(userInfo.getDisplayName())
+        .emailVerified(userInfo.isEmailVerified())
+        .disabled(userInfo.isDisabled())
+        .gcpTenantId(userInfo.getGcpTenantId())
+        .creationTimestamp(userInfo.getCreationTimestamp())
+        .lastSignInTimestamp(userInfo.getLastSignInTimestamp())
+        .build();
   }
 }

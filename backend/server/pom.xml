@@ -156,6 +156,34 @@
             <version>9.37.3</version>
         </dependency>
 
+        <!-- Firebase Admin SDK for multi-tenancy management -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.3.0</version>
+        </dependency>
+
+        <!-- Google Auth Library for Workload Identity Federation (AWS/Azure) -->
+        <dependency>
+            <groupId>com.google.auth</groupId>
+            <artifactId>google-auth-library-oauth2-http</artifactId>
+            <version>1.23.0</version>
+        </dependency>
+
+        <!-- Google API GAX for pagination support (required by Firebase Admin SDK) -->
+        <dependency>
+            <groupId>com.google.api</groupId>
+            <artifactId>gax</artifactId>
+            <version>2.72.2</version>
+        </dependency>
+
+        <!-- Protobuf - explicit version to resolve conflicts between gax and opentelemetry-proto -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>4.33.1</version>
+        </dependency>
+
         <!-- JJWT for JWT token generation -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -483,6 +511,17 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <!-- Exclude signature files to avoid "Invalid signature file digest" errors -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <transformers>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
