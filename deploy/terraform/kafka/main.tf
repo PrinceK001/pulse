@@ -40,6 +40,7 @@ resource "aws_instance" "controller" {
   count         = var.num_controllers
   ami           = var.ami_id
   instance_type = var.instance_type
+  associate_public_ip_address = false
 
   subnet_id              = var.private_subnet_ids[count.index % length(var.private_subnet_ids)]
   vpc_security_group_ids = var.vpc_security_group_ids
@@ -74,6 +75,7 @@ resource "aws_instance" "broker" {
   count         = var.num_brokers
   ami           = var.ami_id
   instance_type = var.instance_type
+  associate_public_ip_address = false
 
   subnet_id              = var.private_subnet_ids[count.index % length(var.private_subnet_ids)]
   vpc_security_group_ids = var.vpc_security_group_ids

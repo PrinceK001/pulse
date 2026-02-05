@@ -79,6 +79,7 @@ resource "aws_lb" "pulse_ui" {
   subnets                    = var.alb_subnet_ids
   security_groups            = var.alb_security_group_ids
   enable_deletion_protection = false
+  drop_invalid_header_fields = true
 }
 
 resource "aws_lb_target_group" "pulse_ui" {
