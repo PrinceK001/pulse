@@ -29,6 +29,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
 
   public static final String TENANT_HEADER = "X-Tenant-ID";
   private static final String HEALTHCHECK_PATH = "healthcheck";
+  private static final String AUTH_PATH_PREFIX = "v1/auth";
+  private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String DEFAULT_TENANT_ID = "default";
 
   @Override
@@ -53,7 +55,9 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     }
     String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
     return normalizedPath.equals(HEALTHCHECK_PATH)
-        || normalizedPath.startsWith(HEALTHCHECK_PATH + "/");
+        || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
+        || normalizedPath.startsWith(AUTH_PATH_PREFIX)
+        || normalizedPath.startsWith(ALERTS_PATH_PREFIX);
   }
 
   @Override
