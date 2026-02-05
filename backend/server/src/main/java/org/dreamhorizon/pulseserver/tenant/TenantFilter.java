@@ -28,13 +28,32 @@ import lombok.extern.slf4j.Slf4j;
 public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
   public static final String TENANT_HEADER = "X-Tenant-ID";
+  private static final String HEALTHCHECK_PATH = "healthcheck";
+  private static final String DEFAULT_TENANT_ID = "default";
 
   @Override
   public void filter(ContainerRequestContext requestContext) throws IOException {
+    String path = requestContext.getUriInfo().getPath();
+
+    // Skip tenant check for healthcheck endpoint
+    if (isExcludedPath(path)) {
+      log.debug("Skipping tenant filter for excluded path: {}", path);
+      return;
+    }
+
     String tenantId = resolveTenantId(requestContext);
     TenantContext.setTenantId(tenantId);
     log.debug("Request tenant context set to: {} for path: {}",
-        tenantId, requestContext.getUriInfo().getPath());
+        tenantId, path);
+  }
+
+  private boolean isExcludedPath(String path) {
+    if (path == null) {
+      return false;
+    }
+    String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
+    return normalizedPath.equals(HEALTHCHECK_PATH)
+        || normalizedPath.startsWith(HEALTHCHECK_PATH + "/");
   }
 
   @Override
@@ -48,7 +67,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
    * Resolves the tenant ID from the request.
    *
    * @param requestContext the request context
-   * @return the resolved tenant ID, or null if request was aborted
+   * @return the resolved tenant ID, or default if header not present
    */
   private String resolveTenantId(ContainerRequestContext requestContext) {
     // Priority 1: Explicit X-Tenant-ID header
@@ -58,14 +77,9 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return headerTenantId.trim();
     }
 
-    log.error("Missing required X-Tenant-ID header for path: {}",
-        requestContext.getUriInfo().getPath());
-    requestContext.abortWith(
-        jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
-            .entity("{\"error\": \"X-Tenant-ID header is required\"}")
-            .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-            .build());
-    return null;
+    // Priority 2: Use default tenant
+    log.debug("No X-Tenant-ID header found, using default tenant: {}", DEFAULT_TENANT_ID);
+    return DEFAULT_TENANT_ID;
   }
 }
 
