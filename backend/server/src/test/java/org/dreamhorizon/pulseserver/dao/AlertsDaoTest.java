@@ -624,7 +624,7 @@ class AlertsDaoTest {
 
       // Use helper method to properly mock RowSet with forEach support
       setupRowSetMock(rowSet, Arrays.asList(channelRow));
-      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       List<AlertNotificationChannelResponseDto> result = alertsDao.getNotificationChannels().blockingGet();
 
@@ -638,7 +638,7 @@ class AlertsDaoTest {
     void shouldReturnEmptyListWhenNoChannels() {
       setupPreparedQuery();
       when(rowSet.size()).thenReturn(0);
-      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       List<AlertNotificationChannelResponseDto> result = alertsDao.getNotificationChannels().blockingGet();
 
@@ -649,7 +649,7 @@ class AlertsDaoTest {
     @Test
     void shouldThrowExceptionOnDatabaseError() {
       setupPreparedQuery();
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,
@@ -1010,7 +1010,7 @@ class AlertsDaoTest {
       // Create mock iterator BEFORE using it in when().thenReturn()
       RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(filterRow));
       when(rowSet.iterator()).thenReturn(iterator);
-      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AlertFiltersResponseDto result = alertsDao.getAlertsFilters().blockingGet();
 
@@ -1021,7 +1021,7 @@ class AlertsDaoTest {
     @Test
     void shouldThrowExceptionOnDatabaseError() {
       setupPreparedQuery();
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,

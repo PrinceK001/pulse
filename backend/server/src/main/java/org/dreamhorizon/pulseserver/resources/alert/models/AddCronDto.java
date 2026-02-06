@@ -9,20 +9,20 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UpdateAlertInCronManager {
+public class AddCronDto {
   @NotNull
   @JsonProperty("id")
   Integer id;
 
   @NotNull
-  @JsonProperty("newInterval")
-  Integer newInterval;
-
-  @NotNull
-  @JsonProperty("oldInterval")
-  Integer oldInterval;
+  @JsonProperty("interval")
+  Integer interval;
 
   @NotNull
   @JsonProperty("url")
   String url;
+
+  @NotNull
+  @JsonProperty(value = "tenantId")
+  private String tenantId;
 }

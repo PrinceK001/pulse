@@ -19,6 +19,7 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.resources.performance.models.Functions;
 import org.dreamhorizon.pulseserver.resources.performance.models.PerformanceMetricDistributionRes;
 import org.dreamhorizon.pulseserver.resources.performance.models.QueryRequest;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.mapstruct.ap.internal.util.Strings;
 
 @Slf4j
@@ -230,7 +231,7 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     return clickhouseQueryService.executeQueryOrCreateJob(QueryConfiguration.newQuery(finalQuery)
             .timeoutMs(2000)
             .jobCreationMode(JobCreationMode.JOB_CREATION_OPTIONAL)
-            .tenantId(request.getTenantId())
+            .tenantId(TenantContext.getTenantId())
             .build())
         .map(rawRes -> {
           GetRawUserEventsResponseDto.Schema schema = rawRes.data.getSchema();
