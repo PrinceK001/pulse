@@ -68,7 +68,21 @@ import kotlin.system.measureNanoTime
 internal class PulseSDKImpl :
     PulseSDK,
     CoroutineScope by MainScope() {
-    override fun isInitialized(): Boolean = isInitialised
+    override fun isInitialized(): Boolean = isInitialised && !isShutdown
+
+    override fun shutdown() {
+        if (isShutdown) {
+            PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down" }
+            return
+        }
+        launch(Dispatchers.Main.immediate) {
+            if (isShutdown) return@launch
+            otelInstance?.shutdown()
+            otelInstance = null
+            isShutdown = true
+            PulseOtelUtils.logDebug(TAG) { "Pulse SDK shut down" }
+        }
+    }
 
     override fun initialize(
         application: Application,
@@ -86,6 +100,10 @@ internal class PulseSDKImpl :
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
+        if (isShutdown) {
+            PulseOtelUtils.logDebug(TAG) { "Initialisation skipped: SDK has been shut down" }
+            return
+        }
         if (isInitialized()) {
             PulseOtelUtils.logDebug(TAG) { "Initialisation skipped already initialised" }
             return
@@ -476,6 +494,7 @@ internal class PulseSDKImpl :
     }
 
     override fun setUserId(id: String?) {
+        if (isShutdown) return
         userSessionEmitter.userId = id
     }
 
@@ -483,6 +502,7 @@ internal class PulseSDKImpl :
         name: String,
         value: Any?,
     ) {
+        if (isShutdown) return
         if (value != null) {
             userProps[name] = value
         } else {
@@ -497,6 +517,7 @@ internal class PulseSDKImpl :
     }
 
     override fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
+        if (isShutdown) return
         setUserProperties(mutableMapOf<String, Any?>().apply(builderAction))
     }
 
@@ -505,6 +526,7 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
+        if (isShutdown) return
         if (isCustomEventEnabled) {
             logger
                 .logRecordBuilder()
@@ -527,6 +549,7 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
+        if (isShutdown) return
         logger
             .logRecordBuilder()
             .apply {
@@ -544,6 +567,7 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
+        if (isShutdown) return
         logger
             .logRecordBuilder()
             .apply {
@@ -570,6 +594,10 @@ internal class PulseSDKImpl :
         params: Map<String, Any?>,
         action: () -> T,
     ) {
+        if (isShutdown) {
+            action()
+            return
+        }
         val span = tracer.spanBuilder(spanName).startSpan()
         try {
             action()
@@ -582,19 +610,28 @@ internal class PulseSDKImpl :
         spanName: String,
         params: Map<String, Any?>,
     ): () -> Unit {
+        if (isShutdown) return {}
         val span = tracer.spanBuilder(spanName).startSpan()
         return {
             span.end()
         }
     }
 
-    override fun getOtelOrNull(): OpenTelemetryRum? = otelInstance
+    override fun getOtelOrNull(): OpenTelemetryRum? = if (isShutdown) null else otelInstance
 
-    override fun getOtelOrThrow(): OpenTelemetryRum = otelInstance ?: throwSdkNotInitError()
+    override fun getOtelOrThrow(): OpenTelemetryRum {
+        if (isShutdown) throwShutdownError()
+        return otelInstance ?: throwSdkNotInitError()
+    }
 
     @Suppress("NOTHING_TO_INLINE")
     private inline fun throwSdkNotInitError(): Nothing {
         error("Pulse SDK is not initialized. Please call PulseSDK.initialize")
+    }
+
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun throwShutdownError(): Nothing {
+        error("Pulse SDK has been shut down. No further API calls are allowed.")
     }
 
     private val logger: Logger by lazy {
@@ -630,6 +667,7 @@ internal class PulseSDKImpl :
     }
 
     private var isInitialised: Boolean = false
+    private var isShutdown: Boolean = false
 
     private lateinit var pulseSpanProcessor: PulseSdkSignalProcessors
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
