@@ -48,12 +48,12 @@ public class AttributeValueConverter: NSObject {
             return PulseAttributeValue.double(double)
         } else if let stringArray = value as? [String] {
             return PulseAttributeValue.stringArray(stringArray)
+        } else if let boolArray = value as? [Bool] {
+            return PulseAttributeValue.boolArray(boolArray.map { NSNumber(value: $0) })
         } else if let intArray = value as? [Int] {
             return PulseAttributeValue.intArray(intArray.map { NSNumber(value: $0) })
         } else if let doubleArray = value as? [Double] {
             return PulseAttributeValue.doubleArray(doubleArray.map { NSNumber(value: $0) })
-        } else if let boolArray = value as? [Bool] {
-            return PulseAttributeValue.boolArray(boolArray.map { NSNumber(value: $0) })
         } else if let numberValue = value as? NSNumber {
             if CFGetTypeID(numberValue) == CFBooleanGetTypeID() {
                 return PulseAttributeValue.bool(numberValue.boolValue)
@@ -83,14 +83,14 @@ public class AttributeValueConverter: NSObject {
         } else if let stringArray = value as? [String] {
             let attrArray = AttributeArray(values: stringArray.map { OpenTelemetryApi.AttributeValue.string($0) })
             return OpenTelemetryApi.AttributeValue.array(attrArray)
+        } else if let boolArray = value as? [Bool] {
+            let attrArray = AttributeArray(values: boolArray.map { OpenTelemetryApi.AttributeValue.bool($0) })
+            return OpenTelemetryApi.AttributeValue.array(attrArray)
         } else if let intArray = value as? [Int] {
             let attrArray = AttributeArray(values: intArray.map { OpenTelemetryApi.AttributeValue.int($0) })
             return OpenTelemetryApi.AttributeValue.array(attrArray)
         } else if let doubleArray = value as? [Double] {
             let attrArray = AttributeArray(values: doubleArray.map { OpenTelemetryApi.AttributeValue.double($0) })
-            return OpenTelemetryApi.AttributeValue.array(attrArray)
-        } else if let boolArray = value as? [Bool] {
-            let attrArray = AttributeArray(values: boolArray.map { OpenTelemetryApi.AttributeValue.bool($0) })
             return OpenTelemetryApi.AttributeValue.array(attrArray)
         } else if let numberValue = value as? NSNumber {
             if CFGetTypeID(numberValue) == CFBooleanGetTypeID() {
