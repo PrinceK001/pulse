@@ -33,6 +33,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String AUTH_PATH_PREFIX = "v1/auth";
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
+  private static final String ALERTS_PATH_PREFIX = "alerts";
+  private static final String DEFAULT_TENANT_ID = "default";
 
   private JwtService jwtService;
 
@@ -60,7 +62,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
     return normalizedPath.equals(HEALTHCHECK_PATH)
         || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
-        || normalizedPath.startsWith(AUTH_PATH_PREFIX);
+        || normalizedPath.startsWith(AUTH_PATH_PREFIX)
+        || normalizedPath.startsWith(ALERTS_PATH_PREFIX);
   }
 
   @Override
@@ -74,7 +77,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
    * Resolves the tenant ID from the request.
    *
    * @param requestContext the request context
-   * @return the resolved tenant ID, or null if request was aborted
+   * @return the resolved tenant ID, or default if header not present
    */
   private String resolveTenantId(ContainerRequestContext requestContext) {
     // Priority 1: Extract tenantId from JWT token in Authorization header
