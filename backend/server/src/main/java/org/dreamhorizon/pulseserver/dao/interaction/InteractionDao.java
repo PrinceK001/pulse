@@ -56,7 +56,7 @@ public class InteractionDao {
   private final ClickhouseQueryService clickhouseQueryService;
   private final ObjectMapperUtil objectMapper;
   private final BaseInteractionDao baseInteractionDao;
-  
+
   /**
    * Gets the current tenant ID from the TenantContext.
    */
@@ -273,7 +273,9 @@ public class InteractionDao {
   }
 
   public Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions() {
-    QueryConfiguration configuration = QueryConfiguration.newQuery(GET_TELEMETRY_FILTER_VALUES).build();
+    QueryConfiguration configuration = QueryConfiguration.newQuery(GET_TELEMETRY_FILTER_VALUES)
+        .tenantId(TenantContext.getTenantId())
+        .build();
 
     return clickhouseQueryService.executeQueryOrCreateJob(configuration)
         .flatMap(this::buildTelemetryFilterResponse)
