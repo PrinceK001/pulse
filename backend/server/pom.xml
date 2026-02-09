@@ -14,7 +14,7 @@
         <main.class>org.dreamhorizon.pulseserver.MainApplication</main.class>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <app.release.artifact>/target/pulse-server</app.release.artifact>
-        <google.guava.version>25.1-jre</google.guava.version>
+        <google.guava.version>32.0.1-jre</google.guava.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <clickhouse.r2dbc.version>0.9.1</clickhouse.r2dbc.version>
         <r2dbc-pool.version>0.8.0.RELEASE</r2dbc-pool.version>

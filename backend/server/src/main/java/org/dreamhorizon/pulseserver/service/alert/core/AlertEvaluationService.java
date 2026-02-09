@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.service.alert.core;
 
-import afu.org.checkerframework.checker.nullness.qual.Nullable;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -1136,7 +1135,7 @@ public class AlertEvaluationService {
     return alertsDao.createEvaluationHistory(scopeId, evaluationResult, state);
   }
 
-  private @Nullable AlertEvaluationResponseDto getAlertEvaluationResponseDto(Message<Object> message) {
+  private AlertEvaluationResponseDto getAlertEvaluationResponseDto(Message<Object> message) {
     AlertEvaluationResponseDto responseDto;
     try {
       responseDto = objectMapper.readValue(message.body().toString(), AlertEvaluationResponseDto.class);
