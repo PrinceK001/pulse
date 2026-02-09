@@ -2,12 +2,14 @@ package org.dreamhorizon.pulseserver.tenant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerResponseContext;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriInfo;
 import java.io.IOException;
 import org.junit.jupiter.api.AfterEach;
@@ -50,6 +52,8 @@ class TenantFilterTest {
     void shouldSetTenantIdFromHeader() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      // No Authorization header, so it falls back to X-Tenant-ID header
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
       when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("test-tenant");
 
       tenantFilter.filter(requestContext);
@@ -61,6 +65,7 @@ class TenantFilterTest {
     void shouldTrimTenantIdFromHeader() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
       when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("  test-tenant  ");
 
       tenantFilter.filter(requestContext);
@@ -69,25 +74,31 @@ class TenantFilterTest {
     }
 
     @Test
-    void shouldUseDefaultTenantWhenHeaderMissing() throws IOException {
+    void shouldAbortWhenTenantIdMissing() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
       when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn(null);
 
       tenantFilter.filter(requestContext);
 
-      assertEquals("default", TenantContext.getTenantId());
+      // Request should be aborted when no tenant ID is found
+      verify(requestContext).abortWith(any());
+      assertNull(TenantContext.getTenantId());
     }
 
     @Test
-    void shouldUseDefaultTenantWhenHeaderBlank() throws IOException {
+    void shouldAbortWhenTenantIdBlank() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
       when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("   ");
 
       tenantFilter.filter(requestContext);
 
-      assertEquals("default", TenantContext.getTenantId());
+      // Request should be aborted when tenant ID is blank
+      verify(requestContext).abortWith(any());
+      assertNull(TenantContext.getTenantId());
     }
   }
 
@@ -175,6 +186,7 @@ class TenantFilterTest {
     void shouldNotExcludeNullPath() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn(null);
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
       when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("test-tenant");
 
       tenantFilter.filter(requestContext);
@@ -197,4 +209,5 @@ class TenantFilterTest {
     }
   }
 }
+
 

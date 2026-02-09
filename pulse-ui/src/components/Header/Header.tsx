@@ -34,7 +34,6 @@ import { getCookies, removeAllCookies } from "../../helpers/cookies";
 import {
   signOutFirebase,
   isGcpMultiTenantEnabled,
-  getGcpTenantDisplayName,
 } from "../../helpers/gcpAuth";
 import { MULTI_TENANT_CONSTANTS } from "../../constants";
 
@@ -111,7 +110,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
                   currentTenantId !== "undefined" && (
                     <Text size="xs" c="dimmed">
                       {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
-                      {getGcpTenantDisplayName(currentTenantId)}
+                      {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
                     </Text>
                 )}
                 <Button

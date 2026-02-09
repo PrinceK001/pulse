@@ -7,10 +7,6 @@ import {
 import {
   getFirebaseAuth,
   isGcpMultiTenantEnabled,
-  getGcpTenantIds,
-  getDefaultGcpTenantId,
-  getGcpTenantDisplayName,
-  getGcpTenantOptions,
 } from "../../config/firebase";
 
 export type GcpAuthResult = {
@@ -20,32 +16,37 @@ export type GcpAuthResult = {
   tenantId: string | undefined;
 };
 
+/**
+ * Signs in with Google using Firebase Authentication with multi-tenancy.
+ *
+ * @param gcpTenantId - The GCP tenant ID obtained from the tenant lookup API
+ * @returns Promise with authentication result including idToken
+ */
 export async function signInWithGoogleGcp(
-  tenantId?: string,
+  gcpTenantId: string,
 ): Promise<GcpAuthResult> {
   const auth = getFirebaseAuth() as Auth & { tenantId?: string | null };
 
-  if (tenantId) {
-    auth.tenantId = tenantId;
-  }
+  // Set the tenant ID for multi-tenant authentication
+  auth.tenantId = gcpTenantId;
 
   const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
-  const idToken = await result.user.getIdToken();
-  const email = result.user.email ?? "";
 
-  if (tenantId) {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const idToken = await result.user.getIdToken();
+    const email = result.user.email ?? "";
+
+    return {
+      idToken,
+      user: result.user,
+      email,
+      tenantId: gcpTenantId,
+    };
+  } finally {
+    // Clear tenant ID after sign-in attempt
     auth.tenantId = null;
   }
-
-  const effectiveTenantId = tenantId ?? undefined;
-
-  return {
-    idToken,
-    user: result.user,
-    email,
-    tenantId: effectiveTenantId,
-  };
 }
 
 export async function getFirebaseIdToken(): Promise<string | null> {
@@ -62,10 +63,4 @@ export async function signOutFirebase(): Promise<void> {
   await auth.signOut();
 }
 
-export {
-  isGcpMultiTenantEnabled,
-  getGcpTenantIds,
-  getDefaultGcpTenantId,
-  getGcpTenantDisplayName,
-  getGcpTenantOptions,
-};
+export { isGcpMultiTenantEnabled };

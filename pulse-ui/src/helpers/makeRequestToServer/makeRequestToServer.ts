@@ -1,7 +1,6 @@
 import { API_METHODS, COOKIES_KEY } from "../../constants";
 import { getCookies } from "../cookies";
 import { MakeRequestConfig } from "../makeRequest";
-import { getFirebaseIdToken, isGcpMultiTenantEnabled } from "../gcpAuth";
 
 // Mock server import - only loaded when needed
 let MockServer: any = null;
@@ -15,25 +14,24 @@ const getMockServer = async () => {
   return MockServer;
 };
 
-async function buildAuthHeaders(): Promise<Record<string, string>> {
-  if (isGcpMultiTenantEnabled()) {
-    const firebaseToken = await getFirebaseIdToken();
-    if (firebaseToken) {
-      const tenantId = getCookies(COOKIES_KEY.TENANT_ID);
-      const base: Record<string, string> = {
-        Authorization: `Bearer ${firebaseToken}`,
-        "user-email": `${getCookies(COOKIES_KEY.USER_EMAIL)}`,
-      };
-      if (tenantId && tenantId !== "undefined") {
-        base["tenant-id"] = tenantId;
-      }
-      return base;
-    }
-  }
-  return {
-    Authorization: `${getCookies(COOKIES_KEY.TOKEN_TYPE)} ${getCookies(COOKIES_KEY.ACCESS_TOKEN)}`,
-    "user-email": `${getCookies(COOKIES_KEY.USER_EMAIL)}`,
+/**
+ * Builds authentication headers for API requests.
+ * Uses the backend-generated access token stored in cookies after successful authentication.
+ */
+function buildAuthHeaders(): Record<string, string> {
+  const accessToken = getCookies(COOKIES_KEY.ACCESS_TOKEN);
+  const tokenType = getCookies(COOKIES_KEY.TOKEN_TYPE) || "Bearer";
+  const userEmail = getCookies(COOKIES_KEY.USER_EMAIL);
+
+  const headers: Record<string, string> = {
+    Authorization: `${tokenType} ${accessToken}`,
   };
+
+  if (userEmail && userEmail !== "undefined") {
+    headers["user-email"] = userEmail;
+  }
+
+  return headers;
 }
 
 export const makeRequestToServer = async (
@@ -60,7 +58,7 @@ export const makeRequestToServer = async (
   // Original implementation - real API call
   const { url, init } = requestConfig;
   const { headers, body, method, ...rest } = init ?? {};
-  const authHeaders = await buildAuthHeaders();
+  const authHeaders = buildAuthHeaders();
 
   return await fetch(url, {
     method: method ?? API_METHODS.GET,
