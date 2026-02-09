@@ -6,9 +6,6 @@ import {
   Container,
   Image,
   Button,
-  Select,
-  Badge,
-  Paper,
 } from "@mantine/core";
 import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import classes from "./Login.module.css";
@@ -17,7 +14,6 @@ import {
   COOKIES_KEY,
   LOGIN_PAGE_CONSTANTS,
   ROUTES,
-  MULTI_TENANT_CONSTANTS,
 } from "../../constants";
 import { useNavigate } from "react-router-dom";
 import { IconSquareRoundedX } from "@tabler/icons-react";
@@ -31,21 +27,18 @@ import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpi
 import { logEvent } from "../../helpers/googleAnalytics";
 import {
   isGcpMultiTenantEnabled,
-  getGcpTenantOptions,
-  getDefaultGcpTenantId,
   signInWithGoogleGcp,
 } from "../../helpers/gcpAuth";
+import { lookupTenant, TenantLookupResponse } from "../../helpers/tenantLookup";
 
 export function Login() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
   const [isFetchingTokensFromServer, setIsFetchingTokensFromServer] =
     useState<boolean>(false);
-  const gcpTenantOptions = getGcpTenantOptions();
-  const defaultTenantId = getDefaultGcpTenantId();
-  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(
-    defaultTenantId ?? null,
-  );
+  const [isLoadingTenant, setIsLoadingTenant] = useState<boolean>(false);
+  const [tenantInfo, setTenantInfo] = useState<TenantLookupResponse | null>(null);
+  const [tenantLookupError, setTenantLookupError] = useState<string | null>(null);
 
   const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
 
@@ -58,6 +51,28 @@ export function Login() {
     !gcpMultiTenantEnabled &&
     (googleOAuthEnabled === "false" ||
       (isDevMode && (!googleClientId || googleClientId.trim() === "")));
+
+  // Fetch tenant info on mount when GCP multi-tenant is enabled
+  useEffect(() => {
+    const fetchTenantInfo = async () => {
+      if (!gcpMultiTenantEnabled) return;
+
+      setIsLoadingTenant(true);
+      setTenantLookupError(null);
+
+      const { data, error } = await lookupTenant();
+
+      if (data) {
+        setTenantInfo(data);
+      } else if (error) {
+        setTenantLookupError(error.message || "Failed to lookup tenant");
+      }
+
+      setIsLoadingTenant(false);
+    };
+
+    fetchTenantInfo();
+  }, [gcpMultiTenantEnabled]);
 
   useEffect(() => {
     const refreshToken = getCookies(COOKIES_KEY.REFRESH_TOKEN);
@@ -117,23 +132,26 @@ export function Login() {
   };
 
   const onGcpSignIn = async () => {
-    const tenantId = selectedTenantId ?? defaultTenantId ?? undefined;
-    if (!tenantId) {
-      showErrorToast("Please select a tenant");
+    if (!tenantInfo?.gcpTenantId) {
+      showErrorToast("Tenant information not available. Please refresh the page.");
       return;
     }
+
+    const gcpTenantId = tenantInfo.gcpTenantId;
     setIsFetchingTokensFromServer(true);
     logEvent("User logged in (GCP)", ROUTES.LOGIN.key);
+
     try {
       const { idToken, email, tenantId: effectiveTenantId } =
-        await signInWithGoogleGcp(tenantId);
+        await signInWithGoogleGcp(gcpTenantId);
       const { data, error } = await authenticateUser(idToken, {
-        tenantId: effectiveTenantId ?? tenantId,
+        tenantId: effectiveTenantId ?? gcpTenantId,
         userEmail: email,
       });
       if (data) {
         await setCookiesAfterAuthentication(data, {
-          tenantId: effectiveTenantId ?? tenantId,
+          tenantId: effectiveTenantId ?? gcpTenantId,
+          tenantName: tenantInfo.tenantName,
         });
         navigate(ROUTES.HOME.basePath);
         setIsFetchingTokensFromServer(false);
@@ -183,10 +201,14 @@ export function Login() {
               </Stack>
 
               <Box className={classes.loginCard}>
-                {isFetchingTokensFromServer ? (
+                {isFetchingTokensFromServer || isLoadingTenant ? (
                   <LoaderWithMessage
                     className={classes.loader}
-                    loadingMessage={LOGIN_PAGE_CONSTANTS.SIGNING_IN_MESSAGE}
+                    loadingMessage={
+                      isLoadingTenant
+                        ? "Loading tenant information..."
+                        : LOGIN_PAGE_CONSTANTS.SIGNING_IN_MESSAGE
+                    }
                   />
                 ) : (
                   <Stack align="center" gap="lg">
@@ -194,41 +216,29 @@ export function Login() {
                       Sign in to get started
                     </Text>
                     {gcpMultiTenantEnabled ? (
-                      <Paper
-                        p="lg"
-                        radius="md"
-                        withBorder
-                        style={{
-                          minWidth: 280,
-                          borderColor: "rgba(14, 201, 194, 0.3)",
-                          backgroundColor: "rgba(255, 255, 255, 0.9)",
-                        }}
-                      >
-                        <Stack gap="md" align="center">
-                          <Badge
-                            variant="light"
-                            color="teal"
-                            size="sm"
-                            radius="sm"
-                          >
-                            {MULTI_TENANT_CONSTANTS.BADGE_LABEL}
-                          </Badge>
-                          <Select
-                            label={MULTI_TENANT_CONSTANTS.TENANT_LABEL}
-                            placeholder={
-                              MULTI_TENANT_CONSTANTS.TENANT_PLACEHOLDER
-                            }
-                            data={gcpTenantOptions}
-                            value={selectedTenantId}
-                            onChange={(v) => setSelectedTenantId(v)}
+                      tenantLookupError ? (
+                        <Stack align="center" gap="md">
+                          <Text c="red" size="sm">
+                            {tenantLookupError}
+                          </Text>
+                          <Button
                             size="md"
-                            style={{ width: "100%" }}
-                          />
+                            radius="xl"
+                            variant="outline"
+                            onClick={() => window.location.reload()}
+                          >
+                            Retry
+                          </Button>
+                        </Stack>
+                      ) : tenantInfo ? (
+                        <Stack align="center" gap="md">
+                          <Text size="sm" c="dimmed">
+                            Signing in to: <strong>{tenantInfo.tenantName}</strong>
+                          </Text>
                           <Button
                             size="lg"
                             radius="xl"
                             onClick={onGcpSignIn}
-                            fullWidth
                             style={{
                               background:
                                 "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
@@ -236,12 +246,13 @@ export function Login() {
                               fontWeight: 600,
                               fontSize: "16px",
                               padding: "12px 32px",
+                              minWidth: "240px",
                             }}
                           >
-                            {MULTI_TENANT_CONSTANTS.SIGN_IN_BUTTON}
+                            Sign in with Google
                           </Button>
                         </Stack>
-                      </Paper>
+                      ) : null
                     ) : shouldShowDummyLogin ? (
                       <Button
                         size="lg"
@@ -269,7 +280,7 @@ export function Login() {
                     )}
                     <Text className={classes.loginSubtext}>
                       {gcpMultiTenantEnabled
-                        ? MULTI_TENANT_CONSTANTS.SIGN_IN_SUBTEXT
+                        ? "Sign in with your organization account"
                         : shouldShowDummyLogin
                           ? "Development mode: Using dummy authentication"
                           : "Access powerful analytics and insights"}

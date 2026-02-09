@@ -57,7 +57,7 @@ public class TenantLookup {
     if (dotIndex > 0) {
       return host.substring(0, dotIndex);
     }
-    return null;
+    return host;
   }
 }
 

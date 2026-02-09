@@ -386,6 +386,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/auth/social/authenticate`,
     method: API_METHODS.POST,
   },
+  TENANT_LOOKUP: {
+    key: "TENANT_LOOKUP",
+    apiPath: `/v1/auth/tenant/lookup`,
+    method: API_METHODS.GET,
+  },
   GET_APDEX_SCORE: {
     key: "GET_APDEX_SCORE",
     apiPath: `/v2/getApdexScore`,
@@ -800,6 +805,7 @@ export const COOKIES_KEY: Record<string, string> = {
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
   TENANT_ID: "tenantId",
+  TENANT_NAME: "tenantName",
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {

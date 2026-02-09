@@ -27,7 +27,7 @@ function parseIdTokenClaims(idToken: string): {
   return { email, userName, profilePicture, tenantId };
 }
 
-export type SetCookiesAfterAuthOptions = { tenantId?: string };
+export type SetCookiesAfterAuthOptions = { tenantId?: string; tenantName?: string };
 
 export const setCookiesAfterAuthentication = (
   authenticationSuccessResponse: AuthenticateSuccessResponse,
@@ -49,5 +49,8 @@ export const setCookiesAfterAuthentication = (
   setCookies(COOKIES_KEY.EXPIRES_IN, `${expiresIn}`);
   if (tenantId) {
     setCookies(COOKIES_KEY.TENANT_ID, tenantId);
+  }
+  if (options?.tenantName) {
+    setCookies(COOKIES_KEY.TENANT_NAME, options.tenantName);
   }
 };

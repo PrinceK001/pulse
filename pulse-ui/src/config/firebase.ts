@@ -30,46 +30,11 @@ export function getFirebaseAuth(): Auth {
   return auth;
 }
 
+/**
+ * Check if GCP multi-tenant authentication is enabled.
+ * When enabled, the app will use the tenant lookup API to get the gcpTenantId
+ * based on the current hostname subdomain.
+ */
 export function isGcpMultiTenantEnabled(): boolean {
   return process.env.REACT_APP_GCP_MULTI_TENANT_ENABLED === "true";
-}
-
-export function getGcpTenantIds(): string[] {
-  const list = process.env.REACT_APP_GCP_TENANTS;
-  if (list && list.trim()) {
-    return list.split(",").map((t) => t.trim()).filter(Boolean);
-  }
-  return [];
-}
-
-export function getDefaultGcpTenantId(): string | undefined {
-  const ids = getGcpTenantIds();
-  return ids[0];
-}
-
-const tenantLabelMap = ((): Record<string, string> => {
-  const raw = process.env.REACT_APP_GCP_TENANT_LABELS;
-  if (!raw || !raw.trim()) return {};
-  const out: Record<string, string> = {};
-  raw.split(",").forEach((part) => {
-    const trimmed = part.trim();
-    const colon = trimmed.indexOf(":");
-    if (colon > 0) {
-      const id = trimmed.slice(0, colon).trim();
-      const label = trimmed.slice(colon + 1).trim();
-      if (id) out[id] = label || id;
-    }
-  });
-  return out;
-})();
-
-export function getGcpTenantDisplayName(tenantId: string): string {
-  return tenantLabelMap[tenantId] ?? tenantId;
-}
-
-export function getGcpTenantOptions(): { value: string; label: string }[] {
-  return getGcpTenantIds().map((id) => ({
-    value: id,
-    label: getGcpTenantDisplayName(id),
-  }));
 }

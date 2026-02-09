@@ -40,7 +40,6 @@ import { getCookies, removeAllCookies } from "../../helpers/cookies";
 import {
   signOutFirebase,
   isGcpMultiTenantEnabled,
-  getGcpTenantDisplayName,
 } from "../../helpers/gcpAuth";
 
 export function Navbar({
@@ -236,7 +235,7 @@ export function Navbar({
                       currentTenantId !== "undefined" && (
                         <Text size="xs" c="dimmed" mt={4}>
                           {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
-                          {getGcpTenantDisplayName(currentTenantId)}
+                          {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
                         </Text>
                     )}
                   </Box>
