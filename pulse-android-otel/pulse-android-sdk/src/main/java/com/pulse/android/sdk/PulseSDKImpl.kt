@@ -87,11 +87,13 @@ internal class PulseSDKImpl :
     override fun initialize(
         application: Application,
         endpointBaseUrl: String,
+        tenantId: String,
         endpointHeaders: Map<String, String>,
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
         customEventConnectivity: EndpointConnectivity,
+        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
@@ -112,12 +114,14 @@ internal class PulseSDKImpl :
             initializeInternal(
                 application,
                 endpointBaseUrl,
+                tenantId,
                 tracerProviderCustomizer,
                 loggerProviderCustomizer,
                 spanEndpointConnectivity,
                 logEndpointConnectivity,
                 metricEndpointConnectivity,
                 customEventConnectivity,
+                configEndpointUrl,
                 resource,
                 instrumentations,
                 endpointHeaders,
@@ -135,12 +139,14 @@ internal class PulseSDKImpl :
     private fun initializeInternal(
         application: Application,
         endpointBaseUrl: String,
+        tenantId: String,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
         customEventConnectivity: EndpointConnectivity,
+        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         endpointHeaders: Map<String, String>,
@@ -164,13 +170,18 @@ internal class PulseSDKImpl :
 
         PulseOtelUtils.logDebug(TAG) { "currentSdkConfig config version = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}" }
 
+        // Merge tenantId with endpointHeaders for all API calls
+        val tenantIdHeader = createTenantIdHeader(tenantId)
+        val endpointHeadersWithTenant = endpointHeaders + tenantIdHeader
+
         @Suppress("InjectDispatcher") // we are not exposing this dispatchers to client
         launch(Dispatchers.IO) {
             val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
             apiCache.mkdirs()
             val newConfig =
-                PulseSdkConfigRestProvider(apiCache) {
-                    "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
+                PulseSdkConfigRestProvider(apiCache, endpointHeadersWithTenant) {
+                    configEndpointUrl
+                        ?: "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
                 }.provide()
             val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
             PulseOtelUtils.logDebug(TAG) {
@@ -198,6 +209,7 @@ internal class PulseSDKImpl :
         // Set default telemetry.sdk.name for Android Java SDK
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
+            put(PulseAttributes.TENANT_ID, tenantId)
             resource?.invoke(this)
         }
 
@@ -259,7 +271,7 @@ internal class PulseSDKImpl :
             OtlpHttpSpanExporter
                 .builder()
                 .setEndpoint(finalSpanEndpointConnectivity.getUrl())
-                .setHeaders(finalSpanEndpointConnectivity::getHeaders)
+                .setHeaders { finalSpanEndpointConnectivity.getHeaders() + tenantIdHeader }
                 .build()
 
         val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
@@ -277,7 +289,7 @@ internal class PulseSDKImpl :
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalLogEndpointConnectivity.getUrl())
-                            .setHeaders(finalLogEndpointConnectivity::getHeaders)
+                            .setHeaders { finalLogEndpointConnectivity.getHeaders() + tenantIdHeader }
                             .build(),
                     PulseSignalMatchCondition(
                         name = ".*",
@@ -291,7 +303,7 @@ internal class PulseSDKImpl :
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalCustomEventEndpointConnectivity.getUrl())
-                            .setHeaders(finalCustomEventEndpointConnectivity::getHeaders)
+                            .setHeaders { finalCustomEventEndpointConnectivity.getHeaders() + tenantIdHeader }
                             .build(),
                 ),
             )
@@ -300,7 +312,7 @@ internal class PulseSDKImpl :
             OtlpHttpMetricExporter
                 .builder()
                 .setEndpoint(finalMetricEndpointConnectivity.getUrl())
-                .setHeaders(finalMetricEndpointConnectivity::getHeaders)
+                .setHeaders { finalMetricEndpointConnectivity.getHeaders() + tenantIdHeader }
                 .build()
 
         val spanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
@@ -308,7 +320,7 @@ internal class PulseSDKImpl :
         val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
 
         instrumentations?.let { configure ->
-            val instrumentationConfig = InstrumentationConfiguration(config)
+            val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithTenant)
             instrumentationConfig.configure()
             if (currentSdkConfig != null) {
                 instrumentationConfig.interaction { setConfigUrl { PulseOtelUtils.endWithSlash(currentSdkConfig.interaction.configUrl) } }
@@ -380,7 +392,7 @@ internal class PulseSDKImpl :
             OpenTelemetryRumInitializer.initialize(
                 application = application,
                 endpointBaseUrl = endpointBaseUrl,
-                endpointHeaders = endpointHeaders,
+                endpointHeaders = endpointHeadersWithTenant,
                 // todo make it explicit as to which config should be chosen
                 //  1. Either remove this value
                 //  2. Or give options like LocalOnly, ConfigOrFallback
@@ -682,10 +694,13 @@ internal class PulseSDKImpl :
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
+        private const val TENANT_ID_HEADER_KEY = "tenant-id"
 
         internal object PrefsName {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
+
+        internal fun createTenantIdHeader(tenantId: String): Map<String, String> = mapOf(TENANT_ID_HEADER_KEY to tenantId)
     }
 }
