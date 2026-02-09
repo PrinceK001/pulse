@@ -1,4 +1,4 @@
-# Pulse iOS SDK
+# Pulse iOS SDK (WIP)
 
 Pulse iOS SDK is a production-grade observability SDK for iOS applications built on OpenTelemetry.
 
