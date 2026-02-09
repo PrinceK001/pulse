@@ -343,6 +343,125 @@ class TenantFilterTest {
 
       assertNull(TenantContext.getTenantId());
     }
+
+    @Test
+    void shouldClearTenantContextEvenWhenAlreadyNull() throws IOException {
+      assertNull(TenantContext.getTenantId());
+
+      tenantFilter.filter(requestContext, responseContext);
+
+      assertNull(TenantContext.getTenantId());
+    }
+  }
+
+  @Nested
+  class JwtServiceNotAvailableTests {
+
+    @Test
+    void shouldFallbackToHeaderWhenJwtServiceIsNull() throws IOException {
+      // Don't set jwtService - getJwtService() will try GuiceInjector and likely fail
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer some-token");
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("fallback-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("fallback-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldAbortWhenJwtServiceNullAndNoHeader() throws IOException {
+      // Don't set jwtService - getJwtService() will try GuiceInjector and likely fail
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer some-token");
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      verify(requestContext).abortWith(any());
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldSetJwtServiceViaSetterMethod() throws IOException {
+      tenantFilter.setJwtService(jwtService);
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn("set-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("set-tenant", TenantContext.getTenantId());
+    }
+  }
+
+  @Nested
+  class EdgeCaseTests {
+
+    @Test
+    void shouldHandlePathWithOnlySlash() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("root-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("root-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldHandleEmptyPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("empty-path-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("empty-path-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldNotExcludeHealthcheckPrefix() throws IOException {
+      // "healthchecker" should NOT be excluded (it's not exactly "healthcheck")
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("healthchecker");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("health-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("health-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldHandleRegularApiPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/metrics/query");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("api-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("api-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldProcessNonAuthPathStartingWithV1() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/configs");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("config-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("config-tenant", TenantContext.getTenantId());
+    }
   }
 }
 
