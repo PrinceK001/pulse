@@ -7,11 +7,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.jsonwebtoken.Claims;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerResponseContext;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriInfo;
 import java.io.IOException;
+import org.dreamhorizon.pulseserver.service.JwtService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +33,12 @@ class TenantFilterTest {
 
   @Mock
   private UriInfo uriInfo;
+
+  @Mock
+  private JwtService jwtService;
+
+  @Mock
+  private Claims claims;
 
   private TenantFilter tenantFilter;
 
@@ -97,6 +105,134 @@ class TenantFilterTest {
       tenantFilter.filter(requestContext);
 
       // Request should be aborted when tenant ID is blank
+      verify(requestContext).abortWith(any());
+      assertNull(TenantContext.getTenantId());
+    }
+  }
+
+  @Nested
+  class JwtTokenTests {
+
+    @Test
+    void shouldExtractTenantIdFromJwtToken() throws IOException {
+      tenantFilter.setJwtService(jwtService);
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn("jwt-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("jwt-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldTrimTenantIdFromJwtToken() throws IOException {
+      tenantFilter.setJwtService(jwtService);
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn("  jwt-tenant  ");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("jwt-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldFallbackToHeaderWhenTokenHasNoTenantId() throws IOException {
+      tenantFilter.setJwtService(jwtService);
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("header-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("header-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldFallbackToHeaderWhenTokenHasBlankTenantId() throws IOException {
+      tenantFilter.setJwtService(jwtService);
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn("   ");
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("header-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("header-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldFallbackToHeaderWhenTokenVerificationFails() throws IOException {
+      tenantFilter.setJwtService(jwtService);
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer invalid-token");
+      when(jwtService.verifyToken("invalid-token")).thenThrow(new RuntimeException("Invalid token"));
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("header-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("header-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldFallbackToHeaderWhenAuthHeaderNotBearer() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Basic some-credentials");
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("header-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("header-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldFallbackToHeaderWhenBearerTokenIsEmpty() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer ");
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("header-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("header-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldFallbackToHeaderWhenBearerTokenIsWhitespace() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer    ");
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("header-tenant");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("header-tenant", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldAbortWhenNoTenantFromTokenOrHeader() throws IOException {
+      tenantFilter.setJwtService(jwtService);
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
       verify(requestContext).abortWith(any());
       assertNull(TenantContext.getTenantId());
     }

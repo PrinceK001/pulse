@@ -34,9 +34,16 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String ALERTS_PATH_PREFIX = "alerts";
-  private static final String DEFAULT_TENANT_ID = "default";
 
   private JwtService jwtService;
+
+  /**
+   * Sets the JwtService for testing purposes.
+   * @param jwtService the JwtService to use
+   */
+  void setJwtService(JwtService jwtService) {
+    this.jwtService = jwtService;
+  }
 
   @Override
   public void filter(ContainerRequestContext requestContext) throws IOException {
