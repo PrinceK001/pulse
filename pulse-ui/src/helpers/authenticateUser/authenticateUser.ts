@@ -34,7 +34,7 @@ export const authenticateUser = (
       }
     }
 
-    if (!email) {
+    if (email) {
       headers["user-email"] = email;
     }
     if (options?.tenantId) {
