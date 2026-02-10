@@ -118,6 +118,10 @@ export function start(options?: PulseConfig): void {
     );
     return;
   }
+  if (isStarted) {
+    console.log('[Pulse] SDK already started.');
+    return;
+  }
 
   isStarted = true;
   const features = getFeaturesFromRemoteConfig();
