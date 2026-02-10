@@ -30,10 +30,13 @@ export const authenticateUser = (
         const decoded = jwtDecode<{ email?: string }>(googleCredential);
         email = decoded?.email ?? "";
       } catch {
-        email = "";
+
       }
     }
-    headers["user-email"] = email;
+
+    if (!email) {
+      headers["user-email"] = email;
+    }
     if (options?.tenantId) {
       headers["tenant-id"] = options.tenantId;
     }
