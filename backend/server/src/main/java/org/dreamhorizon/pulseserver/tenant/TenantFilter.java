@@ -39,6 +39,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
 
   /**
    * Sets the JwtService for testing purposes.
+   *
    * @param jwtService the JwtService to use
    */
   void setJwtService(JwtService jwtService) {
@@ -124,7 +125,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     }
 
     String token = authHeader.substring(BEARER_PREFIX.length()).trim();
-    if (token.isEmpty()) {
+    if (token.isBlank()) {
       return null;
     }
 
@@ -146,12 +147,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
 
   private JwtService getJwtService() {
     if (jwtService == null) {
-      try {
-        jwtService = GuiceInjector.getGuiceInjector().getInstance(JwtService.class);
-      } catch (Exception e) {
-        log.warn("Could not get JwtService from GuiceInjector: {}", e.getMessage());
-        return null;
-      }
+      jwtService = GuiceInjector.getGuiceInjector().getInstance(JwtService.class);
     }
     return jwtService;
   }

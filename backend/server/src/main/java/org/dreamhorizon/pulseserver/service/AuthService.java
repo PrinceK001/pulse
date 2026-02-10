@@ -35,7 +35,7 @@ public class AuthService {
   private final JwtService jwtService;
   private final TenantDao tenantDao;
   private volatile String firebaseJwksCache;
-  private volatile long firebaseJwksCacheExpiry;
+  private volatile long firebaseJwksCacheExpiryMillis;
   private static final long JWKS_CACHE_TTL_MS = 3600_000L;
 
   // Development mode constants
@@ -94,11 +94,11 @@ public class AuthService {
 
   private String fetchFirebaseJwks() throws IOException {
     long now = System.currentTimeMillis();
-    if (firebaseJwksCache != null && now < firebaseJwksCacheExpiry) {
+    if (firebaseJwksCache != null && now < firebaseJwksCacheExpiryMillis) {
       return firebaseJwksCache;
     }
     synchronized (this) {
-      if (firebaseJwksCache != null && System.currentTimeMillis() < firebaseJwksCacheExpiry) {
+      if (firebaseJwksCache != null && System.currentTimeMillis() < firebaseJwksCacheExpiryMillis) {
         return firebaseJwksCache;
       }
       var conn = new URL(FIREBASE_JWKS_URL).openConnection();
@@ -107,7 +107,7 @@ public class AuthService {
       try (var in = conn.getInputStream()) {
         firebaseJwksCache = new String(in.readAllBytes(), StandardCharsets.UTF_8);
       }
-      firebaseJwksCacheExpiry = System.currentTimeMillis() + JWKS_CACHE_TTL_MS;
+      firebaseJwksCacheExpiryMillis = System.currentTimeMillis() + JWKS_CACHE_TTL_MS;
       return firebaseJwksCache;
     }
   }
@@ -134,6 +134,7 @@ public class AuthService {
       }
       return payloadJson.substring(valueStart, valueEnd);
     } catch (Exception e) {
+      log.warn("Unable to identify the jwt issuer - ", e);
       return null;
     }
   }
@@ -173,12 +174,14 @@ public class AuthService {
       var claims = signedJWT.getJWTClaimsSet();
       if (!expectedIssuer.equals(claims.getIssuer())) {
         log.error("Firebase token issuer mismatch: expected {} got {}", expectedIssuer, claims.getIssuer());
-        return Single.error(new IllegalArgumentException("Invalid Firebase token: issuer mismatch. Check your Firebase project configuration."));
+        return Single.error(
+            new IllegalArgumentException("Invalid Firebase token: issuer mismatch. Check your Firebase project configuration."));
       }
       var audience = claims.getAudience();
       if (audience == null || !audience.contains(projectId)) {
         log.error("Firebase token audience mismatch: expected {} got {}", projectId, audience);
-        return Single.error(new IllegalArgumentException("Invalid Firebase token: audience mismatch. Check your Firebase project configuration."));
+        return Single.error(
+            new IllegalArgumentException("Invalid Firebase token: audience mismatch. Check your Firebase project configuration."));
       }
       Date exp = claims.getExpirationTime();
       if (exp == null || exp.before(new Date())) {
@@ -197,7 +200,7 @@ public class AuthService {
       }
 
       String userId = claims.getSubject();
-      if (userId == null || userId.isEmpty()) {
+      if (userId == null || userId.isBlank()) {
         log.error("Firebase token missing subject (user ID)");
         return Single.error(new IllegalArgumentException("Invalid Firebase token: missing user ID."));
       }

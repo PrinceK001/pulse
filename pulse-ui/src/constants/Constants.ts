@@ -901,14 +901,14 @@ export const LOGIN_PAGE_CONSTANTS: Record<string, string> = {
   SIGNING_IN_MESSAGE: "Authenticating your credentials",
 };
 
-export const MULTI_TENANT_CONSTANTS: Record<string, string> = {
+export const MULTI_TENANT_CONSTANTS = {
   BADGE_LABEL: "Multi-tenant",
   TENANT_LABEL: "Organization",
   TENANT_PLACEHOLDER: "Select organization",
   CURRENT_TENANT_LABEL: "Organization",
   SIGN_IN_BUTTON: "Sign in with Google (GCP)",
   SIGN_IN_SUBTEXT: "Sign in with Google via GCP Identity Platform",
-};
+} as const;
 
 export const CRITICAL_INTERACTION_FORM_STEPS: CriticalInteractionFormSteps = [
   {
