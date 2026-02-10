@@ -12,7 +12,6 @@ import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Date;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +22,7 @@ import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRe
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.VerifyAuthTokenResponseDto;
+import org.dreamhorizon.pulseserver.util.JwtUtils;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -112,36 +112,6 @@ public class AuthService {
     }
   }
 
-  private static String JwtIssuer(String idTokenString) {
-    if (idTokenString == null || idTokenString.isEmpty()) {
-      return null;
-    }
-    String[] parts = idTokenString.split("\\.");
-    if (parts.length != 3) {
-      return null;
-    }
-    try {
-      String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
-      int issStart = payloadJson.indexOf("\"iss\"");
-      if (issStart == -1) {
-        return null;
-      }
-      int colon = payloadJson.indexOf(':', issStart);
-      int valueStart = payloadJson.indexOf('"', colon + 1) + 1;
-      int valueEnd = payloadJson.indexOf('"', valueStart);
-      if (valueStart <= 0 || valueEnd <= valueStart) {
-        return null;
-      }
-      return payloadJson.substring(valueStart, valueEnd);
-    } catch (Exception e) {
-      log.warn("Unable to identify the jwt issuer - ", e);
-      return null;
-    }
-  }
-
-  private static boolean isFirebaseIssuer(String iss) {
-    return iss != null && iss.contains("securetoken.google.com");
-  }
 
   private Single<AuthenticateResponseDto> verifyFirebaseIdToken(String idTokenString, String requestTenantId) {
     if (!isFirebaseConfigured()) {
@@ -259,7 +229,7 @@ public class AuthService {
           "tenant-id header is required for Firebase (multi-tenant) authentication."));
     }
 
-    if (!isFirebaseIssuer(JwtIssuer(idTokenString))) {
+    if (!JwtUtils.isFirebaseIssuer(JwtUtils.jwtIssuer(idTokenString))) {
       return Single.error(new IllegalArgumentException(
           "Only Firebase ID tokens are supported. Please authenticate using Firebase Authentication."));
     }
