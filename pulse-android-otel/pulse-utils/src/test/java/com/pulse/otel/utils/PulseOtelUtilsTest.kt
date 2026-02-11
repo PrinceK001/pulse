@@ -117,8 +117,8 @@ class PulseOtelUtilsTest {
                 "double.key" to 45.67,
                 "boolean.key" to true,
                 "attributes.key" to nestedAttributes,
-                "int.key" to 999, // Int will be converted to string via else branch
-                "null.key" to null, // null will be converted to null string
+                "int.key" to 999,
+                "null.key" to null, // null values will not be added in otel java sdk
             )
 
         val attributesBuilder = Attributes.builder()
@@ -131,8 +131,9 @@ class PulseOtelUtilsTest {
         assertThat(attributes.get(AttributeKey.booleanKey("boolean.key"))).isEqualTo(true)
         assertThat(attributes.get(AttributeKey.stringKey("nested.key1"))).isEqualTo("nested.value1")
         assertThat(attributes.get(AttributeKey.longKey("nested.key2"))).isEqualTo(42L)
-        assertThat(attributes.get(AttributeKey.stringKey("int.key"))).isEqualTo("999")
+        assertThat(attributes.get(AttributeKey.longKey("int.key"))).isEqualTo(999L)
         assertThat(attributes.get(AttributeKey.stringKey("null.key"))).isNull()
+        assertThat(attributes.asMap().contains(AttributeKey.stringKey("null.key"))).isFalse
     }
 
     @Test

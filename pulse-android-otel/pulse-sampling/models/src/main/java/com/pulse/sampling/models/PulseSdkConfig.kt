@@ -18,7 +18,7 @@ public class PulseSdkConfig internal constructor(
     @SerialName("interaction")
     public val interaction: PulseInteractionConfig,
     @SerialName("features")
-    public val features: List<PulseFeatureConfig>,
+    public val features: Collection<PulseFeatureConfig>,
 ) {
     public companion object {
         public const val CURRENT_SUPPORTED_CONFIG_VERSION: Int = 1

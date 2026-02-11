@@ -50,5 +50,5 @@ public class PulseDefaultSamplingConfig internal constructor(
 @Serializable
 public class PulseCriticalEventPolicies internal constructor(
     @SerialName("alwaysSend")
-    public val alwaysSend: List<PulseSignalMatchCondition>,
+    public val alwaysSend: Collection<PulseSignalMatchCondition>,
 )

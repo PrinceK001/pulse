@@ -19,9 +19,11 @@ public class PulseSignalConfig internal constructor(
     @SerialName("customEventCollectorUrl")
     public val customEventCollectorUrl: String,
     @SerialName("attributesToDrop")
-    public val attributesToDrop: List<PulseSignalMatchCondition>,
+    public val attributesToDrop: Collection<PulseSignalMatchCondition>,
     @SerialName("attributesToAdd")
-    public val attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+    public val attributesToAdd: Collection<PulseAttributesToAddEntry> = emptySet(),
+    @SerialName("metricsToAdd")
+    public val metricsToAdd: Collection<PulseMetricsToAddEntry> = emptySet(),
     @SerialName("filters")
     public val filters: PulseSignalFilter,
 )
@@ -32,7 +34,7 @@ public class PulseSignalFilter internal constructor(
     @SerialName("mode")
     public val mode: PulseSignalFilterMode,
     @SerialName("values")
-    public val values: List<PulseSignalMatchCondition>,
+    public val values: Collection<PulseSignalMatchCondition>,
 )
 
 @Keep
@@ -97,7 +99,26 @@ public class PulseAttributeValue internal constructor(
 @Serializable
 public class PulseAttributesToAddEntry internal constructor(
     @SerialName("values")
-    public val values: List<PulseAttributeValue>,
+    public val values: Collection<PulseAttributeValue>,
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition,
 )
+
+@Keep
+@Serializable
+public class PulseMetricsToAddEntry internal constructor(
+    @SerialName("target")
+    public val target: PulseAttributeValue,
+    @SerialName("condition")
+    public val condition: PulseSignalMatchCondition,
+)
+
+@Keep
+@Serializable
+public sealed class PulseMetricsToAddTarget protected constructor() {
+    public object Name : PulseMetricsToAddTarget()
+
+    public class Attribute internal constructor(
+        public val matcher: PulseSignalMatchCondition,
+    ) : PulseMetricsToAddTarget()
+}

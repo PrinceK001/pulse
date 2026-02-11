@@ -1,6 +1,5 @@
 package com.pulse.sampling.core.exporters
 
-import com.pulse.otel.utils.toMap
 import com.pulse.sampling.core.PulseSignalMatcher
 import com.pulse.sampling.core.PulseSignalsAttrMatcher
 import com.pulse.sampling.models.PulseSdkName
@@ -26,8 +25,7 @@ public class PulseSignalSelectExporter internal constructor(
                 signals = spans,
                 map = spanMapReversed,
                 signalScope = PulseSignalScope.TRACES,
-                getName = { it.name },
-                getProps = { it.attributes.toMap() },
+                signalValuesProvider = SpanData::toSignalValues,
                 exportBatch = { exporter, batch -> exporter.export(batch) },
             )
 
@@ -56,8 +54,7 @@ public class PulseSignalSelectExporter internal constructor(
                 signals = logs,
                 map = logMapReversed,
                 signalScope = PulseSignalScope.LOGS,
-                getName = { it.bodyValue?.asString().orEmpty() },
-                getProps = { it.attributes.toMap() },
+                signalValuesProvider = LogRecordData::toSignalValues,
                 exportBatch = { exporter, batch -> exporter.export(batch) },
             )
 
@@ -86,15 +83,13 @@ public class PulseSignalSelectExporter internal constructor(
         signals: Collection<T>,
         map: List<Pair<PulseSignalMatchCondition, E>>,
         signalScope: PulseSignalScope,
-        getName: (T) -> String,
-        getProps: (T) -> Map<String, Any?>,
+        signalValuesProvider: T.() -> SignalMatchValues,
         exportBatch: (E, Collection<T>) -> CompletableResultCode,
     ): CompletableResultCode {
         val signalsByExporter =
             signals
                 .mapNotNull { signal ->
-                    val signalName = getName(signal)
-                    val signalPropsMap = getProps(signal)
+                    val (signalName, signalPropsMap) = signal.signalValuesProvider()
 
                     val matchingExporter =
                         map
