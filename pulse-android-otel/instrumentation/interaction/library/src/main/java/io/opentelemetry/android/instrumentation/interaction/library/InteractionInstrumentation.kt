@@ -11,7 +11,6 @@ import com.pulse.android.core.events
 import com.pulse.android.core.isErrored
 import com.pulse.android.core.markerEvents
 import com.pulse.android.core.timeSpanInNanos
-import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.otel.utils.toAttributes
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.InstallationContext
@@ -28,14 +27,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.flatMap
-import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flatMapMerge
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -76,28 +70,30 @@ class InteractionInstrumentation :
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun install(ctx: InstallationContext) {
         additionalAttributeExtractors.add(InteractionDefaultAttributesExtractor())
-        interactionListenerJob = launch {
-            interactionManagerInstance.init()
-            val localTracer = tracer ?: ctx.openTelemetry.tracerProvider
-                .tracerBuilder("pulse.otel.interaction")
-                .build()
-            tracer = localTracer
-            interactionManagerInstance
-                .interactionTrackerStatesState
-                .flatMapMerge { it.asFlow() }
-                .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
-                .filter { it.interaction != null }
-                .collect { interactionRunningStatus ->
-                    if (!interactionHandledMap.containsKey(interactionRunningStatus.interactionId)) {
-                        handleSuccessInteraction(
-                            localTracer,
-                            additionalAttributeExtractors,
-                            interactionRunningStatus,
-                        )
-                        interactionHandledMap[interactionRunningStatus.interactionId] = true
+        interactionListenerJob =
+            launch {
+                interactionManagerInstance.init()
+                val localTracer =
+                    tracer ?: ctx.openTelemetry.tracerProvider
+                        .tracerBuilder("pulse.otel.interaction")
+                        .build()
+                tracer = localTracer
+                interactionManagerInstance
+                    .interactionTrackerStatesState
+                    .flatMapMerge { it.asFlow() }
+                    .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+                    .filter { it.interaction != null }
+                    .collect { interactionRunningStatus ->
+                        if (!interactionHandledMap.containsKey(interactionRunningStatus.interactionId)) {
+                            handleSuccessInteraction(
+                                localTracer,
+                                additionalAttributeExtractors,
+                                interactionRunningStatus,
+                            )
+                            interactionHandledMap[interactionRunningStatus.interactionId] = true
+                        }
                     }
-                }
-        }
+            }
     }
 
     override fun uninstall(ctx: InstallationContext) {
