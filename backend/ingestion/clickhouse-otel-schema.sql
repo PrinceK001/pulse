@@ -1,3 +1,9 @@
+-- =============================================================================
+-- ClickHouse Schema with Tiered Storage (Hot: Local SSD, Cold: S3)
+-- TenantId is auto-extracted from ResourceAttributes['tenant.id']
+-- Data moves to S3 after 7 days, NO deletion (ttl_only_drop_parts = 0)
+-- =============================================================================
+
 CREATE TABLE IF NOT EXISTS otel.otel_traces
 (
     `Timestamp` DateTime64(9, 'UTC') CODEC(Delta(8), ZSTD(1)),
@@ -34,19 +40,24 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''), 
-    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
+    `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''),
+    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_tenant_id TenantId TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (TenantId, ServiceName, PulseType, SpanName, Timestamp)
-SETTINGS index_granularity = 8192;
+TTL toDateTime(Timestamp) + INTERVAL 7 DAY TO VOLUME 'cold'
+SETTINGS
+    index_granularity = 8192,
+    storage_policy = 'tiered',
+    ttl_only_drop_parts = 0;
 
 CREATE TABLE IF NOT EXISTS otel.otel_logs
 (
     `Timestamp` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
     `TraceId` String CODEC(ZSTD(1)),
-    `SpanId` FixedString(16) CODEC(ZSTD(1)), 
+    `SpanId` FixedString(16) CODEC(ZSTD(1)),
     `TraceFlags` UInt32 CODEC(ZSTD(1)),
     `SeverityText` LowCardinality(String) CODEC(ZSTD(1)),
     `SeverityNumber` Int32 CODEC(ZSTD(1)),
@@ -72,12 +83,17 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `UserId` String MATERIALIZED ifNull(LogAttributes['user.id'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
     `EventName` LowCardinality(String) CODEC(ZSTD(1)),
-    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
+    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_tenant_id TenantId TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (TenantId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
-SETTINGS index_granularity = 8192;
+TTL toDateTime(Timestamp) + INTERVAL 7 DAY TO VOLUME 'cold'
+SETTINGS
+    index_granularity = 8192,
+    storage_policy = 'tiered',
+    ttl_only_drop_parts = 0;
 
 CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
 (
@@ -112,12 +128,17 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
     `Exemplars.TimeUnix` Array(DateTime64(9)) CODEC(ZSTD(1)),
     `Exemplars.Value` Array(Float64) CODEC(ZSTD(1)),
     `Exemplars.SpanId` Array(String) CODEC(ZSTD(1)),
-    `Exemplars.TraceId` Array(String) CODEC(ZSTD(1))
+    `Exemplars.TraceId` Array(String) CODEC(ZSTD(1)),
+    INDEX idx_tenant_id TenantId TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toDate(TimeUnix)
 ORDER BY (TenantId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
-SETTINGS index_granularity = 8192;
+TTL toDateTime(TimeUnix) + INTERVAL 7 DAY TO VOLUME 'cold'
+SETTINGS
+    index_granularity = 8192,
+    storage_policy = 'tiered',
+    ttl_only_drop_parts = 0;
 
 CREATE TABLE IF NOT EXISTS otel.stack_trace_events
 (
@@ -160,9 +181,14 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `LogAttributes`         Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
-    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel')
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
+    INDEX idx_tenant_id TenantId TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (TenantId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
-SETTINGS index_granularity = 8192;
+TTL toDateTime(Timestamp) + INTERVAL 7 DAY TO VOLUME 'cold'
+SETTINGS
+    index_granularity = 8192,
+    storage_policy = 'tiered',
+    ttl_only_drop_parts = 0;
