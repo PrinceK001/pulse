@@ -98,6 +98,7 @@ class InteractionInstrumentation :
 
     override fun uninstall(ctx: InstallationContext) {
         interactionListenerJob?.cancel()
+        interactionHandledMap.clear()
         super.uninstall(ctx)
     }
 
