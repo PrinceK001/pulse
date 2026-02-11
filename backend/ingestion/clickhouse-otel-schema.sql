@@ -1,9 +1,3 @@
--- =============================================================================
--- ClickHouse Schema with Tiered Storage (Hot: Local SSD, Cold: S3)
--- TenantId is auto-extracted from ResourceAttributes['tenant.id']
--- Data moves to S3 after 7 days, NO deletion (ttl_only_drop_parts = 0)
--- =============================================================================
-
 CREATE TABLE IF NOT EXISTS otel.otel_traces
 (
     `Timestamp` DateTime64(9, 'UTC') CODEC(Delta(8), ZSTD(1)),
