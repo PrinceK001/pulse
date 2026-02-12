@@ -2,17 +2,36 @@
 
 This guide explains how to build and run the Pulse platform locally using Docker.
 
+All scripts live under `deploy/scripts/` and automatically detect whether
+Docker Compose is available. If it is, they use Compose; otherwise they fall
+back to pure Docker CLI commands -- no additional setup needed.
+
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Docker**: 20.10+ and Docker Compose 2.0+
+- **Docker Engine**: 20.10+ (Docker Compose 2.0+ optional -- scripts fall back to Docker CLI)
+- **macOS users**: [Colima](https://github.com/abiosoft/colima) (open-source, lightweight container runtime). Scripts auto-install it if Docker is missing.
+- **Linux users**: Docker Engine CE (auto-installed if missing).
 - **Java**: 17+ (for backend development)
 - **Node.js**: 18+ (for frontend development)
 - **Android Studio**: Latest version (for Android SDK development)
 - **Memory**: 8GB RAM (4GB available for Docker)
 - **Disk**: 20GB free space
+
+> If Docker is not found, the quickstart scripts will offer to install
+> **Docker CLI + Colima** (macOS) or **Docker Engine CE** (Linux) automatically.
+>
+> **Manual Colima setup on macOS** (if you prefer to install manually):
+> ```bash
+> brew install docker colima
+> colima start --cpu 4 --memory 8 --disk 60
+> # Add to ~/.zshrc so the CLI finds the Colima socket:
+> export DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
+> # Verify
+> docker version
+> ```
 
 ### Quick Start (5 Minutes)
 
@@ -34,10 +53,7 @@ cp .env.example .env
 3. **Start All Services**
 
 ```bash
-# Make scripts executable
 chmod +x scripts/*.sh
-
-# Build and start
 ./scripts/quickstart.sh
 ```
 
@@ -46,23 +62,20 @@ chmod +x scripts/*.sh
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8080
 - **Health Check**: http://localhost:8080/healthcheck
-- **MySQL**: http://localhost:3307
+- **MySQL**: localhost:3307
 - **ClickHouse HTTP**: http://localhost:8123
-- **ClickHouse Native**: http://localhost:9000
-- **OTEL Collector (gRPC)**: http://localhost:4317
-- **OTEL Collector (HTTP)**: http://localhost:4318
+- **ClickHouse Native**: localhost:9000
+- **OTEL Collector (gRPC)**: localhost:4317
+- **OTEL Collector (HTTP)**: localhost:4318
 
 5. **Verify Installation**
 
 ```bash
-# Check all services are running
-docker-compose ps
+# Check running containers
+docker ps --filter network=pulse-network
 
 # Check backend health
 curl http://localhost:8080/healthcheck
-
-# View logs
-./scripts/logs.sh
 ```
 
 ## 🛠️ Development Commands
@@ -110,6 +123,50 @@ npm run android    # Run example app (Android)
 npm run ios        # Run example app (iOS)
 ```
 
+## 🐳 Deploy Scripts
+
+All scripts live under `deploy/scripts/`. They auto-detect Docker Compose and
+fall back to pure Docker CLI when Compose is not available.
+
+| Script | Purpose |
+|--------|---------|
+| `quickstart.sh` | End-to-end setup: prerequisites, build, start, verify |
+| `build.sh` | Build custom images (`pulse-ui`, `pulse-server`, `pulse-alerts-cron`) |
+| `start.sh` | Create network/volumes and start all containers in dependency order |
+| `stop.sh` | Stop and remove containers (optionally volumes/network) |
+| `logs.sh` | View container logs (follow mode, per-service filter) |
+| `reset-databases.sh` | Wipe database volumes and restart from scratch |
+| `common.sh` | Shared library sourced by all other scripts |
+| `init-clickhouse.sh` | ClickHouse table init (runs inside a container) |
+
+### Usage Examples
+
+```bash
+# Full quickstart
+./deploy/scripts/quickstart.sh
+
+# Build only the UI image
+./deploy/scripts/build.sh ui
+
+# Build all images without cache
+./deploy/scripts/build.sh --no-cache
+
+# Start in detached mode (with build)
+./deploy/scripts/start.sh -d --build
+
+# View server logs
+./deploy/scripts/logs.sh server
+
+# Stop everything and remove data volumes
+./deploy/scripts/stop.sh -v
+
+# Stop everything, remove volumes AND network
+./deploy/scripts/stop.sh --all
+
+# Reset databases (wipe + restart)
+./deploy/scripts/reset-databases.sh
+```
+
 ## 📊 Monitoring & Observability
 
 ### Health Checks
@@ -118,8 +175,11 @@ npm run ios        # Run example app (iOS)
 # Backend health
 curl http://localhost:8080/healthcheck
 
-# Database connectivity
+# Database connectivity (Compose)
 docker-compose exec pulse-server curl http://localhost:8080/healthcheck
+
+# Database connectivity (Docker CLI)
+docker exec pulse-server curl http://localhost:8080/healthcheck
 
 # OTEL Collector health
 curl http://localhost:13133/
@@ -128,16 +188,12 @@ curl http://localhost:13133/
 ### Logs
 
 ```bash
-# View all logs
-docker-compose logs -f
+# All services
+./deploy/scripts/logs.sh
 
-# View specific service
-docker-compose logs -f pulse-server
-docker-compose logs -f pulse-ui
-docker-compose logs -f otel-collector
-
-# View with timestamp
-docker-compose logs -f -t pulse-server
+# Specific service
+./deploy/scripts/logs.sh server
+docker logs -f pulse-server
 ```
 
 ### Metrics
@@ -303,10 +359,10 @@ This setup is designed for **local development and testing**. For production:
 ## 🆘 Support
 
 For issues or questions:
-1. Check logs: `docker-compose logs -f`
+1. Check logs: `./deploy/scripts/logs.sh`
 2. Verify environment variables in `.env`
-3. Ensure all required services are running
-4. Check Docker daemon is running
+3. Ensure all required services are running: `docker ps --filter network=pulse-network`
+4. Check Docker daemon is running: `docker info`
 
 ## 📚 Additional Resources
 

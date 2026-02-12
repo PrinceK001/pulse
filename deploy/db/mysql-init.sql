@@ -148,11 +148,6 @@ VALUES (
         "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
       },
       {
-        "featureName": "rn_navigation",
-        "sessionSampleRate": 1,
-        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
-      },
-      {
         "featureName": "rn_screen_load",
         "sessionSampleRate": 1,
         "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
