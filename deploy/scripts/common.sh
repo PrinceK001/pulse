@@ -384,6 +384,53 @@ install_docker() {
 # start_docker_daemon -- Attempt to start the Docker daemon if it is not
 #                         running. On macOS this means starting Colima.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# _wait_for_docker -- Retry `docker info` with a short timeout.
+#                      Useful after starting a VM where the daemon needs a
+#                      few seconds to initialise.
+# ---------------------------------------------------------------------------
+_wait_for_docker() {
+    local timeout="${1:-30}"
+    local interval=2
+    local elapsed=0
+
+    while [ "$elapsed" -lt "$timeout" ]; do
+        if docker info > /dev/null 2>&1; then
+            return 0
+        fi
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+    done
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# _ensure_docker_host_on_mac -- On macOS, if DOCKER_HOST is not set and
+#                                 the Colima socket exists, auto-configure it.
+#                                 This avoids false "daemon not running" when
+#                                 Colima is running but the env var is missing.
+# ---------------------------------------------------------------------------
+_ensure_docker_host_on_mac() {
+    [ "$(uname -s)" = "Darwin" ] || return 0
+
+    # Already set and working? Nothing to do.
+    if [ -n "${DOCKER_HOST:-}" ] && docker info > /dev/null 2>&1; then
+        return 0
+    fi
+
+    # Check if the Colima socket exists (Colima running, env var just missing)
+    local colima_sock="unix://${HOME}/.colima/default/docker.sock"
+    if [ -S "${HOME}/.colima/default/docker.sock" ]; then
+        export DOCKER_HOST="$colima_sock"
+        if docker info > /dev/null 2>&1; then
+            print_info "Auto-detected Colima socket (DOCKER_HOST=$colima_sock)"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 start_docker_daemon() {
     local os
     os="$(uname -s)"
@@ -391,16 +438,31 @@ start_docker_daemon() {
     case "$os" in
         Linux)
             print_info "Attempting to start Docker daemon via systemctl..."
-            sudo systemctl start docker 2>/dev/null && return 0
+            sudo systemctl start docker 2>/dev/null || true
+            # Give the daemon a moment, then verify
+            if _wait_for_docker 15; then
+                return 0
+            fi
             print_error "Could not start Docker daemon. Try: sudo systemctl start docker"
             return 1
             ;;
         Darwin)
             if command -v colima &> /dev/null; then
-                print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
-                colima start --cpu 4 --memory 8 --disk 60 || { print_error "Failed to start Colima. Try: colima start"; return 1; }
+                # Colima may already be running -- that's fine
+                if colima status 2>&1 | grep -q "is running"; then
+                    print_info "Colima is already running"
+                else
+                    print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
+                    colima start --cpu 4 --memory 8 --disk 60 || { print_error "Failed to start Colima. Try: colima start"; return 1; }
+                fi
                 configure_docker_host
-                return 0
+                # Wait for the Docker daemon inside Colima to be ready
+                print_info "Waiting for Docker daemon to be ready..."
+                if _wait_for_docker 30; then
+                    return 0
+                fi
+                print_error "Colima started but Docker daemon is not responding"
+                return 1
             fi
 
             # Colima is not installed -- offer to install it
@@ -415,7 +477,12 @@ start_docker_daemon() {
                     print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
                     colima start --cpu 4 --memory 8 --disk 60 || { print_error "Failed to start Colima."; return 1; }
                     configure_docker_host
-                    return 0
+                    print_info "Waiting for Docker daemon to be ready..."
+                    if _wait_for_docker 30; then
+                        return 0
+                    fi
+                    print_error "Colima started but Docker daemon is not responding"
+                    return 1
                 fi
             fi
 
@@ -436,6 +503,7 @@ start_docker_daemon() {
 #                  Offers to start the daemon if it is stopped.
 # ---------------------------------------------------------------------------
 check_docker() {
+    # ── 1. Check Docker CLI ────────────────────────────────────────────────
     if ! command -v docker &> /dev/null; then
         print_error "Docker is not installed"
         echo ""
@@ -459,6 +527,10 @@ check_docker() {
         print_success "Docker is installed ($(docker --version))"
     fi
 
+    # ── 2. On macOS, auto-detect Colima socket before checking daemon ──────
+    _ensure_docker_host_on_mac
+
+    # ── 3. Check Docker daemon ─────────────────────────────────────────────
     if ! docker info > /dev/null 2>&1; then
         print_warning "Docker daemon is not running"
         echo ""
