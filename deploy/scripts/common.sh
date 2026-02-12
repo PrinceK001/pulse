@@ -402,8 +402,25 @@ start_docker_daemon() {
                 configure_docker_host
                 return 0
             fi
-            print_error "Colima is not installed. Install it with:"
-            echo "    brew install docker colima && colima start --cpu 4 --memory 8 --disk 60"
+
+            # Colima is not installed -- offer to install it
+            print_warning "Colima (container runtime) is not installed."
+            if command -v brew &> /dev/null; then
+                echo ""
+                read -p "Would you like to install Colima now? (yes/no): " -r
+                echo ""
+                if [[ $REPLY =~ ^[Yy]([Ee][Ss])?$ ]]; then
+                    print_info "Installing Colima..."
+                    brew install colima
+                    print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
+                    colima start --cpu 4 --memory 8 --disk 60 || { print_error "Failed to start Colima."; return 1; }
+                    configure_docker_host
+                    return 0
+                fi
+            fi
+
+            print_error "Colima is required on macOS. Install it with:"
+            echo "    brew install colima && colima start --cpu 4 --memory 8 --disk 60"
             return 1
             ;;
         *)
