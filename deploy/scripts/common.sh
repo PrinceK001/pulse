@@ -428,7 +428,9 @@ _ensure_docker_host_on_mac() {
         fi
     fi
 
-    return 1
+    # Best-effort only -- return 0 so set -e does not abort the script.
+    # The caller will proceed to the daemon check which handles the failure.
+    return 0
 }
 
 start_docker_daemon() {
