@@ -390,17 +390,19 @@ install_docker() {
 #                      few seconds to initialise.
 # ---------------------------------------------------------------------------
 _wait_for_docker() {
-    local timeout="${1:-30}"
-    local interval=2
+    local timeout="${1:-60}"
+    local interval=3
     local elapsed=0
 
     while [ "$elapsed" -lt "$timeout" ]; do
         if docker info > /dev/null 2>&1; then
             return 0
         fi
+        echo -ne "\r  Waiting for Docker daemon ... (${elapsed}s/${timeout}s)  "
         sleep "$interval"
         elapsed=$((elapsed + interval))
     done
+    echo ""
     return 1
 }
 
@@ -458,12 +460,16 @@ start_docker_daemon() {
                     colima start --cpu 4 --memory 8 --disk 60 || { print_error "Failed to start Colima. Try: colima start"; return 1; }
                 fi
                 configure_docker_host
-                # Wait for the Docker daemon inside Colima to be ready
-                print_info "Waiting for Docker daemon to be ready..."
-                if _wait_for_docker 30; then
+
+                # Wait for the Docker daemon inside Colima to be ready.
+                # On a fresh install the VM boot + dockerd init can take 60-90s.
+                print_info "Waiting for Docker daemon to be ready (this may take a minute on first run)..."
+                if _wait_for_docker 90; then
                     return 0
                 fi
-                print_error "Colima started but Docker daemon is not responding"
+                print_error "Colima started but Docker daemon is not responding after 90s"
+                echo "  Try manually: colima stop && colima start --cpu 4 --memory 8 --disk 60"
+                echo "  Then verify:  DOCKER_HOST=unix://\$HOME/.colima/default/docker.sock docker info"
                 return 1
             fi
 
@@ -479,11 +485,13 @@ start_docker_daemon() {
                     print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
                     colima start --cpu 4 --memory 8 --disk 60 || { print_error "Failed to start Colima."; return 1; }
                     configure_docker_host
-                    print_info "Waiting for Docker daemon to be ready..."
-                    if _wait_for_docker 30; then
+                    print_info "Waiting for Docker daemon to be ready (this may take a minute on first run)..."
+                    if _wait_for_docker 90; then
                         return 0
                     fi
-                    print_error "Colima started but Docker daemon is not responding"
+                    print_error "Colima started but Docker daemon is not responding after 90s"
+                    echo "  Try manually: colima stop && colima start --cpu 4 --memory 8 --disk 60"
+                    echo "  Then verify:  DOCKER_HOST=unix://\$HOME/.colima/default/docker.sock docker info"
                     return 1
                 fi
             fi
