@@ -107,10 +107,14 @@ public class PulseAttributesToAddEntry internal constructor(
 @Keep
 @Serializable
 public class PulseMetricsToAddEntry internal constructor(
+    @SerialName("name")
+    public val name: String,
     @SerialName("target")
-    public val target: PulseAttributeValue,
+    public val target: PulseMetricsToAddTarget,
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition,
+    @SerialName("type")
+    public val type: PulseMetricsType,
 )
 
 @Keep
@@ -121,4 +125,21 @@ public sealed class PulseMetricsToAddTarget protected constructor() {
     public class Attribute internal constructor(
         public val matcher: PulseSignalMatchCondition,
     ) : PulseMetricsToAddTarget()
+}
+
+@Keep
+@Serializable
+public enum class PulseMetricsType {
+    @SerialName("counter")
+    COUNTER,
+
+    @SerialName("gauge")
+    GAUGE,
+
+    @SerialName("histogram")
+    HISTOGRAM,
+
+    @SerialName("sum")
+    SUM,
+    ;
 }
