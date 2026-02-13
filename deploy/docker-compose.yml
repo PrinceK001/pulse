@@ -23,6 +23,44 @@ services:
       retries: 5
       start_period: 30s
 
+  # 1. Exporter: Exposes MySQL metrics for Prometheus
+  mysqld-exporter:
+    image: prom/mysqld-exporter
+    container_name: pulse-mysqld-exporter
+    environment:
+      - DATA_SOURCE_NAME=pulse_user:pulse_password@(mysql:3306)/
+    ports:
+      - "9104:9104"
+    networks:
+      - pulse-network
+    volumes:
+      - ./config/.my.cnf:/.my.cnf
+
+  # 2. Prometheus: Collects metrics
+  prometheus:
+    image: prom/prometheus
+    container_name: pulse-prometheus
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - pulse-network
+
+  # 3. Grafana: Visualizes metrics
+  grafana:
+    image: grafana/grafana
+    container_name: pulse-grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - pulse-network
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      # Auto-load data sources
+      - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+
   # ClickHouse Database (OTEL data only - traces, logs, metrics)
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
@@ -240,6 +278,7 @@ services:
 
 networks:
   pulse-network:
+    name: pulse-network
     driver: bridge
 
 volumes:
