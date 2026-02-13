@@ -652,7 +652,7 @@ internal class PulseSDKImpl :
         getOtelOrThrow()
             .getOpenTelemetry()
             .logsBridge
-            .loggerBuilder(INSTRUMENTATION_SCOPE)
+            .loggerBuilder("$SDK_INSTRUMENTATION_SCOPE.logger")
             .build()
     }
 
@@ -660,7 +660,7 @@ internal class PulseSDKImpl :
         getOtelOrThrow()
             .getOpenTelemetry()
             .tracerProvider
-            .tracerBuilder(INSTRUMENTATION_SCOPE)
+            .tracerBuilder("$SDK_INSTRUMENTATION_SCOPE.tracer")
             .build()
     }
 
@@ -692,7 +692,7 @@ internal class PulseSDKImpl :
     private var application: Application? = null
 
     internal companion object {
-        private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
+        private const val SDK_INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
