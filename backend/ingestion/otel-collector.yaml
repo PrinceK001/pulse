@@ -1,6 +1,8 @@
 receivers:
   otlp:
     protocols:
+      grpc: # Ensure GRPC is enabled for the Java Agent
+        endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
 
@@ -51,6 +53,25 @@ exporters:
       enabled: true
       queue_size: 1000
 
+  # NEW: Prometheus Exporter (Metrics)
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    resource_to_telemetry_conversion:
+      enabled: true
+    #namespace: "pulse_server"
+
+  # NEW: Tempo Exporter (Traces)
+  otlp/tempo:
+    endpoint: "tempo:4317"
+    tls:
+      insecure: true
+
+  # NEW: Send logs to Loki via OTLP
+  otlphttp/loki:
+    endpoint: "http://loki:3100/otlp"
+    tls:
+      insecure: true
+
 connectors:
   routing/pulse:
     default_pipelines: [ logs/to-clickhouse ]
@@ -58,6 +79,19 @@ connectors:
       - context: log
         statement: route() where attributes["pulse.type"] != nil and (attributes["pulse.type"] == "device.anr" or attributes["pulse.type"] == "device.crash" or attributes["pulse.type"] == "non_fatal")
         pipelines: [ logs/to-backend ]
+
+  spanmetrics:
+    namespace: span.metrics # Adds a prefix to avoid collisions
+    # Optional: Define buckets for better P95/P99 accuracy
+    histogram:
+      explicit:
+        buckets: [2ms, 10ms, 50ms, 100ms, 200ms, 500ms, 1s, 5s]
+    dimensions: # Turn these span attributes into metric labels
+      - name: http.method
+      - name: http.request.method
+      - name: http.status_code
+      - name: http.response.status_code
+      - name: http.route
 
 service:
   extensions: [ health_check ]
@@ -78,12 +112,12 @@ service:
     traces:
       receivers: [ otlp ]
       processors: [ batch ]
-      exporters: [ clickhouse ]
+      exporters: [ clickhouse, otlp/tempo, spanmetrics ]
 
     metrics:
-      receivers: [ otlp ]
+      receivers: [ otlp, spanmetrics ]
       processors: [ batch ]
-      exporters: [ clickhouse ]
+      exporters: [ clickhouse, prometheus ]
 
     # Entry pipeline -> route via connector
     logs/in:
@@ -101,3 +135,9 @@ service:
       receivers: [ routing/pulse ]
       processors: [ batch ]
       exporters: [ clickhouse ]
+
+    # NEW: Logs Pipeline
+    logs/loki:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]
