@@ -68,6 +68,7 @@ services:
     ports:
       - "8123:8123"  # HTTP interface
       - "9000:9000"  # Native client
+      - "9363:9363"
     environment:
       - CLICKHOUSE_DB=otel
       - CLICKHOUSE_USER=pulse_user
@@ -76,6 +77,7 @@ services:
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./config/clickhouse_config.xml:/etc/clickhouse-server/config.d/prometheus.xml:ro
     networks:
       - pulse-network
     restart: unless-stopped
