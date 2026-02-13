@@ -30,14 +30,17 @@ services:
     ports:
       - "8123:8123"  # HTTP interface
       - "9000:9000"  # Native client
+      - "9363:9363"  # NEW: Expose the metrics port
     environment:
       - CLICKHOUSE_DB=otel
       - CLICKHOUSE_USER=pulse_user
       - CLICKHOUSE_PASSWORD=pulse_password
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      - TZ=Asia/Kolkata
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - /config/clickhouse/prometheus.xml:/etc/clickhouse-server/config.d/prometheus.xml:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -91,6 +94,60 @@ services:
       - "4318:4318"   # OTLP HTTP receiver
       - "8888:8888"   # Prometheus metrics (collector internal)
       - "13133:13133" # Health check
+      - "8889:8889" # NEW: Expose metrics port for Prometheus
+
+  # NEW: Metric Database
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pulse-prometheus
+    volumes:
+      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - pulse-network
+
+  # NEW: Trace Database
+  tempo:
+    image: grafana/tempo:2.7.1
+    container_name: pulse-tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./config/tempo.yaml:/etc/tempo.yaml
+    ports:
+      - "3200:3200"
+      - "4317"
+    networks:
+      - pulse-network
+
+  # NEW: Log Database
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: pulse-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - pulse-network
+
+  # NEW: Visualization Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pulse-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      # Auto-load data sources
+      - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    networks:
+      - pulse-network
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
 
   # Pulse UI Service (React Frontend)
   pulse-ui:
@@ -183,6 +240,14 @@ services:
       # GCP Configuration (only used when QUERY_ENGINE=gcp)
       - CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID=${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
       # - CONFIG_SERVICE_APPLICATION_GCP_DATASET=${CONFIG_SERVICE_APPLICATION_GCP_DATASET}
+      # NEW: Attach the Agent & Configure OTel
+      - JAVA_TOOL_OPTIONS=-javaagent:/app/opentelemetry-javaagent.jar
+      - OTEL_SERVICE_NAME=pulse-server
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://pulse-otel-collector:4318
+      # Send both metrics and traces to the collector
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     networks:
       - pulse-network
     depends_on:
@@ -200,6 +265,8 @@ services:
     volumes:
       # Mount config files if needed for runtime configuration
       - ../backend/server/src/main/resources/config:/app/config:ro
+      # Mount the downloaded agent jar into the container
+      - ./agents/opentelemetry-javaagent.jar:/app/opentelemetry-javaagent.jar
 
   # Pulse Alerts Cron Service (Java/Vert.x Cron Manager)
   pulse-alerts-cron:
@@ -240,6 +307,7 @@ services:
 
 networks:
   pulse-network:
+    name: pulse-network
     driver: bridge
 
 volumes:
