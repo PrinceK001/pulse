@@ -161,7 +161,11 @@ class InteractionRetrofitClientTest {
     fun `creation of retrofit client with file url should not crash`() =
         runTest {
             val configUrl = mockWebServer.url("/$CONFIG_REL_URL").toString()
-            val client = InteractionRetrofitClient(configUrl)
+            val client =
+                InteractionRetrofitClient(
+                    url = configUrl,
+                    okHttpClient = PulseNetworkingUtils.okHttpClient,
+                )
             mockWebServer.enqueue(
                 MockResponse().apply {
                     setResponseCode(200)

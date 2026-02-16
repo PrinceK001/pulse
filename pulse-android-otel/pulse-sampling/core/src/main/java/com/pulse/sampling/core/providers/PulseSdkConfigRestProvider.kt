@@ -6,6 +6,7 @@ import com.pulse.sampling.remote.PulseSdkConfigApiService
 import com.pulse.sampling.remote.PulseSdkConfigRetrofitClient
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -21,13 +22,28 @@ public class PulseSdkConfigRestProvider(
 
     override suspend fun provide(): PulseSdkConfig? {
         val url = urlProvider()
+        val finalOkHttpClient =
+            if (okHttpClient.cache == null) {
+                okHttpClient
+                    .newBuilder()
+                    .apply {
+                        val cache = Cache(cacheDir, MAX_CACHE_SIZE_BYTE)
+                        cache(cache)
+                    }.build()
+            } else {
+                okHttpClient
+            }
         val restClient =
             restClients
                 .getOrPut(url) {
                     (
                         retrofitClient?.newInstance(url, headers)
                             ?: run {
-                                PulseSdkConfigRetrofitClient(url, cacheDir, okhttpClient = okHttpClient, headers = headers).apply {
+                                PulseSdkConfigRetrofitClient(
+                                    url = url,
+                                    okhttpClient = finalOkHttpClient,
+                                    headers = headers,
+                                ).apply {
                                     retrofitClient = this
                                 }
                             }
@@ -38,19 +54,24 @@ public class PulseSdkConfigRestProvider(
         val restResponseResult =
             runCatching {
                 restClient.getConfig(url)
-            }.onFailure {
+            }.onFailure { throwable ->
                 currentCoroutineContext().ensureActive()
-                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, url = $url error msg = ${it.message ?: "no-err-msg"}" }
+                // removing cache as api has failed
+                val urlIterator = finalOkHttpClient.cache?.urls()
+                urlIterator?.forEach { if (it == url) urlIterator.remove() }
+                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, url = $url error msg = ${throwable.message ?: "no-err-msg"}" }
             }
         return if (restResponseResult.isSuccess) {
             restResponseResult.getOrThrow()
         } else {
             PulseOtelUtils.logDebug(TAG) {
-                "Failed to fetch sdk config: ${(
-                    restResponseResult.exceptionOrNull() ?: error(
-                        "error is null in getConfigs",
-                    )
-                ).message ?: "no-err-msg"}"
+                "Failed to fetch sdk config: ${
+                    (
+                        restResponseResult.exceptionOrNull() ?: error(
+                            "error is null in getConfigs",
+                        )
+                    ).message ?: "no-err-msg"
+                }"
             }
             null
         }
@@ -58,5 +79,6 @@ public class PulseSdkConfigRestProvider(
 
     internal companion object {
         private const val TAG = "PulseSdkConfigRestProvider"
+        private const val MAX_CACHE_SIZE_BYTE: Long = 10 * 1024 * 1024
     }
 }

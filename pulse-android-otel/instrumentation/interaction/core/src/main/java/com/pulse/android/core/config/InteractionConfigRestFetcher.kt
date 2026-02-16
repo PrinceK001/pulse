@@ -3,7 +3,7 @@ package com.pulse.android.core.config
 import com.pulse.android.remote.InteractionApiService
 import com.pulse.android.remote.InteractionRetrofitClient
 import com.pulse.android.remote.models.InteractionConfig
-import okhttp3.OkHttpClient
+import com.pulse.otel.utils.PulseNetworkingUtils
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap
  */
 public class InteractionConfigRestFetcher(
     private val urlProvider: () -> String,
-    private val okHttpClient: OkHttpClient,
     private val headers: Map<String, String> = emptyMap(),
 ) : InteractionConfigFetcher {
     private val restClients = ConcurrentHashMap<String, InteractionApiService>()
@@ -30,7 +29,7 @@ public class InteractionConfigRestFetcher(
                             ?: run {
                                 InteractionRetrofitClient(
                                     url = url,
-                                    okHttpClient = okHttpClient,
+                                    okHttpClient = PulseNetworkingUtils.okHttpClient,
                                     headers = headers,
                                 ).apply {
                                     interactionRetrofitClient = this

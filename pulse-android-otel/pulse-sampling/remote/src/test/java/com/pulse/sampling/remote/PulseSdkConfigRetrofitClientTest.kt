@@ -9,6 +9,7 @@ import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
 import kotlinx.coroutines.test.runTest
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -25,6 +26,8 @@ import java.io.File
 class PulseSdkConfigRetrofitClientTest {
     private lateinit var mockWebServer: MockWebServer
     private lateinit var retrofitClient: PulseSdkConfigRetrofitClient
+    private lateinit var okHttpClient: OkHttpClient
+    private lateinit var configUrl: String
 
     @field:TempDir
     lateinit var tempFolder: File
@@ -33,17 +36,22 @@ class PulseSdkConfigRetrofitClientTest {
     fun setup() {
         mockWebServer = MockWebServer()
         mockWebServer.start()
+        val cache = Cache(tempFolder, 10 * 1024 * 1024)
+        okHttpClient = OkHttpClient.Builder().apply { cache(cache) }.build()
+        configUrl = mockWebServer.url("/").toString()
         retrofitClient =
             PulseSdkConfigRetrofitClient(
-                url = mockWebServer.url("/").toString(),
-                cacheDir = tempFolder,
-                okhttpClient = OkHttpClient.Builder().build(),
+                url = configUrl,
+                okhttpClient = okHttpClient,
             )
     }
 
     @AfterEach
     fun tearDown() {
         mockWebServer.shutdown()
+        okHttpClient.dispatcher.executorService.shutdown()
+        okHttpClient.connectionPool.evictAll()
+        okHttpClient.cache?.close()
     }
 
     @Test
@@ -116,6 +124,20 @@ class PulseSdkConfigRetrofitClientTest {
             assertThat(config.features).hasSize(1)
             assertThat(config.features[0].featureName).isEqualTo(PulseFeatureName.JAVA_CRASH)
             assertThat(config.features[0].sessionSampleRate).isEqualTo(0.8f)
+
+            assertThat(okHttpClient.cache).isNotNull
+            assertThat(
+                okHttpClient.cache!!
+                    .urls()
+                    .asSequence()
+                    .toList(),
+            ).hasSize(1)
+            assertThat(
+                okHttpClient.cache!!
+                    .urls()
+                    .asSequence()
+                    .first(),
+            ).isEqualTo(configUrl)
         }
 
     @Test
@@ -247,7 +269,11 @@ class PulseSdkConfigRetrofitClientTest {
     fun `creation of retrofit client with file url should not crash`() =
         runTest {
             val configUrl = mockWebServer.url("/$CONFIG_REL_URL").toString()
-            val retrofitClient = PulseSdkConfigRetrofitClient(configUrl, tempFolder)
+            val retrofitClient =
+                PulseSdkConfigRetrofitClient(
+                    url = configUrl,
+                    okhttpClient = okHttpClient,
+                )
             mockWebServer.enqueue(
                 MockResponse().apply {
                     setResponseCode(200)

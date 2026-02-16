@@ -6,7 +6,6 @@ import io.opentelemetry.android.instrumentation.location.models.CachedLocation
 import io.opentelemetry.android.instrumentation.location.models.LocationConstants
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.semconv.incubating.GeoIncubatingAttributes
-import kotlinx.serialization.json.Json
 
 /**
  * Internal utility class for location attributes processing.
