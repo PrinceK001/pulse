@@ -42,8 +42,15 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/healthcheck || exit 1
 
+# Download the agent (do this as root before switching user)
+# using -f to fail on error and -L to follow redirects
+RUN curl -L -f -o /app/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.12.0/opentelemetry-javaagent.jar
+
+# Ensure permissions are correct
+RUN chmod 644 /app/opentelemetry-javaagent.jar
+
 USER 10001
 
 # Run the application
-ENTRYPOINT ["java", "-Dlogback.configurationFile=logback/logback-docker.xml" , "-jar", "pulse-server.jar", "run", "org.dreamhorizon.pulseserver.verticle.MainVerticle"]
+ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-Dlogback.configurationFile=logback/logback-docker.xml" , "-jar", "pulse-server.jar", "run", "org.dreamhorizon.pulseserver.verticle.MainVerticle"]
 

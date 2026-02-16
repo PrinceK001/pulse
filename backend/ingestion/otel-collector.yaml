@@ -3,6 +3,8 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
 
 extensions:
   health_check:
@@ -51,6 +53,9 @@ exporters:
       enabled: true
       queue_size: 1000
 
+  prometheus:
+    endpoint: "0.0.0.0:8889" # Port for application metrics
+
 connectors:
   routing/pulse:
     default_pipelines: [ logs/to-clickhouse ]
@@ -83,7 +88,7 @@ service:
     metrics:
       receivers: [ otlp ]
       processors: [ batch ]
-      exporters: [ clickhouse ]
+      exporters: [ clickhouse, prometheus ]
 
     # Entry pipeline -> route via connector
     logs/in:
