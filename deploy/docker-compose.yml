@@ -1,5 +1,5 @@
 services:
-  # MySQL Database
+  # MySQL Database (shared by Pulse and OpenFGA)
   mysql:
     image: mysql:8.0
     container_name: pulse-mysql
@@ -22,6 +22,50 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # OpenFGA Authorization Service (uses MySQL for storage)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  openfga:
+    image: openfga/openfga:v1.5.3
+    container_name: pulse-openfga
+    command: run
+    environment:
+      - OPENFGA_DATASTORE_ENGINE=mysql
+      - OPENFGA_DATASTORE_URI=pulse_user:pulse_password@tcp(mysql:3306)/openfga?parseTime=true
+      - OPENFGA_PLAYGROUND_ENABLED=true
+    ports:
+      - "8180:8080"   # HTTP API (using 8180 to avoid conflicts)
+      - "8181:8081"   # gRPC API
+      - "3001:3000"   # Playground UI
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "/openfga", "healthcheck" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # OpenFGA Initialization (runs once, idempotent - safe to restart)
+  openfga-init:
+    image: alpine:3.19
+    container_name: pulse-openfga-init
+    command: [ "/bin/sh", "/scripts/init-openfga.sh" ]
+    environment:
+      - OPENFGA_URL=http://openfga:8080
+    volumes:
+      - ./openfga:/scripts:ro
+    depends_on:
+      openfga:
+        condition: service_healthy
+    networks:
+      - pulse-network
+    restart: "no"
 
   # ClickHouse Database (OTEL data only - traces, logs, metrics)
   clickhouse:
@@ -183,12 +227,20 @@ services:
       # GCP Configuration (only used when QUERY_ENGINE=gcp)
       - CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID=${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
       # - CONFIG_SERVICE_APPLICATION_GCP_DATASET=${CONFIG_SERVICE_APPLICATION_GCP_DATASET}
+
+      # OpenFGA Authorization Configuration
+      - OPENFGA_API_URL=${OPENFGA_API_URL:-http://openfga:8080}
+      - OPENFGA_STORE_ID=${OPENFGA_STORE_ID}
+      - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID}
+      - OPENFGA_ENABLED=${OPENFGA_ENABLED:-false}
     networks:
       - pulse-network
     depends_on:
       mysql:
         condition: service_healthy
       clickhouse:
+        condition: service_healthy
+      openfga:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:

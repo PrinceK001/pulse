@@ -5,6 +5,14 @@
 -- Create database if not exists
 CREATE DATABASE IF NOT EXISTS pulse_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- Create OpenFGA database for authorization service
+-- OpenFGA will automatically create its tables on startup
+CREATE DATABASE IF NOT EXISTS openfga CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Grant permissions to pulse_user for OpenFGA database
+GRANT ALL PRIVILEGES ON openfga.* TO 'pulse_user'@'%';
+FLUSH PRIVILEGES;
+
 USE pulse_db;
 
 -- Create tenants table first (referenced by other tables)
@@ -25,6 +33,61 @@ CREATE TABLE IF NOT EXISTS tenants (
 -- Insert a default tenant for existing data
 INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
 VALUES ('default', 'Default Tenant', 'Default tenant for existing data', TRUE, 'dummy-f3w8r', 'localhost')
+ON DUPLICATE KEY UPDATE name = name;
+
+-- Projects table - projects belong to tenants
+CREATE TABLE IF NOT EXISTS projects (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL UNIQUE,
+    tenant_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    slug VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    INDEX idx_project_tenant (tenant_id),
+    INDEX idx_project_slug (tenant_id, slug),
+    INDEX idx_project_active (tenant_id, is_active),
+    UNIQUE KEY unique_tenant_slug (tenant_id, slug),
+    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+);
+
+-- Insert sample projects
+INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
+-- Default tenant projects
+('default-project', 'default', 'Default Project', 'Default project for existing data', 'default', TRUE, 'system'),
+('pulse-mobile-android', 'default', 'Pulse Mobile Android', 'Android mobile application for Pulse', 'pulse-android', TRUE, 'system'),
+('pulse-mobile-ios', 'default', 'Pulse Mobile iOS', 'iOS mobile application for Pulse', 'pulse-ios', TRUE, 'system'),
+('pulse-web-dashboard', 'default', 'Pulse Web Dashboard', 'Web dashboard for monitoring and analytics', 'pulse-web', TRUE, 'system')
+ON DUPLICATE KEY UPDATE name = name;
+
+-- Insert Fancode tenant (example multi-tenant setup)
+INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
+VALUES ('fancode', 'Fancode', 'Fancode sports streaming platform', TRUE, 'Fancode-1rsts', 'fancode.com')
+ON DUPLICATE KEY UPDATE name = name;
+
+-- Insert Fancode projects
+INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
+('fancode-mobile-android', 'fancode', 'Fancode Android', 'Fancode Android mobile app', 'android', TRUE, 'system'),
+('fancode-mobile-ios', 'fancode', 'Fancode iOS', 'Fancode iOS mobile app', 'ios', TRUE, 'system'),
+('fancode-mobile-rn', 'fancode', 'Fancode React Native', 'Fancode React Native shared codebase', 'react-native', TRUE, 'system'),
+('fancode-web', 'fancode', 'Fancode Web', 'Fancode web application', 'web', TRUE, 'system'),
+('fancode-tv', 'fancode', 'Fancode TV', 'Fancode TV application (Android TV, Fire TV)', 'tv', TRUE, 'system')
+ON DUPLICATE KEY UPDATE name = name;
+
+-- Insert Dream11 tenant (another example)
+INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
+VALUES ('dream11', 'Dream11', 'Dream11 fantasy sports platform', TRUE, 'Dream11-abcde', 'dream11.com')
+ON DUPLICATE KEY UPDATE name = name;
+
+-- Insert Dream11 projects
+INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
+('dream11-android', 'dream11', 'Dream11 Android', 'Dream11 Android application', 'android', TRUE, 'system'),
+('dream11-ios', 'dream11', 'Dream11 iOS', 'Dream11 iOS application', 'ios', TRUE, 'system'),
+('dream11-web', 'dream11', 'Dream11 Web', 'Dream11 web platform', 'web', TRUE, 'system'),
+('dream11-pwa', 'dream11', 'Dream11 PWA', 'Dream11 Progressive Web App', 'pwa', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
 CREATE TABLE interaction (

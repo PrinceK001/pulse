@@ -8,13 +8,17 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.inject.Singleton;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.authz.OpenFgaService;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
-import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.projectdao.ProjectDao;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService;
@@ -31,6 +35,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontAsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
+@Slf4j
 public class MainModule extends VertxAbstractModule {
 
   private final Vertx vertx;
@@ -71,6 +76,33 @@ public class MainModule extends VertxAbstractModule {
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
     bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
+
+    // OpenFGA Authorization
+    bind(OpenFgaConfig.class).toProvider(() -> {
+      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
+      if (config == null) {
+        config = OpenFgaConfig.builder()
+            .enabled(false)
+            .build();
+      }
+      return config;
+    }).in(Singleton.class);
+
+    bind(OpenFgaService.class).toProvider(() -> {
+      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
+      if (config != null && config.isEnabled()) {
+        try {
+          return new OpenFgaService(config);
+        } catch (Exception e) {
+          log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
+          return null;
+        }
+      }
+      return null;
+    }).in(Singleton.class);
+
+    // Project DAO
+    bind(ProjectDao.class).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {
