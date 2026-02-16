@@ -56,6 +56,11 @@ exporters:
   prometheus:
     endpoint: "0.0.0.0:8889" # Port for application metrics
 
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
 connectors:
   routing/pulse:
     default_pipelines: [ logs/to-clickhouse ]
@@ -83,7 +88,7 @@ service:
     traces:
       receivers: [ otlp ]
       processors: [ batch ]
-      exporters: [ clickhouse ]
+      exporters: [ clickhouse, otlp/tempo ]
 
     metrics:
       receivers: [ otlp ]

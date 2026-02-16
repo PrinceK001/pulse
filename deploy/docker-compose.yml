@@ -47,6 +47,19 @@ services:
     networks:
       - pulse-network
 
+  tempo:
+    image: grafana/tempo:2.4.0
+    container_name: pulse-tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./config/tempo.yaml:/etc/tempo.yaml
+    ports:
+      - "3200:3200" # Tempo HTTP (for Grafana to query)
+      - "4317"      # OTLP gRPC (internal)
+      - "4318"      # OTLP HTTP (internal)
+    networks:
+      - pulse-network
+
   # 3. Grafana: Visualizes metrics
   grafana:
     image: grafana/grafana
