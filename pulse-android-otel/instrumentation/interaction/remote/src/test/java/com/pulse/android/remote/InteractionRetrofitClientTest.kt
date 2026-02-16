@@ -3,6 +3,7 @@
 
 package com.pulse.android.remote
 
+import com.pulse.otel.utils.PulseNetworkingUtils
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -20,7 +21,11 @@ class InteractionRetrofitClientTest {
     fun setup() {
         mockWebServer = MockWebServer()
         mockWebServer.start()
-        client = InteractionRetrofitClient(mockWebServer.url("/").toString())
+        client =
+            InteractionRetrofitClient(
+                url = mockWebServer.url("/").toString(),
+                okHttpClient = PulseNetworkingUtils.okHttpClient,
+            )
     }
 
     @AfterEach

@@ -1,5 +1,6 @@
 package com.pulse.android.remote
 
+import com.pulse.otel.utils.PulseSerialisationUtils
 import com.pulse.otel.utils.extractBaseUrlWithSlash
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -9,21 +10,12 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 public class InteractionRetrofitClient(
     private val url: String,
-    private val json: Json =
-        Json {
-            encodeDefaults = true
-            explicitNulls = false
-            ignoreUnknownKeys = !BuildConfig.DEBUG
-            prettyPrint = BuildConfig.DEBUG
-            isLenient = !BuildConfig.DEBUG
-            allowSpecialFloatingPointValues = true
-            useAlternativeNames = true
-        },
-    private val okhttpClient: OkHttpClient = OkHttpClient.Builder().build(),
+    private val okHttpClient: OkHttpClient,
     private val headers: Map<String, String> = emptyMap(),
+    private val json: Json = PulseSerialisationUtils.jsonConfigForSerialisation,
 ) {
     private val retrofit: Retrofit by lazy {
-        val clientBuilder = okhttpClient.newBuilder()
+        val clientBuilder = okHttpClient.newBuilder()
         if (headers.isNotEmpty()) {
             clientBuilder.addInterceptor { chain ->
                 val original = chain.request()
@@ -49,5 +41,5 @@ public class InteractionRetrofitClient(
     public fun newInstance(
         url: String,
         headers: Map<String, String> = this.headers,
-    ): InteractionRetrofitClient = InteractionRetrofitClient(url, json, okhttpClient, headers)
+    ): InteractionRetrofitClient = InteractionRetrofitClient(url, okHttpClient, headers, json)
 }

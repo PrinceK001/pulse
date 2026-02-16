@@ -1,6 +1,7 @@
 package io.opentelemetry.android.instrumentation.location.processors
 
 import android.content.SharedPreferences
+import com.pulse.otel.utils.PulseSerialisationUtils
 import io.opentelemetry.android.instrumentation.location.models.CachedLocation
 import io.opentelemetry.android.instrumentation.location.models.LocationConstants
 import io.opentelemetry.api.common.Attributes
@@ -12,16 +13,7 @@ import kotlinx.serialization.json.Json
  * This class is not part of the public API and should not be used outside this module.
  */
 internal object LocationAttributesUtils {
-    private val json =
-        Json {
-            encodeDefaults = true
-            explicitNulls = false
-            ignoreUnknownKeys = !BuildConfig.DEBUG
-            prettyPrint = BuildConfig.DEBUG
-            isLenient = !BuildConfig.DEBUG
-            allowSpecialFloatingPointValues = true
-            useAlternativeNames = true
-        }
+    private val json = PulseSerialisationUtils.jsonConfigForSerialisation
 
     /**
      * Retrieves location attributes from the cache in SharedPreferences.

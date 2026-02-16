@@ -9,6 +9,7 @@ import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.assertj.core.api.Assertions.assertThat
@@ -32,7 +33,12 @@ class PulseSdkConfigRetrofitClientTest {
     fun setup() {
         mockWebServer = MockWebServer()
         mockWebServer.start()
-        retrofitClient = PulseSdkConfigRetrofitClient(mockWebServer.url("/").toString(), tempFolder)
+        retrofitClient =
+            PulseSdkConfigRetrofitClient(
+                url = mockWebServer.url("/").toString(),
+                cacheDir = tempFolder,
+                okhttpClient = OkHttpClient.Builder().build(),
+            )
     }
 
     @AfterEach

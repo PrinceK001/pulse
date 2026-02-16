@@ -1,6 +1,7 @@
 package com.pulse.otel.utils
 
 import android.util.Log
+import com.pulse.utils.BuildConfig
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
@@ -45,6 +46,8 @@ public object PulseOtelUtils {
     }
 
     public fun endWithSlash(url: String): String = url.trimEnd('/') + "/"
+
+    public fun isDebug(): Boolean = BuildConfig.DEBUG
 
     @PublishedApi
     internal inline fun getTag(tag: () -> String): String = "$TAG:${tag()}"

@@ -6,11 +6,13 @@ import com.pulse.sampling.remote.PulseSdkConfigApiService
 import com.pulse.sampling.remote.PulseSdkConfigRetrofitClient
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 public class PulseSdkConfigRestProvider(
     private val cacheDir: File,
+    private val okHttpClient: OkHttpClient,
     private val headers: Map<String, String> = emptyMap(),
     private val urlProvider: () -> String,
 ) : PulseSdkConfigProvider {
@@ -25,7 +27,7 @@ public class PulseSdkConfigRestProvider(
                     (
                         retrofitClient?.newInstance(url, headers)
                             ?: run {
-                                PulseSdkConfigRetrofitClient(url, cacheDir, headers = headers).apply {
+                                PulseSdkConfigRetrofitClient(url, cacheDir, okhttpClient = okHttpClient, headers = headers).apply {
                                     retrofitClient = this
                                 }
                             }
