@@ -24,4 +24,23 @@ datasources:
     jsonData:
       httpMethod: GET
       serviceMap:
-        datasourceUid: 'tempo'  
+        datasourceUid: 'tempo'
+    
+  - name: Loki
+    type: loki
+    access: proxy
+    orgId: 1
+    url: http://loki:3100
+    basicAuth: false
+    isDefault: false
+    version: 1
+    editable: true
+    apiVersion: 1
+    uid: loki
+    jsonData:
+      derivedFields:
+        # This links logs to traces!
+        - datasourceUid: tempo
+          matcherRegex: "trace_id=(\\w+)"
+          name: TraceID
+          url: "$${__value.raw}"

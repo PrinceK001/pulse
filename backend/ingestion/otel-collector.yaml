@@ -61,6 +61,12 @@ exporters:
     tls:
       insecure: true
 
+  # Send logs to Loki via OTLP HTTP
+  otlphttp/loki:
+    endpoint: "http://loki:3100/otlp"
+    tls:
+      insecure: true
+
 connectors:
   routing/pulse:
     default_pipelines: [ logs/to-clickhouse ]
@@ -111,3 +117,8 @@ service:
       receivers: [ routing/pulse ]
       processors: [ batch ]
       exporters: [ clickhouse ]
+
+    logs/to-loki:
+      receivers: [ otlp ] # Receive logs from Java Agent
+      processors: [ batch ]
+      exporters: [ otlphttp/loki ] # Send to Loki

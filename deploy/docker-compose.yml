@@ -59,6 +59,15 @@ services:
       - "4318"      # OTLP HTTP (internal)
     networks:
       - pulse-network
+  
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: pulse-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - pulse-network
 
   # 3. Grafana: Visualizes metrics
   grafana:
@@ -231,6 +240,9 @@ services:
       - OTEL_SERVICE_NAME=pulse-server
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_JAVAAGENT_ENABLED=true
+      - OTEL_INSTRUMENTATION_LOGBACK_APPENDER_ENABLED=true
+      - OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED=true
       
       # Query Engine Configuration
       - CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE:-athena}
