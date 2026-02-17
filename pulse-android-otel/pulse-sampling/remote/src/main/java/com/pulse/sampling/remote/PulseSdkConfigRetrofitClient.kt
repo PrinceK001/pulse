@@ -1,5 +1,6 @@
 package com.pulse.sampling.remote
 
+import com.pulse.otel.utils.extractBaseUrlWithSlash
 import com.pulse.sampling.models.BuildConfig
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
@@ -28,7 +29,7 @@ public class PulseSdkConfigRetrofitClient(
     private val retrofit: Retrofit by lazy {
         Retrofit
             .Builder()
-            .baseUrl(url)
+            .baseUrl(url.extractBaseUrlWithSlash())
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .client(buildOkHttpClient())
             .build()

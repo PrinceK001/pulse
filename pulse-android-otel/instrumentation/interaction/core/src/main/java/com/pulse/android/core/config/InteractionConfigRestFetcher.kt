@@ -27,12 +27,15 @@ public class InteractionConfigRestFetcher(
                     (
                         interactionRetrofitClient?.newInstance(url, headers)
                             ?: run {
-                                InteractionRetrofitClient(url, headers = headers).apply {
+                                InteractionRetrofitClient(
+                                    url = url,
+                                    headers = headers,
+                                ).apply {
                                     interactionRetrofitClient = this
                                 }
                             }
                     ).apiService
-                }.getInteractions()
+                }.getInteractions(url)
         return if (restResponse.error == null) {
             restResponse.data
         } else {

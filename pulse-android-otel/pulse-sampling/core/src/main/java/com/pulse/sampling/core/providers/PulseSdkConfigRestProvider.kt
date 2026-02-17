@@ -35,10 +35,10 @@ public class PulseSdkConfigRestProvider(
         @Suppress("SuspendFunSwallowedCancellation")
         val restResponseResult =
             runCatching {
-                restClient.getConfig()
+                restClient.getConfig(url)
             }.onFailure {
                 currentCoroutineContext().ensureActive()
-                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, error msg = ${it.message ?: "no-err-msg"}" }
+                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, url = $url error msg = ${it.message ?: "no-err-msg"}" }
             }
         return if (restResponseResult.isSuccess) {
             val restResponse = restResponseResult.getOrThrow()

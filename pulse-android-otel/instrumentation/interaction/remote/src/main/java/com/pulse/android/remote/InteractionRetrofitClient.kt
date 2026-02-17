@@ -1,5 +1,6 @@
 package com.pulse.android.remote
 
+import com.pulse.otel.utils.extractBaseUrlWithSlash
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -35,7 +36,7 @@ public class InteractionRetrofitClient(
         }
         Retrofit
             .Builder()
-            .baseUrl(url)
+            .baseUrl(url.extractBaseUrlWithSlash())
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .client(clientBuilder.build())
             .build()

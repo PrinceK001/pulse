@@ -29,104 +29,7 @@ class InteractionRetrofitClientTest {
     @Test
     fun `getInteractions returns successful response with interaction data`() =
         runTest {
-            val successResponseJson =
-                """
-                {
-                    "data": [
-                        {
-                            "id": 1,
-                            "name": "TestInteractionId1",
-                            "description": "kijikn knmlmlm",
-                            "uptimeLowerLimitInMs": 16,
-                            "uptimeMidLimitInMs": 50,
-                            "uptimeUpperLimitInMs": 100,
-                            "thresholdInMs": 20000,
-                            "events": [
-                                {
-                                    "name": "mknjk",
-                                    "props": [],
-                                    "isBlacklisted": false
-                                },
-                                {
-                                    "name": "knn knn k,",
-                                    "props": [],
-                                    "isBlacklisted": false
-                                }
-                            ],
-                            "globalBlacklistedEvents": []
-                        },
-                        {
-                            "id": 2,
-                            "name": "TestInteraction",
-                            "description": "interaction",
-                            "uptimeLowerLimitInMs": 16,
-                            "uptimeMidLimitInMs": 50,
-                            "uptimeUpperLimitInMs": 100,
-                            "thresholdInMs": 20000,
-                            "events": [
-                                {
-                                    "name": "Start Event",
-                                    "props": [
-                                        {
-                                            "name": "hello",
-                                            "value": "world",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": false
-                                },
-                                {
-                                    "name": "Event T1",
-                                    "props": [
-                                        {
-                                            "name": "t1",
-                                            "value": "t1value",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": false
-                                },
-                                {
-                                    "name": "loCal Blacklist",
-                                    "props": [
-                                        {
-                                            "name": "local",
-                                            "value": "local",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": true
-                                },
-                                {
-                                    "name": "End Event",
-                                    "props": [
-                                        {
-                                            "name": "abhishej",
-                                            "value": "test",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": false
-                                }
-                            ],
-                            "globalBlacklistedEvents": [
-                                {
-                                    "name": "Gloabal Blacklist Event",
-                                    "props": [
-                                        {
-                                            "name": "global",
-                                            "value": "global",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": true
-                                }
-                            ]
-                        }
-                    ],
-                    "error": null
-                }
-                """.trimIndent()
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
 
             mockWebServer.enqueue(
                 MockResponse()
@@ -135,7 +38,7 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions()
+            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions(configUrl)
 
             assertThat(response)
                 .isNotNull
@@ -171,6 +74,8 @@ class InteractionRetrofitClientTest {
                 }
                 """.trimIndent()
 
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
+
             mockWebServer.enqueue(
                 MockResponse()
                     .setResponseCode(200)
@@ -178,7 +83,7 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions()
+            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions(configUrl)
 
             assertThat(response)
                 .isNotNull
@@ -203,6 +108,8 @@ class InteractionRetrofitClientTest {
                 }
                 """.trimIndent()
 
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
+
             mockWebServer.enqueue(
                 MockResponse()
                     .setResponseCode(200)
@@ -210,7 +117,7 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions()
+            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions(configUrl)
 
             assertThat(response).isNotNull
             assertThat(response.data)
@@ -251,6 +158,8 @@ class InteractionRetrofitClientTest {
                 }
                 """.trimIndent()
 
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
+
             mockWebServer.enqueue(
                 MockResponse()
                     .setResponseCode(200)
@@ -258,7 +167,7 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response: PulseApiResponse<List<InteractionConfig>> = newClient.apiService.getInteractions()
+            val response: PulseApiResponse<List<InteractionConfig>> = newClient.apiService.getInteractions(configUrl)
 
             assertThat(response).isNotNull
             assertThat(response.data)
@@ -266,4 +175,123 @@ class InteractionRetrofitClientTest {
                 .hasSize(1)
             assertThat(response.data!![0].name).isEqualTo("Test")
         }
+
+    @Test
+    fun `creation of retrofit client with file url should not crash`() =
+        runTest {
+            val configUrl = mockWebServer.url("/$CONFIG_REL_URL").toString()
+            val client = InteractionRetrofitClient(configUrl)
+            mockWebServer.enqueue(
+                MockResponse().apply {
+                    setResponseCode(200)
+                    setBody(successResponseJson)
+                    setHeader("Content-Type", "application/json")
+                },
+            )
+
+            val response = client.apiService.getInteractions(configUrl)
+            assertThat(response.data).isNotNull
+        }
+
+    private companion object {
+        private const val CONFIG_REL_URL = "config.json"
+        private val successResponseJson =
+            """
+            {
+                "data": [
+                    {
+                        "id": 1,
+                        "name": "TestInteractionId1",
+                        "description": "kijikn knmlmlm",
+                        "uptimeLowerLimitInMs": 16,
+                        "uptimeMidLimitInMs": 50,
+                        "uptimeUpperLimitInMs": 100,
+                        "thresholdInMs": 20000,
+                        "events": [
+                            {
+                                "name": "mknjk",
+                                "props": [],
+                                "isBlacklisted": false
+                            },
+                            {
+                                "name": "knn knn k,",
+                                "props": [],
+                                "isBlacklisted": false
+                            }
+                        ],
+                        "globalBlacklistedEvents": []
+                    },
+                    {
+                        "id": 2,
+                        "name": "TestInteraction",
+                        "description": "interaction",
+                        "uptimeLowerLimitInMs": 16,
+                        "uptimeMidLimitInMs": 50,
+                        "uptimeUpperLimitInMs": 100,
+                        "thresholdInMs": 20000,
+                        "events": [
+                            {
+                                "name": "Start Event",
+                                "props": [
+                                    {
+                                        "name": "hello",
+                                        "value": "world",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": false
+                            },
+                            {
+                                "name": "Event T1",
+                                "props": [
+                                    {
+                                        "name": "t1",
+                                        "value": "t1value",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": false
+                            },
+                            {
+                                "name": "loCal Blacklist",
+                                "props": [
+                                    {
+                                        "name": "local",
+                                        "value": "local",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": true
+                            },
+                            {
+                                "name": "End Event",
+                                "props": [
+                                    {
+                                        "name": "abhishej",
+                                        "value": "test",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": false
+                            }
+                        ],
+                        "globalBlacklistedEvents": [
+                            {
+                                "name": "Gloabal Blacklist Event",
+                                "props": [
+                                    {
+                                        "name": "global",
+                                        "value": "global",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": true
+                            }
+                        ]
+                    }
+                ],
+                "error": null
+            }
+            """.trimIndent()
+    }
 }

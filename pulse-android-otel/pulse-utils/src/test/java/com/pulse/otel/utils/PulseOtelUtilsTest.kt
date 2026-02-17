@@ -29,6 +29,17 @@ class PulseOtelUtilsTest {
         assertThat(result).describedAs("Failed for: $description").isEqualTo(expectedOutput)
     }
 
+    @ParameterizedTest(name = "extrace url: {2} - from {0} to {1}")
+    @MethodSource("getBaseUrlEndWithSlash")
+    fun `extract base url`(
+        inputUrl: String,
+        expectedOutput: String,
+        description: String,
+    ) {
+        val result = inputUrl.extractBaseUrlWithSlash()
+        assertThat(result).describedAs("Failed for: $description").isEqualTo(expectedOutput)
+    }
+
     @ParameterizedTest(name = "isNetworkSpan returns true for span with http method {0}")
     @MethodSource("getHttpMethodTestCases")
     fun `isNetworkSpan returns true for span with http method attribute`(httpMethod: String) {
@@ -486,6 +497,42 @@ class PulseOtelUtilsTest {
                 Arguments.of("GET"),
                 Arguments.of("POST"),
                 Arguments.of(""),
+            )
+
+        @Suppress("LongMethod")
+        @JvmStatic
+        fun getBaseUrlEndWithSlash(): List<Arguments> =
+            listOf(
+                Arguments.of(
+                    "https://api.example.com/users",
+                    "https://api.example.com/",
+                    "handles URL without query parameters",
+                ),
+                Arguments.of(
+                    "https://api.example.com/users?",
+                    "https://api.example.com/",
+                    "handles URL with only question mark",
+                ),
+                Arguments.of(
+                    "https://api.example.com?param=value",
+                    "https://api.example.com/",
+                    "handles url with query param",
+                ),
+                Arguments.of(
+                    "https://api.example.com/users#section?page=1",
+                    "https://api.example.com/",
+                    "handles URL with fragment and query",
+                ),
+                Arguments.of(
+                    "https://api.example.com/users#section",
+                    "https://api.example.com/",
+                    "handles URL with fragment only",
+                ),
+                Arguments.of(
+                    "http://api.example.com/550e8400-e29b-41d4-a716-446655440000/users",
+                    "http://api.example.com/",
+                    "handles url with http",
+                ),
             )
     }
 }
