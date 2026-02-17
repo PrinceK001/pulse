@@ -27,6 +27,8 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         private const val DEBUG_URL_PREFIX = "   URL: "
         private const val DEBUG_RESPONSE_PREFIX = "   Response: "
         private const val UNKNOWN_ERROR = "Unknown error"
+        private const val X_API_KEY_HEADER = "X-API-KEY"
+        private const val X_API_KEY_OPTION = "--x-api-key=<key>"
     }
 
     @get:Option(option = "api-url", description = "API URL for uploading source maps")
@@ -62,7 +64,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     @TaskAction
     fun upload() {
         val apiUrlValue = validateRequiredString(apiUrl, "API URL", "--api-url=<url>")
-        val xApiKeyValue = validateRequiredString(xApiKey, "X-API-KEY", "--x-api-key=<key>")
+        val xApiKeyValue = validateRequiredString(xApiKey, X_API_KEY_HEADER, X_API_KEY_OPTION)
         val mappingFileObj = resolveMappingFile()
         val appVersionValue = validateRequiredString(appVersion, "App version", "--app-version=<version>")
         val versionCodeValue = validateAndGetVersionCode()
@@ -178,7 +180,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            connection.setRequestProperty("X-API-KEY", xApiKey)
+            connection.setRequestProperty(X_API_KEY_HEADER, xApiKey)
             connection.doOutput = true
             connection.connectTimeout = 30000
             connection.readTimeout = 60000
