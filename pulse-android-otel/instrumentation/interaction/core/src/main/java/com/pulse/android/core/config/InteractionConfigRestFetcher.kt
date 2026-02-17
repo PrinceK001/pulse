@@ -1,6 +1,5 @@
 package com.pulse.android.core.config
 
-import com.pulse.android.core.logDebug
 import com.pulse.android.remote.InteractionApiService
 import com.pulse.android.remote.InteractionRetrofitClient
 import com.pulse.android.remote.models.InteractionConfig
@@ -36,13 +35,6 @@ public class InteractionConfigRestFetcher(
                             }
                     ).apiService
                 }.getInteractions(url)
-        return if (restResponse.error == null) {
-            restResponse.data
-        } else {
-            logDebug {
-                "Failed to fetch interactions: ${(restResponse.error ?: error("error is null in getConfigs")).message}"
-            }
-            null
-        }
+        return restResponse
     }
 }

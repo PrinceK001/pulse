@@ -41,15 +41,7 @@ public class PulseSdkConfigRestProvider(
                 PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, url = $url error msg = ${it.message ?: "no-err-msg"}" }
             }
         return if (restResponseResult.isSuccess) {
-            val restResponse = restResponseResult.getOrThrow()
-            if (restResponse.error == null) {
-                restResponse.data
-            } else {
-                PulseOtelUtils.logDebug(TAG) {
-                    "Sdk config returned error = ${(restResponse.error ?: error("error is null in getConfigs")).message}"
-                }
-                null
-            }
+            restResponseResult.getOrThrow()
         } else {
             PulseOtelUtils.logDebug(TAG) {
                 "Failed to fetch sdk config: ${(

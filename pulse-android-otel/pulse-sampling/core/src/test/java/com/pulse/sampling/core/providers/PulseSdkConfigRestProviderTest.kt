@@ -40,36 +40,33 @@ internal class PulseSdkConfigRestProviderTest {
             val successResponseJson =
                 """
                 {
-                    "data": {
-                        "version": 1,
-                        "description": "test config",
-                        "sampling": {
-                            "default": {
-                                "sessionSampleRate": 0.5
-                            },
-                            "rules": []
+                    "version": 1,
+                    "description": "test config",
+                    "sampling": {
+                        "default": {
+                            "sessionSampleRate": 0.5
                         },
-                        "signals": {
-                            "scheduleDurationMs": 5000,
-                            "logsCollectorUrl": "http://localhost:4318/v1/logs",
-                            "metricCollectorUrl": "http://localhost:4318/v1/metrics",
-                            "spanCollectorUrl": "http://localhost:4318/v1/traces",
-                            "customEventCollectorUrl": "http://localhost:4318/v1/traces",
-                            "attributesToDrop": [],
-                            "attributesToAdd": [],
-                            "filters": {
-                                "mode": "whitelist",
-                                "values": []
-                            }
-                        },
-                        "interaction": {
-                            "collectorUrl": "http://localhost:4318/v1/interactions",
-                            "configUrl": "http://localhost:8080/v1/configs/latest-version",
-                            "beforeInitQueueSize": 100
-                        },
-                        "features": []
+                        "rules": []
                     },
-                    "error": null
+                    "signals": {
+                        "scheduleDurationMs": 5000,
+                        "logsCollectorUrl": "http://localhost:4318/v1/logs",
+                        "metricCollectorUrl": "http://localhost:4318/v1/metrics",
+                        "spanCollectorUrl": "http://localhost:4318/v1/traces",
+                        "customEventCollectorUrl": "http://localhost:4318/v1/traces",
+                        "attributesToDrop": [],
+                        "attributesToAdd": [],
+                        "filters": {
+                            "mode": "whitelist",
+                            "values": []
+                        }
+                    },
+                    "interaction": {
+                        "collectorUrl": "http://localhost:4318/v1/interactions",
+                        "configUrl": "http://localhost:8080/v1/configs/latest-version",
+                        "beforeInitQueueSize": 100
+                    },
+                    "features": []
                 }
                 """.trimIndent()
 
@@ -94,11 +91,8 @@ internal class PulseSdkConfigRestProviderTest {
             val errorResponseJson =
                 """
                 {
-                    "data": null,
-                    "error": {
-                        "code": "CONFIG_NOT_FOUND",
-                        "message": "Configuration not found for the given parameters"
-                    }
+                    "code": "CONFIG_NOT_FOUND",
+                    "message": "Configuration not found for the given parameters"
                 }
                 """.trimIndent()
 
