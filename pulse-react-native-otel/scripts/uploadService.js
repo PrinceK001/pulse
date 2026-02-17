@@ -19,6 +19,10 @@ function buildMetadata(files, appVersion, versionCode, platform, bundleId) {
 }
 
 async function uploadFiles(commandName, options) {
+  if (!options.xApiKey) {
+    throw new Error('X-API-KEY is required. Use --x-api-key=<key>');
+  }
+
   const platform = getPlatform(commandName);
   const files = validateFiles(options);
   const version =
@@ -82,6 +86,9 @@ async function uploadFiles(commandName, options) {
 
   const response = await fetch(options.apiUrl, {
     method: 'POST',
+    headers: {
+      'X-API-KEY': options.xApiKey,
+    },
     body: formData,
   });
 

@@ -29,6 +29,10 @@ uploadCommand
     'URL for uploading source maps and related build artifacts.'
   )
   .requiredOption(
+    '-k, --x-api-key <key>',
+    'X-API-KEY for authenticating API requests'
+  )
+  .requiredOption(
     '-v, --app-version <version>',
     'App version of the application (e.g., 1.0.0)'
   )
@@ -56,6 +60,10 @@ uploadCommand
   .requiredOption(
     '-u, --api-url <url>',
     'URL for uploading source maps and related build artifacts.'
+  )
+  .requiredOption(
+    '-k, --x-api-key <key>',
+    'X-API-KEY for authenticating API requests'
   )
   .requiredOption(
     '-v, --bundle-version <version>',
