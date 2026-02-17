@@ -28,7 +28,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         private const val DEBUG_RESPONSE_PREFIX = "   Response: "
         private const val UNKNOWN_ERROR = "Unknown error"
         private const val X_API_KEY_HEADER = "X-API-KEY"
-        private const val X_API_KEY_OPTION = "--x-api-key=<key>"
+        private const val API_KEY_OPTION = "--api-key=<key>"
     }
 
     @get:Option(option = "api-url", description = "API URL for uploading source maps")
@@ -48,9 +48,9 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     @get:Input
     abstract val versionCode: Property<Int>
 
-    @get:Option(option = "x-api-key", description = "X-API-KEY for authenticating API requests")
+    @get:Option(option = "api-key", description = "API key for authenticating API requests (sent as X-API-KEY header)")
     @get:Input
-    abstract val xApiKey: Property<String>
+    abstract val apiKey: Property<String>
 
     @get:Internal
     internal abstract val projectDirectory: DirectoryProperty
@@ -64,7 +64,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     @TaskAction
     fun upload() {
         val apiUrlValue = validateRequiredString(apiUrl, "API URL", "--api-url=<url>")
-        val xApiKeyValue = validateRequiredString(xApiKey, X_API_KEY_HEADER, X_API_KEY_OPTION)
+        val apiKeyValue = validateRequiredString(apiKey, X_API_KEY_HEADER, API_KEY_OPTION)
         val mappingFileObj = resolveMappingFile()
         val appVersionValue = validateRequiredString(appVersion, "App version", "--app-version=<version>")
         val versionCodeValue = validateAndGetVersionCode()
@@ -85,7 +85,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         try {
             uploadFile(
                 apiUrl = apiUrlValue,
-                xApiKey = xApiKeyValue,
+                apiKey = apiKeyValue,
                 file = mappingFileObj,
                 appVersion = appVersionValue,
                 versionCode = versionCodeValue,
@@ -161,7 +161,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
 
     private fun uploadFile(
         apiUrl: String,
-        xApiKey: String,
+        apiKey: String,
         file: File,
         appVersion: String,
         versionCode: Int,
@@ -180,7 +180,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            connection.setRequestProperty(X_API_KEY_HEADER, xApiKey)
+            connection.setRequestProperty(X_API_KEY_HEADER, apiKey)
             connection.doOutput = true
             connection.connectTimeout = 30000
             connection.readTimeout = 60000

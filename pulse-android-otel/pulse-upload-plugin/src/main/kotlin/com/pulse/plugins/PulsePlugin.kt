@@ -29,7 +29,7 @@ class PulsePlugin : Plugin<Project> {
                 task.mappingFile.convention(extension.sourcemaps.mappingFile)
                 task.appVersion.convention(extension.sourcemaps.appVersion)
                 task.versionCode.convention(extension.sourcemaps.versionCode)
-                task.xApiKey.convention(extension.sourcemaps.xApiKey)
+                task.apiKey.convention(extension.sourcemaps.apiKey)
             }
         }
     }
