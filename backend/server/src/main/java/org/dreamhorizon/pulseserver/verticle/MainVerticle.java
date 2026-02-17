@@ -59,7 +59,14 @@ public class MainVerticle extends AbstractVerticle {
           String apiUrl = openfgaJson.getString("apiUrl", "http://localhost:8080");
           String storeId = openfgaJson.getString("storeId", "");
           String modelId = openfgaJson.getString("authorizationModelId", "");
-          boolean enabled = openfgaJson.getBoolean("enabled", false);
+          // Handle enabled as string or boolean (env vars are strings)
+          boolean enabled = false;
+          Object enabledValue = openfgaJson.getValue("enabled");
+          if (enabledValue instanceof Boolean) {
+            enabled = (Boolean) enabledValue;
+          } else if (enabledValue instanceof String) {
+            enabled = Boolean.parseBoolean((String) enabledValue);
+          }
           
           // If enabled but missing IDs, try to fetch from OpenFGA
           if (enabled && (storeId == null || storeId.isEmpty())) {

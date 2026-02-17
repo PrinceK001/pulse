@@ -1,8 +1,8 @@
 #!/bin/sh
 # OpenFGA Initialization Script for Pulse
-# This script creates a store and writes the authorization model
+# This script creates store and authorization model (migrations handled separately)
 # 
-# IDEMPOTENT: Safe to run multiple times - will reuse existing store/model
+# IDEMPOTENT: Safe to run multiple times - existing stores/models are reused
 #
 # Usage:
 #   ./init-openfga.sh                                    # Uses default URL
@@ -13,7 +13,7 @@ set -e
 OPENFGA_URL="${OPENFGA_URL:-http://localhost:8180}"
 STORE_NAME="pulse-authorization"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONFIG_FILE="$SCRIPT_DIR/.openfga-config"
+CONFIG_FILE="/tmp/.openfga-config"
 
 echo "═══════════════════════════════════════════════════════════════════════════════"
 echo "                     OpenFGA Initialization for Pulse"
@@ -24,18 +24,20 @@ echo "Store Name:  $STORE_NAME"
 echo "Idempotent:  Yes (safe to run multiple times)"
 echo ""
 
-# Install curl if not available (for Alpine container)
-if ! command -v curl > /dev/null 2>&1; then
-    echo "Installing curl..."
-    apk add --no-cache curl > /dev/null 2>&1 || true
-fi
+# Install required tools (curl for API calls)
+echo "Installing required tools..."
+apk add --no-cache curl > /dev/null 2>&1 || true
+echo "  ✓ Tools installed"
+echo ""
 
-# Wait for OpenFGA to be ready
-echo "Step 0: Waiting for OpenFGA to be ready..."
+# ═══════════════════════════════════════════════════════════════════════════════
+# Step 0: Wait for OpenFGA server to be ready
+# ═══════════════════════════════════════════════════════════════════════════════
+echo "Step 0: Waiting for OpenFGA server to be ready..."
 i=0
 while [ $i -lt 60 ]; do
     if curl -sf "$OPENFGA_URL/healthz" > /dev/null 2>&1; then
-        echo "  ✓ OpenFGA is ready!"
+        echo "  ✓ OpenFGA server is ready!"
         break
     fi
     i=$((i + 1))
@@ -46,7 +48,6 @@ while [ $i -lt 60 ]; do
     echo "  Attempt $i/60 - waiting..."
     sleep 2
 done
-
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
