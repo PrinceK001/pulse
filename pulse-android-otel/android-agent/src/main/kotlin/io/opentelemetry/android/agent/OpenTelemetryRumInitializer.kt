@@ -128,8 +128,15 @@ object OpenTelemetryRumInitializer {
         application: Application,
         sessionConfig: SessionConfig,
     ): SessionProvider {
-        val timeoutHandler = SessionIdTimeoutHandler(sessionConfig)
-        Services.get(application).appLifecycle.registerListener(timeoutHandler)
-        return SessionManager.create(timeoutHandler, sessionConfig)
+        // Only create and register timeout handler if background timeout is enabled
+        val timeoutHandler: SessionIdTimeoutHandler? = if (sessionConfig.backgroundInactivityTimeout != null) {
+            val handler = SessionIdTimeoutHandler(sessionConfig)
+            Services.get(application).appLifecycle.registerListener(handler)
+            handler
+        } else {
+            null
+        }
+        
+        return SessionManager.create(application, timeoutHandler, sessionConfig)
     }
 }

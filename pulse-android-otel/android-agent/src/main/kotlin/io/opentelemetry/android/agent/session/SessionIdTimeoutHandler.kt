@@ -38,7 +38,7 @@ internal class SessionIdTimeoutHandler(
     @OptIn(Incubating::class)
     internal constructor(sessionConfig: SessionConfig) : this(
         Clock.getDefault(),
-        sessionConfig.backgroundInactivityTimeout,
+        sessionConfig.backgroundInactivityTimeout!!, // Safe: only created when non-null
     )
 
     override fun onApplicationForegrounded() {
