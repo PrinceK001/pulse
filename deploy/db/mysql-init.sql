@@ -7,24 +7,79 @@ CREATE DATABASE IF NOT EXISTS pulse_db CHARACTER SET utf8mb4 COLLATE utf8mb4_uni
 
 USE pulse_db;
 
--- Create tenants table first (referenced by other tables)
+-- ============================================================================
+-- TIERS TABLE
+-- Defines available tiers and their default usage limits
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tiers (
+    tier_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    display_name VARCHAR(100) NOT NULL,
+    is_custom_limits_allowed BOOLEAN NOT NULL DEFAULT FALSE,
+    usage_limit_defaults JSON NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default tiers
+INSERT INTO tiers (name, display_name, is_custom_limits_allowed, usage_limit_defaults) VALUES
+('free', 'Free', FALSE, '{
+  "max_user_sessions_per_project": {
+    "display_name": "Max User Sessions per Project",
+    "window_type": "monthly",
+    "data_type": "INTEGER",
+    "value": 10000,
+    "overage": 0
+  },
+  "max_events_per_project": {
+    "display_name": "Max Events per Project",
+    "window_type": "monthly",
+    "data_type": "INTEGER",
+    "value": 100000,
+    "overage": 0
+  }
+}'),
+('enterprise', 'Enterprise', TRUE, '{
+  "max_user_sessions_per_project": {
+    "display_name": "Max User Sessions per Project",
+    "window_type": "monthly",
+    "data_type": "INTEGER",
+    "value": 10000,
+    "overage": 10
+  },
+  "max_events_per_project": {
+    "display_name": "Max Events per Project",
+    "window_type": "monthly",
+    "data_type": "INTEGER",
+    "value": 100000,
+    "overage": 10
+  }
+}')
+ON DUPLICATE KEY UPDATE name = name;
+
+-- ============================================================================
+-- TENANTS TABLE
+-- Create tenants table (referenced by other tables)
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS tenants (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenant_id VARCHAR(64) UNIQUE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    tier_id INT NOT NULL DEFAULT 1,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     gcp_tenant_id VARCHAR(32) NOT NULL,
     domain_name VARCHAR(32) NOT NULL,
     INDEX idx_tenant_active (is_active),
-    INDEX idx_gcp_tenant_id (gcp_tenant_id)
+    INDEX idx_gcp_tenant_id (gcp_tenant_id),
+    CONSTRAINT fk_tenant_tier FOREIGN KEY (tier_id) REFERENCES tiers(tier_id)
 );
 
 -- Insert a default tenant for existing data
-INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
-VALUES ('default', 'Default Tenant', 'Default tenant for existing data', TRUE, 'dummy-f3w8r', 'localhost')
+INSERT INTO tenants (tenant_id, name, description, tier_id, is_active, gcp_tenant_id, domain_name)
+VALUES ('default', 'Default Tenant', 'Default tenant for existing data', 1, TRUE, 'dummy-f3w8r', 'localhost')
 ON DUPLICATE KEY UPDATE name = name;
 
 CREATE TABLE interaction (
@@ -393,6 +448,113 @@ CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
     performed_by VARCHAR(255) NOT NULL,
     details JSON,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- PROJECTS TABLE
+-- Projects within a tenant
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS projects (
+    project_id INT PRIMARY KEY AUTO_INCREMENT,
+    tenant_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
+    INDEX idx_project_tenant (tenant_id, is_active)
+);
+
+-- ============================================================================
+-- PROJECT USAGE LIMITS TABLE
+-- Single source of truth for project limits. One active record per project.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS project_usage_limits (
+    project_usage_limit_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    usage_limits JSON NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    disabled_at TIMESTAMP NULL,
+    disabled_by VARCHAR(255),
+    disabled_reason VARCHAR(255) NULL,
+    created_by VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_pul_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    INDEX idx_pul_active (project_id, is_active)
+);
+
+-- Trigger to ensure only one active record per project
+DELIMITER //
+CREATE TRIGGER trg_single_active_limit
+BEFORE INSERT ON project_usage_limits
+FOR EACH ROW
+BEGIN
+    IF NEW.is_active = TRUE THEN
+        UPDATE project_usage_limits 
+        SET is_active = FALSE, 
+            disabled_at = CURRENT_TIMESTAMP,
+            disabled_reason = COALESCE(disabled_reason, 'new_record')
+        WHERE project_id = NEW.project_id AND is_active = TRUE;
+    END IF;
+END //
+DELIMITER ;
+
+-- ============================================================================
+-- PROJECT API KEYS TABLE
+-- Stores API keys for project authentication at API Gateway
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS project_api_keys (
+    project_api_key_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id INT NOT NULL,
+    api_key_encrypted TEXT NOT NULL,
+    encryption_salt VARCHAR(100) NOT NULL,
+    api_key_digest VARCHAR(100) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    grace_period_ends_at TIMESTAMP NULL,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deactivated_at TIMESTAMP NULL,
+    deactivated_by VARCHAR(255) NULL,
+    deactivation_reason VARCHAR(255) NULL,
+    CONSTRAINT fk_pak_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    INDEX idx_pak_project_active (project_id, is_active),
+    INDEX idx_pak_digest (api_key_digest),
+    INDEX idx_pak_grace_period (grace_period_ends_at)
+);
+
+-- ============================================================================
+-- CLICKHOUSE PROJECT CREDENTIALS TABLE
+-- Stores ClickHouse user credentials for each project
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
+    clickhouse_project_credential_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL UNIQUE,
+    ch_username VARCHAR(255) NOT NULL UNIQUE,
+    ch_password_encrypted TEXT NOT NULL,
+    encryption_salt VARCHAR(100) NOT NULL,
+    password_digest VARCHAR(100) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chcred_project FOREIGN KEY (project_id) REFERENCES projects(project_id),
+    INDEX idx_ch_project_active (project_id, is_active)
+);
+
+-- ============================================================================
+-- CLICKHOUSE PROJECT CREDENTIAL AUDIT TABLE
+-- Audits changes to ClickHouse project credentials
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS clickhouse_project_credential_audit (
+    clickhouse_project_credential_audit_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    ch_username VARCHAR(255) NOT NULL,
+    action ENUM('CREATE', 'ROTATE', 'REVOKE') NOT NULL,
+    performed_by VARCHAR(255) NOT NULL,
+    performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chaudit_project FOREIGN KEY (project_id) REFERENCES projects(project_id),
+    INDEX idx_chaudit_project (project_id)
 );
 
 -- Display summary

@@ -27,6 +27,7 @@ nbdist/
 ### generated ###
 **/generated/*
 **/asciidoc/*
+**/generated_doc_*
 
 logs/*
 .vscode

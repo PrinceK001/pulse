@@ -13,6 +13,7 @@ public class Tenant {
   private String tenantId;
   private String name;
   private String description;
+  private Integer tierId;
   private Boolean isActive;
   private String createdAt;
   private String updatedAt;

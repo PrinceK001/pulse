@@ -9,8 +9,10 @@ import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_ALL_T
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_DOMAIN_NAME;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_GCP_TENANT_ID;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_ID;
+import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANTS_BY_TIER_ID;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.INSERT_TENANT;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.UPDATE_TENANT;
+import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.UPDATE_TENANT_TIER;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -32,7 +34,13 @@ import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
 public class TenantDao {
   private final MysqlClient mysqlClient;
 
+  private static final int DEFAULT_TIER_ID = 1; // Free tier
+
   public Single<Tenant> createTenant(Tenant tenant) {
+    return createTenant(tenant, DEFAULT_TIER_ID);
+  }
+
+  public Single<Tenant> createTenant(Tenant tenant, int tierId) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(INSERT_TENANT)
         .rxExecute(
@@ -42,15 +50,17 @@ public class TenantDao {
                 tenant.getDescription(),
                 tenant.getGcpTenantId(),
                 tenant.getDomainName(),
+                tierId,
                 true))
         .map(result -> {
-          log.info("Created tenant: {}", tenant.getTenantId());
+          log.info("Created tenant: {} with tier: {}", tenant.getTenantId(), tierId);
           return Tenant.builder()
               .tenantId(tenant.getTenantId())
               .name(tenant.getName())
               .description(tenant.getDescription())
               .gcpTenantId(tenant.getGcpTenantId())
               .domainName(tenant.getDomainName())
+              .tierId(tierId)
               .isActive(true)
               .build();
         })
@@ -184,11 +194,36 @@ public class TenantDao {
         .doOnError(error -> log.error("Failed to fetch tenant by domainName: {}", domainName, error));
   }
 
+  public Flowable<Tenant> getTenantsByTierId(int tierId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_TENANTS_BY_TIER_ID)
+        .rxExecute(Tuple.of(tierId))
+        .toFlowable()
+        .flatMap(rowSet -> Flowable.fromIterable(rowSet).map(row -> mapRowToTenant((Row) row)))
+        .doOnError(error -> log.error("Failed to fetch tenants by tierId: {}", tierId, error));
+  }
+
+  public Single<Tenant> updateTenantTier(String tenantId, int tierId) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool.preparedQuery(UPDATE_TENANT_TIER)
+        .rxExecute(Tuple.of(tierId, tenantId))
+        .flatMap(result -> {
+          if (result.rowCount() == 0) {
+            return Single.error(new RuntimeException("Tenant not found: " + tenantId));
+          }
+          log.info("Updated tenant {} tier to {}", tenantId, tierId);
+          return getTenantById(tenantId)
+              .switchIfEmpty(Single.error(new RuntimeException("Tenant not found after tier update: " + tenantId)));
+        })
+        .doOnError(error -> log.error("Failed to update tier for tenant: {}", tenantId, error));
+  }
+
   private Tenant mapRowToTenant(Row row) {
     return Tenant.builder()
         .tenantId(row.getString("tenant_id"))
         .name(row.getString("name"))
         .description(row.getString("description"))
+        .tierId(row.getInteger("tier_id"))
         .isActive(row.getBoolean("is_active"))
         .createdAt(row.getLocalDateTime("created_at") != null ? row.getLocalDateTime("created_at").toString() : null)
         .updatedAt(row.getLocalDateTime("updated_at") != null ? row.getLocalDateTime("updated_at").toString() : null)
