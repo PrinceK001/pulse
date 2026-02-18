@@ -108,7 +108,6 @@ object OpenTelemetryRumInitializer {
             rumConfig.setGlobalAttributes(it::invoke)
         }
 
-        // Build resource with default Android resource and user customization
         val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
         resource?.invoke(resourceBuilder)
         val finalResource = resourceBuilder.build()

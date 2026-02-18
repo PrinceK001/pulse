@@ -37,7 +37,6 @@ import io.opentelemetry.android.instrumentation.interaction.library.InteractionI
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationInstrumentationConstants
-import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
@@ -171,7 +170,6 @@ internal class PulseSDKImpl :
 
         PulseOtelUtils.logDebug(TAG) { "currentSdkConfig config version = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}" }
 
-        // Merge projectId with endpointHeaders for all API calls
         val projectIdHeader = createProjectIdHeader(projectId)
         val endpointHeadersWithProject = endpointHeaders + projectIdHeader
 
@@ -197,7 +195,6 @@ internal class PulseSDKImpl :
             }
         }
 
-        // Build resource once to determine currentSdkName for PulseSamplingSignalProcessors
         val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
         resourceBuilder.put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
         resource?.invoke(resourceBuilder)
@@ -207,7 +204,6 @@ internal class PulseSDKImpl :
                 builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY),
             )
 
-        // Set default telemetry.sdk.name for Android Java SDK
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
             put(PulseAttributes.PROJECT_ID, projectId)
@@ -224,6 +220,7 @@ internal class PulseSDKImpl :
             }
         pulseSpanProcessor = PulseSdkSignalProcessors()
         val config = OtelRumConfig()
+        val meteredSessionManager = OpenTelemetryRumInitializer.createMeteredSessionManager(application)
         val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
         val mergedTracerProviderCustomizer =
             if (tracerProviderCustomizer != null) {
@@ -388,9 +385,6 @@ internal class PulseSDKImpl :
                 }
             }
         }
-
-        meteredSessionManager = OpenTelemetryRumInitializer.createMeteredSessionManager(application)
-
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
@@ -419,9 +413,7 @@ internal class PulseSDKImpl :
                             attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
-                        meteredSessionManager?.let {
-                            attributesBuilder.put(AttributeKey.stringKey("metered.session.id"), it.getSessionId())
-                        }
+                        attributesBuilder.put(METERED_SESSION_ID, meteredSessionManager.getSessionId())
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())
                         }
@@ -692,7 +684,6 @@ internal class PulseSDKImpl :
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
     private var isCustomEventEnabled = true
     private var otelInstance: OpenTelemetryRum? = null
-    private var meteredSessionManager: SessionProvider? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()
     private var application: Application? = null
@@ -703,6 +694,8 @@ internal class PulseSDKImpl :
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
         private const val PROJECT_ID_HEADER_KEY = "X-API-KEY"
+
+        private val METERED_SESSION_ID: AttributeKey<String> = AttributeKey.stringKey("metered.session.id")
 
         internal object PrefsName {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"

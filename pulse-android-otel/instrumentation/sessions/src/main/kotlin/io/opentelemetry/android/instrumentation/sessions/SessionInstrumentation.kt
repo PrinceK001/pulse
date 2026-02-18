@@ -15,26 +15,13 @@ class SessionInstrumentation : AndroidInstrumentation {
     override val name: String = "session"
 
     override fun install(ctx: InstallationContext) {
-        val otelEventLogger =
+        val eventLogger =
             ctx.openTelemetry.logsBridge
                 .loggerBuilder("otel.session")
                 .build()
         val sessionProvider = ctx.sessionProvider
         if (sessionProvider is SessionPublisher) {
-            sessionProvider.addObserver(SessionIdEventSender(otelEventLogger))
+            sessionProvider.addObserver(SessionIdEventSender(eventLogger))
         }
-
-        val meteredSessionProvider = ctx.meteredSessionProvider as? SessionPublisher ?: return
-        val meteredEventLogger =
-            ctx.openTelemetry.logsBridge
-                .loggerBuilder("pulse.metered.session")
-                .build()
-        meteredSessionProvider.addObserver(
-            SessionIdEventSender(
-                eventLogger = meteredEventLogger,
-                eventStartName = "metered.session.start",
-                eventEndName = "metered.session.end",
-            ),
-        )
     }
 }
