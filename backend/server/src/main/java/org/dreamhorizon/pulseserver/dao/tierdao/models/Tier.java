@@ -1,0 +1,21 @@
+package org.dreamhorizon.pulseserver.dao.tierdao.models;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Tier {
+  private Integer tierId;
+  private String name;
+  private String displayName;
+  private Boolean isCustomLimitsAllowed;
+  private String usageLimitDefaults; // JSON string
+  private Boolean isActive;
+  private String createdAt;
+}
+

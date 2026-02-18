@@ -1,0 +1,176 @@
+package org.dreamhorizon.pulseserver.dao.projectdao;
+
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.CHECK_ACTIVE_LIMIT_EXISTS;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ACTIVE_LIMIT_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ALL_LIMITS_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_LIMIT_BY_ID;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_LIMIT_HISTORY_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.INSERT_USAGE_LIMIT;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.SOFT_DELETE_ACTIVE_LIMIT;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.SOFT_DELETE_ACTIVE_LIMITS_FOR_PROJECTS;
+
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.mysqlclient.MySQLPool;
+import io.vertx.rxjava3.sqlclient.Row;
+import io.vertx.rxjava3.sqlclient.Tuple;
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dao.projectdao.models.ProjectUsageLimit;
+
+@Slf4j
+@Singleton
+@RequiredArgsConstructor(onConstructor = @__({@Inject}))
+public class ProjectUsageLimitDao {
+  private final MysqlClient mysqlClient;
+
+  public Single<ProjectUsageLimit> createUsageLimit(int projectId, String usageLimitsJson, String createdBy) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool.preparedQuery(INSERT_USAGE_LIMIT)
+        .rxExecute(Tuple.of(projectId, usageLimitsJson, createdBy))
+        .map(result -> {
+          long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
+          log.info("Created usage limit {} for project: {}", generatedId, projectId);
+          return ProjectUsageLimit.builder()
+              .projectUsageLimitId(generatedId)
+              .projectId(projectId)
+              .usageLimits(usageLimitsJson)
+              .isActive(true)
+              .createdBy(createdBy)
+              .build();
+        })
+        .doOnError(error -> log.error("Failed to create usage limit for project: {}", projectId, error));
+  }
+
+  public Maybe<ProjectUsageLimit> getActiveLimitByProjectId(int projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_ACTIVE_LIMIT_BY_PROJECT_ID)
+        .rxExecute(Tuple.of(projectId))
+        .flatMapMaybe(rowSet -> {
+          if (rowSet.size() == 0) {
+            return Maybe.empty();
+          }
+          return Maybe.just(mapRowToUsageLimit(rowSet.iterator().next()));
+        })
+        .doOnError(error -> log.error("Failed to fetch active limit for project: {}", projectId, error));
+  }
+
+  public Maybe<ProjectUsageLimit> getLimitById(long limitId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_LIMIT_BY_ID)
+        .rxExecute(Tuple.of(limitId))
+        .flatMapMaybe(rowSet -> {
+          if (rowSet.size() == 0) {
+            return Maybe.empty();
+          }
+          return Maybe.just(mapRowToUsageLimit(rowSet.iterator().next()));
+        })
+        .doOnError(error -> log.error("Failed to fetch limit by id: {}", limitId, error));
+  }
+
+  public Flowable<ProjectUsageLimit> getAllLimitsByProjectId(int projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_ALL_LIMITS_BY_PROJECT_ID)
+        .rxExecute(Tuple.of(projectId))
+        .toFlowable()
+        .flatMap(rowSet -> Flowable.fromIterable(rowSet).map(row -> mapRowToUsageLimit((Row) row)))
+        .doOnError(error -> log.error("Failed to fetch all limits for project: {}", projectId, error));
+  }
+
+  public Flowable<ProjectUsageLimit> getLimitHistoryByProjectId(int projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_LIMIT_HISTORY_BY_PROJECT_ID)
+        .rxExecute(Tuple.of(projectId))
+        .toFlowable()
+        .flatMap(rowSet -> Flowable.fromIterable(rowSet).map(row -> mapRowToUsageLimit((Row) row)))
+        .doOnError(error -> log.error("Failed to fetch limit history for project: {}", projectId, error));
+  }
+
+  public Completable softDeleteActiveLimit(int projectId, String disabledBy, String disabledReason) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool.preparedQuery(SOFT_DELETE_ACTIVE_LIMIT)
+        .rxExecute(Tuple.of(disabledBy, disabledReason, projectId))
+        .flatMapCompletable(result -> {
+          if (result.rowCount() == 0) {
+            log.warn("No active limit found to soft-delete for project: {}", projectId);
+          } else {
+            log.info("Soft-deleted active limit for project: {} reason: {}", projectId, disabledReason);
+          }
+          return Completable.complete();
+        })
+        .doOnError(error -> log.error("Failed to soft-delete active limit for project: {}", projectId, error));
+  }
+
+  public Completable softDeleteActiveLimitsForProjects(List<Integer> projectIds, String disabledBy, String disabledReason) {
+    if (projectIds == null || projectIds.isEmpty()) {
+      return Completable.complete();
+    }
+
+    MySQLPool pool = mysqlClient.getWriterPool();
+    String placeholders = projectIds.stream().map(id -> "?").collect(Collectors.joining(", "));
+    String query = String.format(SOFT_DELETE_ACTIVE_LIMITS_FOR_PROJECTS, placeholders);
+
+    // Build tuple with disabledBy, disabledReason, then all projectIds
+    Object[] params = new Object[2 + projectIds.size()];
+    params[0] = disabledBy;
+    params[1] = disabledReason;
+    for (int i = 0; i < projectIds.size(); i++) {
+      params[2 + i] = projectIds.get(i);
+    }
+
+    return pool.preparedQuery(query)
+        .rxExecute(Tuple.from(params))
+        .flatMapCompletable(result -> {
+          log.info("Soft-deleted {} active limits for {} projects, reason: {}",
+              result.rowCount(), projectIds.size(), disabledReason);
+          return Completable.complete();
+        })
+        .doOnError(error -> log.error("Failed to soft-delete active limits for projects: {}", projectIds, error));
+  }
+
+  public Single<Boolean> hasActiveLimit(int projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(CHECK_ACTIVE_LIMIT_EXISTS)
+        .rxExecute(Tuple.of(projectId))
+        .map(rowSet -> {
+          Row row = rowSet.iterator().next();
+          return row.getLong("count") > 0;
+        })
+        .doOnError(error -> log.error("Failed to check active limit existence for project: {}", projectId, error));
+  }
+
+  /**
+   * Updates usage limits for a project by soft-deleting the current active record
+   * and creating a new one with the updated limits.
+   */
+  public Single<ProjectUsageLimit> updateUsageLimits(
+      int projectId,
+      String newUsageLimitsJson,
+      String performedBy,
+      String disabledReason) {
+    return softDeleteActiveLimit(projectId, performedBy, disabledReason)
+        .andThen(createUsageLimit(projectId, newUsageLimitsJson, performedBy));
+  }
+
+  private ProjectUsageLimit mapRowToUsageLimit(Row row) {
+    return ProjectUsageLimit.builder()
+        .projectUsageLimitId(row.getLong("project_usage_limit_id"))
+        .projectId(row.getInteger("project_id"))
+        .usageLimits(row.getString("usage_limits"))
+        .isActive(row.getBoolean("is_active"))
+        .createdAt(row.getLocalDateTime("created_at") != null ? row.getLocalDateTime("created_at").toString() : null)
+        .disabledAt(row.getLocalDateTime("disabled_at") != null ? row.getLocalDateTime("disabled_at").toString() : null)
+        .disabledBy(row.getString("disabled_by"))
+        .disabledReason(row.getString("disabled_reason"))
+        .createdBy(row.getString("created_by"))
+        .build();
+  }
+}
+
