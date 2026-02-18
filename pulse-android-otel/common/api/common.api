@@ -39,6 +39,13 @@ public final class io/opentelemetry/android/common/RumConstants$Events {
 	public static final field INSTANCE Lio/opentelemetry/android/common/RumConstants$Events;
 }
 
+public final class io/opentelemetry/android/common/RumConstants$Session {
+	public static final field INSTANCE Lio/opentelemetry/android/common/RumConstants$Session;
+	public static final field METERED_SESSION_ID_KEY Lio/opentelemetry/api/common/AttributeKey;
+	public static final field METERED_SESSION_STORAGE_KEY Ljava/lang/String;
+	public static final field OTEL_SESSION_STORAGE_KEY Ljava/lang/String;
+}
+
 public final class io/opentelemetry/android/common/internal/features/networkattributes/CurrentNetworkAttributesExtractor {
 	public fun <init> ()V
 	public final fun extract (Lio/opentelemetry/android/common/internal/features/networkattributes/data/CurrentNetwork;)Lio/opentelemetry/api/common/Attributes;

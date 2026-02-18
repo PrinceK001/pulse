@@ -15,14 +15,12 @@ import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.agent.session.SessionIdTimeoutHandler
 import io.opentelemetry.android.agent.session.SessionManager
+import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.features.diskbuffering.DiskBufferingConfig
-import io.opentelemetry.android.instrumentation.sessions.MeteredSessionEventSender
 import io.opentelemetry.android.internal.services.Services
 import io.opentelemetry.android.session.SessionProvider
-import io.opentelemetry.android.session.SessionPublisher
 import io.opentelemetry.api.common.Attributes
-import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
@@ -34,7 +32,7 @@ import io.opentelemetry.sdk.resources.ResourceBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import java.util.function.BiFunction
-import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(Incubating::class)
 object OpenTelemetryRumInitializer {
@@ -76,6 +74,7 @@ object OpenTelemetryRumInitializer {
             ),
         resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
+        meteredSessionProvider: SessionProvider? = null,
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
@@ -119,6 +118,7 @@ object OpenTelemetryRumInitializer {
             .apply {
                 setResource(finalResource)
                 setSessionProvider(createSessionProvider(application, sessionConfig))
+                meteredSessionProvider?.let { setMeteredSessionProvider(it) }
                 addSpanExporterCustomizer { spanExporter }
                 addLogRecordExporterCustomizer { logRecordExporter }
                 addMetricExporterCustomizer { metricExporter }
@@ -153,13 +153,10 @@ object OpenTelemetryRumInitializer {
      */
     @OptIn(Incubating::class)
     @JvmStatic
-    fun createMeteredSessionManager(
-        application: Application,
-        eventLogger: Logger? = null,
-    ): SessionProvider {
+    fun createMeteredSessionManager(application: Application): SessionProvider {
         val meteredSessionConfig =
             SessionConfig(
-                maxLifetime = 30.minutes,
+                maxLifetime = 10.seconds, // Testing: 10 seconds (normally 30.minutes)
                 backgroundInactivityTimeout = null,
                 shouldPersist = true,
             )
@@ -168,14 +165,8 @@ object OpenTelemetryRumInitializer {
                 application = application,
                 timeoutHandler = null,
                 sessionConfig = meteredSessionConfig,
-                storageKey = "pulse_metered_session_storage",
+                storageKey = RumConstants.Session.METERED_SESSION_STORAGE_KEY,
             )
-
-        // Attach metered session event sender if logger is provided
-        if (eventLogger != null && sessionManager is SessionPublisher) {
-            val meteredEventSender = MeteredSessionEventSender(eventLogger)
-            (sessionManager as SessionPublisher).addObserver(meteredEventSender)
-        }
 
         return sessionManager
     }

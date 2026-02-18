@@ -7,6 +7,7 @@ package io.opentelemetry.android.agent.session
 
 import android.content.Context
 import io.opentelemetry.android.Incubating
+import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.session.Session
 import io.opentelemetry.android.session.SessionObserver
 import io.opentelemetry.android.session.SessionProvider
@@ -128,7 +129,7 @@ internal class SessionManager(
             application: Context,
             timeoutHandler: SessionIdTimeoutHandler?,
             sessionConfig: SessionConfig,
-            storageKey: String = "otel_session_storage",
+            storageKey: String = RumConstants.Session.OTEL_SESSION_STORAGE_KEY,
         ): SessionManager {
             // Choose storage based on persistence config
             val sessionStorage: SessionStorage =

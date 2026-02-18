@@ -29,6 +29,7 @@ import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
+import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
@@ -389,6 +390,13 @@ internal class PulseSDKImpl :
             }
         }
 
+        // Initialize metered session manager BEFORE creating OTEL instance
+        // This allows it to be passed through InstallationContext (similar to OTEL session)
+        meteredSessionManager =
+            OpenTelemetryRumInitializer.createMeteredSessionManager(
+                application = application,
+            )
+
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
@@ -401,6 +409,7 @@ internal class PulseSDKImpl :
                 logEndpointConnectivity = finalLogEndpointConnectivity,
                 metricEndpointConnectivity = finalMetricEndpointConnectivity,
                 sessionConfig = sessionConfig,
+                meteredSessionProvider = meteredSessionManager,
                 globalAttributes =
                     {
                         val attributesBuilder = Attributes.builder()
@@ -416,6 +425,10 @@ internal class PulseSDKImpl :
                             attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
+                        // Add metered.session.id to global attributes
+                        meteredSessionManager?.let {
+                            attributesBuilder.put(RumConstants.Session.METERED_SESSION_ID_KEY, it.getSessionId())
+                        }
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())
                         }
@@ -429,32 +442,6 @@ internal class PulseSDKImpl :
                 spanExporter = spanExporter,
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
-            )
-
-        // Initialize metered session manager (for billing/metering)
-        initializeMeteredSessionManager(application)
-    }
-
-    /**
-     * Initialize metered session manager with hardcoded configuration.
-     * This session is used for billing/metering and is NOT sent to backend by default.
-     */
-    private fun initializeMeteredSessionManager(application: Application) {
-        // Create metered session event logger (events emitted but not exported by default)
-        // To enable backend export later, modify log exporter configuration
-        val meteredEventLogger =
-            otelInstance
-                ?.getOpenTelemetry()
-                ?.logsBridge
-                ?.loggerBuilder("pulse.metered.session")
-                ?.build()
-
-        // Create metered session manager with hardcoded config (30min, persistent, no background checks)
-        // Event logger is optional - if provided, events will be emitted internally
-        meteredSessionManager =
-            OpenTelemetryRumInitializer.createMeteredSessionManager(
-                application = application,
-                eventLogger = meteredEventLogger,
             )
     }
 

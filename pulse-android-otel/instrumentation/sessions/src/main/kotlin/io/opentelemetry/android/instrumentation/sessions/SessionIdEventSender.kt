@@ -16,9 +16,12 @@ import io.opentelemetry.semconv.incubating.SessionIncubatingAttributes.SESSION_P
 /**
  * This class is responsible for generating the session related events as
  * specified in the OpenTelemetry semantic conventions.
+ * Can be configured with custom event names for different session types (OTEL, metered, etc.)
  */
 internal class SessionIdEventSender(
     private val eventLogger: Logger,
+    private val eventStartName: String = EVENT_SESSION_START,
+    private val eventEndName: String = EVENT_SESSION_END,
 ) : SessionObserver {
     override fun onSessionStarted(
         newSession: Session,
@@ -27,7 +30,7 @@ internal class SessionIdEventSender(
         val eventBuilder =
             eventLogger
                 .logRecordBuilder()
-                .setEventName(EVENT_SESSION_START)
+                .setEventName(eventStartName)
                 .setAttribute(SESSION_ID, newSession.getId())
         val previousSessionId = previousSession.getId()
         if (previousSessionId.isNotEmpty()) {
@@ -42,7 +45,7 @@ internal class SessionIdEventSender(
         }
         eventLogger
             .logRecordBuilder()
-            .setEventName(EVENT_SESSION_END)
+            .setEventName(eventEndName)
             .setAttribute(SESSION_ID, session.getId())
             .emit()
     }

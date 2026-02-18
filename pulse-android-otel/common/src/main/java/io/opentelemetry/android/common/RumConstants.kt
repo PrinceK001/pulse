@@ -77,4 +77,23 @@ object RumConstants {
         const val EVENT_METERED_SESSION_START: String = "metered.session.start"
         const val EVENT_METERED_SESSION_END: String = "metered.session.end"
     }
+
+    object Session {
+        /**
+         * Attribute key for metered session ID (for billing/metering).
+         * Attached to all telemetry data alongside OTEL session.id.
+         */
+        @JvmField
+        val METERED_SESSION_ID_KEY: AttributeKey<String> = AttributeKey.stringKey("metered.session.id")
+
+        /**
+         * Storage key for metered session persistence (SharedPreferences).
+         */
+        const val METERED_SESSION_STORAGE_KEY: String = "pulse_metered_session_storage"
+
+        /**
+         * Storage key for OTEL session persistence (SharedPreferences).
+         */
+        const val OTEL_SESSION_STORAGE_KEY: String = "otel_session_storage"
+    }
 }
