@@ -6,7 +6,6 @@
 package io.opentelemetry.android.instrumentation.sessions
 
 import com.google.auto.service.AutoService
-import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.InstallationContext
 import io.opentelemetry.android.session.SessionPublisher
@@ -16,7 +15,6 @@ class SessionInstrumentation : AndroidInstrumentation {
     override val name: String = "session"
 
     override fun install(ctx: InstallationContext) {
-        // Install OTEL session event sender
         val otelEventLogger =
             ctx.openTelemetry.logsBridge
                 .loggerBuilder("otel.session")
@@ -26,7 +24,6 @@ class SessionInstrumentation : AndroidInstrumentation {
             sessionProvider.addObserver(SessionIdEventSender(otelEventLogger))
         }
 
-        // Install metered session event sender (if metered session provider is available)
         val meteredSessionProvider = ctx.meteredSessionProvider as? SessionPublisher ?: return
         val meteredEventLogger =
             ctx.openTelemetry.logsBridge
@@ -35,8 +32,8 @@ class SessionInstrumentation : AndroidInstrumentation {
         meteredSessionProvider.addObserver(
             SessionIdEventSender(
                 eventLogger = meteredEventLogger,
-                eventStartName = RumConstants.Events.EVENT_METERED_SESSION_START,
-                eventEndName = RumConstants.Events.EVENT_METERED_SESSION_END,
+                eventStartName = "metered.session.start",
+                eventEndName = "metered.session.end",
             ),
         )
     }

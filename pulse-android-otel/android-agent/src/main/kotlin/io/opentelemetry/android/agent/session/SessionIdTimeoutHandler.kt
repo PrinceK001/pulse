@@ -5,7 +5,6 @@
 
 package io.opentelemetry.android.agent.session
 
-import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.internal.services.applifecycle.ApplicationStateListener
 import io.opentelemetry.sdk.common.Clock
 import kotlin.time.Duration
@@ -33,15 +32,6 @@ internal class SessionIdTimeoutHandler(
 
     @Volatile
     private var state = State.FOREGROUND
-
-    // Convenience constructor - only use when backgroundInactivityTimeout is not null
-    @OptIn(Incubating::class)
-    internal constructor(sessionConfig: SessionConfig) : this(
-        Clock.getDefault(),
-        sessionConfig.backgroundInactivityTimeout ?: throw IllegalArgumentException(
-            "backgroundInactivityTimeout must not be null when creating SessionIdTimeoutHandler",
-        ),
-    )
 
     override fun onApplicationForegrounded() {
         state = State.TRANSITIONING_TO_FOREGROUND

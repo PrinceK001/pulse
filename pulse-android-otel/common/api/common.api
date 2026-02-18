@@ -24,8 +24,6 @@ public final class io/opentelemetry/android/common/RumConstants$App {
 }
 
 public final class io/opentelemetry/android/common/RumConstants$Events {
-	public static final field EVENT_METERED_SESSION_END Ljava/lang/String;
-	public static final field EVENT_METERED_SESSION_START Ljava/lang/String;
 	public static final field EVENT_SESSION_END Ljava/lang/String;
 	public static final field EVENT_SESSION_START Ljava/lang/String;
 	public static final field INIT_EVENT_ANR_MONITOR Ljava/lang/String;
@@ -37,13 +35,6 @@ public final class io/opentelemetry/android/common/RumConstants$Events {
 	public static final field INIT_EVENT_SPAN_EXPORTER Ljava/lang/String;
 	public static final field INIT_EVENT_STARTED Ljava/lang/String;
 	public static final field INSTANCE Lio/opentelemetry/android/common/RumConstants$Events;
-}
-
-public final class io/opentelemetry/android/common/RumConstants$Session {
-	public static final field INSTANCE Lio/opentelemetry/android/common/RumConstants$Session;
-	public static final field METERED_SESSION_ID_KEY Lio/opentelemetry/api/common/AttributeKey;
-	public static final field METERED_SESSION_STORAGE_KEY Ljava/lang/String;
-	public static final field OTEL_SESSION_STORAGE_KEY Ljava/lang/String;
 }
 
 public final class io/opentelemetry/android/common/internal/features/networkattributes/CurrentNetworkAttributesExtractor {

@@ -15,7 +15,6 @@ import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.agent.session.SessionIdTimeoutHandler
 import io.opentelemetry.android.agent.session.SessionManager
-import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.features.diskbuffering.DiskBufferingConfig
 import io.opentelemetry.android.internal.services.Services
@@ -24,6 +23,7 @@ import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
+import io.opentelemetry.sdk.common.Clock
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
@@ -132,10 +132,9 @@ object OpenTelemetryRumInitializer {
         application: Application,
         sessionConfig: SessionConfig,
     ): SessionProvider {
-        // Only create and register timeout handler if background timeout is enabled
         val timeoutHandler: SessionIdTimeoutHandler? =
             sessionConfig.backgroundInactivityTimeout?.let {
-                val handler = SessionIdTimeoutHandler(sessionConfig)
+                val handler = SessionIdTimeoutHandler(Clock.getDefault(), it)
                 Services.get(application).appLifecycle.registerListener(handler)
                 handler
             }
@@ -143,31 +142,20 @@ object OpenTelemetryRumInitializer {
         return SessionManager.create(application, timeoutHandler, sessionConfig)
     }
 
-    /**
-     * Create a metered session manager with hardcoded configuration (30 minutes, persistent, no background checks).
-     * Used for billing/metering purposes.
-     *
-     * @param application The Android application context
-     * @param eventLogger Optional logger for metered session events. If provided, events will be emitted.
-     * @return SessionProvider for metered sessions
-     */
     @OptIn(Incubating::class)
     @JvmStatic
     fun createMeteredSessionManager(application: Application): SessionProvider {
         val meteredSessionConfig =
             SessionConfig(
-                maxLifetime = 10.seconds, // Testing: 10 seconds (normally 30.minutes)
                 backgroundInactivityTimeout = null,
+                maxLifetime = 10.seconds,
                 shouldPersist = true,
             )
-        val sessionManager =
-            SessionManager.create(
-                application = application,
-                timeoutHandler = null,
-                sessionConfig = meteredSessionConfig,
-                storageKey = RumConstants.Session.METERED_SESSION_STORAGE_KEY,
-            )
-
-        return sessionManager
+        return SessionManager.create(
+            application = application,
+            timeoutHandler = null,
+            sessionConfig = meteredSessionConfig,
+            storageKey = "pulse_metered_session_storage",
+        )
     }
 }

@@ -7,7 +7,6 @@ package io.opentelemetry.android.agent.session
 
 import android.content.Context
 import io.opentelemetry.android.Incubating
-import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.session.Session
 import io.opentelemetry.android.session.SessionObserver
 import io.opentelemetry.android.session.SessionProvider
@@ -129,7 +128,7 @@ internal class SessionManager(
             application: Context,
             timeoutHandler: SessionIdTimeoutHandler?,
             sessionConfig: SessionConfig,
-            storageKey: String = RumConstants.Session.OTEL_SESSION_STORAGE_KEY,
+            storageKey: String = "otel_session_storage",
         ): SessionManager {
             // Choose storage based on persistence config
             val sessionStorage: SessionStorage =
@@ -147,10 +146,9 @@ internal class SessionManager(
             // Use max lifetime from config (default to 4 hours if null)
             val maxLifetime = sessionConfig.maxLifetime ?: 4.hours
 
-            // Use provided handler or create one only if background timeout is enabled
             val handler =
                 timeoutHandler ?: sessionConfig.backgroundInactivityTimeout?.let {
-                    SessionIdTimeoutHandler(sessionConfig)
+                    SessionIdTimeoutHandler(Clock.getDefault(), it)
                 }
 
             return SessionManager(

@@ -29,7 +29,6 @@ import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
-import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
@@ -390,12 +389,7 @@ internal class PulseSDKImpl :
             }
         }
 
-        // Initialize metered session manager BEFORE creating OTEL instance
-        // This allows it to be passed through InstallationContext (similar to OTEL session)
-        meteredSessionManager =
-            OpenTelemetryRumInitializer.createMeteredSessionManager(
-                application = application,
-            )
+        meteredSessionManager = OpenTelemetryRumInitializer.createMeteredSessionManager(application)
 
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
@@ -425,9 +419,8 @@ internal class PulseSDKImpl :
                             attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
-                        // Add metered.session.id to global attributes
                         meteredSessionManager?.let {
-                            attributesBuilder.put(RumConstants.Session.METERED_SESSION_ID_KEY, it.getSessionId())
+                            attributesBuilder.put(AttributeKey.stringKey("metered.session.id"), it.getSessionId())
                         }
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())
