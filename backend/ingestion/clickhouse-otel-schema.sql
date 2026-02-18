@@ -1,4 +1,56 @@
-CREATE TABLE IF NOT EXISTS otel.otel_traces
+CREATE DATABASE IF NOT EXISTS otel ON CLUSTER `pulse-clickhouse`;
+
+CREATE TABLE IF NOT EXISTS otel.otel_logs_local
+ON CLUSTER `pulse-clickhouse`
+(
+    `Timestamp` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `TraceId` String CODEC(ZSTD(1)),    
+    `SpanId` FixedString(16) CODEC(ZSTD(1)),
+    `TraceFlags` UInt32 CODEC(ZSTD(1)),
+    `SeverityText` LowCardinality(String) CODEC(ZSTD(1)),
+    `SeverityNumber` Int32 CODEC(ZSTD(1)),
+    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
+    `Body` String CODEC(ZSTD(1)),
+    `ResourceSchemaUrl` String CODEC(ZSTD(1)),
+    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ScopeSchemaUrl` String CODEC(ZSTD(1)),
+    `ScopeName` String CODEC(ZSTD(1)),
+    `ScopeVersion` String CODEC(ZSTD(1)),
+    `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `LogAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
+    `SessionId` String MATERIALIZED ifNull(LogAttributes['session.id'], ''),
+    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
+    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
+    `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
+    `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
+    `GeoState` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.region.iso_code'], ''),
+    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.country.iso_code'], ''),
+    `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
+    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['network.carrier.name'], ''),
+    `UserId` String MATERIALIZED ifNull(LogAttributes['user.id'], ''),
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
+    `EventName` LowCardinality(String) CODEC(ZSTD(1)),
+    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
+)
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/otel_logs_local', '{replica}')
+PARTITION BY (ProjectId, toYYYYMMDD(Timestamp))
+ORDER BY (ProjectId, ServiceName, PulseType, EventName, toUnixTimestamp(Timestamp))
+TTL toDateTime(Timestamp) + INTERVAL 7 DAY TO VOLUME 'cold'
+SETTINGS 
+    index_granularity = 8192,
+    storage_policy = 'tiered',
+    ttl_only_drop_parts = 0;
+
+CREATE TABLE IF NOT EXISTS otel.otel_logs
+ON CLUSTER `pulse-clickhouse`
+AS otel.otel_logs_local
+ENGINE = Distributed(`pulse-clickhouse`, otel, otel_logs_local, cityHash64(TraceId));
+
+
+CREATE TABLE IF NOT EXISTS otel.otel_traces_local
+ON CLUSTER `pulse-clickhouse`
 (
     `Timestamp` DateTime64(9, 'UTC') CODEC(Delta(8), ZSTD(1)),
     `TraceId` String CODEC(ZSTD(1)),
@@ -22,119 +74,40 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `Links.SpanId` Array(String) CODEC(ZSTD(1)),
     `Links.TraceState` Array(String) CODEC(ZSTD(1)),
     `Links.Attributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
-    `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
-    `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''), // DEPRECATED: Use PulseType instead
+    `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
+    `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
     `SessionId` String MATERIALIZED ifNull(SpanAttributes['session.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
-    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
+    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
     `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
     `GeoState` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.region.iso_code'], ''),
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''),
+    `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''), 
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
-    INDEX idx_tenant_id TenantId TYPE bloom_filter(0.01) GRANULARITY 1
+    INDEX idx_user_id UserId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
 )
-ENGINE = MergeTree
-PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (TenantId, ServiceName, PulseType, SpanName, Timestamp)
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/otel_traces_local', '{replica}')
+PARTITION BY (ProjectId, toYYYYMMDD(Timestamp))
+ORDER BY (ProjectId, ServiceName, PulseType, SpanName, Timestamp)
 TTL toDateTime(Timestamp) + INTERVAL 7 DAY TO VOLUME 'cold'
-SETTINGS
+SETTINGS 
     index_granularity = 8192,
     storage_policy = 'tiered',
     ttl_only_drop_parts = 0;
 
-CREATE TABLE IF NOT EXISTS otel.otel_logs
-(
-    `Timestamp` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
-    `TraceId` String CODEC(ZSTD(1)),
-    `SpanId` FixedString(16) CODEC(ZSTD(1)),
-    `TraceFlags` UInt32 CODEC(ZSTD(1)),
-    `SeverityText` LowCardinality(String) CODEC(ZSTD(1)),
-    `SeverityNumber` Int32 CODEC(ZSTD(1)),
-    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
-    `Body` String CODEC(ZSTD(1)),
-    `ResourceSchemaUrl` String CODEC(ZSTD(1)),
-    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
-    `ScopeSchemaUrl` String CODEC(ZSTD(1)),
-    `ScopeName` String CODEC(ZSTD(1)),
-    `ScopeVersion` String CODEC(ZSTD(1)),
-    `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
-    `LogAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
-    `SessionId` String MATERIALIZED ifNull(LogAttributes['session.id'], ''),
-    `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
-    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
-    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
-    `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
-    `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
-    `GeoState` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.region.iso_code'], ''),
-    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.country.iso_code'], ''),
-    `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
-    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(LogAttributes['user.id'], ''),
-    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
-    `EventName` LowCardinality(String) CODEC(ZSTD(1)),
-    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
-    INDEX idx_tenant_id TenantId TYPE bloom_filter(0.01) GRANULARITY 1
-)
-ENGINE = MergeTree
-PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (TenantId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
-TTL toDateTime(Timestamp) + INTERVAL 7 DAY TO VOLUME 'cold'
-SETTINGS
-    index_granularity = 8192,
-    storage_policy = 'tiered',
-    ttl_only_drop_parts = 0;
+CREATE TABLE IF NOT EXISTS otel.otel_traces
+ON CLUSTER `pulse-clickhouse`
+AS otel.otel_traces_local
+ENGINE = Distributed(`pulse-clickhouse`, otel, otel_traces_local, cityHash64(TraceId));
 
-CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
-(
-    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
-    `ResourceSchemaUrl` String CODEC(ZSTD(1)),
-    `ScopeName` String CODEC(ZSTD(1)),
-    `ScopeVersion` String CODEC(ZSTD(1)),
-    `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
-    `ScopeDroppedAttrCount` UInt32 CODEC(ZSTD(1)),
-    `ScopeSchemaUrl` String CODEC(ZSTD(1)),
-    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
-    `MetricName` String CODEC(ZSTD(1)),
-    `MetricDescription` String CODEC(ZSTD(1)),
-    `MetricUnit` String CODEC(ZSTD(1)),
-    `Attributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
-    `StartTimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
-    `TimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
-    `Value` Float64 CODEC(ZSTD(1)),
-    `Flags` UInt32 CODEC(ZSTD(1)),
-    `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
-    `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
-    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
-    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
-    `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
-    `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
-    `GeoState` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.region.iso_code'], ''),
-    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.country.iso_code'], ''),
-    `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
-    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(Attributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(Attributes['user.id'], ''),
-    `Exemplars.FilteredAttributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
-    `Exemplars.TimeUnix` Array(DateTime64(9)) CODEC(ZSTD(1)),
-    `Exemplars.Value` Array(Float64) CODEC(ZSTD(1)),
-    `Exemplars.SpanId` Array(String) CODEC(ZSTD(1)),
-    `Exemplars.TraceId` Array(String) CODEC(ZSTD(1)),
-    INDEX idx_tenant_id TenantId TYPE bloom_filter(0.01) GRANULARITY 1
-)
-ENGINE = MergeTree
-PARTITION BY toDate(TimeUnix)
-ORDER BY (TenantId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
-TTL toDateTime(TimeUnix) + INTERVAL 7 DAY TO VOLUME 'cold'
-SETTINGS
-    index_granularity = 8192,
-    storage_policy = 'tiered',
-    ttl_only_drop_parts = 0;
 
-CREATE TABLE IF NOT EXISTS otel.stack_trace_events
+CREATE TABLE IF NOT EXISTS otel.stack_trace_events_local
+ON CLUSTER `pulse-clickhouse`
 (
     -- Core
     `Timestamp`             DateTime64(9, 'UTC')        COMMENT 'event time (ms precision, store UTC)',
@@ -154,7 +127,7 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `SessionId`             String,
 
     -- Device/app metadata
-    `Platform`              LowCardinality(String),      -- e.g. android/ios
+    `Platform`              LowCardinality(String),
     `OsVersion`             LowCardinality(String),
     `DeviceModel`           LowCardinality(String),
     `AppVersionCode`        LowCardinality(String),
@@ -162,7 +135,7 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `SdkVersion`            LowCardinality(String),
     `BundleId`              String,
 
-    -- Tracing (stored as hex strings; ensure lower-case at ingest)
+    -- Tracing
     `TraceId`               String,
     `SpanId`                FixedString(16),
 
@@ -174,15 +147,20 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `ScopeAttributes`       Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes`         Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
-    `TenantId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['tenant.id'], ''),
+    `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
-    INDEX idx_tenant_id TenantId TYPE bloom_filter(0.01) GRANULARITY 1
+    INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
 )
-ENGINE = MergeTree
-PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (TenantId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/stack_trace_events_local', '{replica}')
+PARTITION BY (ProjectId, toYYYYMMDD(Timestamp))
+ORDER BY (ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
 TTL toDateTime(Timestamp) + INTERVAL 7 DAY TO VOLUME 'cold'
-SETTINGS
+SETTINGS 
     index_granularity = 8192,
     storage_policy = 'tiered',
     ttl_only_drop_parts = 0;
+
+CREATE TABLE IF NOT EXISTS otel.stack_trace_events
+ON CLUSTER `pulse-clickhouse`
+AS otel.stack_trace_events_local
+ENGINE = Distributed(`pulse-clickhouse`, otel, stack_trace_events_local, cityHash64(TraceId));
