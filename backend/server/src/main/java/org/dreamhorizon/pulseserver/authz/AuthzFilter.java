@@ -53,17 +53,24 @@ public class AuthzFilter implements ContainerRequestFilter {
       return;
     }
 
-    // Check for @RequiresPermission annotation
-    RequiresPermission permission = method.getAnnotation(RequiresPermission.class);
-    if (permission == null) {
-      return; // No authorization required for this method
-    }
-
-    // Check if OpenFGA is enabled
+    // Check if OpenFGA is enabled first
     OpenFgaConfig config = getOpenFgaConfig();
     if (config == null || !config.isEnabled()) {
       log.debug("OpenFGA authorization is disabled, skipping permission check");
       return;
+    }
+
+    // Check for @RequiresTenantAccess annotation (simpler tenant membership check)
+    RequiresTenantAccess tenantAccess = method.getAnnotation(RequiresTenantAccess.class);
+    if (tenantAccess != null) {
+      handleTenantAccessCheck(requestContext);
+      return;
+    }
+
+    // Check for @RequiresPermission annotation
+    RequiresPermission permission = method.getAnnotation(RequiresPermission.class);
+    if (permission == null) {
+      return; // No authorization required for this method
     }
 
     // Extract user ID from JWT token
@@ -108,6 +115,50 @@ public class AuthzFilter implements ContainerRequestFilter {
     } catch (Exception e) {
       log.error("Authorization check failed for user '{}' on {}:{}: {}",
           userId, permission.objectType(), objectId, e.getMessage());
+      abortInternalError(requestContext, "Authorization check failed");
+    }
+  }
+
+  /**
+   * Handle @RequiresTenantAccess annotation - verify user is a member of current tenant.
+   */
+  private void handleTenantAccessCheck(ContainerRequestContext requestContext) {
+    // Extract user ID from JWT token
+    String userId = extractUserId(requestContext);
+    if (userId == null || userId.isBlank()) {
+      log.warn("Tenant access check failed: User ID not found in token for path: {}",
+          requestContext.getUriInfo().getPath());
+      abortUnauthorized(requestContext, "User ID not found in token");
+      return;
+    }
+
+    // Store userId in request context for downstream use
+    requestContext.setProperty(USER_ID_PROPERTY, userId);
+
+    // Get current tenant from TenantContext
+    String tenantId = TenantContext.getTenantId();
+    if (tenantId == null || tenantId.isBlank()) {
+      log.warn("Tenant access check failed: No tenant in context for path: {}",
+          requestContext.getUriInfo().getPath());
+      abortBadRequest(requestContext, "Tenant context not set");
+      return;
+    }
+
+    // Check if user has access to the tenant (can_view_tenant permission)
+    try {
+      OpenFgaService service = getOpenFgaService();
+      Boolean allowed = service.check(userId, "can_view_tenant", "tenant", tenantId)
+          .blockingGet();
+
+      if (!Boolean.TRUE.equals(allowed)) {
+        log.warn("Tenant access denied: user '{}' is not a member of tenant '{}'", userId, tenantId);
+        abortForbidden(requestContext);
+      } else {
+        log.debug("Tenant access granted: user '{}' has access to tenant '{}'", userId, tenantId);
+      }
+    } catch (Exception e) {
+      log.error("Tenant access check failed for user '{}' on tenant '{}': {}",
+          userId, tenantId, e.getMessage());
       abortInternalError(requestContext, "Authorization check failed");
     }
   }

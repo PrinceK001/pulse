@@ -16,7 +16,9 @@ import java.util.Date;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.dreamhorizon.pulseserver.authz.OpenFgaService;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
@@ -34,6 +36,8 @@ public class AuthService {
   private final ApplicationConfig applicationConfig;
   private final JwtService jwtService;
   private final TenantDao tenantDao;
+  private final OpenFgaConfig openFgaConfig;
+  private final OpenFgaService openFgaService;
   private volatile String firebaseJwksCache;
   private volatile long firebaseJwksCacheExpiryMillis;
   private static final long JWKS_CACHE_TTL_MS = 3600_000L;
@@ -178,8 +182,9 @@ public class AuthService {
       String name = claims.getStringClaim("name");
       final String finalEmail = email != null ? email : "";
       final String finalName = name != null ? name : "";
+      final String finalUserId = userId;
 
-      // Look up tenant from database by gcpTenantId to get our internal tenantId (reactive)
+      // First, look up tenant from database by gcpTenantId
       return tenantDao.getTenantByGcpTenantId(tokenTenant)
           .switchIfEmpty(Single.error(new IllegalArgumentException("Tenant not found. Please contact support.")))
           .flatMap(tenant -> {
@@ -187,16 +192,21 @@ public class AuthService {
               log.error("Tenant is not active: {}", tenant.getTenantId());
               return Single.error(new IllegalArgumentException("Tenant is not active. Please contact support."));
             }
-            String tenantId = tenant.getTenantId();
-            String accessToken = jwtService.generateAccessToken(userId, finalEmail, finalName, tenantId);
-            String refreshToken = jwtService.generateRefreshToken(userId, finalEmail, finalName, tenantId);
-            return Single.just(AuthenticateResponseDto.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .idToken(idTokenString)
-                .tokenType(TOKEN_TYPE_BEARER)
-                .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-                .build());
+            String dbTenantId = tenant.getTenantId();
+            
+            // If OpenFGA is enabled, also verify user belongs to this tenant in OpenFGA
+            if (openFgaConfig != null && openFgaConfig.isEnabled() && openFgaService != null) {
+              return lookupTenantFromOpenFga(finalEmail, dbTenantId)
+                  .flatMap(openFgaTenantId -> {
+                    // Use the tenant from OpenFGA if found, otherwise fall back to DB tenant
+                    String tenantId = openFgaTenantId != null && !openFgaTenantId.isEmpty() 
+                        ? openFgaTenantId : dbTenantId;
+                    return buildAuthResponse(finalUserId, finalEmail, finalName, tenantId, idTokenString);
+                  });
+            }
+            
+            // OpenFGA not enabled, use database tenant
+            return buildAuthResponse(finalUserId, finalEmail, finalName, dbTenantId, idTokenString);
           })
           .doOnError(error -> log.error("Tenant not found in database for gcpTenantId: {}", tokenTenant));
     } catch (Exception e) {
@@ -317,5 +327,56 @@ public class AuthService {
     }
 
     return authorization.trim();
+  }
+
+  /**
+   * Look up tenant for user from OpenFGA.
+   * If the user has a tenant relation in OpenFGA, return that tenant ID.
+   * Otherwise, verify the user belongs to the provided fallback tenant.
+   *
+   * @param email The user's email
+   * @param fallbackTenantId The tenant ID from database lookup (used as fallback)
+   * @return Single emitting the tenant ID
+   */
+  private Single<String> lookupTenantFromOpenFga(String email, String fallbackTenantId) {
+    return openFgaService.getTenantForUser(email)
+        .toSingle()
+        .onErrorResumeNext(error -> {
+          // If no tenant found in OpenFGA, check if user at least belongs to fallback tenant
+          log.debug("No direct tenant relation found for {} in OpenFGA, checking membership in {}", 
+              email, fallbackTenantId);
+          return openFgaService.userBelongsToTenant(email, fallbackTenantId)
+              .flatMap(belongs -> {
+                if (Boolean.TRUE.equals(belongs)) {
+                  log.info("User {} verified as member of tenant {} via OpenFGA", email, fallbackTenantId);
+                  return Single.just(fallbackTenantId);
+                } else {
+                  log.warn("User {} is not a member of any tenant in OpenFGA", email);
+                  // Still allow login with fallback tenant but log warning
+                  // In strict mode, you could return an error here
+                  return Single.just(fallbackTenantId);
+                }
+              });
+        })
+        .doOnSuccess(tenantId -> log.info("Resolved tenant '{}' for user '{}' from OpenFGA", tenantId, email));
+  }
+
+  /**
+   * Build the authentication response with tokens.
+   */
+  private Single<AuthenticateResponseDto> buildAuthResponse(
+      String userId, String email, String name, String tenantId, String originalIdToken) {
+    String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+    String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+    
+    log.info("Generated tokens for user {} with tenant {}", email, tenantId);
+    
+    return Single.just(AuthenticateResponseDto.builder()
+        .accessToken(accessToken)
+        .refreshToken(refreshToken)
+        .idToken(originalIdToken)
+        .tokenType(TOKEN_TYPE_BEARER)
+        .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+        .build());
   }
 }

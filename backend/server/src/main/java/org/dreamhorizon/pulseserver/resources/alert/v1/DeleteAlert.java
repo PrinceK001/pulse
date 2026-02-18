@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
+import org.dreamhorizon.pulseserver.authz.RequiresTenantAccess;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -24,6 +25,7 @@ public class DeleteAlert {
   @DELETE
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresTenantAccess
   public CompletionStage<Response<Boolean>> deleteAlert(@NotNull @PathParam("id") Integer alertId) {
     return alertsService.deleteAlert(alertId)
         .to(RestResponse.jaxrsRestHandler());

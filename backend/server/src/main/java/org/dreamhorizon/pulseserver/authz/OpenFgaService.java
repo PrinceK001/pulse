@@ -4,16 +4,20 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import dev.openfga.sdk.api.client.OpenFgaClient;
 import dev.openfga.sdk.api.client.model.ClientCheckRequest;
+import dev.openfga.sdk.api.client.model.ClientReadRequest;
 import dev.openfga.sdk.api.client.model.ClientTupleKey;
 import dev.openfga.sdk.api.client.model.ClientTupleKeyWithoutCondition;
 import dev.openfga.sdk.api.client.model.ClientWriteRequest;
 import dev.openfga.sdk.api.configuration.ClientConfiguration;
+import dev.openfga.sdk.api.model.Tuple;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Service for interacting with OpenFGA for Relationship-Based Access Control (ReBAC).
@@ -107,6 +111,100 @@ public class OpenFgaService {
    */
   public Single<Boolean> canManageProject(String userId, String projectId) {
     return check(userId, "can_manage_settings", "project", projectId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // TENANT LOOKUP
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Find the tenant ID that a user belongs to.
+   * Queries OpenFGA for relations where user has 'admin' or 'member' relation to a tenant.
+   *
+   * @param userEmail The user's email address
+   * @return Maybe emitting the tenant ID if found, empty if user has no tenant relations
+   */
+  public Maybe<String> getTenantForUser(String userEmail) {
+    return Maybe.fromCallable(() -> {
+      String userIdentifier = "user:" + userEmail;
+      
+      // Query for tuples where this user has any relation to any tenant
+      // We check both 'admin' and 'member' relations
+      ClientReadRequest request = new ClientReadRequest()
+          .user(userIdentifier);
+      
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+      
+      if (tuples == null || tuples.isEmpty()) {
+        log.debug("No relations found for user: {}", userEmail);
+        return null;
+      }
+      
+      // Find the first tenant relation (admin or member)
+      Optional<String> tenantId = tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getObject() != null && key.getObject().startsWith("tenant:"))
+          .filter(key -> "admin".equals(key.getRelation()) || "member".equals(key.getRelation()))
+          .map(key -> key.getObject().substring("tenant:".length()))
+          .findFirst();
+      
+      if (tenantId.isPresent()) {
+        log.info("Found tenant '{}' for user '{}'", tenantId.get(), userEmail);
+        return tenantId.get();
+      }
+      
+      log.debug("No tenant relation found for user: {}", userEmail);
+      return null;
+    });
+  }
+
+  /**
+   * Get all tenants a user belongs to.
+   *
+   * @param userEmail The user's email address
+   * @return Single emitting list of tenant IDs
+   */
+  public Single<List<String>> getTenantsForUser(String userEmail) {
+    return Single.fromCallable(() -> {
+      String userIdentifier = "user:" + userEmail;
+      
+      ClientReadRequest request = new ClientReadRequest()
+          .user(userIdentifier);
+      
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+      
+      if (tuples == null || tuples.isEmpty()) {
+        return List.<String>of();
+      }
+      
+      return tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getObject() != null && key.getObject().startsWith("tenant:"))
+          .filter(key -> "admin".equals(key.getRelation()) || "member".equals(key.getRelation()))
+          .map(key -> key.getObject().substring("tenant:".length()))
+          .distinct()
+          .toList();
+    });
+  }
+
+  /**
+   * Check if user belongs to a specific tenant.
+   *
+   * @param userEmail The user's email address
+   * @param tenantId  The tenant ID to check
+   * @return Single emitting true if user belongs to tenant
+   */
+  public Single<Boolean> userBelongsToTenant(String userEmail, String tenantId) {
+    // Check if user is admin or member of the tenant
+    return check(userEmail, "admin", "tenant", tenantId)
+        .flatMap(isAdmin -> {
+          if (Boolean.TRUE.equals(isAdmin)) {
+            return Single.just(true);
+          }
+          return check(userEmail, "member", "tenant", tenantId);
+        });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════

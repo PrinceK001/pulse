@@ -20,6 +20,7 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
+import org.dreamhorizon.pulseserver.authz.RequiresTenantAccess;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -31,6 +32,7 @@ public class AlertController {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresTenantAccess
   public CompletionStage<Response<AlertResponseDto>> createAlertV3(
       @NotNull @Valid CreateAlertRequestDto createAlertRequestDto
   ) {
@@ -43,6 +45,7 @@ public class AlertController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresTenantAccess
   public CompletionStage<Response<AlertResponseDto>> updateAlert(
       @NotNull @Valid UpdateAlertRequestDto updateAlertRequestDto
   ) {

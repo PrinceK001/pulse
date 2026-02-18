@@ -133,14 +133,14 @@ public class MainVerticle extends AbstractVerticle {
       
       String body = response.body();
       // Parse JSON to find store with matching name
-      // Looking for pattern: "id":"xxx","name":"pulse-authorization"
-      String pattern = "\"id\":\"([^\"]+)\",\"name\":\"" + storeName + "\"";
+      // Looking for pattern: "id": "xxx", "name": "pulse-authorization" (handles spaces)
+      String pattern = "\"id\":\\s*\"([^\"]+)\"\\s*,\\s*\"name\":\\s*\"" + storeName + "\"";
       java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
       java.util.regex.Matcher m = p.matcher(body);
       if (m.find()) {
         return m.group(1);
       }
-      log.warn("Store '{}' not found in OpenFGA", storeName);
+      log.warn("Store '{}' not found in OpenFGA. Response: {}", storeName, body.substring(0, Math.min(200, body.length())));
       return null;
     } catch (Exception e) {
       log.error("Failed to fetch OpenFGA store ID: {}", e.getMessage());
@@ -163,14 +163,14 @@ public class MainVerticle extends AbstractVerticle {
           java.net.http.HttpResponse.BodyHandlers.ofString());
       
       String body = response.body();
-      // Parse JSON to find first model ID
-      // Looking for pattern: "id":"xxx"
-      java.util.regex.Pattern p = java.util.regex.Pattern.compile("\"id\":\"([^\"]+)\"");
+      // Parse JSON to find first model ID (handles spaces in JSON)
+      // Looking for pattern: "id": "xxx"
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile("\"id\":\\s*\"([^\"]+)\"");
       java.util.regex.Matcher m = p.matcher(body);
       if (m.find()) {
         return m.group(1);
       }
-      log.warn("No authorization models found in store {}", storeId);
+      log.warn("No authorization models found in store {}. Response: {}", storeId, body.substring(0, Math.min(200, body.length())));
       return null;
     } catch (Exception e) {
       log.error("Failed to fetch OpenFGA model ID: {}", e.getMessage());
