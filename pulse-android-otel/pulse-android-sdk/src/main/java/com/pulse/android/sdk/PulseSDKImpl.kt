@@ -185,7 +185,7 @@ internal class PulseSDKImpl :
                     headers = endpointHeadersWithProject,
                 ) {
                     configEndpointUrl
-                        ?: "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
+                        ?: "${PulseNetworkingUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
                 }.provide()
             val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
             PulseOtelUtils.logDebug(TAG) {
@@ -332,7 +332,7 @@ internal class PulseSDKImpl :
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
             if (currentSdkConfig != null) {
-                instrumentationConfig.interaction { setConfigUrl { PulseOtelUtils.endWithSlash(currentSdkConfig.interaction.configUrl) } }
+                instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
             }
             pulseSamplingProcessors?.run {
                 val enabledFeatures = getEnabledFeatures()

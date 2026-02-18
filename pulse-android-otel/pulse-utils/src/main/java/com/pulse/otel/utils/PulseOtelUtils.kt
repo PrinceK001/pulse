@@ -7,7 +7,6 @@ import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
-import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Matcher
 import java.util.regex.Pattern
@@ -17,35 +16,13 @@ public object PulseOtelUtils {
     //  use the new not deprecated attributes
     @Suppress("DEPRECATION")
     private val HTTP_METHOD_KEY: AttributeKey<String> = HttpIncubatingAttributes.HTTP_METHOD
-    private const val HEX_CHARS = "[0-9a-fA-F]"
-    private const val DIGITS = "\\d"
-    private const val ALPHANUMERIC = "[A-Za-z0-9]"
-    private const val ULID_CHARS = "[0-9A-HJKMNP-TV-Z]"
-    private const val REDACTED = "[redacted]"
-
-    private val urlNormalizationPatterns =
-        listOf(
-            "(?<=/)($HEX_CHARS{64}|$HEX_CHARS{40})(?=/|$)".toRegex(),
-            "(?<=/)($HEX_CHARS{32}|$HEX_CHARS{8}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{12})(?=/|$)".toRegex(),
-            "(?<=/)($HEX_CHARS{24})(?=/|$)".toRegex(),
-            "(?<=/)($ULID_CHARS{26})(?=/|$)".toRegex(),
-            "(?<=/)($DIGITS{3,})(?=/|$)".toRegex(),
-            "(?<=/)($ALPHANUMERIC{16,})(?=/|$)".toRegex(),
-        )
+    internal const val HEX_CHARS = "[0-9a-fA-F]"
+    internal const val DIGITS = "\\d"
+    internal const val ALPHANUMERIC = "[A-Za-z0-9]"
+    internal const val ULID_CHARS = "[0-9A-HJKMNP-TV-Z]"
+    internal const val REDACTED = "[redacted]"
 
     public fun isNetworkSpan(span: ReadableSpan): Boolean = span.attributes.get(HTTP_METHOD_KEY) != null
-
-    public fun normaliseUrl(originalUrl: String): String {
-        var normalized = originalUrl.substringBefore("?")
-
-        urlNormalizationPatterns.forEach { pattern ->
-            normalized = pattern.replace(normalized, REDACTED)
-        }
-
-        return normalized
-    }
-
-    public fun endWithSlash(url: String): String = url.trimEnd('/') + "/"
 
     public fun isDebug(): Boolean = BuildConfig.DEBUG
 
@@ -120,9 +97,4 @@ public fun String.matchesFromRegexCache(regexStr: String): Boolean {
     val matcher = threadLocalMatcher.get() ?: error("matcher should not be null here")
     matcher.reset(this)
     return matcher.matches()
-}
-
-public fun String.extractBaseUrlWithSlash(): String {
-    val url = URL(this)
-    return "${url.protocol}://${url.host}/"
 }

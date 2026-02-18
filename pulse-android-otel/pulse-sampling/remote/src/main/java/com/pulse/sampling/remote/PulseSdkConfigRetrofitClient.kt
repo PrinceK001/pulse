@@ -1,8 +1,8 @@
 package com.pulse.sampling.remote
 
+import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.otel.utils.PulseSerialisationUtils
-import com.pulse.otel.utils.extractBaseUrlWithSlash
 import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.EventListener
@@ -21,7 +21,7 @@ public class PulseSdkConfigRetrofitClient(
     private val retrofit: Retrofit by lazy {
         Retrofit
             .Builder()
-            .baseUrl(url.extractBaseUrlWithSlash())
+            .baseUrl(PulseNetworkingUtils.extractBaseUrlWithSlash(url))
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .client(buildOkHttpClient())
             .build()

@@ -19,7 +19,7 @@ public class InteractionConfigRestFetcher(
     private val restClients = ConcurrentHashMap<String, InteractionApiService>()
     private var interactionRetrofitClient: InteractionRetrofitClient? = null
 
-    override suspend fun getConfigs(): List<InteractionConfig>? {
+    override suspend fun getConfigs(): List<InteractionConfig> {
         val url = urlProvider()
         val restResponse =
             restClients
