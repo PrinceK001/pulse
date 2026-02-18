@@ -37,6 +37,7 @@ import io.opentelemetry.android.instrumentation.interaction.library.InteractionI
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationInstrumentationConstants
+import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
@@ -429,6 +430,32 @@ internal class PulseSDKImpl :
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
             )
+
+        // Initialize metered session manager (for billing/metering)
+        initializeMeteredSessionManager(application)
+    }
+
+    /**
+     * Initialize metered session manager with hardcoded configuration.
+     * This session is used for billing/metering and is NOT sent to backend by default.
+     */
+    private fun initializeMeteredSessionManager(application: Application) {
+        // Create metered session event logger (events emitted but not exported by default)
+        // To enable backend export later, modify log exporter configuration
+        val meteredEventLogger =
+            otelInstance
+                ?.getOpenTelemetry()
+                ?.logsBridge
+                ?.loggerBuilder("pulse.metered.session")
+                ?.build()
+
+        // Create metered session manager with hardcoded config (30min, persistent, no background checks)
+        // Event logger is optional - if provided, events will be emitted internally
+        meteredSessionManager =
+            OpenTelemetryRumInitializer.createMeteredSessionManager(
+                application = application,
+                eventLogger = meteredEventLogger,
+            )
     }
 
     private fun createSignalsProcessors(
@@ -685,6 +712,7 @@ internal class PulseSDKImpl :
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
     private var isCustomEventEnabled = true
     private var otelInstance: OpenTelemetryRum? = null
+    private var meteredSessionManager: SessionProvider? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()
     private var application: Application? = null

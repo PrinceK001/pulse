@@ -28,6 +28,7 @@ internal class SessionManager(
     SessionPublisher {
     private val session: AtomicReference<Session> = AtomicReference(Session.NONE)
     private val observers = synchronizedList(ArrayList<SessionObserver>())
+
     // Track expired restored session to emit session.end when creating new one
     private val expiredRestoredSession: AtomicReference<Session> = AtomicReference(Session.NONE)
 
@@ -58,8 +59,10 @@ internal class SessionManager(
         val currentSession = session.get()
 
         // Check if we need to create a new session
-        val shouldCreateNew = sessionHasExpired(currentSession) || 
-            (timeoutHandler?.hasTimedOut() == true && currentSession.getStartTimestamp() >= 0) // Only check timeout for non-NONE sessions
+        // Only check timeout for non-NONE sessions
+        val shouldCreateNew =
+            sessionHasExpired(currentSession) ||
+                (timeoutHandler?.hasTimedOut() == true && currentSession.getStartTimestamp() >= 0)
 
         return if (shouldCreateNew) {
             val newId = idGenerator.generateSessionId()
@@ -68,21 +71,22 @@ internal class SessionManager(
             // Atomically update the session only if it hasn't been changed by another thread.
             if (session.compareAndSet(currentSession, newSession)) {
                 sessionStorage.save(newSession)
-                
+
                 // Check if we have an expired restored session that needs session.end
                 val expiredRestored = expiredRestoredSession.getAndSet(Session.NONE)
-                val previousSession = if (expiredRestored.getId().isNotEmpty()) {
-                    expiredRestored
-                } else {
-                    currentSession
-                }
-                
+                val previousSession =
+                    if (expiredRestored.getId().isNotEmpty()) {
+                        expiredRestored
+                    } else {
+                        currentSession
+                    }
+
                 // Bump timeout handler first (extends timer if background timeout is enabled)
                 timeoutHandler?.bump()
-                
+
                 // Notify observers: session.end for old, session.start for new
                 notifyObserversOfSessionUpdate(previousSession, newSession)
-                
+
                 newSession.getId()
             } else {
                 // Another thread accessed this function prior to creating a new session. Use the
@@ -124,28 +128,30 @@ internal class SessionManager(
             application: Context,
             timeoutHandler: SessionIdTimeoutHandler?,
             sessionConfig: SessionConfig,
+            storageKey: String = "otel_session_storage",
         ): SessionManager {
             // Choose storage based on persistence config
-            val sessionStorage: SessionStorage = if (sessionConfig.enablePersistence) {
-                val sharedPreferences = application.getSharedPreferences(
-                    "otel_session_storage",
-                    Context.MODE_PRIVATE
-                )
-                PersistentSessionStorage(sharedPreferences)
-            } else {
-                InMemorySessionStorage()
-            }
-            
+            val sessionStorage: SessionStorage =
+                if (sessionConfig.shouldPersist) {
+                    val sharedPreferences =
+                        application.getSharedPreferences(
+                            storageKey,
+                            Context.MODE_PRIVATE,
+                        )
+                    PersistentSessionStorage(sharedPreferences)
+                } else {
+                    InMemorySessionStorage()
+                }
+
             // Use max lifetime from config (default to 4 hours if null)
             val maxLifetime = sessionConfig.maxLifetime ?: 4.hours
-            
+
             // Use provided handler or create one only if background timeout is enabled
-            val handler = timeoutHandler ?: if (sessionConfig.backgroundInactivityTimeout != null) {
-                SessionIdTimeoutHandler(sessionConfig)
-            } else {
-                null
-            }
-            
+            val handler =
+                timeoutHandler ?: sessionConfig.backgroundInactivityTimeout?.let {
+                    SessionIdTimeoutHandler(sessionConfig)
+                }
+
             return SessionManager(
                 sessionStorage = sessionStorage,
                 timeoutHandler = handler,

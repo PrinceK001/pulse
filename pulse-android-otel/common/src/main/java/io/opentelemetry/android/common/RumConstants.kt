@@ -72,5 +72,9 @@ object RumConstants {
         // TODO: Use the semconv when available
         const val EVENT_SESSION_START: String = "session.start"
         const val EVENT_SESSION_END: String = "session.end"
+
+        // Metered session events (for billing/metering)
+        const val EVENT_METERED_SESSION_START: String = "metered.session.start"
+        const val EVENT_METERED_SESSION_END: String = "metered.session.end"
     }
 }

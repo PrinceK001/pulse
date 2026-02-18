@@ -21,7 +21,7 @@ class SessionIdTimeoutHandlerTest {
     fun shouldNeverTimeOutInForeground() {
         val clock: TestClock = TestClock.create()
         val timeoutHandler =
-            SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout)
+            SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
 
         assertFalse(timeoutHandler.hasTimedOut())
         timeoutHandler.bump()
@@ -35,7 +35,7 @@ class SessionIdTimeoutHandlerTest {
     fun shouldApply15MinutesTimeoutToAppsInBackground() {
         val clock: TestClock = TestClock.create()
         val timeoutHandler =
-            SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout)
+            SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
 
         timeoutHandler.onApplicationBackgrounded()
         timeoutHandler.bump()
@@ -67,7 +67,7 @@ class SessionIdTimeoutHandlerTest {
     fun shouldApplyTimeoutToFirstSpanAfterAppBeingMovedToForeground() {
         val clock: TestClock = TestClock.create()
         val timeoutHandler =
-            SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout)
+            SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
 
         timeoutHandler.onApplicationBackgrounded()
         timeoutHandler.bump()

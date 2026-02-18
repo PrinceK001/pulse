@@ -11,7 +11,6 @@ import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.api.common.Attributes
-import kotlin.time.Duration.Companion.seconds
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.resources.ResourceBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
@@ -60,15 +59,7 @@ public interface PulseSDK {
          */
         configEndpointUrl: String? = null,
         resource: (ResourceBuilder.() -> Unit)? = null,
-        /**
-         * Session configuration. Default: Pulse SDK defaults (10 seconds maxLifetime, no background checks, persistence enabled).
-         * Pass SessionConfig.withDefaults() to use OTEL defaults instead.
-         */
-        sessionConfig: SessionConfig = SessionConfig(
-            maxLifetime = 10.seconds,
-            backgroundInactivityTimeout = null,
-            enablePersistence = true
-        ),
+        sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,

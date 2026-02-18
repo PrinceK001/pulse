@@ -6,6 +6,7 @@
 package io.opentelemetry.android.agent.session
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import io.opentelemetry.android.session.Session
 
 /**
@@ -29,11 +30,11 @@ internal class PersistentSessionStorage(
     override fun get(): Session {
         val id = sharedPreferences.getString(KEY_SESSION_ID, null) ?: return Session.NONE
         val startTimestamp = sharedPreferences.getLong(KEY_SESSION_START_TIMESTAMP, -1)
-        
+
         if (startTimestamp == -1L) {
             return Session.NONE
         }
-        
+
         return Session.DefaultSession(id, startTimestamp)
     }
 
@@ -43,19 +44,19 @@ internal class PersistentSessionStorage(
      * @param newSession The session to save
      */
     override fun save(newSession: Session) {
-        if (newSession.getId().isEmpty()) {
+        if (newSession.getId().isBlank()) {
             // Clear stored session if it's NONE
-            sharedPreferences.edit()
-                .remove(KEY_SESSION_ID)
-                .remove(KEY_SESSION_START_TIMESTAMP)
-                .apply()
+            sharedPreferences.edit {
+                remove(KEY_SESSION_ID)
+                remove(KEY_SESSION_START_TIMESTAMP)
+            }
             return
         }
-        
-        sharedPreferences.edit()
-            .putString(KEY_SESSION_ID, newSession.getId())
-            .putLong(KEY_SESSION_START_TIMESTAMP, newSession.getStartTimestamp())
-            .apply()
+
+        sharedPreferences.edit {
+            putString(KEY_SESSION_ID, newSession.getId())
+            putLong(KEY_SESSION_START_TIMESTAMP, newSession.getStartTimestamp())
+        }
     }
 
     /**
@@ -63,9 +64,9 @@ internal class PersistentSessionStorage(
      * Aligned with iOS SessionStore.teardown().
      */
     fun teardown() {
-        sharedPreferences.edit()
-            .remove(KEY_SESSION_ID)
-            .remove(KEY_SESSION_START_TIMESTAMP)
-            .apply()
+        sharedPreferences.edit {
+            remove(KEY_SESSION_ID)
+            remove(KEY_SESSION_START_TIMESTAMP)
+        }
     }
 }

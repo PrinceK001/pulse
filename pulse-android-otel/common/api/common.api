@@ -24,6 +24,8 @@ public final class io/opentelemetry/android/common/RumConstants$App {
 }
 
 public final class io/opentelemetry/android/common/RumConstants$Events {
+	public static final field EVENT_METERED_SESSION_END Ljava/lang/String;
+	public static final field EVENT_METERED_SESSION_START Ljava/lang/String;
 	public static final field EVENT_SESSION_END Ljava/lang/String;
 	public static final field EVENT_SESSION_START Ljava/lang/String;
 	public static final field INIT_EVENT_ANR_MONITOR Ljava/lang/String;

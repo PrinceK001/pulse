@@ -34,11 +34,13 @@ internal class SessionIdTimeoutHandler(
     @Volatile
     private var state = State.FOREGROUND
 
-    // for testing
+    // Convenience constructor - only use when backgroundInactivityTimeout is not null
     @OptIn(Incubating::class)
     internal constructor(sessionConfig: SessionConfig) : this(
         Clock.getDefault(),
-        sessionConfig.backgroundInactivityTimeout!!, // Safe: only created when non-null
+        sessionConfig.backgroundInactivityTimeout ?: throw IllegalArgumentException(
+            "backgroundInactivityTimeout must not be null when creating SessionIdTimeoutHandler",
+        ),
     )
 
     override fun onApplicationForegrounded() {

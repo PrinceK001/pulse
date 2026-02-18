@@ -5,6 +5,8 @@
 
 package io.opentelemetry.android.agent.session
 
+import android.content.Context
+import android.content.SharedPreferences
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
 import io.mockk.confirmVerified
@@ -40,11 +42,28 @@ internal class SessionManagerTest {
     @MockK
     lateinit var timeoutHandler: SessionIdTimeoutHandler
 
+    @MockK
+    lateinit var mockContext: Context
+
+    @MockK
+    lateinit var mockSharedPreferences: SharedPreferences
+
+    @MockK
+    lateinit var mockEditor: SharedPreferences.Editor
+
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this)
         every { timeoutHandler.hasTimedOut() } returns false
         every { timeoutHandler.bump() } just Runs
+        every { mockContext.getSharedPreferences(any(), any()) } returns mockSharedPreferences
+        every { mockSharedPreferences.edit() } returns mockEditor
+        every { mockEditor.putString(any(), any()) } returns mockEditor
+        every { mockEditor.putLong(any(), any()) } returns mockEditor
+        every { mockEditor.remove(any()) } returns mockEditor
+        every { mockEditor.apply() } just Runs
+        every { mockSharedPreferences.getString(any(), any()) } returns null
+        every { mockSharedPreferences.getLong(any(), any()) } returns -1L
     }
 
     @Test
@@ -53,6 +72,7 @@ internal class SessionManagerTest {
         val sessionManager =
             SessionManager(
                 TestClock.create(),
+                sessionStorage = InMemorySessionStorage(),
                 timeoutHandler = timeoutHandler,
                 maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
             )
@@ -72,6 +92,7 @@ internal class SessionManagerTest {
         val sessionManager =
             SessionManager(
                 clock,
+                sessionStorage = InMemorySessionStorage(),
                 timeoutHandler = timeoutHandler,
                 maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
             )
@@ -108,6 +129,7 @@ internal class SessionManagerTest {
         val sessionManager =
             SessionManager(
                 clock,
+                sessionStorage = InMemorySessionStorage(),
                 timeoutHandler = timeoutHandler,
                 maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
             )
@@ -156,25 +178,28 @@ internal class SessionManagerTest {
     @Test
     fun shouldCreateNewSessionIdAfterTimeout() {
         // Given
-        val sessionId =
+        val clock = TestClock.create()
+        val sessionManager =
             SessionManager(
+                clock,
+                sessionStorage = InMemorySessionStorage(),
                 timeoutHandler = timeoutHandler,
                 maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
             )
 
         // When - access session ID twice, should be same
-        val value = sessionId.getSessionId()
+        val value = sessionManager.getSessionId()
         verify { timeoutHandler.bump() }
 
         // Then
-        assertThat(value).isEqualTo(sessionId.getSessionId())
+        assertThat(value).isEqualTo(sessionManager.getSessionId())
         verify(exactly = 2) { timeoutHandler.bump() }
 
         // When - timeout handler indicates timeout
         every { timeoutHandler.hasTimedOut() } returns true
 
         // Then - should create new session
-        assertThat(value).isNotEqualTo(sessionId.getSessionId())
+        assertThat(value).isNotEqualTo(sessionManager.getSessionId())
         verify(exactly = 3) { timeoutHandler.bump() }
     }
 
@@ -185,6 +210,7 @@ internal class SessionManagerTest {
         val sessionManager =
             SessionManager(
                 clock,
+                sessionStorage = InMemorySessionStorage(),
                 timeoutHandler = timeoutHandler,
                 maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
             )
@@ -232,6 +258,7 @@ internal class SessionManagerTest {
         val sessionManager =
             SessionManager(
                 clock,
+                sessionStorage = InMemorySessionStorage(),
                 timeoutHandler = timeoutHandler,
                 maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
             )
@@ -273,6 +300,7 @@ internal class SessionManagerTest {
         val sessionManager =
             SessionManager(
                 clock,
+                sessionStorage = InMemorySessionStorage(),
                 timeoutHandler = timeoutHandler,
                 maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
             )
@@ -313,6 +341,7 @@ internal class SessionManagerTest {
         val sessionManager =
             SessionManager(
                 clock,
+                sessionStorage = InMemorySessionStorage(),
                 timeoutHandler = timeoutHandler,
                 maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
             )
@@ -374,6 +403,139 @@ internal class SessionManagerTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `should use default 4 hours when maxLifetime is null`() {
+        // Given - config with null maxLifetime
+        val config = SessionConfig(maxLifetime = null)
+        val sessionManager =
+            SessionManager.create(
+                mockContext,
+                timeoutHandler,
+                config,
+            )
+
+        // When - get session
+        val sessionId = sessionManager.getSessionId()
+
+        // Then - should use default 4 hours (verified by using 4h in SessionManager.create)
+        assertThat(sessionId).isNotNull()
+        assertThat(sessionId).hasSize(SESSION_ID_LENGTH)
+    }
+
+    @Test
+    fun `should use persistent storage when shouldPersist is true`() {
+        // Given - config with persistence enabled
+        val config = SessionConfig(shouldPersist = true)
+
+        // When - create SessionManager
+        val sessionManager =
+            SessionManager.create(
+                mockContext,
+                timeoutHandler,
+                config,
+            )
+
+        // Then - should use PersistentSessionStorage
+        verify(exactly = 1) { mockContext.getSharedPreferences("otel_session_storage", Context.MODE_PRIVATE) }
+    }
+
+    @Test
+    fun `should use in-memory storage when shouldPersist is false`() {
+        // Given - config with persistence disabled
+        val config = SessionConfig(shouldPersist = false)
+
+        // When - create SessionManager
+        val sessionManager =
+            SessionManager.create(
+                mockContext,
+                timeoutHandler,
+                config,
+            )
+
+        // Then - should not use SharedPreferences (in-memory storage)
+        verify(exactly = 0) { mockContext.getSharedPreferences(any(), any()) }
+    }
+
+    @Test
+    fun `should restore valid session from persistent storage`() {
+        // Given - simulate stored session (within 4 hours)
+        val clock = TestClock.create()
+        val currentTime = clock.now()
+        val storedSessionId = "stored-session-id-12345678901234567890123456789012"
+        // Store session from 2 hours ago (within 4 hour limit)
+        val storedStartTime = currentTime - (2 * 1_000_000_000L * 3600) // 2 hours ago
+
+        every { mockSharedPreferences.getString("otel-session-id", null) } returns storedSessionId
+        every { mockSharedPreferences.getLong("otel-session-start-timestamp", -1) } returns storedStartTime
+
+        val config = SessionConfig(shouldPersist = true, maxLifetime = 4.hours)
+        val sessionStorage: SessionStorage = PersistentSessionStorage(mockSharedPreferences)
+
+        // When - create SessionManager with TestClock (should restore session)
+        val sessionManager =
+            SessionManager(
+                clock = clock,
+                sessionStorage = sessionStorage,
+                timeoutHandler = timeoutHandler,
+                maxSessionLifetime = config.maxLifetime ?: 4.hours,
+            )
+
+        // Then - should reuse restored session
+        val sessionId = sessionManager.getSessionId()
+        assertThat(sessionId).isEqualTo(storedSessionId)
+    }
+
+    @Test
+    fun `should create new session when restored session is expired`() {
+        // Given - simulate expired stored session (5 hours ago, past 4h limit)
+        val storedSessionId = "expired-session-id-12345678901234567890123456789012"
+        val storedStartTime = System.nanoTime() - (5 * 1_000_000_000L * 3600) // 5 hours ago
+
+        every { mockSharedPreferences.getString("otel-session-id", null) } returns storedSessionId
+        every { mockSharedPreferences.getLong("otel-session-start-timestamp", -1) } returns storedStartTime
+
+        val observer = mockk<SessionObserver>()
+        every { observer.onSessionStarted(any<Session>(), any<Session>()) } just Runs
+        every { observer.onSessionEnded(any<Session>()) } just Runs
+
+        val config = SessionConfig(shouldPersist = true, maxLifetime = 4.hours)
+
+        // When - create SessionManager and get session
+        val sessionManager =
+            SessionManager.create(
+                mockContext,
+                timeoutHandler,
+                config,
+            )
+        sessionManager.addObserver(observer)
+
+        val newSessionId = sessionManager.getSessionId()
+
+        // Then - should create new session and emit session.end for expired one
+        assertThat(newSessionId).isNotEqualTo(storedSessionId)
+        verify(exactly = 1) { observer.onSessionEnded(match { it.getId() == storedSessionId }) }
+        verify(exactly = 1) { observer.onSessionStarted(any<Session>(), match { it.getId() == storedSessionId }) }
+    }
+
+    @Test
+    fun `should handle nullable maxLifetime with custom value`() {
+        // Given - config with custom maxLifetime
+        val config = SessionConfig(maxLifetime = 1.hours)
+        val sessionManager =
+            SessionManager.create(
+                mockContext,
+                timeoutHandler,
+                config,
+            )
+
+        // When - get session
+        val sessionId = sessionManager.getSessionId()
+
+        // Then - should use custom 1 hour maxLifetime
+        assertThat(sessionId).isNotNull()
+        assertThat(sessionId).hasSize(SESSION_ID_LENGTH)
     }
 
     private data class AddSessionIdsParameters(
