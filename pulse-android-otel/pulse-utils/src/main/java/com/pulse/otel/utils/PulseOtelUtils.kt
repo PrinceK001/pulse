@@ -6,6 +6,7 @@ import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
+import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Matcher
 import java.util.regex.Pattern
@@ -116,4 +117,9 @@ public fun String.matchesFromRegexCache(regexStr: String): Boolean {
     val matcher = threadLocalMatcher.get() ?: error("matcher should not be null here")
     matcher.reset(this)
     return matcher.matches()
+}
+
+public fun String.extractBaseUrlWithSlash(): String {
+    val url = URL(this)
+    return "${url.protocol}://${url.host}/"
 }

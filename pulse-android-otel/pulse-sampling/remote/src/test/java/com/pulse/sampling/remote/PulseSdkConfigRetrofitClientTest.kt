@@ -1,9 +1,10 @@
+// test code
+@file:Suppress("SuspendFunSwallowedCancellation")
+
 package com.pulse.sampling.remote
 
-import com.pulse.otel.utils.models.PulseApiResponse
 import com.pulse.sampling.models.PulseDeviceAttributeName
 import com.pulse.sampling.models.PulseFeatureName
-import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
+import retrofit2.HttpException
 import java.io.File
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -41,296 +43,7 @@ class PulseSdkConfigRetrofitClientTest {
     @Test
     fun `provide returns config when API response is successful`() =
         runTest {
-            val successResponseJson =
-                """
-                {
-                    "data": {
-                        "version": 1,
-                        "description": "this is  test config",
-                        "sampling": {
-                            "default": {
-                                "sessionSampleRate": 0.5
-                            },
-                            "rules": [
-                                {
-                                    "name": "os_version",
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ],
-                                    "value": "27",
-                                    "sessionSampleRate": 1
-                                },
-                                {
-                                    "name": "app_version",
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ],
-                                    "value": "5.4.0",
-                                    "sessionSampleRate": 1
-                                },
-                                {
-                                    "name": "country",
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ],
-                                    "value": "IN",
-                                    "sessionSampleRate": 1
-                                },
-                                {
-                                    "name": "platform",
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ],
-                                    "value": "5.4.0",
-                                    "sessionSampleRate": 1
-                                },
-                                {
-                                    "name": "state",
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ],
-                                    "value": "MH",
-                                    "sessionSampleRate": 1
-                                }
-                            ],
-                            "criticalEventPolicies": {
-                                "alwaysSend": [
-                                    {
-                                        "name": "crash",
-                                        "props": [
-                                            {
-                                                "name": "severity",
-                                                "value": "critical"
-                                            }
-                                        ],
-                                        "scopes": [
-                                            "logs",
-                                            "traces",
-                                            "metrics",
-                                            "baggage"
-                                        ],
-                                        "sdks": [
-                                            "pulse_android_java",
-                                            "pulse_android_rn",
-                                            "pulse_ios_swift",
-                                            "pulse_ios_rn"
-                                        ]
-                                    },
-                                    {
-                                        "name": "payment_error",
-                                        "props": [
-                                            {
-                                                "name": "error_type",
-                                                "value": "payment.*"
-                                            }
-                                        ],
-                                        "scopes": [
-                                            "logs",
-                                            "traces",
-                                            "metrics",
-                                            "baggage"
-                                        ],
-                                        "sdks": [
-                                            "pulse_android_java",
-                                            "pulse_android_rn",
-                                            "pulse_ios_swift",
-                                            "pulse_ios_rn"
-                                        ]
-                                    }
-                                ]
-                            },
-                            "criticalSessionPolicies": {
-                                "alwaysSend": [
-                                    {
-                                        "name": "crash",
-                                        "props": [
-                                            {
-                                                "name": "severity",
-                                                "value": "critical"
-                                            }
-                                        ],
-                                        "scopes": [
-                                            "logs",
-                                            "traces",
-                                            "metrics",
-                                            "baggage"
-                                        ],
-                                        "sdks": [
-                                            "pulse_android_java",
-                                            "pulse_android_rn",
-                                            "pulse_ios_swift",
-                                            "pulse_ios_rn"
-                                        ]
-                                    },
-                                    {
-                                        "name": "payment_error",
-                                        "props": [
-                                            {
-                                                "name": "error_type",
-                                                "value": "payment.*"
-                                            }
-                                        ],
-                                        "scopes": [
-                                            "logs",
-                                            "traces",
-                                            "metrics",
-                                            "baggage"
-                                        ],
-                                        "sdks": [
-                                            "pulse_android_java",
-                                            "pulse_android_rn",
-                                            "pulse_ios_swift",
-                                            "pulse_ios_rn"
-                                        ]
-                                    }
-                                ]
-                            }
-                        },
-                        "signals": {
-                            "filters": {
-                                "mode": "blacklist",
-                                "values": [
-                                    {
-                                        "name": "sensitive_event",
-                                        "props": [
-                                            {
-                                                "name": "contains_pii",
-                                                "value": "true"
-                                            }
-                                        ],
-                                        "scopes": [
-                                            "logs",
-                                            "traces",
-                                            "metrics",
-                                            "baggage"
-                                        ],
-                                        "sdks": [
-                                            "pulse_android_java",
-                                            "pulse_android_rn",
-                                            "pulse_ios_swift",
-                                            "pulse_ios_rn"
-                                        ]
-                                    }
-                                ]
-                            },
-                            "scheduleDurationMs": 5000,
-                            "logsCollectorUrl": "http://localhost:4318/v1/traces",
-                            "metricCollectorUrl": "http://localhost:4318/v1/traces",
-                            "spanCollectorUrl": "http://localhost:4318/v1/traces",
-                            "customEventCollectorUrl": "http://localhost:4318/v1/custom-event",
-                            "attributesToDrop": [
-                                {
-                                    "name": "credit_card",
-                                    "props": [
-                                        {
-                                            "name": "severity",
-                                            "value": "critical"
-                                        }
-                                    ],
-                                    "scopes": [
-                                        "logs",
-                                        "traces",
-                                        "metrics",
-                                        "baggage"
-                                    ],
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ]
-                                },
-                                {
-                                    "name": "password",
-                                    "props": [
-                                        {
-                                            "name": "severity",
-                                            "value": "critical"
-                                        }
-                                    ],
-                                    "scopes": [
-                                        "logs",
-                                        "traces",
-                                        "metrics",
-                                        "baggage"
-                                    ],
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ]
-                                }
-                            ],
-                            "attributesToAdd": [
-                                {
-                                    "values": [
-                                        {
-                                            "name": "NewAddedKeyName",
-                                            "value": "NewAddedValueOfThatKey",
-                                            "type": "string"
-                                        }
-                                    ],
-                                    "condition": {
-                                        "name": "password",
-                                        "props": [
-                                            {
-                                                "name": "severity",
-                                                "value": "critical"
-                                            }
-                                        ],
-                                        "scopes": [
-                                            "logs",
-                                            "traces",
-                                            "metrics",
-                                            "baggage"
-                                        ],
-                                        "sdks": [
-                                            "pulse_android_java",
-                                            "pulse_android_rn",
-                                            "pulse_ios_swift",
-                                            "pulse_ios_rn"
-                                        ]
-                                    }
-                                }
-                            ]
-                        },
-                        "interaction": {
-                            "collectorUrl": "http://localhost:4318/v1/interactions",
-                            "configUrl": "http://localhost:8080/v1/configs/latest-version",
-                            "beforeInitQueueSize": 100
-                        },
-                        "features": [
-                            {
-                                "featureName": "java_crash",
-                                "sessionSampleRate": 0.8,
-                                "sdks": [
-                                    "pulse_android_java",
-                                    "pulse_android_rn",
-                                    "pulse_ios_swift",
-                                    "pulse_ios_rn"
-                                ]
-                            }
-                        ]
-                    },
-                    "error": null
-                }
-                """.trimIndent()
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
 
             mockWebServer.enqueue(
                 MockResponse().apply {
@@ -340,12 +53,10 @@ class PulseSdkConfigRetrofitClientTest {
                 },
             )
 
-            val configApiResponse: PulseApiResponse<PulseSdkConfig> = retrofitClient.apiService.getConfig()
-
-            val config = configApiResponse.data
+            val config = retrofitClient.apiService.getConfig(configUrl)
 
             assertThat(config).isNotNull
-            assertThat(config!!.version).isEqualTo(1)
+            assertThat(config.version).isEqualTo(1)
             assertThat(config.sampling.default.sessionSampleRate).isEqualTo(0.5f)
             assertThat(config.sampling.rules).hasSize(5)
             assertThat(config.sampling.rules[0].name).isEqualTo(PulseDeviceAttributeName.OS_VERSION)
@@ -402,30 +113,33 @@ class PulseSdkConfigRetrofitClientTest {
         }
 
     @Test
-    fun `provide returns null when API response contains error`() =
+    fun `provide throws exception when API response is error`() =
         runTest {
-            val errorResponseJson =
-                """
-                {
-                    "data": null,
-                    "error": {
-                        "code": "CONFIG_NOT_FOUND",
-                        "message": "Configuration not found for the given parameters"
-                    }
-                }
-                """.trimIndent()
+            val errorMessage = "Configuration not found for the given parameters"
+            val expectedStatusCode = 404
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
 
             mockWebServer.enqueue(
                 MockResponse()
-                    .setResponseCode(200)
-                    .setBody(errorResponseJson)
+                    .setResponseCode(expectedStatusCode)
+                    .setBody("""{"code":"CONFIG_NOT_FOUND","message":"$errorMessage"}""")
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val configApiResponse = retrofitClient.apiService.getConfig()
+            val result =
+                runCatching {
+                    retrofitClient.apiService.getConfig(configUrl)
+                }
 
-            assertThat(configApiResponse.data).isNull()
-            assertThat(configApiResponse.error).isNotNull
+            assertThat(result.isFailure).isTrue()
+            val exception = result.exceptionOrNull()
+            assertThat(exception).isNotNull()
+            assertThat(exception).isInstanceOf(HttpException::class.java)
+            val httpException = (exception ?: error("exception is null")) as HttpException
+            assertThat(httpException.code()).isEqualTo(expectedStatusCode)
+            val responseBody = httpException.response()?.errorBody()?.string()
+            assertThat(responseBody).isNotNull()
+            assertThat(responseBody).contains(errorMessage)
         }
 
     @Test
@@ -434,8 +148,7 @@ class PulseSdkConfigRetrofitClientTest {
             val response =
                 """
                 {
-                    "data": {
-                        "version": 1,
+                    "version": 1,
                         "description": "test config",
                         "sampling": {
                             "default": {
@@ -485,10 +198,10 @@ class PulseSdkConfigRetrofitClientTest {
                             "beforeInitQueueSize": 100
                         },
                         "features": []
-                    },
-                    "error": null
-                }
+                    }
                 """.trimIndent()
+
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
 
             mockWebServer.enqueue(
                 MockResponse().apply {
@@ -498,12 +211,10 @@ class PulseSdkConfigRetrofitClientTest {
                 },
             )
 
-            val configApiResponse: PulseApiResponse<PulseSdkConfig> = retrofitClient.apiService.getConfig()
-
-            val config = configApiResponse.data
+            val config = retrofitClient.apiService.getConfig(configUrl)
 
             assertThat(config).isNotNull
-            assertThat(config!!.sampling.rules[0].sdks)
+            assertThat(config.sampling.rules[0].sdks)
                 .containsExactlyInAnyOrder(PulseSdkName.ANDROID_JAVA, PulseSdkName.UNKNOWN, PulseSdkName.IOS_RN)
             assertThat(config.sampling.rules)
                 .flatExtracting({ it.name })
@@ -525,4 +236,312 @@ class PulseSdkConfigRetrofitClientTest {
                     ),
                 )
         }
+
+    @Test
+    fun `creation of retrofit client with file url should not crash`() =
+        runTest {
+            val configUrl = mockWebServer.url("/$CONFIG_REL_URL").toString()
+            val retrofitClient = PulseSdkConfigRetrofitClient(configUrl, tempFolder)
+            mockWebServer.enqueue(
+                MockResponse().apply {
+                    setResponseCode(200)
+                    setBody(successResponseJson)
+                    setHeader("Content-Type", "application/json")
+                },
+            )
+
+            val config = retrofitClient.apiService.getConfig(configUrl)
+            assertThat(config).isNotNull
+        }
+
+    private companion object {
+        private const val CONFIG_REL_URL = "config.json"
+        private val successResponseJson =
+            """
+            {
+                "version": 1,
+                    "description": "this is  test config",
+                    "sampling": {
+                        "default": {
+                            "sessionSampleRate": 0.5
+                        },
+                        "rules": [
+                            {
+                                "name": "os_version",
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ],
+                                "value": "27",
+                                "sessionSampleRate": 1
+                            },
+                            {
+                                "name": "app_version",
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ],
+                                "value": "5.4.0",
+                                "sessionSampleRate": 1
+                            },
+                            {
+                                "name": "country",
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ],
+                                "value": "IN",
+                                "sessionSampleRate": 1
+                            },
+                            {
+                                "name": "platform",
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ],
+                                "value": "5.4.0",
+                                "sessionSampleRate": 1
+                            },
+                            {
+                                "name": "state",
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ],
+                                "value": "MH",
+                                "sessionSampleRate": 1
+                            }
+                        ],
+                        "criticalEventPolicies": {
+                            "alwaysSend": [
+                                {
+                                    "name": "crash",
+                                    "props": [
+                                        {
+                                            "name": "severity",
+                                            "value": "critical"
+                                        }
+                                    ],
+                                    "scopes": [
+                                        "logs",
+                                        "traces",
+                                        "metrics",
+                                        "baggage"
+                                    ],
+                                    "sdks": [
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
+                                    ]
+                                },
+                                {
+                                    "name": "payment_error",
+                                    "props": [
+                                        {
+                                            "name": "error_type",
+                                            "value": "payment.*"
+                                        }
+                                    ],
+                                    "scopes": [
+                                        "logs",
+                                        "traces",
+                                        "metrics",
+                                        "baggage"
+                                    ],
+                                    "sdks": [
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
+                                    ]
+                                }
+                            ]
+                        },
+                        "criticalSessionPolicies": {
+                            "alwaysSend": [
+                                {
+                                    "name": "crash",
+                                    "props": [
+                                        {
+                                            "name": "severity",
+                                            "value": "critical"
+                                        }
+                                    ],
+                                    "scopes": [
+                                        "logs",
+                                        "traces",
+                                        "metrics",
+                                        "baggage"
+                                    ],
+                                    "sdks": [
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
+                                    ]
+                                },
+                                {
+                                    "name": "payment_error",
+                                    "props": [
+                                        {
+                                            "name": "error_type",
+                                            "value": "payment.*"
+                                        }
+                                    ],
+                                    "scopes": [
+                                        "logs",
+                                        "traces",
+                                        "metrics",
+                                        "baggage"
+                                    ],
+                                    "sdks": [
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    "signals": {
+                        "filters": {
+                            "mode": "blacklist",
+                            "values": [
+                                {
+                                    "name": "sensitive_event",
+                                    "props": [
+                                        {
+                                            "name": "contains_pii",
+                                            "value": "true"
+                                        }
+                                    ],
+                                    "scopes": [
+                                        "logs",
+                                        "traces",
+                                        "metrics",
+                                        "baggage"
+                                    ],
+                                    "sdks": [
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
+                                    ]
+                                }
+                            ]
+                        },
+                        "scheduleDurationMs": 5000,
+                        "logsCollectorUrl": "http://localhost:4318/v1/traces",
+                        "metricCollectorUrl": "http://localhost:4318/v1/traces",
+                        "spanCollectorUrl": "http://localhost:4318/v1/traces",
+                        "customEventCollectorUrl": "http://localhost:4318/v1/custom-event",
+                        "attributesToDrop": [
+                            {
+                                "name": "credit_card",
+                                "props": [
+                                    {
+                                        "name": "severity",
+                                        "value": "critical"
+                                    }
+                                ],
+                                "scopes": [
+                                    "logs",
+                                    "traces",
+                                    "metrics",
+                                    "baggage"
+                                ],
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ]
+                            },
+                            {
+                                "name": "password",
+                                "props": [
+                                    {
+                                        "name": "severity",
+                                        "value": "critical"
+                                    }
+                                ],
+                                "scopes": [
+                                    "logs",
+                                    "traces",
+                                    "metrics",
+                                    "baggage"
+                                ],
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ]
+                            }
+                        ],
+                        "attributesToAdd": [
+                            {
+                                "values": [
+                                    {
+                                        "name": "NewAddedKeyName",
+                                        "value": "NewAddedValueOfThatKey",
+                                        "type": "string"
+                                    }
+                                ],
+                                "condition": {
+                                    "name": "password",
+                                    "props": [
+                                        {
+                                            "name": "severity",
+                                            "value": "critical"
+                                        }
+                                    ],
+                                    "scopes": [
+                                        "logs",
+                                        "traces",
+                                        "metrics",
+                                        "baggage"
+                                    ],
+                                    "sdks": [
+                                        "pulse_android_java",
+                                        "pulse_android_rn",
+                                        "pulse_ios_swift",
+                                        "pulse_ios_rn"
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "interaction": {
+                        "collectorUrl": "http://localhost:4318/v1/interactions",
+                        "configUrl": "http://localhost:8080/v1/configs/latest-version",
+                        "beforeInitQueueSize": 100
+                    },
+                    "features": [
+                        {
+                            "featureName": "java_crash",
+                            "sessionSampleRate": 0.8,
+                            "sdks": [
+                                "pulse_android_java",
+                                "pulse_android_rn",
+                                "pulse_ios_swift",
+                                "pulse_ios_rn"
+                            ]
+                        }
+                    ]
+                }
+            """.trimIndent()
+    }
 }

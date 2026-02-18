@@ -1,5 +1,5 @@
 public abstract interface class com/pulse/sampling/remote/PulseSdkConfigApiService {
-	public abstract fun getConfig (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun getConfig (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
 public final class com/pulse/sampling/remote/PulseSdkConfigRetrofitClient {

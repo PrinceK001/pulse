@@ -1,7 +1,8 @@
+// test code
+@file:Suppress("SuspendFunSwallowedCancellation")
+
 package com.pulse.android.remote
 
-import com.pulse.android.remote.models.InteractionConfig
-import com.pulse.otel.utils.models.PulseApiResponse
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -9,6 +10,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import retrofit2.HttpException
 
 class InteractionRetrofitClientTest {
     private lateinit var mockWebServer: MockWebServer
@@ -29,104 +31,7 @@ class InteractionRetrofitClientTest {
     @Test
     fun `getInteractions returns successful response with interaction data`() =
         runTest {
-            val successResponseJson =
-                """
-                {
-                    "data": [
-                        {
-                            "id": 1,
-                            "name": "TestInteractionId1",
-                            "description": "kijikn knmlmlm",
-                            "uptimeLowerLimitInMs": 16,
-                            "uptimeMidLimitInMs": 50,
-                            "uptimeUpperLimitInMs": 100,
-                            "thresholdInMs": 20000,
-                            "events": [
-                                {
-                                    "name": "mknjk",
-                                    "props": [],
-                                    "isBlacklisted": false
-                                },
-                                {
-                                    "name": "knn knn k,",
-                                    "props": [],
-                                    "isBlacklisted": false
-                                }
-                            ],
-                            "globalBlacklistedEvents": []
-                        },
-                        {
-                            "id": 2,
-                            "name": "TestInteraction",
-                            "description": "interaction",
-                            "uptimeLowerLimitInMs": 16,
-                            "uptimeMidLimitInMs": 50,
-                            "uptimeUpperLimitInMs": 100,
-                            "thresholdInMs": 20000,
-                            "events": [
-                                {
-                                    "name": "Start Event",
-                                    "props": [
-                                        {
-                                            "name": "hello",
-                                            "value": "world",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": false
-                                },
-                                {
-                                    "name": "Event T1",
-                                    "props": [
-                                        {
-                                            "name": "t1",
-                                            "value": "t1value",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": false
-                                },
-                                {
-                                    "name": "loCal Blacklist",
-                                    "props": [
-                                        {
-                                            "name": "local",
-                                            "value": "local",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": true
-                                },
-                                {
-                                    "name": "End Event",
-                                    "props": [
-                                        {
-                                            "name": "abhishej",
-                                            "value": "test",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": false
-                                }
-                            ],
-                            "globalBlacklistedEvents": [
-                                {
-                                    "name": "Gloabal Blacklist Event",
-                                    "props": [
-                                        {
-                                            "name": "global",
-                                            "value": "global",
-                                            "operator": "EQUALS"
-                                        }
-                                    ],
-                                    "isBlacklisted": true
-                                }
-                            ]
-                        }
-                    ],
-                    "error": null
-                }
-                """.trimIndent()
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
 
             mockWebServer.enqueue(
                 MockResponse()
@@ -135,17 +40,14 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions()
+            val response = client.apiService.getInteractions(configUrl)
 
             assertThat(response)
                 .isNotNull
-            assertThat(response.data)
-                .isNotNull
                 .hasSize(2)
                 .doesNotContainNull()
-            assertThat(response.error).isNull()
 
-            val firstInteraction = response.data!![0]
+            val firstInteraction = response[0]
             assertThat(firstInteraction).isNotNull
             assertThat(firstInteraction.id).isEqualTo(1)
             assertThat(firstInteraction.name).isEqualTo("TestInteractionId1")
@@ -158,50 +60,41 @@ class InteractionRetrofitClientTest {
         }
 
     @Test
-    fun `getInteractions returns error response when interaction not found`() =
+    fun `getInteractions throws exception when interaction not found`() =
         runTest {
-            val errorResponseJson =
-                """
-                {
-                    "data": null,
-                    "error": {
-                        "code": "INTERACTION_NOT_FOUND",
-                        "message": "Interaction with name 'my-interaction' does not exist"
-                    }
-                }
-                """.trimIndent()
+            val errorMessage = "Interaction with name 'my-interaction' does not exist"
+            val expectedStatusCode = 404
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
 
             mockWebServer.enqueue(
                 MockResponse()
-                    .setResponseCode(200)
-                    .setBody(errorResponseJson)
+                    .setResponseCode(expectedStatusCode)
+                    .setBody("""{"code":"INTERACTION_NOT_FOUND","message":"$errorMessage"}""")
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions()
+            val result =
+                runCatching {
+                    client.apiService.getInteractions(configUrl)
+                }
 
-            assertThat(response)
-                .isNotNull
-                .extracting { it.data }
-                .isNull()
-            assertThat(response.error)
-                .isNotNull
-                .extracting { it!!.code }
-                .isEqualTo("INTERACTION_NOT_FOUND")
-            assertThat(response.error!!.message)
-                .isEqualTo("Interaction with name 'my-interaction' does not exist")
+            assertThat(result.isFailure).isTrue()
+            val exception = result.exceptionOrNull()
+            assertThat(exception).isNotNull()
+            assertThat(exception).isInstanceOf(HttpException::class.java)
+            val httpException = (exception ?: error("exception is null")) as HttpException
+            assertThat(httpException.code()).isEqualTo(expectedStatusCode)
+            val responseBody = httpException.response()?.errorBody()?.string()
+            assertThat(responseBody).isNotNull()
+            assertThat(responseBody).contains(errorMessage)
         }
 
     @Test
     fun `getInteractions handles empty data array`() =
         runTest {
-            val emptyDataResponseJson =
-                """
-                {
-                    "data": [],
-                    "error": null
-                }
-                """.trimIndent()
+            val emptyDataResponseJson = "[]"
+
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
 
             mockWebServer.enqueue(
                 MockResponse()
@@ -210,13 +103,9 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response: PulseApiResponse<List<InteractionConfig>> = client.apiService.getInteractions()
+            val response = client.apiService.getInteractions(configUrl)
 
-            assertThat(response).isNotNull
-            assertThat(response.data)
-                .isNotNull
-                .isEmpty()
-            assertThat(response.error).isNull()
+            assertThat(response).isNotNull.isEmpty()
         }
 
     @Test
@@ -227,29 +116,28 @@ class InteractionRetrofitClientTest {
 
             val successResponseJson =
                 """
-                {
-                    "data": [
-                        {
-                            "id": 1,
-                            "name": "Test",
-                            "description": "test",
-                            "uptimeLowerLimitInMs": 16,
-                            "uptimeMidLimitInMs": 50,
-                            "uptimeUpperLimitInMs": 100,
-                            "thresholdInMs": 20000,
-                            "events": [
-                                {
-                                    "name": "event1",
-                                    "props": [],
-                                    "isBlacklisted": false
-                                }
-                            ],
-                            "globalBlacklistedEvents": []
-                        }
-                    ],
-                    "error": null
-                }
+                [
+                    {
+                        "id": 1,
+                        "name": "Test",
+                        "description": "test",
+                        "uptimeLowerLimitInMs": 16,
+                        "uptimeMidLimitInMs": 50,
+                        "uptimeUpperLimitInMs": 100,
+                        "thresholdInMs": 20000,
+                        "events": [
+                            {
+                                "name": "event1",
+                                "props": [],
+                                "isBlacklisted": false
+                            }
+                        ],
+                        "globalBlacklistedEvents": []
+                    }
+                ]
                 """.trimIndent()
+
+            val configUrl = mockWebServer.url(CONFIG_REL_URL).toString()
 
             mockWebServer.enqueue(
                 MockResponse()
@@ -258,12 +146,125 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response: PulseApiResponse<List<InteractionConfig>> = newClient.apiService.getInteractions()
+            val response = newClient.apiService.getInteractions(configUrl)
 
-            assertThat(response).isNotNull
-            assertThat(response.data)
-                .isNotNull
-                .hasSize(1)
-            assertThat(response.data!![0].name).isEqualTo("Test")
+            assertThat(response).isNotNull.hasSize(1)
+            assertThat(response[0].name).isEqualTo("Test")
         }
+
+    @Test
+    fun `creation of retrofit client with file url should not crash`() =
+        runTest {
+            val configUrl = mockWebServer.url("/$CONFIG_REL_URL").toString()
+            val client = InteractionRetrofitClient(configUrl)
+            mockWebServer.enqueue(
+                MockResponse().apply {
+                    setResponseCode(200)
+                    setBody(successResponseJson)
+                    setHeader("Content-Type", "application/json")
+                },
+            )
+
+            val response = client.apiService.getInteractions(configUrl)
+            assertThat(response).isNotNull
+        }
+
+    private companion object {
+        private const val CONFIG_REL_URL = "config.json"
+        private val successResponseJson =
+            """
+            [
+                {
+                    "id": 1,
+                        "name": "TestInteractionId1",
+                        "description": "kijikn knmlmlm",
+                        "uptimeLowerLimitInMs": 16,
+                        "uptimeMidLimitInMs": 50,
+                        "uptimeUpperLimitInMs": 100,
+                        "thresholdInMs": 20000,
+                        "events": [
+                            {
+                                "name": "mknjk",
+                                "props": [],
+                                "isBlacklisted": false
+                            },
+                            {
+                                "name": "knn knn k,",
+                                "props": [],
+                                "isBlacklisted": false
+                            }
+                        ],
+                        "globalBlacklistedEvents": []
+                    },
+                    {
+                        "id": 2,
+                        "name": "TestInteraction",
+                        "description": "interaction",
+                        "uptimeLowerLimitInMs": 16,
+                        "uptimeMidLimitInMs": 50,
+                        "uptimeUpperLimitInMs": 100,
+                        "thresholdInMs": 20000,
+                        "events": [
+                            {
+                                "name": "Start Event",
+                                "props": [
+                                    {
+                                        "name": "hello",
+                                        "value": "world",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": false
+                            },
+                            {
+                                "name": "Event T1",
+                                "props": [
+                                    {
+                                        "name": "t1",
+                                        "value": "t1value",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": false
+                            },
+                            {
+                                "name": "loCal Blacklist",
+                                "props": [
+                                    {
+                                        "name": "local",
+                                        "value": "local",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": true
+                            },
+                            {
+                                "name": "End Event",
+                                "props": [
+                                    {
+                                        "name": "abhishej",
+                                        "value": "test",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": false
+                            }
+                        ],
+                        "globalBlacklistedEvents": [
+                            {
+                                "name": "Gloabal Blacklist Event",
+                                "props": [
+                                    {
+                                        "name": "global",
+                                        "value": "global",
+                                        "operator": "EQUALS"
+                                    }
+                                ],
+                                "isBlacklisted": true
+                            }
+                        ]
+                    }
+                ]
+            """.trimIndent()
+    }
 }
