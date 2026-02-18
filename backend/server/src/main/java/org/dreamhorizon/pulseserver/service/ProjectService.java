@@ -10,7 +10,8 @@ import org.dreamhorizon.pulseserver.dao.projectdao.ProjectDao;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
 import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
 import org.dreamhorizon.pulseserver.model.Project;
-import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
+import org.dreamhorizon.pulseserver.service.configs.DefaultSdkConfigTemplate;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,17 +28,20 @@ public class ProjectService {
     
     private final ProjectDao projectDao;
     private final OpenFgaService openFgaService;
-    private final ApiKeyGenerator apiKeyGenerator;
     private final ClickhouseProjectService clickhouseProjectService;
+    private final org.dreamhorizon.pulseserver.service.configs.ConfigService configService;
     
     /**
      * Create a new project within a tenant.
      * This method:
-     * 1. Generates project ID and API key
+     * 1. Generates project ID
      * 2. Creates project in MySQL
      * 3. Sets up dedicated ClickHouse user and row policies
-     * 4. Assigns creator as project admin in OpenFGA
-     * 5. Links project to tenant in OpenFGA
+     * 4. Creates default SDK configuration
+     * 5. Assigns creator as project admin in OpenFGA
+     * 6. Links project to tenant in OpenFGA
+     * 
+     * Note: API key generation and storage is handled separately via project_api_keys table
      * 
      * @param tenantId Parent tenant ID
      * @param name Project name
@@ -47,7 +51,6 @@ public class ProjectService {
      */
     public Single<Project> createProject(String tenantId, String name, String description, String createdBy) {
         String projectId = "proj-" + UUID.randomUUID().toString();
-        String apiKey = apiKeyGenerator.generate(projectId);
         
         log.info("Creating project: projectId={}, tenantId={}, name={}, createdBy={}", 
             projectId, tenantId, name, createdBy);
@@ -57,7 +60,7 @@ public class ProjectService {
             .tenantId(tenantId)
             .name(name)
             .description(description)
-            .apiKey(apiKey)
+            .apiKey(null)  // Managed separately via project_api_keys table
             .isActive(true)
             .createdBy(createdBy)
             .build();
@@ -66,11 +69,11 @@ public class ProjectService {
             .flatMap(created -> 
                 // Setup ClickHouse user and row policies
                 clickhouseProjectService.setupProjectClickhouseUser(projectId)
+                    .andThen(createDefaultSdkConfig(projectId, createdBy))
                     .andThen(assignRolesAndLink(created, createdBy, tenantId))
             )
             .doOnSuccess(created -> 
-                log.info("Project created successfully: projectId={}, apiKey={}", 
-                    created.getProjectId(), created.getApiKey())
+                log.info("Project created successfully: projectId={}", created.getProjectId())
             )
             .doOnError(error -> 
                 log.error("Failed to create project: projectId={}, tenantId={}", 
@@ -82,6 +85,34 @@ public class ProjectService {
         return openFgaService.assignProjectRole(createdBy, project.getProjectId(), "admin")
             .andThen(openFgaService.linkProjectToTenant(project.getProjectId(), tenantId))
             .andThen(Single.just(project));
+    }
+    
+    /**
+     * Creates a default SDK configuration for a new project.
+     * Uses ProjectContext to ensure the config is associated with the correct project.
+     * 
+     * @param projectId Project ID
+     * @param createdBy User who created the project
+     * @return Completable that completes when default config is created
+     */
+    private io.reactivex.rxjava3.core.Completable createDefaultSdkConfig(String projectId, String createdBy) {
+        // Set project context BEFORE creating the async chain to avoid race condition
+        ProjectContext.setProjectId(projectId);
+        
+        return configService.createSdkConfig(DefaultSdkConfigTemplate.createDefaultConfig(createdBy))
+            .flatMapCompletable(config -> {
+                log.info("Created default SDK config for project: projectId={}, version={}", 
+                    projectId, config.getVersion());
+                return io.reactivex.rxjava3.core.Completable.complete();
+            })
+            .doFinally(() -> {
+                // Clear context after config creation
+                ProjectContext.clear();
+            })
+            .doOnError(error -> 
+                log.error("Failed to create default SDK config for project: projectId={}", 
+                    projectId, error)
+            );
     }
     
     /**
@@ -178,12 +209,14 @@ public class ProjectService {
     /**
      * Get project by API key (used by SDK authentication).
      * 
+     * Note: This method is deprecated - API key lookups will be handled via project_api_keys table
      * @param apiKey API key
-     * @return Single<Project> The project
+     * @return Single<Project> error (API keys not in projects table)
+     * @deprecated Use ProjectApiKeyService for API key lookups
      */
+    @Deprecated
     public Single<Project> getProjectByApiKey(String apiKey) {
-        return projectDao.getProjectByApiKey(apiKey)
-            .switchIfEmpty(Single.error(new RuntimeException("Invalid API key")));
+        return Single.error(new RuntimeException("API key lookup not implemented - use ProjectApiKeyService instead"));
     }
     
     /**

@@ -46,7 +46,6 @@ public class UserDao {
                     user.getUserId(),
                     user.getEmail(),
                     user.getName(),
-                    user.getProfilePicture(),
                     status,
                     user.getIsActive() != null ? user.getIsActive() : Boolean.TRUE))
             .map(result -> {
@@ -55,7 +54,6 @@ public class UserDao {
                     .userId(user.getUserId())
                     .email(user.getEmail())
                     .name(user.getName())
-                    .profilePicture(user.getProfilePicture())
                     .status(status)
                     .isActive(true)
                     .build();
@@ -141,18 +139,17 @@ public class UserDao {
 
     /**
      * Activate a pending user on first login.
-     * Updates status, firebase_uid, name, profile_picture, and last_login_at.
+     * Updates status, firebase_uid, name, and last_login_at.
      * 
      * @param userId User ID
      * @param firebaseUid Firebase UID from authentication
      * @param name User's full name
-     * @param profilePicture Profile picture URL
      * @return Completable that completes when activation is successful
      */
-    public Completable activateUser(String userId, String firebaseUid, String name, String profilePicture) {
+    public Completable activateUser(String userId, String firebaseUid, String name) {
         MySQLPool pool = mysqlClient.getWriterPool();
         return pool.preparedQuery(ACTIVATE_USER)
-            .rxExecute(Tuple.of(firebaseUid, name, profilePicture, userId))
+            .rxExecute(Tuple.of(firebaseUid, name, userId))
             .flatMapCompletable(result -> {
                 if (result.rowCount() == 0) {
                     return Completable.error(new RuntimeException("User not found: " + userId));
@@ -186,13 +183,12 @@ public class UserDao {
      * Update user profile information.
      * @param userId User ID
      * @param name Updated name
-     * @param profilePicture Updated profile picture URL
      * @return Completable that completes when update is successful
      */
-    public Completable updateUser(String userId, String name, String profilePicture) {
+    public Completable updateUser(String userId, String name) {
         MySQLPool pool = mysqlClient.getWriterPool();
         return pool.preparedQuery(UPDATE_USER)
-            .rxExecute(Tuple.of(name, profilePicture, userId))
+            .rxExecute(Tuple.of(name, userId))
             .flatMapCompletable(result -> {
                 if (result.rowCount() == 0) {
                     return Completable.error(new RuntimeException("User not found: " + userId));
@@ -231,7 +227,6 @@ public class UserDao {
             .userId(row.getString("user_id"))
             .email(row.getString("email"))
             .name(row.getString("name"))
-            .profilePicture(row.getString("profile_picture"))
             .status(row.getString("status"))
             .firebaseUid(row.getString("firebase_uid"))
             .lastLoginAt(row.getLocalDateTime("last_login_at") != null ? 

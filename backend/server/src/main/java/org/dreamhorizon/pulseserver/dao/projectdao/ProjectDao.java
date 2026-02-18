@@ -30,6 +30,7 @@ public class ProjectDao {
 
     /**
      * Create a new project in the database.
+     * Note: api_key is NOT inserted here - it will be managed via project_api_keys table
      * @param project Project object to create
      * @return Single containing the created project
      */
@@ -42,7 +43,6 @@ public class ProjectDao {
                     project.getTenantId(),
                     project.getName(),
                     project.getDescription(),
-                    project.getApiKey(),
                     true,
                     project.getCreatedBy())))
             .map(result -> {
@@ -73,21 +73,15 @@ public class ProjectDao {
 
     /**
      * Get project by API key.
+     * Note: This method is deprecated - API key lookups should use project_api_keys table
      * @param apiKey API key
-     * @return Maybe containing the project if found
+     * @return Maybe empty (API keys not stored in projects table)
+     * @deprecated API keys are managed in project_api_keys table
      */
+    @Deprecated
     public Maybe<Project> getProjectByApiKey(String apiKey) {
-        MySQLPool pool = mysqlClient.getReaderPool();
-        return pool.preparedQuery(GET_PROJECT_BY_API_KEY)
-            .rxExecute(Tuple.of(apiKey))
-            .flatMapMaybe(rowSet -> {
-                if (rowSet.size() == 0) {
-                    log.debug("Project not found by API key");
-                    return Maybe.empty();
-                }
-                return Maybe.just(mapRowToProject(rowSet.iterator().next()));
-            })
-            .doOnError(error -> log.error("Failed to fetch project by API key", error));
+        log.warn("getProjectByApiKey called but api_key is not in projects table - use ProjectApiKeyDao instead");
+        return Maybe.empty();
     }
 
     /**
@@ -170,9 +164,16 @@ public class ProjectDao {
 
     /**
      * Maps a database row to a Project object.
+     * Note: apiKey field will be null - it's managed separately via project_api_keys table
      */
     private Project mapRowToProject(Row row) {
         return Project.builder()
+            .id(row.getLong("id"))
+            .projectId(row.getString("project_id"))
+            .tenantId(row.getString("tenant_id"))
+            .name(row.getString("name"))
+            .description(row.getString("description"))
+            .apiKey(null)  // Not stored in projects table
             .id(row.getLong("id"))
             .projectId(row.getString("project_id"))
             .tenantId(row.getString("tenant_id"))

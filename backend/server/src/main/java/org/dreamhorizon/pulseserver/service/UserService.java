@@ -32,7 +32,7 @@ public class UserService {
      * @param profilePicture Profile picture URL
      * @return Single<User> The existing or newly created user
      */
-    public Single<User> getOrCreateUser(String email, String name, String profilePicture) {
+    public Single<User> getOrCreateUser(String email, String name) {
         return userDao.getUserByEmail(email)
             .switchIfEmpty(Single.defer(() -> {
                 String userId = "user-" + UUID.randomUUID().toString();
@@ -40,7 +40,6 @@ public class UserService {
                     .userId(userId)
                     .email(email)
                     .name(name)
-                    .profilePicture(profilePicture)
                     .isActive(true)
                     .build();
                 
@@ -90,7 +89,6 @@ public class UserService {
                             .userId(user.getUserId())
                             .email(user.getEmail())
                             .name(user.getName())
-                            .profilePicture(user.getProfilePicture())
                             .tenantRole(tenantRole)
                             .isActive(user.getIsActive())
                             .build();
@@ -111,11 +109,10 @@ public class UserService {
      * 
      * @param userId User ID
      * @param name Updated name
-     * @param profilePicture Updated profile picture URL
      * @return Single<User> Updated user
      */
-    public Single<User> updateUserProfile(String userId, String name, String profilePicture) {
-        return userDao.updateUser(userId, name, profilePicture)
+    public Single<User> updateUserProfile(String userId, String name) {
+        return userDao.updateUser(userId, name)
             .andThen(userDao.getUserById(userId))
             .switchIfEmpty(Single.error(new RuntimeException("User not found after update: " + userId)))
             .doOnSuccess(user -> 

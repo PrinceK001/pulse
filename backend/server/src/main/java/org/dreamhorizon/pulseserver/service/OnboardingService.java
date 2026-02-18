@@ -36,6 +36,10 @@ public class OnboardingService {
      * Complete onboarding for a new user.
      * Creates a tenant and first project, sets up authorization.
      * 
+     * RESTRICTION: Users can only be part of ONE organization during onboarding.
+     * If user is already part of any tenant (as owner, admin, or member), onboarding will fail.
+     * Users must not have any existing tenant associations to onboard.
+     * 
      * @param userId User ID (from Firebase)
      * @param email User email
      * @param name User display name
@@ -52,10 +56,43 @@ public class OnboardingService {
             String projectName,
             String projectDescription) {
         
+        log.info("Starting onboarding: userId={}, org={}, project={}", 
+            userId, organizationName, projectName);
+        
+        // Validate: User cannot be part of any tenant already
+        return openFgaService.getUserTenants(userId)
+            .flatMap(existingTenants -> {
+                if (existingTenants != null && !existingTenants.isEmpty()) {
+                    // User is already part of one or more tenants - block onboarding
+                    log.warn("Onboarding blocked: User is already part of {} organization(s): userId={}", 
+                        existingTenants.size(), userId);
+                    return Single.error(new IllegalStateException(
+                        "User is already part of an organization. You cannot onboard if you're already " +
+                        "associated with any organization. Please use an existing organization or contact support."));
+                }
+                // No existing tenants - proceed
+                return proceedWithOnboarding(userId, email, name, organizationName, projectName, projectDescription);
+            })
+            .doOnError(error -> 
+                log.error("Onboarding failed: userId={}", userId, error)
+            );
+    }
+    
+    /**
+     * Proceed with actual tenant and project creation.
+     */
+    private Single<OnboardingResult> proceedWithOnboarding(
+            String userId,
+            String email,
+            String name,
+            String organizationName,
+            String projectName,
+            String projectDescription) {
+        
         String tenantId = "tenant-" + UUID.randomUUID().toString();
         
-        log.info("Starting onboarding: userId={}, tenantId={}, org={}, project={}", 
-            userId, tenantId, organizationName, projectName);
+        log.info("Creating new organization: userId={}, tenantId={}, name={}", 
+            userId, tenantId, organizationName);
         
         // Step 1: Create tenant
         CreateTenantRequest tenantRequest = CreateTenantRequest.builder()

@@ -5,6 +5,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
@@ -48,10 +49,30 @@ public class UserResource {
             String token = extractToken(authorization);
             if (token == null) {
                 throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                    .getCustomException("Missing authorization", "Authorization header required");
+                    .getCustomException("Unauthorized", "Missing or invalid Authorization header");
             }
             
-            Claims claims = jwtService.verifyToken(token);
+            Claims claims;
+            try {
+                claims = jwtService.verifyToken(token);
+            } catch (io.jsonwebtoken.ExpiredJwtException e) {
+                log.warn("Expired JWT token for /users/me/projects");
+                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                    .getCustomException("Token expired", "Your session has expired. Please log in again.");
+            } catch (io.jsonwebtoken.security.SignatureException e) {
+                log.warn("Invalid JWT signature for /users/me/projects");
+                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                    .getCustomException("Invalid token", "Authentication failed. Please log in again.");
+            } catch (io.jsonwebtoken.MalformedJwtException e) {
+                log.warn("Malformed JWT token for /users/me/projects");
+                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                    .getCustomException("Invalid token", "Malformed authentication token. Please log in again.");
+            } catch (Exception e) {
+                log.error("JWT verification failed: {}", e.getMessage(), e);
+                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                    .getCustomException("Authentication failed", "Unable to verify authentication token");
+            }
+            
             String userId = claims.getSubject();
             String tenantId = claims.get("tenantId", String.class);
             
@@ -82,9 +103,11 @@ public class UserResource {
                     .build())
                 .to(RestResponse.jaxrsRestHandler());
                 
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to fetch user projects: {}", e.getMessage(), e);
-            String cause = e.getMessage() != null ? e.getMessage() : "Failed to fetch projects";
+            log.error("Unexpected error fetching user projects: {}", e.getMessage(), e);
+            String cause = e.getMessage() != null ? e.getMessage() : "An unexpected error occurred";
             throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
                 .getCustomException("Failed to fetch projects", cause);
         }

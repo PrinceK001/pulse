@@ -109,10 +109,8 @@ public class OpenFgaService {
      */
     public Completable updateProjectRole(String userId, String projectId, String newRole) {
         log.info("[DUMMY] Updating project role: user={}, project={}, newRole={}", userId, projectId, newRole);
-        Map<String, String> projects = userProjectRoles.get(userId);
-        if (projects != null && projects.containsKey(projectId)) {
-            projects.put(projectId, newRole);
-        }
+        userProjectRoles.computeIfAbsent(userId, k -> new ConcurrentHashMap<>()).put(projectId, newRole);
+        projectMembers.computeIfAbsent(projectId, k -> ConcurrentHashMap.newKeySet()).add(userId);
         return Completable.complete();
     }
     

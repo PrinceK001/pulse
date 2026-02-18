@@ -20,9 +20,6 @@ public class UserProfileDto {
     @JsonProperty("name")
     private String name;
     
-    @JsonProperty("profile_picture")
-    private String profilePicture;
-    
     @JsonProperty("tenant_role")
     private String tenantRole;  // admin or member at tenant level
     

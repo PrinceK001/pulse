@@ -18,6 +18,5 @@ public class MemberResponse {
     private String name;             // User name
     private String role;             // Role in tenant or project
     private String status;           // pending, active, suspended
-    private String profilePicture;   // Profile picture URL
     private String lastLoginAt;      // Last login timestamp
 }

@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ClickhouseTenantCredentialAudit {
   private Long id;
-  private String tenantId;
+  private String projectId;
   private String action;
   private String performedBy;
   private String details;

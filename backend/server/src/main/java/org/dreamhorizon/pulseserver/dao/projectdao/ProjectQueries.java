@@ -2,23 +2,20 @@ package org.dreamhorizon.pulseserver.dao.projectdao;
 
 /**
  * SQL queries for Project DAO operations.
+ * Note: api_key is NOT stored in projects table - it's managed separately via project_api_keys table
  */
 public class ProjectQueries {
     
     public static final String INSERT_PROJECT = 
-        "INSERT INTO projects (project_id, tenant_id, name, description, api_key, is_active, created_by) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        "INSERT INTO projects (project_id, tenant_id, name, description, is_active, created_by) " +
+        "VALUES (?, ?, ?, ?, ?, ?)";
     
     public static final String GET_PROJECT_BY_ID = 
-        "SELECT id, project_id, tenant_id, name, description, api_key, is_active, created_by, created_at, updated_at " +
+        "SELECT id, project_id, tenant_id, name, description, is_active, created_by, created_at, updated_at " +
         "FROM projects WHERE project_id = ?";
     
-    public static final String GET_PROJECT_BY_API_KEY = 
-        "SELECT id, project_id, tenant_id, name, description, api_key, is_active, created_by, created_at, updated_at " +
-        "FROM projects WHERE api_key = ? AND is_active = TRUE";
-    
     public static final String GET_PROJECTS_BY_TENANT_ID = 
-        "SELECT id, project_id, tenant_id, name, description, api_key, is_active, created_by, created_at, updated_at " +
+        "SELECT id, project_id, tenant_id, name, description, is_active, created_by, created_at, updated_at " +
         "FROM projects WHERE tenant_id = ? ORDER BY created_at DESC";
     
     public static final String GET_ACTIVE_PROJECT_COUNT = 

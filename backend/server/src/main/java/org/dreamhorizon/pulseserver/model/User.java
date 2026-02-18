@@ -15,7 +15,6 @@ public class User {
     private String userId;          // Format: user-{uuid}
     private String email;           // From Google OAuth
     private String name;            // Display name
-    private String profilePicture;  // Profile picture URL
     private String status;          // pending, active, suspended
     private String firebaseUid;     // Firebase user ID for authentication
     private String lastLoginAt;     // Last login timestamp

@@ -87,7 +87,6 @@ public class TenantMemberResource {
                         .name(user.getName())
                         .role(roleOpt.orElse(request.getRole()))
                         .status(user.getStatus())
-                        .profilePicture(user.getProfilePicture())
                         .lastLoginAt(user.getLastLoginAt())
                         .build());
             })
@@ -243,7 +242,6 @@ public class TenantMemberResource {
                     .name(member.getName())
                     .role(roleOpt.orElse("member"))
                     .status(member.getStatus())
-                    .profilePicture(member.getProfilePicture())
                     .lastLoginAt(member.getLastLoginAt())
                     .build());
             enrichments.add(enriched);

@@ -56,23 +56,29 @@ public class ProjectMemberResource {
             @PathParam("projectId") String projectId,
             AddMemberRequest request) {
         
+        // 1. Validate projectId
+        if (projectId == null || projectId.isBlank()) {
+            throw ServiceError.INVALID_REQUEST_PARAM
+                .getCustomException("Invalid project ID", "Project ID is required");
+        }
+        
         String token = extractToken(authorization);
         String userId = extractUserId(token);
         
         log.info("Adding member to project: email={}, project={}, role={}, addedBy={}", 
             request.getEmail(), projectId, request.getRole(), userId);
         
-        // Check if user is project admin
-        return openFgaService.isProjectAdmin(userId, projectId)
-            .flatMap(isAdmin -> {
-                if (!isAdmin) {
-                    return Single.error(ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                        .getCustomException("Unauthorized", "Only project admins can add members"));
-                }
-                
-                // Get project details and tenant ID
-                return projectService.getProjectById(projectId)
-                    .flatMap(project -> {
+        // 2. Check if project exists FIRST
+        return projectService.getProjectById(projectId)
+            .flatMap(project -> {
+                // 3. THEN check if user is project admin
+                return openFgaService.isProjectAdmin(userId, projectId)
+                    .flatMap(isAdmin -> {
+                        if (!isAdmin) {
+                            return Single.error(ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                                .getCustomException("Unauthorized", "Only project admins can add members"));
+                        }
+                        
                         // Get admin name from user table (default if not found)
                         return userDao.getUserById(userId)
                             .defaultIfEmpty(User.builder()
@@ -103,9 +109,15 @@ public class ProjectMemberResource {
                         .name(user.getName())
                         .role(roleOpt.orElse(request.getRole()))
                         .status(user.getStatus())
-                        .profilePicture(user.getProfilePicture())
                         .lastLoginAt(user.getLastLoginAt())
                         .build());
+            })
+            .onErrorResumeNext(error -> {
+                if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
+                    return Single.error(ServiceError.NOT_FOUND
+                        .getCustomException("Project not found", "The specified project does not exist"));
+                }
+                return Single.error(error);
             })
             .to(RestResponse.jaxrsRestHandler());
     }
@@ -153,24 +165,30 @@ public class ProjectMemberResource {
             @PathParam("projectId") String projectId,
             @PathParam("userId") String targetUserId) {
         
+        // 1. Validate projectId
+        if (projectId == null || projectId.isBlank()) {
+            throw ServiceError.INVALID_REQUEST_PARAM
+                .getCustomException("Invalid project ID", "Project ID is required");
+        }
+        
         String token = extractToken(authorization);
         String removerId = extractUserId(token);
         
         log.info("Removing member from project: user={}, project={}, removedBy={}", 
             targetUserId, projectId, removerId);
         
-        // Check if remover is project admin
-        return openFgaService.isProjectAdmin(removerId, projectId)
-            .flatMapCompletable(isAdmin -> {
-                if (!isAdmin) {
-                    return io.reactivex.rxjava3.core.Completable.error(
-                        ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                            .getCustomException("Unauthorized", "Only project admins can remove members"));
-                }
-                
-                // Get project details
-                return projectService.getProjectById(projectId)
-                    .flatMapCompletable(project -> {
+        // 2. Check if project exists FIRST
+        return projectService.getProjectById(projectId)
+            .flatMapCompletable(project -> {
+                // 3. THEN check if remover is project admin
+                return openFgaService.isProjectAdmin(removerId, projectId)
+                    .flatMapCompletable(isAdmin -> {
+                        if (!isAdmin) {
+                            return io.reactivex.rxjava3.core.Completable.error(
+                                ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                                    .getCustomException("Unauthorized", "Only project admins can remove members"));
+                        }
+                        
                         return userDao.getUserById(removerId)
                             .defaultIfEmpty(User.builder()
                                 .userId(removerId)
@@ -185,6 +203,13 @@ public class ProjectMemberResource {
                     });
             })
             .toSingleDefault((Void) null)
+            .onErrorResumeNext(error -> {
+                if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
+                    return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
+                        .getCustomException("Project not found", "The specified project does not exist"));
+                }
+                return io.reactivex.rxjava3.core.Single.error(error);
+            })
             .to(RestResponse.jaxrsRestHandler());
     }
     
@@ -206,24 +231,31 @@ public class ProjectMemberResource {
             @PathParam("userId") String targetUserId,
             UpdateMemberRoleRequest request) {
         
+        // 1. Validate projectId
+        if (projectId == null || projectId.isBlank()) {
+            throw ServiceError.INVALID_REQUEST_PARAM
+                .getCustomException("Invalid project ID", "Project ID is required");
+        }
+        
         String token = extractToken(authorization);
         String updaterId = extractUserId(token);
         
         log.info("Updating project member role: user={}, project={}, newRole={}, updatedBy={}", 
             targetUserId, projectId, request.getNewRole(), updaterId);
         
-        // Check if updater is project admin
-        return openFgaService.isProjectAdmin(updaterId, projectId)
-            .flatMapCompletable(isAdmin -> {
-                if (!isAdmin) {
-                    return io.reactivex.rxjava3.core.Completable.error(
-                        ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                            .getCustomException("Unauthorized", "Only project admins can update member roles"));
-                }
-                
-                // Get project details
-                return projectService.getProjectById(projectId)
-                    .flatMapCompletable(project -> {
+        // 2. Check if project exists FIRST
+        return projectService.getProjectById(projectId)
+            .doOnSuccess(project -> log.debug("Found project for role update: {}", project.getName()))
+            .flatMapCompletable(project -> {
+                // 3. THEN check if updater is project admin
+                return openFgaService.isProjectAdmin(updaterId, projectId)
+                    .flatMapCompletable(isAdmin -> {
+                        if (!isAdmin) {
+                            return io.reactivex.rxjava3.core.Completable.error(
+                                ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                                    .getCustomException("Unauthorized", "Only project admins can update member roles"));
+                        }
+                        
                         return userDao.getUserById(updaterId)
                             .defaultIfEmpty(User.builder()
                                 .userId(updaterId)
@@ -238,7 +270,19 @@ public class ProjectMemberResource {
                             });
                     });
             })
+            .doOnComplete(() -> log.info("Successfully updated role for user {} in project {}", targetUserId, projectId))
+            .doOnError(error -> log.error("Failed to update member role: user={}, project={}, error={}", 
+                targetUserId, projectId, error.getMessage(), error))
             .toSingleDefault((Void) null)
+            .onErrorResumeNext(error -> {
+                if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
+                    return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
+                        .getCustomException("Project not found", "The specified project does not exist"));
+                }
+                String errorMsg = error.getMessage() != null ? error.getMessage() : "Failed to update member role";
+                log.error("Role update error being returned to client: {}", errorMsg);
+                return io.reactivex.rxjava3.core.Single.error(error);
+            })
             .to(RestResponse.jaxrsRestHandler());
     }
     
@@ -256,16 +300,30 @@ public class ProjectMemberResource {
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {
         
+        // 1. Validate projectId
+        if (projectId == null || projectId.isBlank()) {
+            throw ServiceError.INVALID_REQUEST_PARAM
+                .getCustomException("Invalid project ID", "Project ID is required");
+        }
+        
         String token = extractToken(authorization);
         String userId = extractUserId(token);
         
         log.info("User leaving project: user={}, project={}", userId, projectId);
         
+        // 2. Check if project exists
         return projectService.getProjectById(projectId)
             .flatMapCompletable(project -> {
                 return projectMemberService.leaveProject(projectId, userId, project.getName());
             })
             .toSingleDefault((Void) null)
+            .onErrorResumeNext(error -> {
+                if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
+                    return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
+                        .getCustomException("Project not found", "The specified project does not exist"));
+                }
+                return io.reactivex.rxjava3.core.Single.error(error);
+            })
             .to(RestResponse.jaxrsRestHandler());
     }
     
@@ -286,7 +344,6 @@ public class ProjectMemberResource {
                     .name(member.getName())
                     .role(roleOpt.orElse("viewer"))
                     .status(member.getStatus())
-                    .profilePicture(member.getProfilePicture())
                     .lastLoginAt(member.getLastLoginAt())
                     .build());
             enrichments.add(enriched);

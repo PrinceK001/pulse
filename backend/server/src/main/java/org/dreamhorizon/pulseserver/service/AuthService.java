@@ -119,7 +119,7 @@ public class AuthService {
             return userDao.getUserByEmail(userInfo.email)
                 .switchIfEmpty(Single.defer(() -> {
                     // New user - create and needs onboarding
-                    return userService.getOrCreateUser(userInfo.email, userInfo.name, userInfo.profilePicture);
+                    return userService.getOrCreateUser(userInfo.email, userInfo.name);
                 }))
                 .flatMap(user -> {
                     // Check if user is pending (added by admin but never logged in)
@@ -131,13 +131,11 @@ public class AuthService {
                         return userDao.activateUser(
                             user.getUserId(), 
                             userInfo.userId,  // Firebase UID
-                            userInfo.name, 
-                            userInfo.profilePicture
+                            userInfo.name
                         ).andThen(Single.just(user.toBuilder()
                             .status("active")
                             .firebaseUid(userInfo.userId)
                             .name(userInfo.name)
-                            .profilePicture(userInfo.profilePicture)
                             .build()));
                     } else {
                         // Already active user - just update last login
@@ -261,6 +259,10 @@ public class AuthService {
         if (userId == null || userId.isBlank()) {
           throw new IllegalArgumentException("Token missing user ID");
         }
+        
+        if (email == null || email.isBlank()) {
+          throw new IllegalArgumentException("Firebase token is missing email claim. Please ensure your authentication includes email permissions.");
+        }
 
         return new UserInfo(userId, email, name, picture);
 
@@ -334,7 +336,7 @@ public class AuthService {
             // Check if pending
             if ("pending".equals(user.getStatus())) {
                 log.info("Activating pending dev user on first login: userId={}", user.getUserId());
-                return userDao.activateUser(user.getUserId(), user.getUserId() + "-firebase-uid", name, null)
+                return userDao.activateUser(user.getUserId(), user.getUserId() + "-firebase-uid", name)
                     .andThen(openFgaService.getUserProjects(user.getUserId()))
                     .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
             } else {

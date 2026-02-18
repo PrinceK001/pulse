@@ -6,26 +6,26 @@ package org.dreamhorizon.pulseserver.dao.userdao;
 public class UserQueries {
     
     public static final String INSERT_USER = 
-        "INSERT INTO users (user_id, email, name, profile_picture, status, is_active) " +
-        "VALUES (?, ?, ?, ?, ?, ?)";
+        "INSERT INTO users (user_id, email, name, status, is_active) " +
+        "VALUES (?, ?, ?, ?, ?)";
     
     public static final String GET_USER_BY_EMAIL = 
-        "SELECT id, user_id, email, name, profile_picture, status, firebase_uid, last_login_at, is_active, created_at, updated_at " +
+        "SELECT id, user_id, email, name, status, firebase_uid, last_login_at, is_active, created_at, updated_at " +
         "FROM users WHERE LOWER(email) = LOWER(?)";
     
     public static final String GET_USER_BY_ID = 
-        "SELECT id, user_id, email, name, profile_picture, status, firebase_uid, last_login_at, is_active, created_at, updated_at " +
+        "SELECT id, user_id, email, name, status, firebase_uid, last_login_at, is_active, created_at, updated_at " +
         "FROM users WHERE user_id = ?";
     
     public static final String GET_USERS_BY_IDS = 
-        "SELECT id, user_id, email, name, profile_picture, status, firebase_uid, last_login_at, is_active, created_at, updated_at " +
+        "SELECT id, user_id, email, name, status, firebase_uid, last_login_at, is_active, created_at, updated_at " +
         "FROM users WHERE user_id IN (%s)";
     
     public static final String UPDATE_USER = 
-        "UPDATE users SET name = ?, profile_picture = ? WHERE user_id = ?";
+        "UPDATE users SET name = ? WHERE user_id = ?";
     
     public static final String ACTIVATE_USER = 
-        "UPDATE users SET status = 'active', firebase_uid = ?, name = ?, profile_picture = ?, last_login_at = NOW() " +
+        "UPDATE users SET status = 'active', firebase_uid = ?, name = ?, last_login_at = NOW() " +
         "WHERE user_id = ?";
     
     public static final String UPDATE_LAST_LOGIN = 

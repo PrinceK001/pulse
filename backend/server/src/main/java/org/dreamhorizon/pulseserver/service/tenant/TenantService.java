@@ -227,7 +227,7 @@ public class TenantService {
   }
 
   public Flowable<ClickhouseTenantCredentialAudit> getCredentialsAuditHistory(String tenantId) {
-    return credentialsDao.getAuditLogsByTenantId(tenantId)
+    return credentialsDao.getAuditLogsByProjectId(tenantId)
         .doOnError(error -> log.error("Failed to get audit history for tenant: {}", tenantId, error));
   }
 

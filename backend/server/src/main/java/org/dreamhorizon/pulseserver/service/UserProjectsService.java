@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.projectdao.ProjectDao;
 import org.dreamhorizon.pulseserver.model.Project;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -47,8 +48,7 @@ public class UserProjectsService {
                 return Flowable.fromIterable(projectIds)
                     .flatMapSingle(projectId -> 
                         projectDao.getProjectById(projectId)
-                            .toSingle()
-                            .flatMap(project -> 
+                            .flatMapSingle(project -> 
                                 openFgaService.getUserRoleInProject(userId, projectId)
                                     .map(roleOpt -> ProjectSummary.builder()
                                         .projectId(project.getProjectId())
@@ -58,21 +58,41 @@ public class UserProjectsService {
                                         .role(roleOpt.orElse("viewer"))
                                         .build())
                             )
+                            .switchIfEmpty(Single.defer(() -> {
+                                log.warn("Project not found: projectId={}, skipping", projectId);
+                                return Single.just((ProjectSummary) null); // Return null for missing projects
+                            }))
+                            .onErrorResumeNext(error -> {
+                                log.warn("Failed to fetch project details: projectId={}, skipping. Error: {}", 
+                                    projectId, error.getMessage());
+                                return Single.just((ProjectSummary) null); // Return null on error
+                            })
                     )
+                    .filter(project -> project != null) // Filter out nulls
                     .toList()
                     .map(projects -> {
+                        List<ProjectSummary> projectList = new ArrayList<>();
+                        for (Object obj : projects) {
+                            if (obj instanceof ProjectSummary) {
+                                projectList.add((ProjectSummary) obj);
+                            }
+                        }
+                        
                         // Calculate redirect hint
                         String redirectTo;
-                        if (projects.size() == 1) {
-                            redirectTo = "/projects/" + projects.get(0).getProjectId();
+                        if (projectList.isEmpty()) {
+                            redirectTo = null;
+                            log.info("No accessible projects found after filtering");
+                        } else if (projectList.size() == 1) {
+                            redirectTo = "/projects/" + projectList.get(0).getProjectId();
                             log.info("Single project, redirecting to: {}", redirectTo);
                         } else {
                             redirectTo = "/projects/select";
-                            log.info("Multiple projects ({}), redirecting to selection page", projects.size());
+                            log.info("Multiple projects ({}), redirecting to selection page", projectList.size());
                         }
                         
                         return UserProjectsResult.builder()
-                            .projects(projects)
+                            .projects(projectList)
                             .redirectTo(redirectTo)
                             .build();
                     });
