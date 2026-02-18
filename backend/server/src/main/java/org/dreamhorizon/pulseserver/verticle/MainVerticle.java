@@ -26,6 +26,7 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
+import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 @Slf4j
@@ -52,6 +53,46 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
           JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
+          
+          // Initialize OpenFGA configuration
+          JsonObject openfgaJson = config.getJsonObject("openfga", new JsonObject());
+          String apiUrl = openfgaJson.getString("apiUrl", "http://localhost:8080");
+          String storeId = openfgaJson.getString("storeId", "");
+          String modelId = openfgaJson.getString("authorizationModelId", "");
+          // Handle enabled as string or boolean (env vars are strings)
+          boolean enabled = false;
+          Object enabledValue = openfgaJson.getValue("enabled");
+          if (enabledValue instanceof Boolean) {
+            enabled = (Boolean) enabledValue;
+          } else if (enabledValue instanceof String) {
+            enabled = Boolean.parseBoolean((String) enabledValue);
+          }
+          
+          // If enabled but missing IDs, try to fetch from OpenFGA
+          if (enabled && (storeId == null || storeId.isEmpty())) {
+            log.info("OpenFGA enabled but no storeId configured, attempting to fetch from {}...", apiUrl);
+            try {
+              storeId = fetchOpenFgaStoreId(apiUrl, "pulse-authorization");
+              if (storeId != null && !storeId.isEmpty()) {
+                modelId = fetchLatestModelId(apiUrl, storeId);
+                log.info("Fetched OpenFGA config - storeId: {}, modelId: {}", storeId, modelId);
+              }
+            } catch (Exception e) {
+              log.warn("Failed to fetch OpenFGA config: {}. Authorization will be disabled.", e.getMessage());
+              enabled = false;
+            }
+          }
+          
+          OpenFgaConfig openfgaConfig = OpenFgaConfig.builder()
+              .apiUrl(apiUrl)
+              .storeId(storeId != null ? storeId : "")
+              .authorizationModelId(modelId != null ? modelId : "")
+              .enabled(enabled && storeId != null && !storeId.isEmpty())
+              .build();
+          SharedDataUtils.put(vertx.getDelegate(), openfgaConfig);
+          log.info("OpenFGA config initialized - enabled: {}, apiUrl: {}, storeId: {}", 
+              openfgaConfig.isEnabled(), openfgaConfig.getApiUrl(), openfgaConfig.getStoreId());
+          
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
           return config;
@@ -74,6 +115,67 @@ public class MainVerticle extends AbstractVerticle {
 
   private Integer getNumOfCores() {
     return CpuCoreSensor.availableProcessors();
+  }
+
+  /**
+   * Fetch the store ID from OpenFGA by store name.
+   */
+  private String fetchOpenFgaStoreId(String apiUrl, String storeName) {
+    try {
+      java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+      java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+          .uri(java.net.URI.create(apiUrl + "/stores"))
+          .GET()
+          .build();
+      
+      java.net.http.HttpResponse<String> response = client.send(request, 
+          java.net.http.HttpResponse.BodyHandlers.ofString());
+      
+      String body = response.body();
+      // Parse JSON to find store with matching name
+      // Looking for pattern: "id":"xxx","name":"pulse-authorization"
+      String pattern = "\"id\":\"([^\"]+)\",\"name\":\"" + storeName + "\"";
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
+      java.util.regex.Matcher m = p.matcher(body);
+      if (m.find()) {
+        return m.group(1);
+      }
+      log.warn("Store '{}' not found in OpenFGA", storeName);
+      return null;
+    } catch (Exception e) {
+      log.error("Failed to fetch OpenFGA store ID: {}", e.getMessage());
+      return null;
+    }
+  }
+
+  /**
+   * Fetch the latest authorization model ID from OpenFGA.
+   */
+  private String fetchLatestModelId(String apiUrl, String storeId) {
+    try {
+      java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+      java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+          .uri(java.net.URI.create(apiUrl + "/stores/" + storeId + "/authorization-models"))
+          .GET()
+          .build();
+      
+      java.net.http.HttpResponse<String> response = client.send(request,
+          java.net.http.HttpResponse.BodyHandlers.ofString());
+      
+      String body = response.body();
+      // Parse JSON to find first model ID
+      // Looking for pattern: "id":"xxx"
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile("\"id\":\"([^\"]+)\"");
+      java.util.regex.Matcher m = p.matcher(body);
+      if (m.find()) {
+        return m.group(1);
+      }
+      log.warn("No authorization models found in store {}", storeId);
+      return null;
+    } catch (Exception e) {
+      log.error("Failed to fetch OpenFGA model ID: {}", e.getMessage());
+      return null;
+    }
   }
 
   private WebClientOptions getWebClientOptions(JsonObject config) {
