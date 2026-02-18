@@ -32,7 +32,7 @@ import io.opentelemetry.sdk.resources.ResourceBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import java.util.function.BiFunction
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.minutes
 
 @OptIn(Incubating::class)
 object OpenTelemetryRumInitializer {
@@ -108,6 +108,7 @@ object OpenTelemetryRumInitializer {
             rumConfig.setGlobalAttributes(it::invoke)
         }
 
+        // Build resource with default Android resource and user customization
         val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
         resource?.invoke(resourceBuilder)
         val finalResource = resourceBuilder.build()
@@ -147,7 +148,7 @@ object OpenTelemetryRumInitializer {
         val meteredSessionConfig =
             SessionConfig(
                 backgroundInactivityTimeout = null,
-                maxLifetime = 10.seconds,
+                maxLifetime = 30.minutes,
                 shouldPersist = true,
             )
         return SessionManager.create(

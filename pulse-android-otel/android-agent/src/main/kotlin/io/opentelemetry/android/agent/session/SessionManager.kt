@@ -60,6 +60,7 @@ internal class SessionManager(
             val newId = idGenerator.generateSessionId()
             val newSession = Session.DefaultSession(newId, clock.now())
 
+            // Atomically update the session only if it hasn't been changed by another thread.
             if (session.compareAndSet(currentSession, newSession)) {
                 sessionStorage.save(newSession)
 
@@ -72,14 +73,18 @@ internal class SessionManager(
                     }
 
                 timeoutHandler?.bump()
+                // Observers need to be called after bumping the timer because it may create a new
+                // span.
                 notifyObserversOfSessionUpdate(previousSession, newSession)
-
                 newSession.getId()
             } else {
+                // Another thread accessed this function prior to creating a new session. Use the
+                // current session.
                 timeoutHandler?.bump()
                 session.get().getId()
             }
         } else {
+            // No new session needed, just bump the timeout and return current session ID
             timeoutHandler?.bump()
             currentSession.getId()
         }

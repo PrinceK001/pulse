@@ -221,6 +221,7 @@ internal class PulseSDKImpl :
         pulseSpanProcessor = PulseSdkSignalProcessors()
         val config = OtelRumConfig()
         val meteredSessionManager = OpenTelemetryRumInitializer.createMeteredSessionManager(application)
+        val meteringSessionHeader = createMeteringSessionHeader(meteredSessionManager.getSessionId())
         val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
         val mergedTracerProviderCustomizer =
             if (tracerProviderCustomizer != null) {
@@ -269,7 +270,7 @@ internal class PulseSDKImpl :
             OtlpHttpSpanExporter
                 .builder()
                 .setEndpoint(finalSpanEndpointConnectivity.getUrl())
-                .setHeaders { finalSpanEndpointConnectivity.getHeaders() + projectIdHeader }
+                .setHeaders { finalSpanEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
                 .build()
 
         val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
@@ -287,7 +288,7 @@ internal class PulseSDKImpl :
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalLogEndpointConnectivity.getUrl())
-                            .setHeaders { finalLogEndpointConnectivity.getHeaders() + projectIdHeader }
+                            .setHeaders { finalLogEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
                             .build(),
                     PulseSignalMatchCondition(
                         name = ".*",
@@ -301,7 +302,7 @@ internal class PulseSDKImpl :
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalCustomEventEndpointConnectivity.getUrl())
-                            .setHeaders { finalCustomEventEndpointConnectivity.getHeaders() + projectIdHeader }
+                            .setHeaders { finalCustomEventEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
                             .build(),
                 ),
             )
@@ -310,7 +311,7 @@ internal class PulseSDKImpl :
             OtlpHttpMetricExporter
                 .builder()
                 .setEndpoint(finalMetricEndpointConnectivity.getUrl())
-                .setHeaders { finalMetricEndpointConnectivity.getHeaders() + projectIdHeader }
+                .setHeaders { finalMetricEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
                 .build()
 
         val spanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
@@ -413,7 +414,7 @@ internal class PulseSDKImpl :
                             attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
-                        attributesBuilder.put(METERED_SESSION_ID, meteredSessionManager.getSessionId())
+                        attributesBuilder.put(PULSE_METERING_SESSION_ID, meteredSessionManager.getSessionId())
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())
                         }
@@ -695,7 +696,8 @@ internal class PulseSDKImpl :
         private const val TAG = "AndroidSDK"
         private const val PROJECT_ID_HEADER_KEY = "X-API-KEY"
 
-        private val METERED_SESSION_ID: AttributeKey<String> = AttributeKey.stringKey("metered.session.id")
+        private val PULSE_METERING_SESSION_ID: AttributeKey<String> = AttributeKey.stringKey("pulse.metering.session.id")
+        private const val METERING_SESSION_HEADER_KEY = "X-Pulse-Metering-Session-ID"
 
         internal object PrefsName {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
@@ -703,5 +705,8 @@ internal class PulseSDKImpl :
         }
 
         internal fun createProjectIdHeader(projectId: String): Map<String, String> = mapOf(PROJECT_ID_HEADER_KEY to projectId)
+
+        internal fun createMeteringSessionHeader(meteringSessionId: String): Map<String, String> =
+            mapOf(METERING_SESSION_HEADER_KEY to meteringSessionId)
     }
 }

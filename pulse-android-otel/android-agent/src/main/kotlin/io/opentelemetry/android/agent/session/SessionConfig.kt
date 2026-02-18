@@ -10,11 +10,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
-/**
- * Configuration for session management.
- * Configure each field based on your requirements.
- * Nullable fields allow disabling features or using defaults.
- */
 @Incubating
 class SessionConfig(
     val backgroundInactivityTimeout: Duration? = 15.minutes,
