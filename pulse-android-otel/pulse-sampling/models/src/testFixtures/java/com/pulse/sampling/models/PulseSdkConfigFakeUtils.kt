@@ -16,6 +16,7 @@ public object PulseSdkConfigFakeUtils {
         signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
         attributesToDrop: List<PulseSignalMatchCondition> = emptyList(),
         attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+        metricsToAdd: List<PulseMetricsToAddEntry> = emptyList(),
         sampling: PulseSamplingConfig =
             PulseSamplingConfig(
                 default =
@@ -38,6 +39,7 @@ public object PulseSdkConfigFakeUtils {
                     customEventCollectorUrl = "v1/custom-event",
                     attributesToDrop = attributesToDrop,
                     attributesToAdd = attributesToAdd,
+                    metricsToAdd = metricsToAdd,
                     filters =
                         PulseSignalFilter(
                             mode = filterMode,
@@ -132,4 +134,43 @@ public object PulseSdkConfigFakeUtils {
         PulseCriticalEventPolicies(
             alwaysSend = alwaysSend,
         )
+
+    public fun createFakeMetricsToAddEntry(
+        name: String = "fake_metric",
+        target: PulseMetricsToAddTarget = PulseMetricsToAddTarget.Name,
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        data: PulseMetricsData = createFakeCounter(),
+    ): PulseMetricsToAddEntry =
+        PulseMetricsToAddEntry(
+            name = name,
+            target = target,
+            condition = condition,
+            data = data,
+        )
+
+    public fun createFakeCounter(
+        isMonotonic: Boolean = true,
+        isFraction: Boolean = false,
+    ): PulseMetricsData.Counter =
+        PulseMetricsData.Counter(
+            isMonotonic = isMonotonic,
+            isFraction = isFraction,
+        )
+
+    public fun createFakeGauge(isFraction: Boolean = false): PulseMetricsData.Gauge = PulseMetricsData.Gauge(isFraction = isFraction)
+
+    public fun createFakeHistogram(
+        bucket: List<Number>? = null,
+        isFraction: Boolean = false,
+    ): PulseMetricsData.Histogram =
+        PulseMetricsData.Histogram(
+            bucket = bucket,
+            isFraction = isFraction,
+        )
+
+    public fun createFakeSum(isFraction: Boolean = false): PulseMetricsData.Sum = PulseMetricsData.Sum(isFraction = isFraction)
+
+    public fun createFakeMetricsToAddTargetAttribute(
+        matcher: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+    ): PulseMetricsToAddTarget.Attribute = PulseMetricsToAddTarget.Attribute(matcher = matcher)
 }
