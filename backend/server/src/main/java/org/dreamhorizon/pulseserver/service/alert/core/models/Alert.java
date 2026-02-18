@@ -31,6 +31,9 @@ public class Alert {
   Integer alertId;
 
   @NotNull
+  String tenantId;
+
+  @NotNull
   String name;
 
   @NotNull
@@ -60,7 +63,10 @@ public class Alert {
   Integer notificationChannelId;
 
   @NotNull
-  String notificationWebhookUrl;
+  String notificationType;
+
+  @NotNull
+  String notificationConfig;
 
   @NotNull
   String createdBy;

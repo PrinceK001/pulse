@@ -20,6 +20,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.configs.models.SdkConfigData;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 
@@ -29,11 +30,18 @@ public class SdkConfigsDao {
 
   private final MysqlClient d11MysqlClient;
   private final ObjectMapperUtil objectMapper;
+  
+  /**
+   * Gets the current tenant ID from the TenantContext.
+   */
+  private String getTenantId() {
+    return TenantContext.getTenantId();
+  }
 
   public Single<PulseConfig> getConfig(long version) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_CONFIG_BY_VERSION)
-        .rxExecute(Tuple.of(version))
+        .rxExecute(Tuple.of(getTenantId(), version))
         .map(rows -> {
           if (rows.size() > 0) {
             Row row = rows.iterator().next();
@@ -57,8 +65,12 @@ public class SdkConfigsDao {
   public Single<PulseConfig> getConfig() {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_LATEST_VERSION)
-        .rxExecute()
+        .rxExecute(Tuple.of(getTenantId()))
         .flatMap(rows -> {
+          if (rows.size() == 0) {
+            log.warn("No active configuration found in database");
+            return Single.error(new RuntimeException("No active configuration found. Please create a configuration first."));
+          }
           Row row = rows.iterator().next();
           return getConfig(Long.parseLong(row.getValue("version").toString()));
         })
@@ -86,7 +98,9 @@ public class SdkConfigsDao {
 
     String configDetailRowStr = objectMapper.writeValueAsString(sdkConfigData);
 
+    String tenantId = getTenantId();
     Tuple tuple = Tuple.tuple()
+        .addString(tenantId)
         .addString(configDetailRowStr)
         .addBoolean(true)
         .addString(createConfig.getUser())
@@ -97,7 +111,7 @@ public class SdkConfigsDao {
         .rxGetConnection()
         .flatMap(conn -> conn.begin()
             .flatMap(tx -> conn.preparedQuery(DEACTIVATE_ACTIVE_CONFIG)
-                .rxExecute()
+                .rxExecute(Tuple.of(tenantId))
                 .flatMap(deactivateResult -> conn.preparedQuery(INSERT_CONFIG).rxExecute(tuple))
                 .flatMap(SdkConfigsDao::getLastInsertedId)
                 .map(configId -> {
@@ -126,7 +140,7 @@ public class SdkConfigsDao {
   public Single<AllConfigdetails> getAllConfigDetails() {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_ALL_CONFIG_DETAILS)
-        .rxExecute()
+        .rxExecute(Tuple.of(getTenantId()))
         .map(rows -> {
           List<AllConfigdetails.Configdetails> configDetails = new ArrayList<>();
           for (Row row : rows) {

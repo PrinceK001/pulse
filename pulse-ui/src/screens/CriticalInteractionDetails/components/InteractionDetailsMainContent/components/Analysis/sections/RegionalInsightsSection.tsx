@@ -1,12 +1,10 @@
-import { Box, Flex, Text } from "@mantine/core";
+import { Box, Flex } from "@mantine/core";
 import GeographicHeatmap from "../components/GeographicHeatmap";
-import { LoaderWithMessage } from "../../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
+import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
 import {
   ANALYSIS_ERROR_MESSAGES,
-  ANALYSIS_LOADING_MESSAGES,
 } from "../Analysis.constants";
-import commonStyles from "../../../common.module.css";
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetRegionalInsights } from "../hooks/useGetRegionalInsights";
 
@@ -44,12 +42,7 @@ export const RegionalInsightsSection: React.FC<AnalysisSectionProps> = ({
   }
 
   if (isLoading) {
-    return (
-      <LoaderWithMessage
-        className={commonStyles.centeredContainer}
-        loadingMessage={ANALYSIS_LOADING_MESSAGES.REGIONAL_INSIGHTS}
-      />
-    );
+    return <AnalysisSectionSkeleton chartCount={2} layout="horizontal" chartHeight={300} />;
   }
 
   const hasData =
@@ -67,20 +60,6 @@ export const RegionalInsightsSection: React.FC<AnalysisSectionProps> = ({
 
   return (
     <Box mb="lg">
-      <Box mb="md">
-        <Text
-          size="sm"
-          fw={700}
-          c="#0ba09a"
-          mb={4}
-          style={{ fontSize: "16px", letterSpacing: "-0.3px" }}
-        >
-          Regional Insights
-        </Text>
-        <Text size="xs" c="dimmed" style={{ fontSize: "12px" }}>
-          Where are the biggest problems located?
-        </Text>
-      </Box>
       <Flex gap="sm" justify="space-between" align="stretch">
         <Box flex="1">
           <GeographicHeatmap

@@ -190,6 +190,36 @@ class AlertControllersV1Test {
   }
 
   @Nested
+  class TestUpdateAlertNotificationChannelController {
+
+    @Test
+    void shouldInitializeController() {
+      UpdateAlertNotificationChannel controller = new UpdateAlertNotificationChannel(alertService);
+      assertNotNull(controller);
+    }
+  }
+
+  @Nested
+  class TestDeleteAlertNotificationChannelController {
+
+    @Test
+    void shouldInitializeController() {
+      DeleteAlertNotificationChannel controller = new DeleteAlertNotificationChannel(alertService);
+      assertNotNull(controller);
+    }
+  }
+
+  @Nested
+  class TestGetAlertNotificationChannelByIdController {
+
+    @Test
+    void shouldInitializeController() {
+      GetAlertNotificationChannelById controller = new GetAlertNotificationChannelById(alertService);
+      assertNotNull(controller);
+    }
+  }
+
+  @Nested
   class TestCreateTagController {
 
     @Test
@@ -566,26 +596,29 @@ class AlertControllersV1Test {
 
     @Test
     void shouldCreateWithAllArgs() {
-      CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto("email", "{\"url\":\"test\"}");
+      CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto("Email Channel", "email", "team@example.com");
 
-      assertEquals("email", dto.getName());
-      assertEquals("{\"url\":\"test\"}", dto.getConfig());
+      assertEquals("Email Channel", dto.getName());
+      assertEquals("email", dto.getType());
+      assertEquals("team@example.com", dto.getConfig());
     }
 
     @Test
     void shouldSetAndGetFields() {
       CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto();
-      dto.setName("slack");
-      dto.setConfig("{\"webhook\":\"url\"}");
+      dto.setName("Slack Channel");
+      dto.setType("slack");
+      dto.setConfig("https://hooks.slack.com/services/xxx");
 
-      assertEquals("slack", dto.getName());
-      assertEquals("{\"webhook\":\"url\"}", dto.getConfig());
+      assertEquals("Slack Channel", dto.getName());
+      assertEquals("slack", dto.getType());
+      assertEquals("https://hooks.slack.com/services/xxx", dto.getConfig());
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      CreateAlertNotificationChannelRequestDto dto1 = new CreateAlertNotificationChannelRequestDto("slack", "{}");
-      CreateAlertNotificationChannelRequestDto dto2 = new CreateAlertNotificationChannelRequestDto("slack", "{}");
+      CreateAlertNotificationChannelRequestDto dto1 = new CreateAlertNotificationChannelRequestDto("Slack", "slack", "http://webhook.url");
+      CreateAlertNotificationChannelRequestDto dto2 = new CreateAlertNotificationChannelRequestDto("Slack", "slack", "http://webhook.url");
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());

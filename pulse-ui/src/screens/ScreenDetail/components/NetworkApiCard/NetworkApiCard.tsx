@@ -7,21 +7,6 @@ export const NetworkApiCard: React.FC<NetworkApiCardProps> = ({
   apiData,
   onClick,
 }) => {
-  const getMethodColor = (method: string) => {
-    switch (method) {
-      case "GET":
-        return "blue";
-      case "POST":
-        return "green";
-      case "PUT":
-        return "orange";
-      case "DELETE":
-        return "red";
-      default:
-        return "gray";
-    }
-  };
-
   const getPerformanceIndicator = (avgResponseTime: number) => {
     // avgResponseTime is in nanoseconds, convert to ms for comparison
     const responseTimeMs = avgResponseTime / 1_000_000;
@@ -46,17 +31,29 @@ export const NetworkApiCard: React.FC<NetworkApiCardProps> = ({
     <Box className={classes.apiCard} onClick={onClick}>
       <Box className={classes.apiCardHeader}>
         <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
-          <Badge
-            color={getMethodColor(apiData.method)}
-            variant="light"
-            size="sm"
-            className={classes.methodBadge}
-          >
-            {apiData.method}
-          </Badge>
-          <Text size="sm" fw={500} className={classes.endpoint}>
-            {apiData.endpoint}
-          </Text>
+          <Box style={{ minWidth: 0 }}>
+            {apiData.operationName ? (
+              <>
+                <Text size="sm" className={classes.operationName}>
+                  {apiData.operationName}
+                </Text>
+                <Group gap={4} wrap="nowrap">
+                  {apiData.operationType && (
+                    <Text size="xs" className={classes.operationType}>
+                      {apiData.operationType}
+                    </Text>
+                  )}
+                  <Text size="xs" className={classes.endpointSubtext}>
+                    {apiData.endpoint}
+                  </Text>
+                </Group>
+              </>
+            ) : (
+              <Text size="sm" fw={500} className={classes.endpoint}>
+                {apiData.endpoint}
+              </Text>
+            )}
+          </Box>
         </Group>
         <IconChevronRight size={18} color="#0ba09a" />
       </Box>

@@ -17,8 +17,8 @@ public class StackTraceEvent {
   @JsonProperty("Timestamp")
   private String timestamp;
 
-  @JsonProperty("EventName")
-  private String eventName;
+  @JsonProperty("PulseType")
+  private String pulseType;
 
   @JsonProperty("Title")
   private String title;
@@ -93,4 +93,7 @@ public class StackTraceEvent {
 
   @JsonProperty("ResourceAttributes")
   private Map<String, String> resourceAttributes;
+
+  @JsonProperty("BundleId")
+  private String bundleId;
 }

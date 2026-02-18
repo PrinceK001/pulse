@@ -35,6 +35,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -63,6 +65,9 @@ class ConfigServiceImplTest {
 
   @BeforeEach
   void setUp() {
+    // Set up tenant context for multi-tenancy tests
+    TenantContext.setTenantId("test-tenant");
+
     when(vertx.getOrCreateContext()).thenReturn(context);
     // Mock the context.runOnContext to just run the command immediately
     doAnswer(invocation -> {
@@ -71,6 +76,11 @@ class ConfigServiceImplTest {
       return null;
     }).when(context).runOnContext(any());
     configService = new ConfigServiceImpl(vertx, sdkConfigsDao, uploadConfigDetailService);
+  }
+
+  @AfterEach
+  void tearDown() {
+    TenantContext.clear();
   }
 
   @Nested
@@ -218,7 +228,6 @@ class ConfigServiceImplTest {
           .features(List.of(
               FeatureConfig.builder()
                   .featureName(Features.java_crash)
-                  .enabled(true)
                   .sessionSampleRate(1.0)
                   .sdks(List.of())
                   .build()
@@ -443,7 +452,7 @@ class ConfigServiceImplTest {
           .map(Enum::name)
           .collect(Collectors.toList());
       assertThat(result.getSdks()).containsExactlyInAnyOrderElementsOf(expectedSdks);
-      assertThat(result.getSdks()).contains("android_java", "android_rn", "ios_native", "ios_rn");
+      assertThat(result.getSdks()).contains("pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn");
     }
   }
 

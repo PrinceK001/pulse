@@ -12,6 +12,7 @@ import {
   IconDeviceDesktop,
   IconNetwork,
   IconUsers,
+  IconDatabaseSearch,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -41,10 +42,13 @@ import { NetworkDetail } from "../screens/NetworkDetail";
 import { NetworkList } from "../screens/NetworkList";
 import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
+import { SamplingConfig } from "../screens/SamplingConfig";
+import { Settings } from "../screens/Settings";
 import { AlertListingPage } from "../screens/AlertListingPage";
 import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
+import { RealTimeQuery } from "../screens/RealTimeQuery";
 
 export const APP_NAME: string = "Pulse";
 
@@ -187,6 +191,18 @@ export const ROUTES: Routes = {
     path: "/coming-soon",
     element: ComingSoon,
   },
+  SDK_CONFIG: {
+    key: "SDK_CONFIG",
+    basePath: "/sdk-config",
+    path: "/sdk-config",
+    element: SamplingConfig,
+  },
+  SETTINGS: {
+    key: "SETTINGS",
+    basePath: "/settings",
+    path: "/settings/*",
+    element: Settings,
+  },
   ALERTS: {
     key: "ALERTS",
     basePath: "/alerts",
@@ -205,7 +221,21 @@ export const ROUTES: Routes = {
     path: "/configure-alert/*",
     element: AlertForm,
   },
+  QUERY_BUILDER: {
+    key: "QUERY_BUILDER",
+    basePath: "/query-builder",
+    path: "/query-builder",
+    element: RealTimeQuery,
+  },
 };
+
+// Settings sub-routes (handled internally by Settings component)
+// Use these paths for programmatic navigation
+export const SETTINGS_PATHS = {
+  SDK_CONFIG: "/settings/sdk-config",
+  NOTIFICATIONS: "/settings/notifications",
+  SECURITY: "/settings/security",
+} as const;
 
 export const NAVBAR_ITEMS: NavbarItems = [
   {
@@ -248,6 +278,14 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconNetwork,
     routeTo: ROUTES.NETWORK_LIST.basePath,
     path: ROUTES.NETWORK_LIST.path,
+    iconSize: 25,
+  },
+  
+  {
+    tabName: "Query Builder",
+    icon: IconDatabaseSearch,
+    routeTo: ROUTES.QUERY_BUILDER.basePath,
+    path: ROUTES.QUERY_BUILDER.path,
     iconSize: 25,
   },
   {
@@ -348,6 +386,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/auth/social/authenticate`,
     method: API_METHODS.POST,
   },
+  TENANT_LOOKUP: {
+    key: "TENANT_LOOKUP",
+    apiPath: `/v1/auth/tenant/lookup`,
+    method: API_METHODS.GET,
+  },
   GET_APDEX_SCORE: {
     key: "GET_APDEX_SCORE",
     apiPath: `/v2/getApdexScore`,
@@ -425,12 +468,17 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   CANCEL_QUERY: {
     key: "CANCEL_QUERY",
-    apiPath: `/v2/cancelQueryRequest`,
-    method: API_METHODS.POST,
+    apiPath: `/query/job`, // DELETE /query/job/{jobId}
+    method: API_METHODS.DELETE,
   },
   GET_QUERY_HISTORY: {
     key: "GET_QUERY_HISTORY",
-    apiPath: `/v2/getQuery/user`,
+    apiPath: `/query/history`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_STATS: {
+    key: "GET_QUERY_STATS",
+    apiPath: `/query/stats`,
     method: API_METHODS.GET,
   },
   GET_SUGGESTED_QUERIES: {
@@ -579,6 +627,62 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/alert/notificationChannels`,
     method: API_METHODS.GET,
   },
+  CREATE_NOTIFICATION_CHANNEL: {
+    key: "CREATE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_NOTIFICATION_CHANNEL: {
+    key: "UPDATE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_NOTIFICATION_CHANNEL: {
+    key: "DELETE_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/alert/notificationChannels`,
+    method: API_METHODS.DELETE,
+  },
+  GET_NOTIFICATION_CHANNEL_BY_ID: {
+    key: "GET_NOTIFICATION_CHANNEL_BY_ID",
+    apiPath: `/v1/alert/notificationChannels/{notificationChannelId}`,
+    method: API_METHODS.GET,
+  },
+  // SDK Configuration API Routes
+  GET_ALL_SDK_CONFIGS: {
+    key: "GET_ALL_SDK_CONFIGS",
+    apiPath: `/v1/configs`,
+    method: API_METHODS.GET,
+  },
+  GET_SDK_CONFIG_BY_VERSION: {
+    key: "GET_SDK_CONFIG_BY_VERSION",
+    apiPath: `/v1/configs/{version}`,
+    method: API_METHODS.GET,
+  },
+  GET_ACTIVE_SDK_CONFIG: {
+    key: "GET_ACTIVE_SDK_CONFIG",
+    apiPath: `/v1/configs/active`,
+    method: API_METHODS.GET,
+  },
+  CREATE_SDK_CONFIG: {
+    key: "CREATE_SDK_CONFIG",
+    apiPath: `/v1/configs`,
+    method: API_METHODS.POST,
+  },
+  GET_SDK_RULES_AND_FEATURES: {
+    key: "GET_SDK_RULES_AND_FEATURES",
+    apiPath: `/v1/configs/rules-features`,
+    method: API_METHODS.GET,
+  },
+  GET_SDK_SCOPES_AND_SDKS: {
+    key: "GET_SDK_SCOPES_AND_SDKS",
+    apiPath: `/v1/configs/scopes-sdks`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_TABLES: {
+    key: "GET_QUERY_TABLES",
+    apiPath: `/query/tables`,
+    method: API_METHODS.GET,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {
@@ -700,6 +804,8 @@ export const COOKIES_KEY: Record<string, string> = {
   ID_TOKEN: "idToken",
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
+  TENANT_ID: "tenantId",
+  TENANT_NAME: "tenantName",
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {
@@ -777,13 +883,14 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 };
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
-  FOOTER_MESSAGE: "Facing problems? Ping us on #pulse-feedback",
+  FOOTER_MESSAGE: "Have questions? Join our Discord community",
+  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
   HELP_LINK:
-    "https://dream11.atlassian.net/wiki/spaces/FE/pages/3583705154/Pulse+Demo",
+    "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {
@@ -793,6 +900,15 @@ export const HEADER_CONSTANTS: Record<string, string> = {
 export const LOGIN_PAGE_CONSTANTS: Record<string, string> = {
   SIGNING_IN_MESSAGE: "Authenticating your credentials",
 };
+
+export const MULTI_TENANT_CONSTANTS = {
+  BADGE_LABEL: "Multi-tenant",
+  TENANT_LABEL: "Organization",
+  TENANT_PLACEHOLDER: "Select organization",
+  CURRENT_TENANT_LABEL: "Organization",
+  SIGN_IN_BUTTON: "Sign in with Google (GCP)",
+  SIGN_IN_SUBTEXT: "Sign in with Google via GCP Identity Platform",
+} as const;
 
 export const CRITICAL_INTERACTION_FORM_STEPS: CriticalInteractionFormSteps = [
   {
@@ -1056,6 +1172,10 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
   THIS_WEEK: "THIS_WEEK",
   THIS_MONTH_SO_FAR: "THIS_MONTH_SO_FAR",
 };
+
+// Default time filter for the dashboard (Last 24 hours)
+export const DEFAULT_QUICK_TIME_FILTER = CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
+export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {
   NEXT_1_HOUR: "NEXT_1_HOUR",

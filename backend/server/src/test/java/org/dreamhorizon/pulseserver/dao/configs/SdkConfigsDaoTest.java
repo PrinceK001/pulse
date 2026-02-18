@@ -32,6 +32,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -52,7 +54,7 @@ class SdkConfigsDaoTest {
     // Instantiate to cover the implicit constructor
     Queries queries = new Queries();
     assertThat(queries).isNotNull();
-    
+
     assertThat(Queries.INSERT_CONFIG).contains("INSERT INTO pulse_sdk_configs");
     assertThat(Queries.GET_CONFIG_BY_VERSION).contains("SELECT config_json");
     assertThat(Queries.GET_LATEST_VERSION).contains("SELECT version");
@@ -77,6 +79,9 @@ class SdkConfigsDaoTest {
   void setUp() {
     objectMapper = new ObjectMapperUtil();
     sdkConfigsDao = new SdkConfigsDao(d11MysqlClient, objectMapper);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("test")
+        .build());
   }
 
   @Nested
@@ -88,7 +93,8 @@ class SdkConfigsDaoTest {
     void shouldGetConfigByVersionSuccessfully() {
       // Given
       long version = 1L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+      String configJson =
+          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Test Config";
 
       Row mockRow = mock(Row.class);
@@ -118,7 +124,9 @@ class SdkConfigsDaoTest {
       assertThat(result.getDescription()).isEqualTo(description);
 
       Tuple capturedTuple = tupleCaptor.getValue();
-      assertThat(capturedTuple.getLong(0)).isEqualTo(version);
+      // First parameter is tenantId (String), second is version (Long)
+      assertThat(capturedTuple.getString(0)).isNotNull();
+      assertThat(capturedTuple.getLong(1)).isEqualTo(version);
 
       verify(d11MysqlClient, times(1)).getWriterPool();
       verifyNoMoreInteractions(d11MysqlClient);
@@ -128,7 +136,8 @@ class SdkConfigsDaoTest {
     void shouldGetConfigByVersionWithNullDescription() {
       // Given
       long version = 1L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+      String configJson =
+          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
 
       Row mockRow = mock(Row.class);
       when(mockRow.getValue("config_json")).thenReturn(configJson);
@@ -206,7 +215,8 @@ class SdkConfigsDaoTest {
     void shouldGetLatestConfigWithBlacklistMode() {
       // Given
       long version = 5L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+      String configJson =
+          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Latest Config";
 
       // Mock for GET_LATEST_VERSION query
@@ -214,6 +224,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -235,7 +246,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
-      when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
+      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(versionRowSet));
       when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
@@ -252,13 +263,15 @@ class SdkConfigsDaoTest {
     void shouldGetLatestConfigWithWhitelistMode() {
       // Given
       long version = 5L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+      String configJson =
+          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Latest Config";
 
       Row versionRow = mock(Row.class);
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -279,7 +292,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
-      when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
+      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(versionRowSet));
       when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
@@ -303,6 +316,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -323,7 +337,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
-      when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
+      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(versionRowSet));
       when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
@@ -347,6 +361,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -367,7 +382,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
-      when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
+      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(versionRowSet));
       when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
@@ -389,7 +404,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
-      when(latestVersionQuery.rxExecute()).thenReturn(Single.error(dbError));
+      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(dbError));
 
       // When
       var testObserver = sdkConfigsDao.getConfig().test();
@@ -408,6 +423,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -421,7 +437,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
-      when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
+      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(versionRowSet));
       when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
@@ -471,7 +487,6 @@ class SdkConfigsDaoTest {
           .features(List.of(
               FeatureConfig.builder()
                   .featureName(Features.java_crash)
-                  .enabled(true)
                   .sessionSampleRate(1.0)
                   .sdks(List.of())
                   .build()
@@ -495,7 +510,7 @@ class SdkConfigsDaoTest {
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
-      when(deactivateQuery.rxExecute()).thenReturn(Single.just(deactivateRowSet));
+      when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
       when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
       when(transaction.rxCommit()).thenReturn(Completable.complete());
@@ -535,7 +550,7 @@ class SdkConfigsDaoTest {
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
-      when(deactivateQuery.rxExecute()).thenReturn(Single.just(deactivateRowSet));
+      when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
       when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(insertError));
       when(transaction.rxRollback()).thenReturn(Completable.complete());
@@ -576,7 +591,7 @@ class SdkConfigsDaoTest {
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
-      when(deactivateQuery.rxExecute()).thenReturn(Single.just(deactivateRowSet));
+      when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
       when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
       when(transaction.rxRollback()).thenReturn(Completable.complete());
@@ -613,7 +628,7 @@ class SdkConfigsDaoTest {
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
-      when(deactivateQuery.rxExecute()).thenReturn(Single.error(deactivateError));
+      when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(deactivateError));
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
@@ -656,7 +671,7 @@ class SdkConfigsDaoTest {
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
-      when(deactivateQuery.rxExecute()).thenReturn(Single.just(deactivateRowSet));
+      when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
       when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
       when(transaction.rxCommit()).thenReturn(Completable.error(commitError));
@@ -699,7 +714,7 @@ class SdkConfigsDaoTest {
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
-      when(deactivateQuery.rxExecute()).thenReturn(Single.just(deactivateRowSet));
+      when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
       when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
       when(transaction.rxCommit()).thenReturn(Completable.complete());
@@ -749,7 +764,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
-      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       // When
       AllConfigdetails result = sdkConfigsDao.getAllConfigDetails().blockingGet();
@@ -788,7 +803,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
-      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       // When
       AllConfigdetails result = sdkConfigsDao.getAllConfigDetails().blockingGet();
@@ -807,7 +822,7 @@ class SdkConfigsDaoTest {
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
-      when(preparedQuery.rxExecute()).thenReturn(Single.error(dbError));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(dbError));
 
       // When
       var testObserver = sdkConfigsDao.getAllConfigDetails().test();

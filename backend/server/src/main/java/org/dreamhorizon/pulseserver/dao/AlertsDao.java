@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.dao;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -51,6 +52,7 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.Metric;
 import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.AlertMapper;
 import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 
@@ -61,15 +63,25 @@ public class AlertsDao {
   private final DateTimeUtil dateTimeUtil;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
+  /**
+   * Gets the current tenant ID from the TenantContext.
+   */
+  private String getTenantId() {
+    return TenantContext.getTenantId();
+  }
+
   private static void logAlertNotFound(Integer alertId) {
     log.error("Alert not found for alert id: {}", alertId);
   }
 
-  private static @NotNull List<Object> getParameters(String name, String scope, Integer limit, Integer offset,
-                                                     String createdBy, String updatedBy) {
+  private static @NotNull List<Object> getParameters(String tenantId, String name, String scope, Integer limit, Integer offset,
+                                                     String createdBy, String updatedBy, String status) {
     // Create a list to hold query parameters
     List<Object> parameters = new ArrayList<>();
+    String statusValue = status == null ? "" : status;
 
+    // Add tenant_id as the first parameter
+    parameters.add(tenantId);
     // Add parameters dynamically
     parameters.add(name == null ? "" : name);
     parameters.add(name == null ? "" : name);
@@ -79,6 +91,11 @@ public class AlertsDao {
     parameters.add(createdBy == null ? "" : createdBy);
     parameters.add(updatedBy == null ? "" : updatedBy);
     parameters.add(updatedBy == null ? "" : updatedBy);
+    parameters.add(statusValue);
+    parameters.add(statusValue);
+    parameters.add(statusValue);
+    parameters.add(statusValue);
+    parameters.add(statusValue); // For SNOOZED case
     parameters.add(limit == null ? 10 : limit);
     parameters.add(offset == null ? 0 : offset);
     return parameters;
@@ -182,6 +199,7 @@ public class AlertsDao {
     }
 
     List<Object> params = Arrays.asList(
+        getTenantId(),
         req.getName(),
         req.getDescription(),
         req.getScope().name(),
@@ -294,6 +312,7 @@ public class AlertsDao {
     tuple.addLocalDateTime(snoozeAlertRequest.getSnoozeUntil());
     tuple.addString(snoozeAlertRequest.getUpdatedBy());
     tuple.addInteger(snoozeAlertRequest.getAlertId());
+    tuple.addString(getTenantId());
 
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.SNOOZE_ALERT).rxExecute(tuple)
         .onErrorResumeNext(error -> {
@@ -315,6 +334,7 @@ public class AlertsDao {
     Tuple tuple = Tuple.tuple();
     tuple.addString(deleteSnoozeRequest.getUpdatedBy());
     tuple.addInteger(deleteSnoozeRequest.getAlertId());
+    tuple.addString(getTenantId());
 
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_SNOOZE).rxExecute(tuple)
         .onErrorResumeNext(error -> {
@@ -356,7 +376,8 @@ public class AlertsDao {
         req.getEvaluationPeriod(),
         req.getEvaluationInterval(),
         req.getUpdatedBy(),
-        req.getAlertId()
+        req.getAlertId(),
+        getTenantId()
     );
 
     // Use transaction to ensure atomicity
@@ -408,7 +429,7 @@ public class AlertsDao {
   }
 
   public Single<Boolean> deleteAlert(@NotNull Integer alertId) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_ALERT).rxExecute(Tuple.of(alertId))
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_ALERT).rxExecute(Tuple.of(alertId, getTenantId()))
         .onErrorResumeNext(error -> {
           log.error("Error while deleting alert from db for alert id {}: {}", alertId, error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
@@ -424,7 +445,7 @@ public class AlertsDao {
     Pool pool = d11MysqlClient.getWriterPool();
 
     Single<Alert> alertSingle = pool.preparedQuery(AlertsQuery.GET_ALERT_DETAILS)
-        .rxExecute(Tuple.of(alertId))
+        .rxExecute(Tuple.of(alertId, getTenantId()))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert details from db for alert id {}: {}", alertId, error.getMessage());
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(error.getMessage()));
@@ -495,6 +516,7 @@ public class AlertsDao {
 
     return Alert.builder()
         .alertId(row.getInteger("alert_id"))
+        .tenantId(row.getString("tenant_id"))
         .name(row.getString("name"))
         .description(row.getString("description"))
         .scope(row.getString("scope"))
@@ -504,7 +526,8 @@ public class AlertsDao {
         .evaluationInterval(row.getInteger("evaluation_interval"))
         .severityId(row.getInteger("severity_id"))
         .notificationChannelId(row.getInteger("notification_channel_id"))
-        .notificationWebhookUrl(row.getString("notification_webhook_url"))
+        .notificationType(row.getString("notification_type"))
+        .notificationConfig(row.getString("notification_config"))
         .createdBy(row.getString("created_by"))
         .updatedBy(row.getString("updated_by"))
         .createdAt(Timestamp.valueOf(row.getLocalDateTime("alert_created_at")))
@@ -517,8 +540,8 @@ public class AlertsDao {
   }
 
   public Single<GetAlertsResponse> getAlerts(String name, String scope, @NotNull Integer limit, @NotNull Integer offset,
-                                             String createdBy, String updatedBy) {
-    final var parameters = getParameters(name, scope, limit, offset, createdBy, updatedBy);
+                                             String createdBy, String updatedBy, String status) {
+    final var parameters = getParameters(getTenantId(), name, scope, limit, offset, createdBy, updatedBy, status);
     Pool pool = d11MysqlClient.getWriterPool();
 
     return pool.preparedQuery(AlertsQuery.GET_ALERTS)
@@ -649,7 +672,7 @@ public class AlertsDao {
   }
 
   public Single<List<AlertNotificationChannelResponseDto>> getNotificationChannels() {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNELS).rxExecute()
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNELS).rxExecute(Tuple.of(getTenantId()))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert notification channels from db: {}", error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
@@ -669,21 +692,117 @@ public class AlertsDao {
                   .notificationChannelId(row
                       .getInteger("notification_channel_id"))
                   .name(row.getString("name"))
-                  .notificationWebhookUrl(row.getString("notification_webhook_url"))
+                  .type(row.getString("type"))
+                  .config(row.getString("config"))
+                  .isActive(row.getBoolean("is_active"))
                   .build()));
 
           return notificationChannels;
         });
   }
 
-  public Single<Boolean> createNotificationChannel(@NotNull String name, @NotNull String config) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(name, config))
+  public Single<Boolean> createNotificationChannel(@NotNull String name, @NotNull String type, @NotNull String config) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_NOTIFICATION_CHANNEL)
+        .rxExecute(Tuple.of(getTenantId(), name, type, config))
         .onErrorResumeNext(error -> {
           log.error("Error while inserting alert notification channel in db: {}", error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
 
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> rowSet.rowCount() > 0);
+  }
+
+  public Maybe<NotificationChannelInfo> getNotificationChannelById(@NotNull Integer notificationChannelId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL)
+        .rxExecute(Tuple.of(notificationChannelId, getTenantId()))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching notification channel from db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        })
+        .flatMapMaybe(rowSet -> {
+          if (rowSet.size() == 0) {
+            log.error("Notification channel not found: {}", notificationChannelId);
+            return Maybe.empty();
+          }
+          Row row = rowSet.iterator().next();
+          return Maybe.just(new NotificationChannelInfo(
+              row.getString("type"),
+              row.getString("config"),
+              row.getBoolean("is_active")
+          ));
+        });
+  }
+
+  public Maybe<AlertNotificationChannelResponseDto> getNotificationChannelDetailsById(@NotNull Integer notificationChannelId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL_BY_ID)
+        .rxExecute(Tuple.of(notificationChannelId, getTenantId()))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching notification channel details from db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        })
+        .flatMapMaybe(rowSet -> {
+          if (rowSet.size() == 0) {
+            log.error("Notification channel not found: {}", notificationChannelId);
+            return Maybe.empty();
+          }
+          Row row = rowSet.iterator().next();
+          return Maybe.just(AlertNotificationChannelResponseDto.builder()
+              .notificationChannelId(row.getInteger("notification_channel_id"))
+              .name(row.getString("name"))
+              .type(row.getString("type"))
+              .config(row.getString("config"))
+              .isActive(row.getBoolean("is_active"))
+              .build());
+        });
+  }
+
+  public Single<Boolean> updateNotificationChannel(@NotNull Integer notificationChannelId, @NotNull String name, @NotNull String type,
+                                                   @NotNull String config) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.UPDATE_NOTIFICATION_CHANNEL)
+        .rxExecute(Tuple.of(name, type, config, notificationChannelId, getTenantId()))
+        .onErrorResumeNext(error -> {
+          log.error("Error while updating notification channel in db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        })
+        .map(rowSet -> rowSet.rowCount() > 0);
+  }
+
+  public Single<Boolean> deleteNotificationChannel(@NotNull Integer notificationChannelId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_NOTIFICATION_CHANNEL)
+        .rxExecute(Tuple.of(notificationChannelId, getTenantId()))
+        .onErrorResumeNext(error -> {
+          log.error("Error while deleting notification channel in db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        })
+        .map(rowSet -> rowSet.rowCount() > 0);
+  }
+
+  public static class NotificationChannelInfo {
+    private final String type;
+    private final String config;
+    private final Boolean isActive;
+
+    public NotificationChannelInfo(String type, String config, Boolean isActive) {
+      this.type = type;
+      this.config = config;
+      this.isActive = isActive;
+    }
+
+    public String getType() {
+      return type;
+    }
+
+    public String getConfig() {
+      return config;
+    }
+
+    public Boolean getIsActive() {
+      return isActive;
+    }
   }
 
   public Single<Boolean> createTagForAlert(@NotNull String tag) {
@@ -758,12 +877,13 @@ public class AlertsDao {
   }
 
   public Single<AlertFiltersResponseDto> getAlertsFilters() {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_ALERT_FILTERS).rxExecute().onErrorResumeNext(error -> {
-      log.error("Error while fetching alert filters from db: {}", error.getMessage());
-      MySQLException mySqlException = (MySQLException) error;
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_ALERT_FILTERS).rxExecute(Tuple.of(getTenantId()))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching alert filters from db: {}", error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
 
-      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
-    }).map(AlertMapper::mapRowSetToAlertFilters);
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
+        }).map(AlertMapper::mapRowSetToAlertFilters);
   }
 
   public Single<List<org.dreamhorizon.pulseserver.resources.alert.models.MetricItemDto>> getMetricsByScope(@NotNull String scope) {
@@ -813,7 +933,7 @@ public class AlertsDao {
   public Single<AlertDetails> getAlertDetailsForEvaluation(Integer alertId) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(AlertsQuery.GET_ALERT_DETAILS_FOR_EVALUATION)
-        .rxExecute(Tuple.of(alertId))
+        .rxExecute(Tuple.of(alertId, getTenantId()))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert details from db for alert id {}: {}", alertId, error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
@@ -838,6 +958,7 @@ public class AlertsDao {
                 .isActive(row.getBoolean("is_active"))
                 .snoozedFrom(getLocalDateTime(row, "snoozed_from"))
                 .snoozedUntil(getLocalDateTime(row, "snoozed_until"))
+                .tenantId(row.getString("tenant_id"))
                 .build();
           } else {
             logAlertNotFound(alertId);
@@ -960,7 +1081,7 @@ public class AlertsDao {
   public Single<List<ScopeEvaluationHistoryDto>> getEvaluationHistoryByAlert(Integer alertId) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(AlertsQuery.GET_EVALUATION_HISTORY_BY_ALERT)
-        .rxExecute(Tuple.of(alertId))
+        .rxExecute(Tuple.of(alertId, getTenantId()))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching evaluation history for alert id {}: {}", alertId, error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
@@ -1017,6 +1138,7 @@ public class AlertsDao {
     private Boolean isActive;
     private LocalDateTime snoozedFrom;
     private LocalDateTime snoozedUntil;
+    private String tenantId;
   }
 
   @lombok.Data

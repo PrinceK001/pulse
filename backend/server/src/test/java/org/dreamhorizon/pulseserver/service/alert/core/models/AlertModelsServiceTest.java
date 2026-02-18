@@ -45,7 +45,8 @@ class AlertModelsServiceTest {
           .evaluationInterval(300)
           .severityId(1)
           .notificationChannelId(1)
-          .notificationWebhookUrl("http://webhook.url")
+          .notificationType("slack")
+          .notificationConfig("http://webhook.url")
           .createdBy("user")
           .updatedBy("user")
           .createdAt(now)
@@ -67,7 +68,8 @@ class AlertModelsServiceTest {
       assertEquals(300, alert.getEvaluationInterval());
       assertEquals(1, alert.getSeverityId());
       assertEquals(1, alert.getNotificationChannelId());
-      assertEquals("http://webhook.url", alert.getNotificationWebhookUrl());
+      assertEquals("slack", alert.getNotificationType());
+      assertEquals("http://webhook.url", alert.getNotificationConfig());
       assertEquals("user", alert.getCreatedBy());
       assertEquals("user", alert.getUpdatedBy());
       assertEquals(now, alert.getCreatedAt());

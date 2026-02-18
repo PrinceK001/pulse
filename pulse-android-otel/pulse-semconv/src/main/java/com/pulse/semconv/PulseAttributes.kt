@@ -4,6 +4,7 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.AttributeKey.stringKey
 import io.opentelemetry.semconv.AttributeKeyTemplate
 import io.opentelemetry.semconv.AttributeKeyTemplate.stringKeyTemplate
+import io.opentelemetry.semconv.TelemetryAttributes
 
 public object PulseAttributes {
     /**
@@ -18,6 +19,23 @@ public object PulseAttributes {
     @JvmField
     public val PULSE_SPAN_ID: AttributeKey<String> = stringKey("pulse.span.id")
 
+    @JvmField
+    public val TELEMETRY_SDK_NAME_KEY: AttributeKey<String> = TelemetryAttributes.TELEMETRY_SDK_NAME
+
+    /**
+     * Project ID for multi-tenant applications.
+     * Used in both HTTP headers (as "X-API-KEY") and as a global attribute (as "project.id").
+     */
+    @JvmField
+    public val PROJECT_ID: AttributeKey<String> = stringKey("project.id")
+
+    public object PulseSdkNames {
+        public const val ANDROID_JAVA: String = "pulse_android_java"
+        public const val ANDROID_RN: String = "pulse_android_rn"
+        public const val IOS_SWIFT: String = "pulse_ios_swift"
+        public const val IOS_RN: String = "pulse_ios_rn"
+    }
+
     public object PulseTypeValues {
         public const val CUSTOM_EVENT: String = "custom_event"
         public const val ANR: String = "device.anr"
@@ -27,6 +45,7 @@ public object PulseAttributes {
         public const val SCREEN_SESSION: String = "screen_session"
         public const val APP_SESSION_START: String = "session.start"
         public const val APP_SESSION_END: String = "session.end"
+        public const val APP_INSTALLATION_START: String = "pulse.app.installation.start"
         public const val SCREEN_LOAD: String = "screen_load"
         public const val FROZEN: String = "app.jank.frozen"
         public const val SLOW: String = "app.jank.slow"

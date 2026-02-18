@@ -1,16 +1,16 @@
 import { Box, TextInput, Group, ScrollArea, Select } from "@mantine/core";
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDebouncedValue } from "@mantine/hooks";
 import { NetworkListProps, NetworkApi } from "./NetworkList.interface";
 import classes from "./NetworkList.module.css";
 import { NetworkApiCard } from "../ScreenDetail/components/NetworkApiCard";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
+import { CardSkeleton } from "../../components/Skeletons";
 import {
   ROUTES,
-  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
-  CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
+  DEFAULT_QUICK_TIME_FILTER,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
 import {
   DataQueryRequestBody,
@@ -22,13 +22,18 @@ import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { encodeNetworkId } from "./utils/networkIdUtils";
-import { STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useFilterStore } from "../../stores/useFilterStore";
 
 dayjs.extend(utc);
 
-type SearchFilterType = "method" | "url" | "endpoint" | "status_code";
+type SearchFilterType =
+  | "method"
+  | "url"
+  | "endpoint"
+  | "status_code"
+  | "operation_name";
 
 export function NetworkList({
   screenName,
@@ -39,6 +44,7 @@ export function NetworkList({
   externalFilters = [],
 }: NetworkListProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { trackClick, trackSearch, trackFilter } = useAnalytics("NetworkList");
   const [searchStr, setSearchStr] = useState<string>("");
   const [debouncedSearchStr] = useDebouncedValue(searchStr, 300);
@@ -52,56 +58,27 @@ export function NetworkList({
     quickTimeRangeString,
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
-    setQuickTimeRange,
+    initializeFromUrlParams,
+    selectedTimeFilter,
   } = useFilterStore();
 
-  // Initialize default time range (LAST_1_HOUR)
+  // Initialize default time range (Last 24 hours)
   const getDefaultTimeRange = () => {
-    return getStartAndEndDateTimeString(
-      CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-      2,
-    );
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
-  // Initialize filter store with LAST_1_HOUR on mount if not already set
+  // Initialize filter store from URL params
   useEffect(() => {
-    if (!storeStartTime || !storeEndTime) {
-      const defaultRange = getDefaultTimeRange();
-      setQuickTimeRange(CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR, 3);
-      storeHandleTimeFilterChange({
-        startDate: defaultRange.startDate,
-        endDate: defaultRange.endDate,
-      });
-    }
+    initializeFromUrlParams(searchParams);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   // Use external time if provided, otherwise use store values
   const startTime = externalStartTime || storeStartTime || getDefaultTimeRange().startDate;
   const endTime = externalEndTime || storeEndTime || getDefaultTimeRange().endDate;
 
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
-    // Update store with new time values
-    // The store's handleTimeFilterChange only updates if filterValues exists,
-    // so we also directly update startTime and endTime
     storeHandleTimeFilterChange(value);
-
-    // Directly update startTime and endTime in store
-    const store = useFilterStore.getState();
-    // Get the quickTimeRangeString from the activeQuickTimeFilter index
-    const activeIndex = store.activeQuickTimeFilter;
-    const quickTimeString = activeIndex !== -1 && activeIndex < CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.length
-      ? CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[activeIndex].value
-      : "";
-    
-    store.handleFilterChange(
-      {} as any, // Empty filter values
-      value.startDate || "",
-      value.endDate || "",
-      quickTimeString,
-    );
-    // Also update quickTimeRangeFilterIndex
-    store.setQuickTimeRange(quickTimeString, activeIndex);
   };
 
   // Query network APIs
@@ -112,7 +89,7 @@ export function NetworkList({
       value: string[];
     }> = [
       {
-        field: "SpanType",
+        field: "PulseType",
         operator: "LIKE" as const,
         value: ["%network%"],
       },
@@ -121,7 +98,7 @@ export function NetworkList({
     // Add screen name filter only if provided
     if (screenName) {
       filters.push({
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "EQ" as const,
         value: [screenName],
       });
@@ -143,6 +120,9 @@ export function NetworkList({
         case "status_code":
           filterField = "SpanAttributes['http.status_code']";
           break;
+        case "operation_name":
+          filterField = "SpanAttributes['graphql.operation.name']";
+          break;
         default:
           filterField = "SpanAttributes['http.url']";
       }
@@ -162,12 +142,12 @@ export function NetworkList({
     // Format times to UTC ISO format
     const formatToUTC = (time: string): string => {
       if (!time) return "";
-      // If already in ISO format, return as is
+      // If already in ISO format, parse and ensure valid
       if (time.includes("T") || time.includes("Z")) {
-        return time;
+        return dayjs.utc(time).toISOString();
       }
-      // Convert "YYYY-MM-DD HH:mm:ss" to UTC ISO format
-      return dayjs.utc(time).toISOString();
+      // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
+      return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
     };
 
 
@@ -183,16 +163,23 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.method']",
+            expression: "SpanAttributes['http.url']",
           },
-          alias: "method",
+          alias: "url",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.url']",
+            expression: "SpanAttributes['graphql.operation.name']",
           },
-          alias: "url",
+          alias: "graphql_operation_name",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: "SpanAttributes['graphql.operation.type']",
+          },
+          alias: "graphql_operation_type",
         },
         {
           function: "CUSTOM" as const,
@@ -222,23 +209,23 @@ export function NetworkList({
           },
           alias: "all_sessions",
         },
-        {
-          function: "CUSTOM" as const,
-          param: {
-            expression: "SpanAttributes['http.status_code']",
-          },
-          alias: "status_code",
-        },
+        // {
+        //   function: "CUSTOM" as const,
+        //   param: {
+        //     expression: "SpanAttributes['http.status_code']",
+        //   },
+        //   alias: "status_code",
+        // },
         ...(screenName ? [{
           function: "COL" as const,
-          param: { field: `SpanAttributes['${SpanType.SCREEN_NAME}']` },
+          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
           alias: "screen_name",
         }] : []),
       ],
       groupBy: [
-        "method",
         "url",
-        "status_code",
+        "graphql_operation_name",
+        "graphql_operation_type",
         ...(screenName ? ["screen_name"] : []),
       ],
       orderBy: [
@@ -279,44 +266,86 @@ export function NetworkList({
     }
 
     const fields = data.data.fields;
-    const methodIndex = fields.indexOf("method");
     const urlIndex = fields.indexOf("url");
+    const graphqlOperationIndex = fields.indexOf("graphql_operation_name");
+    const graphqlOperationTypeIndex = fields.indexOf("graphql_operation_type");
+    const methodIndex = fields.indexOf("method");
     const totalRequestsIndex = fields.indexOf("total_requests");
     const successRequestsIndex = fields.indexOf("success_requests");
     const responseTimeIndex = fields.indexOf("response_time");
     const allSessionsIndex = fields.indexOf("all_sessions");
 
-    return data.data.rows.map((row, index) => {
+    const aggregated = new Map<string, NetworkApi & { totalRequests: number; successRequests: number; responseTimeTotal: number }>();
+
+    data.data.rows.forEach((row) => {
       const url = row[urlIndex] || "";
-      const method = row[methodIndex] || "UNKNOWN";
+      const operationNameRaw = row[graphqlOperationIndex] || "";
+      const operationTypeRaw = row[graphqlOperationTypeIndex] || "";
+      const operationName = String(operationNameRaw).trim() || "";
+      const operationType = String(operationTypeRaw).trim().toUpperCase() || "";
+      const method =
+        methodIndex >= 0 && row[methodIndex]
+          ? String(row[methodIndex])
+          : undefined;
       const totalRequests = parseFloat(row[totalRequestsIndex]) || 0;
       const successRequests = parseFloat(row[successRequestsIndex]) || 0;
-      const successRate =
-        totalRequests > 0 ? (successRequests / totalRequests) * 100 : 0;
-      const errorRate =
-        totalRequests > 0
-          ? ((totalRequests - successRequests) / totalRequests) * 100
-          : 0;
+      const responseTime = parseFloat(row[responseTimeIndex]) || 0;
+      const responseTimeTotal = responseTime * totalRequests;
 
-      // Generate unique ID from endpoint and method (base64 encoded for URL safety)
-      const id = encodeNetworkId(method, url);
+      const aggregationKey = `${url}||${operationName}||${operationType}`;
+      const existing = aggregated.get(aggregationKey);
+      if (existing) {
+        existing.totalRequests += totalRequests;
+        existing.successRequests += successRequests;
+        existing.responseTimeTotal += responseTimeTotal;
+        existing.requestCount = Math.round(existing.totalRequests);
+        existing.successRate =
+          existing.totalRequests > 0
+            ? Math.round((existing.successRequests / existing.totalRequests) * 1000) / 10
+            : 0;
+        existing.errorRate =
+          existing.totalRequests > 0
+            ? Math.round(((existing.totalRequests - existing.successRequests) / existing.totalRequests) * 1000) / 10
+            : 0;
+        existing.avgResponseTime =
+          existing.totalRequests > 0
+            ? Math.round(existing.responseTimeTotal / existing.totalRequests)
+            : 0;
+        existing.allSessions = Math.max(existing.allSessions || 0, Math.round(parseFloat(row[allSessionsIndex]) || 0));
+        return;
+      }
 
-      return {
+      // Generate unique ID from endpoint URL (base64 encoded for URL safety)
+      const id = encodeNetworkId(
+        url,
+        operationName ? String(operationName) : undefined,
+        operationType ? String(operationType) : undefined
+      );
+
+      aggregated.set(aggregationKey, {
         id,
         endpoint: url,
+        operationName: operationName ? String(operationName) : undefined,
+        operationType: operationType ? String(operationType) : undefined,
         method,
-        avgResponseTime: Math.round(parseFloat(row[responseTimeIndex]) || 0),
+        avgResponseTime: Math.round(responseTime || 0),
         requestCount: Math.round(totalRequests),
-        successRate: Math.round(successRate * 10) / 10,
-        errorRate: Math.round(errorRate * 10) / 10,
+        successRate:
+          totalRequests > 0 ? Math.round((successRequests / totalRequests) * 1000) / 10 : 0,
+        errorRate:
+          totalRequests > 0 ? Math.round(((totalRequests - successRequests) / totalRequests) * 1000) / 10 : 0,
         p50: 0, // Not available in new contract
         p95: 0, // Not available in new contract
         p99: 0, // Not available in new contract
         lastCalled: new Date().toISOString(), // Not available in new contract
         screenName: screenName || undefined,
         allSessions: Math.round(parseFloat(row[allSessionsIndex]) || 0),
-      };
+        totalRequests,
+        successRequests,
+        responseTimeTotal,
+      });
     });
+    return Array.from(aggregated.values());
   }, [data, screenName]);
 
   // APIs are already filtered by the API query based on searchFilterType
@@ -339,12 +368,21 @@ export function NetworkList({
   };
 
   const renderContent = () => {
-    // Show loading state
+    // Show loading state with skeleton cards
     if (isLoading) {
       return (
-        <Box className={classes.loader}>
-          <LoaderWithMessage loadingMessage="Loading Network APIs..." />
-        </Box>
+        <ScrollArea className={classes.scrollArea}>
+          <Box className={classes.apiListContainer}>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <CardSkeleton
+                key={index}
+                height={100}
+                showHeader
+                contentRows={1}
+              />
+            ))}
+          </Box>
+        </ScrollArea>
       );
     }
 
@@ -418,8 +456,8 @@ export function NetworkList({
                 data={[
                   { value: "method", label: "Method" },
                   { value: "url", label: "URL" },
-                  { value: "endpoint", label: "Endpoint" },
                   { value: "status_code", label: "Status Code" },
+                  { value: "operation_name", label: "Operation Name" },
                 ]}
                 size="sm"
                 style={{
@@ -441,6 +479,8 @@ export function NetworkList({
                     : searchFilterType === "url" ||
                         searchFilterType === "endpoint"
                       ? "Search by URL/endpoint..."
+                      : searchFilterType === "operation_name"
+                        ? "Search by GraphQL operation name..."
                       : "Search by status code (e.g., 200, 404)..."
                 }
                 onChange={handleSearchChange}
@@ -457,11 +497,11 @@ export function NetworkList({
             </Group>
             <DateTimeRangePicker
               handleTimefilterChange={handleTimeFilterChange}
-              selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : 3}
-              defaultQuickTimeFilterIndex={3}
-              defaultQuickTimeFilterString={quickTimeRangeString || CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR}
-              defaultEndTime={endTime}
-              defaultStartTime={startTime}
+              selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : DEFAULT_QUICK_TIME_FILTER_INDEX}
+              defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
+              defaultQuickTimeFilterString={quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
             />
           </Group>
         </Box>

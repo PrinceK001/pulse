@@ -15,6 +15,10 @@ public class CreateAlertNotificationChannelRequestDto {
   String name;
 
   @NotNull
+  @JsonProperty("type")
+  String type;
+
+  @NotNull
   @JsonProperty("config")
   String config;
 }

@@ -55,6 +55,22 @@ export interface Spec extends TurboModule {
 
   /** Trigger ANR test (freezes main thread for 6 seconds) */
   triggerAnr(): void;
+
+  /** Set the current React Native screen name to sync active screen name on Android/iOS */
+  setCurrentScreenName(screenName: string): boolean;
+
+  /** Get all SDK Remote Config features */
+  getAllFeatures(): {
+    rn_screen_load: boolean;
+    screen_session: boolean;
+    rn_screen_interactive: boolean;
+    network_instrumentation: boolean;
+    custom_events: boolean;
+    js_crash: boolean;
+  } | null;
+
+  /** Shut down the Pulse SDK. After this, re-init is not supported. */
+  shutdown(): boolean;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('PulseReactNativeOtel');

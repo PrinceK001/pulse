@@ -8,12 +8,13 @@
 // GET /v1/alert/scopes - AlertScopesResponseDto
 // =============================================================================
 // Scope IDs must match AlertScopeType enum values in the frontend
+// Interface: { id: number, name: string, label: string }
 export const mockAlertScopes = {
   scopes: [
-    { id: "interaction", label: "Interactions" },
-    { id: "network_api", label: "Network APIs" },
-    { id: "app_vitals", label: "App Vitals" },
-    { id: "screen", label: "Screen" },
+    { id: 1, name: "interaction", label: "Interactions" },
+    { id: 2, name: "network_api", label: "Network APIs" },
+    { id: 3, name: "app_vitals", label: "App Vitals" },
+    { id: 4, name: "screen", label: "Screen" },
   ],
 };
 
@@ -94,12 +95,15 @@ export const mockAlertMetrics: Record<string, { scope: string; metrics: Array<{ 
 
 // =============================================================================
 // GET /v1/alert/notificationChannels - List<AlertNotificationChannelResponseDto>
+// POST /v1/alert/notificationChannels - CreateAlertNotificationChannelRequestDto
+// Note: Currently only Slack is supported. Email support coming soon.
 // =============================================================================
 export const mockNotificationChannels = [
-  { notification_channel_id: 1, name: "Slack - #alerts-critical", notification_webhook_url: "https://hooks.slack.com/services/xxx" },
-  { notification_channel_id: 2, name: "Email - Engineering Team", notification_webhook_url: "mailto:engineering@example.com" },
-  { notification_channel_id: 3, name: "PagerDuty - On-Call", notification_webhook_url: "https://events.pagerduty.com/v2/enqueue" },
-  { notification_channel_id: 4, name: "Webhook - Custom Integration", notification_webhook_url: "https://api.example.com/webhooks/alerts" },
+  { notification_channel_id: 1, name: "Slack - #alerts-critical", type: "slack", config: "https://hooks.slack.com/services/xxx", is_active: true },
+  { notification_channel_id: 2, name: "Slack - #engineering", type: "slack", config: "https://hooks.slack.com/services/yyy", is_active: true },
+  { notification_channel_id: 3, name: "Slack - #alerts-warning", type: "slack", config: "https://hooks.slack.com/services/zzz", is_active: true },
+  { notification_channel_id: 4, name: "Slack - #devops", type: "slack", config: "https://hooks.slack.com/services/aaa", is_active: true },
+  { notification_channel_id: 5, name: "Slack - #old-alerts (Deleted)", type: "slack", config: "https://hooks.slack.com/services/bbb", is_active: false },
 ];
 
 // =============================================================================
@@ -109,6 +113,7 @@ export const mockAlertFilters = {
   job_id: ["job_1", "job_2", "job_3"],
   created_by: ["chirag@example.com", "john@example.com", "admin@example.com"],
   updated_by: ["chirag@example.com", "john@example.com", "admin@example.com"],
+  scope: ["interaction", "network_api", "app_vitals", "screen"],
   current_state: ["ACTIVE", "FIRING", "SNOOZED"],
 };
 
@@ -131,7 +136,7 @@ const alertTemplates = [
     scope: "network_api",
     metric: "ERROR_RATE",
     operator: "GREATER_THAN",
-    thresholds: { "/checkout/initiate": 0.05, "/checkout/confirm": 0.03, "/payment/process": 0.02 },
+    thresholds: { "post_https://api.fancode.com/v1/checkout/initiate": 0.05, "post_https://api.fancode.com/v1/checkout/confirm": 0.03, "post_https://api.fancode.com/v1/payment/process": 0.02 },
     severity_id: 1,
   },
   {
@@ -167,7 +172,7 @@ const alertTemplates = [
     scope: "network_api",
     metric: "DURATION_P99",
     operator: "GREATER_THAN",
-    thresholds: { "/search/products": 2000, "/search/suggest": 500 },
+    thresholds: { "get_https://api.fancode.com/v1/search/products": 2000, "get_https://api.fancode.com/v1/search/suggest": 500 },
     severity_id: 2,
   },
   {
@@ -203,7 +208,7 @@ const alertTemplates = [
     scope: "network_api",
     metric: "NET_5XX_RATE",
     operator: "GREATER_THAN",
-    thresholds: { "/notifications/send": 0.01, "/notifications/status": 0.02 },
+    thresholds: { "post_https://api.fancode.com/v1/notifications/send": 0.01, "get_https://api.fancode.com/v1/notifications/status": 0.02 },
     severity_id: 2,
   },
 ];
@@ -244,13 +249,14 @@ const generateMockAlerts = () => {
       evaluation_interval: [60, 120, 180][i % 3],
       severity_id: template.severity_id,
       notification_channel_id: (i % 4) + 1,
-      notification_webhook_url: mockNotificationChannels[i % 4].notification_webhook_url,
+      notification_type: mockNotificationChannels[i % 4].type,
+      notification_config: mockNotificationChannels[i % 4].config,
       created_by: users[i % users.length],
       updated_by: users[(i + 1) % users.length],
       created_at: new Date(Date.now() - createdDaysAgo * 86400000).toISOString(),
       updated_at: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
       is_active: true,
-      current_state: isFiring ? "FIRING" : isSnoozed ? "SNOOZED" : "NORMAL",
+      status: isFiring ? "FIRING" : isSnoozed ? "SNOOZED" : "NORMAL",
       is_snoozed: isSnoozed,
       last_snoozed_at: isSnoozed ? new Date().toISOString() : null,
       snoozed_from: isSnoozed ? Date.now() : null,

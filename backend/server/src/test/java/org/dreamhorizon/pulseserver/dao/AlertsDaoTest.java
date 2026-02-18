@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.dao;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -154,7 +155,8 @@ class AlertsDaoTest {
     when(mockRow.getInteger("evaluation_interval")).thenReturn(60);
     when(mockRow.getInteger("severity_id")).thenReturn(1);
     when(mockRow.getInteger("notification_channel_id")).thenReturn(1);
-    when(mockRow.getString("notification_webhook_url")).thenReturn("https://webhook.url");
+    when(mockRow.getString("notification_type")).thenReturn("slack");
+    when(mockRow.getString("notification_config")).thenReturn("https://webhook.url");
     when(mockRow.getString("created_by")).thenReturn("user1");
     when(mockRow.getString("updated_by")).thenReturn("user2");
     when(mockRow.getLocalDateTime("alert_created_at")).thenReturn(now);
@@ -445,7 +447,7 @@ class AlertsDaoTest {
       when(alertPq.rxExecute(any(Tuple.class))).thenReturn(Single.just(alertRowSet));
       when(scopePq.rxExecute(any(Tuple.class))).thenReturn(Single.just(scopeRowSet));
 
-      GetAlertsResponse result = alertsDao.getAlerts("Test", "Interaction", 10, 0, "user1", "user2").blockingGet();
+      GetAlertsResponse result = alertsDao.getAlerts("Test", "Interaction", 10, 0, "user1", "user2", null).blockingGet();
 
       assertNotNull(result);
       assertEquals(1, result.getTotalAlerts());
@@ -458,7 +460,7 @@ class AlertsDaoTest {
       when(rowSet.size()).thenReturn(0);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      GetAlertsResponse result = alertsDao.getAlerts(null, null, 10, 0, null, null).blockingGet();
+      GetAlertsResponse result = alertsDao.getAlerts(null, null, 10, 0, null, null, null).blockingGet();
 
       assertNotNull(result);
       assertEquals(0, result.getTotalAlerts());
@@ -472,7 +474,7 @@ class AlertsDaoTest {
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> alertsDao.getAlerts("Test", null, 10, 0, null, null).blockingGet());
+          () -> alertsDao.getAlerts("Test", null, 10, 0, null, null, null).blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
     }
   }
@@ -616,24 +618,27 @@ class AlertsDaoTest {
       Row channelRow = mock(Row.class);
       when(channelRow.getInteger("notification_channel_id")).thenReturn(1);
       when(channelRow.getString("name")).thenReturn("Slack");
-      when(channelRow.getString("notification_webhook_url")).thenReturn("https://slack.webhook");
+      when(channelRow.getString("type")).thenReturn("slack");
+      when(channelRow.getString("config")).thenReturn("https://slack.webhook");
+      when(channelRow.getBoolean("is_active")).thenReturn(true);
 
       // Use helper method to properly mock RowSet with forEach support
       setupRowSetMock(rowSet, Arrays.asList(channelRow));
-      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       List<AlertNotificationChannelResponseDto> result = alertsDao.getNotificationChannels().blockingGet();
 
       assertNotNull(result);
       assertEquals(1, result.size());
       assertEquals("Slack", result.get(0).getName());
+      assertTrue(result.get(0).getIsActive());
     }
 
     @Test
     void shouldReturnEmptyListWhenNoChannels() {
       setupPreparedQuery();
       when(rowSet.size()).thenReturn(0);
-      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       List<AlertNotificationChannelResponseDto> result = alertsDao.getNotificationChannels().blockingGet();
 
@@ -644,7 +649,7 @@ class AlertsDaoTest {
     @Test
     void shouldThrowExceptionOnDatabaseError() {
       setupPreparedQuery();
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,
@@ -662,7 +667,7 @@ class AlertsDaoTest {
       when(rowSet.rowCount()).thenReturn(1);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      Boolean result = alertsDao.createNotificationChannel("Slack", "https://webhook").blockingGet();
+      Boolean result = alertsDao.createNotificationChannel("Slack", "slack", "https://webhook").blockingGet();
       assertTrue(result);
     }
 
@@ -672,7 +677,7 @@ class AlertsDaoTest {
       when(rowSet.rowCount()).thenReturn(0);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      Boolean result = alertsDao.createNotificationChannel("Slack", "https://webhook").blockingGet();
+      Boolean result = alertsDao.createNotificationChannel("Slack", "slack", "https://webhook").blockingGet();
       assertFalse(result);
     }
 
@@ -683,8 +688,112 @@ class AlertsDaoTest {
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> alertsDao.createNotificationChannel("Slack", "https://webhook").blockingGet());
+          () -> alertsDao.createNotificationChannel("Slack", "slack", "https://webhook").blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
+    }
+  }
+
+  @Nested
+  class TestUpdateNotificationChannel {
+
+    @Test
+    void shouldUpdateChannelSuccessfully() {
+      setupPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(1);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = alertsDao.updateNotificationChannel(1, "Updated Slack", "slack", "https://new.webhook").blockingGet();
+      assertTrue(result);
+    }
+
+    @Test
+    void shouldReturnFalseWhenNoRowsUpdated() {
+      setupPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = alertsDao.updateNotificationChannel(1, "Updated Slack", "slack", "https://new.webhook").blockingGet();
+      assertFalse(result);
+    }
+
+    @Test
+    void shouldThrowExceptionOnDatabaseError() {
+      setupPreparedQuery();
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> alertsDao.updateNotificationChannel(1, "Updated Slack", "slack", "https://new.webhook").blockingGet());
+      assertTrue(ex.getMessage().contains("DB Error"));
+    }
+  }
+
+  @Nested
+  class TestDeleteNotificationChannel {
+
+    @Test
+    void shouldDeleteChannelSuccessfully() {
+      setupPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(1);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = alertsDao.deleteNotificationChannel(1).blockingGet();
+      assertTrue(result);
+    }
+
+    @Test
+    void shouldReturnFalseWhenNoRowsDeleted() {
+      setupPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = alertsDao.deleteNotificationChannel(1).blockingGet();
+      assertFalse(result);
+    }
+
+    @Test
+    void shouldThrowExceptionOnDatabaseError() {
+      setupPreparedQuery();
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> alertsDao.deleteNotificationChannel(1).blockingGet());
+      assertTrue(ex.getMessage().contains("DB Error"));
+    }
+  }
+
+  @Nested
+  class TestGetNotificationChannelById {
+
+    @Test
+    void shouldGetChannelInfoSuccessfully() {
+      setupPreparedQuery();
+      Row channelRow = mock(Row.class);
+      when(channelRow.getString("type")).thenReturn("slack");
+      when(channelRow.getString("config")).thenReturn("https://webhook.url");
+      when(channelRow.getBoolean("is_active")).thenReturn(true);
+
+      setupRowSetMock(rowSet, Arrays.asList(channelRow));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      AlertsDao.NotificationChannelInfo result = alertsDao.getNotificationChannelById(1).blockingGet();
+
+      assertNotNull(result);
+      assertEquals("slack", result.getType());
+      assertEquals("https://webhook.url", result.getConfig());
+      assertTrue(result.getIsActive());
+    }
+
+    @Test
+    void shouldReturnEmptyWhenChannelNotFound() {
+      setupPreparedQuery();
+      when(rowSet.size()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      AlertsDao.NotificationChannelInfo result = alertsDao.getNotificationChannelById(999).blockingGet();
+
+      assertNull(result);
     }
   }
 
@@ -901,7 +1010,7 @@ class AlertsDaoTest {
       // Create mock iterator BEFORE using it in when().thenReturn()
       RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(filterRow));
       when(rowSet.iterator()).thenReturn(iterator);
-      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AlertFiltersResponseDto result = alertsDao.getAlertsFilters().blockingGet();
 
@@ -912,7 +1021,7 @@ class AlertsDaoTest {
     @Test
     void shouldThrowExceptionOnDatabaseError() {
       setupPreparedQuery();
-      when(preparedQuery.rxExecute())
+      when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,

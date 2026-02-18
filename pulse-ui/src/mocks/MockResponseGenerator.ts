@@ -17,6 +17,15 @@ import {
   mockAlertFilters,
   mockAlertTags,
 } from "./responses/alertResponses";
+import {
+  mockTableMetadata,
+  generateMockQueryResults,
+  createQueryJob,
+  getQueryJobStatus,
+  shouldReturnImmediate,
+  generateMockQueryHistory,
+  cancelQueryJob,
+} from "./responses/realtimeQueryResponses";
 
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
@@ -150,9 +159,20 @@ export class MockResponseGenerator {
       return this.handleDashboardFiltersEndpoint(pathname, method, request);
     }
 
-    // Job endpoints
+    // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
     if (
-      pathname.includes("/job") ||
+      pathname.includes("/query/metadata/table") ||
+      pathname.includes("/query/tables") ||
+      pathname.includes("/query/history") ||
+      pathname.includes("/query/job/") ||
+      (pathname.endsWith("/query") && method === "POST")
+    ) {
+      return this.handleRealtimeQueryEndpoints(pathname, method, request);
+    }
+
+    // Job endpoints (CI Job endpoints, not query jobs)
+    if (
+      (pathname.includes("/job") && !pathname.includes("/query/job/")) ||
       pathname.includes("/getJobs") ||
       pathname.includes("/v1/interactions") ||
       pathname.includes("/getJobDetails") ||
@@ -259,10 +279,246 @@ export class MockResponseGenerator {
       return this.handleEventEndpoints(pathname, method, request);
     }
 
+    // SDK Configuration endpoints (new API format: /v1/configs/*)
+    if (pathname.includes("/v1/configs")) {
+      return this.handleSdkConfigV1Endpoints(pathname, method, request);
+    }
+
+    // SDK Configuration endpoints (legacy)
+    if (pathname.includes("/sdk-config")) {
+      return this.handleSdkConfigEndpoints(pathname, method, request);
+    }
+
     // Default response
     return {
       data: { message: "Mock response not implemented" },
       status: 200,
+    };
+  }
+
+  /**
+   * Handle SDK Configuration endpoints
+   */
+  private handleSdkConfigEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // GET /v1/sdk-config/versions - List all configuration versions
+    if (pathname.includes("/sdk-config/versions") && method === "GET") {
+      // Check if requesting a specific version
+      const versionMatch = pathname.match(/\/versions\/(\d+)$/);
+      if (versionMatch) {
+        const version = parseInt(versionMatch[1], 10);
+        const config = this.dataStore.getSdkConfigByVersion(version);
+        if (config) {
+          return { data: config, status: 200 };
+        }
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "NOT_FOUND",
+            message: `Configuration version ${version} not found`,
+            cause: "Version does not exist",
+          },
+        };
+      }
+      // Return list of all versions
+      const versions = this.dataStore.getSdkConfigVersions();
+      return { data: { versions }, status: 200 };
+    }
+
+    // GET /v1/sdk-config - Get current (active) SDK configuration
+    if (method === "GET") {
+      const storedConfig = this.dataStore.getSdkConfig();
+      return {
+        data: storedConfig,
+        status: 200,
+      };
+    }
+
+    // PUT /v1/sdk-config - Update SDK configuration (creates new version)
+    if (method === "PUT") {
+      try {
+        const body = request.body ? JSON.parse(request.body) : {};
+        const updatedConfig = this.dataStore.updateSdkConfig(body);
+        return {
+          data: updatedConfig,
+          status: 200,
+        };
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_CONFIG",
+            message: "Invalid SDK configuration format",
+            cause: String(e),
+          },
+        };
+      }
+    }
+
+    // POST /v1/sdk-config - Create new SDK configuration
+    if (method === "POST") {
+      try {
+        const body = request.body ? JSON.parse(request.body) : {};
+        const newConfig = this.dataStore.createSdkConfig(body);
+        return {
+          data: newConfig,
+          status: 201,
+        };
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_CONFIG",
+            message: "Invalid SDK configuration format",
+            cause: String(e),
+          },
+        };
+      }
+    }
+
+    return {
+      data: null,
+      status: 405,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: `Method ${method} not allowed for SDK config endpoint`,
+        cause: "Invalid HTTP method",
+      },
+    };
+  }
+
+  /**
+   * Handle SDK Configuration V1 endpoints (/v1/configs/*)
+   * New API format matching backend PulseConfig schema
+   */
+  private handleSdkConfigV1Endpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // GET /v1/configs/rules-features - Get available rules and features
+    if (pathname.includes("/rules-features") && method === "GET") {
+      return {
+        data: {
+          rules: [
+            "os_version",
+            "app_version", 
+            "country",
+            "platform",
+            "state",
+            "device",
+            "network"
+          ],
+          features: [
+            "interaction",
+            "java_crash",
+            "js_crash",
+            "java_anr",
+            "network_change",
+            "network_instrumentation",
+            "screen_session",
+            "custom_events",
+            "rn_screen_load",
+            "rn_screen_interactive",
+          ]
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/configs/scopes-sdks - Get available scopes and SDKs
+    if (pathname.includes("/scopes-sdks") && method === "GET") {
+      return {
+        data: {
+          scope: ["logs", "traces", "metrics", "baggage"],
+          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"]
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/configs/active - Get active configuration
+    if (pathname.includes("/active") && method === "GET") {
+      const activeConfig = this.dataStore.getActiveConfigV1();
+      if (activeConfig) {
+        return { data: activeConfig, status: 200 };
+      }
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "No active configuration found. Please create a configuration first.",
+          cause: "No active config exists",
+        },
+      };
+    }
+
+    // GET /v1/configs/{version} - Get config by version
+    const versionMatch = pathname.match(/\/v1\/configs\/(\d+)$/);
+    if (versionMatch && method === "GET") {
+      const version = parseInt(versionMatch[1], 10);
+      const config = this.dataStore.getConfigByVersionV1(version);
+      if (config) {
+        return { data: config, status: 200 };
+      }
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: `Configuration version ${version} not found`,
+          cause: "Version does not exist",
+        },
+      };
+    }
+
+    // GET /v1/configs - Get all config versions (list)
+    if (pathname.endsWith("/configs") && method === "GET") {
+      const allConfigs = this.dataStore.getAllConfigsV1();
+      return {
+        data: { configDetails: allConfigs },
+        status: 200,
+      };
+    }
+
+    // POST /v1/configs - Create new configuration
+    if (pathname.endsWith("/configs") && method === "POST") {
+      try {
+        const body = request.body ? JSON.parse(request.body) : {};
+        const userEmail = request.headers?.["user-email"] || "mock@example.com";
+        const newVersion = this.dataStore.createConfigV1(body, userEmail);
+        return {
+          data: { version: newVersion },
+          status: 201,
+        };
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_CONFIG",
+            message: "Invalid SDK configuration format",
+            cause: String(e),
+          },
+        };
+      }
+    }
+
+    return {
+      data: null,
+      status: 405,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: `Method ${method} not allowed for this endpoint`,
+        cause: "Invalid HTTP method",
+      },
     };
   }
 
@@ -1071,10 +1327,95 @@ export class MockResponseGenerator {
       return { data: metricsData, status: 200 };
     }
 
+    // GET /v1/alert/notificationChannels/:id - Returns a single notification channel by ID
+    // @see backend GetAlertNotificationChannelById.java
+    // NOTE: This must come BEFORE the general GET to avoid being caught by the more general route
+    const channelByIdMatch = pathname.match(/\/alert\/notificationChannels\/(\d+)$/);
+    if (channelByIdMatch && method === "GET") {
+      const channelId = parseInt(channelByIdMatch[1]);
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET_NOTIFICATION_CHANNEL_BY_ID - ID:", channelId);
+      }
+      const channel = mockNotificationChannels.find(
+        (c) => c.notification_channel_id === channelId
+      );
+      if (channel) {
+        return { data: channel, status: 200 };
+      }
+      return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Notification channel not found", cause: "" } };
+    }
+
     // GET /v1/alert/notificationChannels - Returns notification channels
     // @see backend AlertNotificationChannelResponseDto.java
     if (pathname.includes("/alert/notificationChannels") && method === "GET") {
-      return { data: mockNotificationChannels, status: 200 };
+      // Filter to only return active channels for the list endpoint
+      const activeChannels = mockNotificationChannels.filter((c) => c.is_active);
+      return { data: activeChannels, status: 200 };
+    }
+
+    // POST /v1/alert/notificationChannels - Create notification channel
+    // @see backend CreateAlertNotificationChannelRequestDto.java
+    if (pathname.includes("/alert/notificationChannels") && method === "POST") {
+      const body = JSON.parse(request.body || "{}");
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] CREATE_NOTIFICATION_CHANNEL - Body:", body);
+      }
+      // Add to mock channels (in memory only)
+      const newChannel = {
+        notification_channel_id: mockNotificationChannels.length + 1,
+        name: body.name,
+        type: body.type,
+        config: body.config,
+        is_active: true,
+      };
+      mockNotificationChannels.push(newChannel);
+      return { data: true, status: 200 };
+    }
+
+    // PUT /v1/alert/notificationChannels/:id - Update notification channel
+    if (pathname.includes("/alert/notificationChannels/") && method === "PUT") {
+      const channelIdMatch = pathname.match(/\/notificationChannels\/(\d+)/);
+      if (channelIdMatch) {
+        const channelId = parseInt(channelIdMatch[1]);
+        const body = JSON.parse(request.body || "{}");
+        if (this.config.shouldLog()) {
+          console.log("[Mock Server] UPDATE_NOTIFICATION_CHANNEL - ID:", channelId, "Body:", body);
+        }
+        // Update in mock channels (in memory only)
+        const channelIndex = mockNotificationChannels.findIndex(
+          (c) => c.notification_channel_id === channelId
+        );
+        if (channelIndex !== -1) {
+          mockNotificationChannels[channelIndex] = {
+            ...mockNotificationChannels[channelIndex],
+            name: body.name,
+            type: body.type,
+            config: body.config,
+          };
+          return { data: true, status: 200 };
+        }
+        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+      }
+    }
+
+    // DELETE /v1/alert/notificationChannels/:id - Delete notification channel
+    if (pathname.includes("/alert/notificationChannels/") && method === "DELETE") {
+      const channelIdMatch = pathname.match(/\/notificationChannels\/(\d+)/);
+      if (channelIdMatch) {
+        const channelId = parseInt(channelIdMatch[1]);
+        if (this.config.shouldLog()) {
+          console.log("[Mock Server] DELETE_NOTIFICATION_CHANNEL - ID:", channelId);
+        }
+        // Remove from mock channels (in memory only)
+        const channelIndex = mockNotificationChannels.findIndex(
+          (c) => c.notification_channel_id === channelId
+        );
+        if (channelIndex !== -1) {
+          mockNotificationChannels.splice(channelIndex, 1);
+          return { data: true, status: 200 };
+        }
+        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+      }
     }
 
     // GET /v1/alert/filters - Returns filter options
@@ -1110,76 +1451,158 @@ export class MockResponseGenerator {
           );
         }
 
-        // Generate mock evaluation history matching AlertEvaluationHistoryResponseDto.java
-        // reading field is a JSON string containing per-scope readings (AlertMetricReading[])
-        const history = [];
+        // Generate mock evaluation history matching GetAlertEvaluationHistoryResponse
+        // Format: Array of ScopeEvaluationHistory, each with scope_id, scope_name, and evaluation_history
         const now = Date.now();
-        const scopeNames = ["PaymentSubmit", "PaymentConfirm", "PaymentOTP"];
-        const threshold = 0.05; // 5% threshold
-
-        for (let i = 0; i < 15; i++) {
-          const isFiring = i % 4 === 0; // Every 4th evaluation is firing
-          const evalTime = new Date(now - i * 3600000);
-          
-          // Generate readings for each scope name
-          const scopeReadings = scopeNames.map(scopeName => {
-            const scopeTotal = 150 + Math.floor(Math.random() * 350);
-            const scopeSuccess = Math.floor(scopeTotal * (0.85 + Math.random() * 0.14));
-            const scopeErrors = scopeTotal - scopeSuccess;
-            // Randomly make some scope readings exceed threshold when firing
-            const scopeReading = isFiring && Math.random() > 0.5
-              ? threshold + 0.01 + Math.random() * 0.03
-              : threshold - 0.02 - Math.random() * 0.02;
-            return {
-              reading: Math.round(scopeReading * 10000) / 10000,
-              useCaseId: scopeName,
-              successInteractionCount: scopeSuccess,
-              errorInteractionCount: scopeErrors,
-              totalInteractionCount: scopeTotal,
-              timestamp: evalTime.toISOString(),
-            };
-          });
-
-          // Aggregate totals
-          const totalInteractions = scopeReadings.reduce((sum, r) => sum + r.totalInteractionCount, 0);
-          const successInteractions = scopeReadings.reduce((sum, r) => sum + r.successInteractionCount, 0);
-          const errorInteractions = scopeReadings.reduce((sum, r) => sum + r.errorInteractionCount, 0);
-
-          history.push({
-            reading: JSON.stringify(scopeReadings), // JSON string of ScopeReading[]
-            threshold: threshold,
-            evaluated_at: evalTime.toISOString(),
-            current_state: isFiring ? "FIRING" : "NORMAL",
-            evaluation_time: Math.round((1.5 + Math.random() * 2.5) * 100) / 100,
-            total_interaction_count: totalInteractions,
-            error_interaction_count: errorInteractions,
-            success_interaction_count: successInteractions,
-            min_total_interactions: 100,
-            min_success_interactions: 50,
-            min_error_interactions: 10,
-          });
+        
+        // Get the alert's actual data from the datastore
+        const alerts = this.dataStore.getAlerts();
+        const alert = alerts.find((a: any) => a.alert_id === alertId);
+        
+        if (!alert) {
+          return { data: [], status: 200 };
         }
-
-        const response = {
-          data: history, // Return the array directly - processServerResponse will wrap it
-          status: 200,
+        
+        const alertStatus = alert.status || "NORMAL";
+        const isAlertFiring = alertStatus === "FIRING";
+        const isAlertNoData = alertStatus === "NO_DATA";
+        const isAlertSnoozed = alertStatus === "SNOOZED" || alert.is_snoozed;
+        
+        // Extract actual scope names and metrics from alert conditions
+        // Each condition has: { alias, metric, metric_operator, threshold: { scopeName: value, ... } }
+        const alertConditions = alert.alerts || [];
+        
+        // Build scope configs from actual alert thresholds
+        // Collect all unique scope names from all conditions
+        const scopeNameSet = new Set<string>();
+        const scopeMetrics: Record<string, { metric: string; operator: string; threshold: number }[]> = {};
+        
+        alertConditions.forEach((condition: any) => {
+          const thresholds = condition.threshold || {};
+          Object.entries(thresholds).forEach(([scopeName, thresholdValue]) => {
+            scopeNameSet.add(scopeName);
+            if (!scopeMetrics[scopeName]) {
+              scopeMetrics[scopeName] = [];
+            }
+            scopeMetrics[scopeName].push({
+              metric: condition.metric,
+              operator: condition.metric_operator,
+              threshold: thresholdValue as number,
+            });
+          });
+        });
+        
+        const scopeNames = Array.from(scopeNameSet);
+        
+        // Helper to generate human-readable metric values based on threshold
+        const generateMetricValue = (metric: string, threshold: number, operator: string, isFiring: boolean): string => {
+          // Determine if we should be above or below threshold based on operator and firing state
+          const shouldExceed = (operator === "GREATER_THAN" && isFiring) || (operator === "LESS_THAN" && !isFiring);
+          
+          if (metric.includes("DURATION") || metric.includes("LOAD_TIME") || metric.includes("LATENCY")) {
+            // Duration metrics - values in ms
+            const value = shouldExceed 
+              ? threshold + Math.floor(Math.random() * 5) * 100 + 100  // Above threshold
+              : Math.max(100, threshold - Math.floor(Math.random() * 5) * 100 - 500); // Below threshold
+            return `${Math.round(value)}ms`;
+          } else if (metric.includes("RATE") || metric.includes("5XX")) {
+            // Rate metrics - typically 0-1 or 0-100
+            if (threshold < 1) {
+              // Decimal rate (0.05 = 5%)
+              const pctThreshold = threshold * 100;
+              const value = shouldExceed 
+                ? pctThreshold + 2 + Math.floor(Math.random() * 3)
+                : Math.max(0.1, pctThreshold - 2 - Math.floor(Math.random() * 2));
+              return `${value.toFixed(1)}%`;
+            } else {
+              // Percentage already
+              const value = shouldExceed 
+                ? threshold + 5 + Math.floor(Math.random() * 5)
+                : Math.max(1, threshold - 5 - Math.floor(Math.random() * 5));
+              return `${value.toFixed(1)}%`;
+            }
+          } else if (metric === "APDEX") {
+            // APDEX score 0-1
+            const value = shouldExceed 
+              ? Math.min(0.99, threshold + 0.05 + Math.random() * 0.05)
+              : Math.max(0.5, threshold - 0.1 - Math.random() * 0.1);
+            return value.toFixed(2);
+          } else if (metric.includes("COUNT")) {
+            // Count metrics
+            const value = shouldExceed 
+              ? threshold + Math.floor(Math.random() * 50) + 20
+              : Math.max(0, threshold - Math.floor(Math.random() * 30) - 10);
+            return `${Math.round(value)}`;
+          } else {
+            // Generic numeric
+            const value = shouldExceed 
+              ? threshold * 1.2 + Math.random() * threshold * 0.2
+              : threshold * 0.7 + Math.random() * threshold * 0.2;
+            return typeof threshold === 'number' && threshold < 1 
+              ? value.toFixed(2) 
+              : `${Math.round(value)}`;
+          }
         };
 
-        console.log("[Mock Server] EVALUATION_HISTORY - Returning:", response);
-        console.log(
-          "[Mock Server] EVALUATION_HISTORY - History type:",
-          typeof history,
-        );
-        console.log(
-          "[Mock Server] EVALUATION_HISTORY - History isArray:",
-          Array.isArray(history),
-        );
-        console.log(
-          "[Mock Server] EVALUATION_HISTORY - History length:",
-          history.length,
-        );
+        // Generate ScopeEvaluationHistory for each actual scope
+        const history = scopeNames.map((scopeName, idx) => {
+          const evaluationHistory = [];
+          const metricsForScope = scopeMetrics[scopeName] || [];
+          
+          for (let i = 0; i < 12; i++) {
+            // Determine state for this evaluation entry
+            let isFiring: boolean;
+            let stateValue: string;
+            
+            if (isAlertNoData && i < 3) {
+              stateValue = "NO_DATA";
+              isFiring = false;
+            } else if (isAlertSnoozed && i === 0) {
+              isFiring = Math.random() > 0.5;
+              stateValue = isFiring ? "FIRING" : "NORMAL";
+            } else if (i < 3) {
+              isFiring = isAlertFiring;
+              stateValue = isAlertFiring ? "FIRING" : "NORMAL";
+            } else {
+              if (isAlertFiring) {
+                isFiring = i < 8;
+              } else {
+                isFiring = i >= 5 && i < 9;
+              }
+              stateValue = isFiring ? "FIRING" : "NORMAL";
+            }
+            
+            const evalTime = now - i * 3600000;
+            
+            // Generate evaluation_result with actual metrics for this scope
+            const metricReadings: Record<string, string> = {};
+            metricsForScope.forEach(({ metric, operator, threshold }) => {
+              metricReadings[metric] = generateMetricValue(metric, threshold, operator, isFiring);
+            });
 
-        return response;
+            evaluationHistory.push({
+              evaluation_id: (idx + 1) * 1000 + i,
+              evaluation_result: JSON.stringify(metricReadings),
+              state: stateValue,
+              evaluated_at: evalTime,
+            });
+          }
+
+          return {
+            scope_id: idx + 1,
+            scope_name: scopeName,
+            evaluation_history: evaluationHistory,
+          };
+        });
+
+        if (this.config.shouldLog()) {
+          console.log("[Mock Server] EVALUATION_HISTORY - Generated", history.length, "scopes");
+        }
+
+        return {
+          data: history,
+          status: 200,
+        };
       }
     }
 
@@ -1219,13 +1642,58 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/alert") && method === "GET") {
-      const alerts = this.dataStore.getAlerts();
+      const url = this.parseURL(request.url);
+      let alerts = this.dataStore.getAlerts();
+      
+      // Apply status filter
+      const statusFilter = url.searchParams.get("status");
+      if (statusFilter) {
+        alerts = alerts.filter((a: any) => a.status === statusFilter);
+      }
+      
+      // Apply scope filter
+      const scopeFilter = url.searchParams.get("scope");
+      if (scopeFilter) {
+        alerts = alerts.filter((a: any) => a.scope === scopeFilter);
+      }
+      
+      // Apply name search filter
+      const nameFilter = url.searchParams.get("name");
+      if (nameFilter) {
+        alerts = alerts.filter((a: any) => 
+          a.name.toLowerCase().includes(nameFilter.toLowerCase())
+        );
+      }
+      
+      // Apply created_by filter
+      const createdByFilter = url.searchParams.get("created_by");
+      if (createdByFilter) {
+        alerts = alerts.filter((a: any) => a.created_by === createdByFilter);
+      }
+      
+      // Apply updated_by filter
+      const updatedByFilter = url.searchParams.get("updated_by");
+      if (updatedByFilter) {
+        alerts = alerts.filter((a: any) => a.updated_by === updatedByFilter);
+      }
+      
+      // Apply pagination
+      const offset = parseInt(url.searchParams.get("offset") || "0");
+      const limit = parseInt(url.searchParams.get("limit") || "12");
+      const totalAlerts = alerts.length;
+      const paginatedAlerts = alerts.slice(offset, offset + limit);
+      
+      if (this.config.shouldLog()) {
+        console.log(`[Mock Server] GET_ALERTS - Filters: status=${statusFilter}, scope=${scopeFilter}, name=${nameFilter}`);
+        console.log(`[Mock Server] GET_ALERTS - Total: ${totalAlerts}, Returning: ${paginatedAlerts.length}`);
+      }
+      
       return {
         data: {
-          total_alerts: alerts.length,
-          alerts: alerts,
-          limit: 10,
-          offset: 0,
+          total_alerts: totalAlerts,
+          alerts: paginatedAlerts,
+          limit,
+          offset,
         },
         status: 200,
       };
@@ -2112,6 +2580,228 @@ export class MockResponseGenerator {
         },
       },
       status: 200,
+    };
+  }
+
+  /**
+   * Handle Real-time Querying endpoints
+   * - POST /query/metadata/table - Get table metadata (columns, types)
+   * - POST /query - Submit a SQL query
+   * - GET /query/job/{jobId} - Get job status and results
+   */
+  private handleRealtimeQueryEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // Get table metadata (legacy POST endpoint)
+    if (pathname.includes("/query/metadata/table") && method === "POST") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] Returning table metadata for otel_data");
+      }
+      return {
+        data: mockTableMetadata,
+        status: 200,
+      };
+    }
+
+    // Get table metadata (new GET endpoint)
+    // Response must be an array of TableMetadata matching TableMetadataResponse type
+    if (pathname.includes("/query/tables") && method === "GET") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET /query/tables - Returning table metadata");
+      }
+      return {
+        data: [
+          {
+            tableName: mockTableMetadata.tableName,
+            tableSchema: mockTableMetadata.databaseName,
+            tableType: "TABLE",
+            columns: mockTableMetadata.columns.map((col, index) => ({
+              columnName: col.name,
+              dataType: col.type,
+              ordinalPosition: index + 1,
+              isNullable: "YES",
+            })),
+          },
+        ],
+        status: 200,
+      };
+    }
+
+    // Get query history
+    if (pathname.includes("/query/history") && method === "GET") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET /query/history - Returning query history");
+      }
+      const history = generateMockQueryHistory();
+      return {
+        data: history,
+        status: 200,
+      };
+    }
+
+    // Cancel query job (DELETE)
+    if (pathname.includes("/query/job/") && method === "DELETE") {
+      const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
+      const jobId = jobIdMatch ? jobIdMatch[1] : "";
+      
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] DELETE /query/job/ - Cancelling job:", jobId);
+      }
+      
+      const result = cancelQueryJob(jobId);
+      return {
+        data: result,
+        status: 200,
+      };
+    }
+
+    // Submit query
+    if (pathname.endsWith("/query") && method === "POST") {
+      let requestBody: { queryString?: string; sql?: string } = {};
+      try {
+        if (request.body) {
+          requestBody = JSON.parse(request.body);
+        }
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Invalid request body",
+            cause: "Could not parse JSON body",
+          },
+        };
+      }
+
+      // Support both 'queryString' (interface) and 'sql' (legacy)
+      const sql = requestBody.queryString || requestBody.sql || "";
+      if (!sql.trim()) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_QUERY",
+            message: "SQL query is required",
+            cause: "Empty SQL query provided",
+          },
+        };
+      }
+
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] Submitting query:", sql.substring(0, 100) + "...");
+      }
+
+      // Check if we should return immediate results
+      if (shouldReturnImmediate(sql)) {
+        const results = generateMockQueryResults(sql);
+        return {
+          data: {
+            jobId: `query_${Date.now()}`,
+            status: "COMPLETED",
+            message: "Query completed successfully",
+            resultData: results.rows,
+            nextToken: results.nextToken,
+            dataScannedInBytes: results.dataScannedInBytes,
+            createdAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+          },
+          status: 200,
+        };
+      }
+
+      // Otherwise, create a job for async execution
+      const job = createQueryJob(sql);
+      return {
+        data: {
+          jobId: job.jobId,
+          status: job.status,
+          message: "Query queued for execution",
+          resultData: null,
+          createdAt: new Date().toISOString(),
+        },
+        status: 200,
+      };
+    }
+
+    // Get job status
+    if (pathname.includes("/query/job/") && method === "GET") {
+      // Extract job ID from pathname (stop at / or ? or end of string)
+      const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
+      let jobId = jobIdMatch ? jobIdMatch[1] : "";
+      
+      // Also strip query params if somehow included
+      if (jobId.includes("?")) {
+        jobId = jobId.split("?")[0];
+      }
+
+      if (!jobId) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Job ID is required",
+            cause: "No job ID provided in URL",
+          },
+        };
+      }
+
+      console.log("[Mock Server] Getting job status for:", jobId);
+
+      const jobStatus = getQueryJobStatus(jobId);
+      console.log("[Mock Server] Job status result:", JSON.stringify(jobStatus));
+      
+      // Map SUCCEEDED to COMPLETED to match interface expectations
+      const statusMap: Record<string, string> = {
+        "SUCCEEDED": "COMPLETED",
+        "QUEUED": "QUEUED",
+        "RUNNING": "RUNNING",
+        "FAILED": "FAILED",
+      };
+      const mappedStatus = statusMap[jobStatus.status] || jobStatus.status;
+      
+      let response;
+      if (mappedStatus === "COMPLETED" && jobStatus.results) {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+            resultData: jobStatus.results.rows,
+            nextToken: jobStatus.results.nextToken,
+            dataScannedInBytes: jobStatus.results.dataScannedInBytes,
+            completedAt: new Date().toISOString(),
+          },
+          status: 200,
+        };
+      } else if (mappedStatus === "FAILED") {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+            errorMessage: jobStatus.error || "Query execution failed",
+          },
+          status: 200,
+        };
+      } else {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+          },
+          status: 200,
+        };
+      }
+
+      console.log("[Mock Server] Returning job status response:", JSON.stringify(response));
+      return response;
+    }
+
+    return {
+      data: { message: "Real-time query endpoint not implemented" },
+      status: 404,
     };
   }
 

@@ -47,6 +47,7 @@ class OtelDemoApplication : Application() {
             PulseSDK.INSTANCE.initialize(
                 application = application,
                 endpointBaseUrl = "http://10.0.2.2:4318",
+                projectId = "project-123",
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
                 },
@@ -107,12 +108,10 @@ class OtelDemoApplication : Application() {
 
         fun logEvent(
             log: String,
-            scopeName: String = "PulseSdk",
-            builder: LogRecordBuilder.() -> LogRecordBuilder = { this }
+            params: Map<String, Any?>? = null
         ) {
             Log.d(RumConstants.OTEL_RUM_LOG_TAG, "logEvent called with log = $log")
-            val logger = rum.getOpenTelemetry().logsBridge.loggerBuilder(scopeName).build()
-            logger.logRecordBuilder().setBody(log).builder().emit()
+            PulseSDK.INSTANCE.trackEvent(log, System.currentTimeMillis(), params.orEmpty())
         }
     }
 }

@@ -15,9 +15,9 @@ import io.vertx.rxjava3.ext.web.client.HttpRequest;
 import io.vertx.rxjava3.ext.web.client.HttpResponse;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AddCronDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
-import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.UpdateCronDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,7 +58,7 @@ class AlertCronServiceTest {
 
     @Test
     void shouldCreateAlertCronSuccessfully() {
-      AddAlertToCronManager cron = new AddAlertToCronManager(1, 60, "http://localhost/alert/1");
+      AddCronDto cron = new AddCronDto(1, 60, "http://localhost/alert/1", "default");
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
       when(httpRequest.rxSendJson(any())).thenReturn(Single.just(httpResponse));
@@ -73,7 +73,7 @@ class AlertCronServiceTest {
 
     @Test
     void shouldReturnFalseWhenStatusCodeIsNot200() {
-      AddAlertToCronManager cron = new AddAlertToCronManager(1, 60, "http://localhost/alert/1");
+      AddCronDto cron = new AddCronDto(1, 60, "http://localhost/alert/1", "default");
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
       when(httpRequest.rxSendJson(any())).thenReturn(Single.just(httpResponse));
@@ -86,7 +86,7 @@ class AlertCronServiceTest {
 
     @Test
     void shouldReturnFalseWhenStatusCodeIs404() {
-      AddAlertToCronManager cron = new AddAlertToCronManager(1, 60, "http://localhost/alert/1");
+      AddCronDto cron = new AddCronDto(1, 60, "http://localhost/alert/1", "default");
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
       when(httpRequest.rxSendJson(any())).thenReturn(Single.just(httpResponse));
@@ -100,7 +100,7 @@ class AlertCronServiceTest {
     @Test
     void shouldReturnFalseWhenStatusCodeIs201() {
       // 201 Created should return false since we only check for 200
-      AddAlertToCronManager cron = new AddAlertToCronManager(1, 60, "http://localhost/alert/1");
+      AddCronDto cron = new AddCronDto(1, 60, "http://localhost/alert/1", "default");
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
       when(httpRequest.rxSendJson(any())).thenReturn(Single.just(httpResponse));
@@ -162,7 +162,7 @@ class AlertCronServiceTest {
 
     @Test
     void shouldUpdateAlertCronSuccessfully() {
-      UpdateAlertInCronManager cron = new UpdateAlertInCronManager(1, 120, 60, "http://localhost/alert/1");
+      UpdateCronDto cron = new UpdateCronDto(1, "default", 120, 60, "http://localhost/alert/1");
 
       when(webClient.putAbs(anyString())).thenReturn(httpRequest);
       when(httpRequest.rxSendJson(any())).thenReturn(Single.just(httpResponse));
@@ -177,7 +177,7 @@ class AlertCronServiceTest {
 
     @Test
     void shouldReturnFalseWhenUpdateStatusCodeIsNot200() {
-      UpdateAlertInCronManager cron = new UpdateAlertInCronManager(1, 120, 60, "http://localhost/alert/1");
+      UpdateCronDto cron = new UpdateCronDto(1, "default", 120, 60, "http://localhost/alert/1");
 
       when(webClient.putAbs(anyString())).thenReturn(httpRequest);
       when(httpRequest.rxSendJson(any())).thenReturn(Single.just(httpResponse));
@@ -190,7 +190,7 @@ class AlertCronServiceTest {
 
     @Test
     void shouldReturnFalseWhenUpdateStatusCodeIs404() {
-      UpdateAlertInCronManager cron = new UpdateAlertInCronManager(1, 120, 60, "http://localhost/alert/1");
+      UpdateCronDto cron = new UpdateCronDto(1, "default", 120, 60, "http://localhost/alert/1");
 
       when(webClient.putAbs(anyString())).thenReturn(httpRequest);
       when(httpRequest.rxSendJson(any())).thenReturn(Single.just(httpResponse));
@@ -233,51 +233,55 @@ class AlertCronServiceTest {
   }
 
   @Nested
-  class TestAddAlertToCronManagerModel {
+  class TestAddCronDtoModel {
 
     @Test
     void shouldCreateAddAlertToCronManagerWithAllArgs() {
-      AddAlertToCronManager model = new AddAlertToCronManager(1, 60, "http://test.url");
+      AddCronDto model = new AddCronDto(1, 60, "http://test.url", "tenant1");
 
       assertEquals(1, model.getId());
       assertEquals(60, model.getInterval());
       assertEquals("http://test.url", model.getUrl());
+      assertEquals("tenant1", model.getTenantId());
     }
 
     @Test
     void shouldCreateAddAlertToCronManagerWithNoArgs() {
-      AddAlertToCronManager model = new AddAlertToCronManager();
+      AddCronDto model = new AddCronDto();
 
       assertNotNull(model);
     }
 
     @Test
     void shouldSetAddAlertToCronManagerFields() {
-      AddAlertToCronManager model = new AddAlertToCronManager();
+      AddCronDto model = new AddCronDto();
       model.setId(2);
       model.setInterval(120);
       model.setUrl("http://new.url");
+      model.setTenantId("tenant2");
 
       assertEquals(2, model.getId());
       assertEquals(120, model.getInterval());
       assertEquals("http://new.url", model.getUrl());
+      assertEquals("tenant2", model.getTenantId());
     }
 
     @Test
     void shouldHaveCorrectToString() {
-      AddAlertToCronManager model = new AddAlertToCronManager(1, 60, "http://test.url");
+      AddCronDto model = new AddCronDto(1, 60, "http://test.url", "tenant1");
       String toString = model.toString();
 
       assertTrue(toString.contains("id=1"));
       assertTrue(toString.contains("interval=60"));
       assertTrue(toString.contains("url=http://test.url"));
+      assertTrue(toString.contains("tenantId=tenant1"));
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      AddAlertToCronManager model1 = new AddAlertToCronManager(1, 60, "http://test.url");
-      AddAlertToCronManager model2 = new AddAlertToCronManager(1, 60, "http://test.url");
-      AddAlertToCronManager model3 = new AddAlertToCronManager(2, 60, "http://test.url");
+      AddCronDto model1 = new AddCronDto(1, 60, "http://test.url", "tenant1");
+      AddCronDto model2 = new AddCronDto(1, 60, "http://test.url", "tenant1");
+      AddCronDto model3 = new AddCronDto(2, 60, "http://test.url", "tenant1");
 
       assertEquals(model1, model2);
       assertEquals(model1.hashCode(), model2.hashCode());
@@ -335,13 +339,14 @@ class AlertCronServiceTest {
   }
 
   @Nested
-  class TestUpdateAlertInCronManagerModel {
+  class TestUpdateCronDtoModel {
 
     @Test
     void shouldCreateUpdateAlertInCronManagerWithAllArgs() {
-      UpdateAlertInCronManager model = new UpdateAlertInCronManager(1, 120, 60, "http://test.url");
+      UpdateCronDto model = new UpdateCronDto(1, "tenant1", 120, 60, "http://test.url");
 
       assertEquals(1, model.getId());
+      assertEquals("tenant1", model.getTenantId());
       assertEquals(120, model.getNewInterval());
       assertEquals(60, model.getOldInterval());
       assertEquals("http://test.url", model.getUrl());
@@ -349,20 +354,22 @@ class AlertCronServiceTest {
 
     @Test
     void shouldCreateUpdateAlertInCronManagerWithNoArgs() {
-      UpdateAlertInCronManager model = new UpdateAlertInCronManager();
+      UpdateCronDto model = new UpdateCronDto();
 
       assertNotNull(model);
     }
 
     @Test
     void shouldSetUpdateAlertInCronManagerFields() {
-      UpdateAlertInCronManager model = new UpdateAlertInCronManager();
+      UpdateCronDto model = new UpdateCronDto();
       model.setId(2);
+      model.setTenantId("tenant2");
       model.setNewInterval(180);
       model.setOldInterval(120);
       model.setUrl("http://new.url");
 
       assertEquals(2, model.getId());
+      assertEquals("tenant2", model.getTenantId());
       assertEquals(180, model.getNewInterval());
       assertEquals(120, model.getOldInterval());
       assertEquals("http://new.url", model.getUrl());
@@ -370,10 +377,11 @@ class AlertCronServiceTest {
 
     @Test
     void shouldHaveCorrectToStringForUpdate() {
-      UpdateAlertInCronManager model = new UpdateAlertInCronManager(1, 120, 60, "http://test.url");
+      UpdateCronDto model = new UpdateCronDto(1, "tenant1", 120, 60, "http://test.url");
       String toString = model.toString();
 
       assertTrue(toString.contains("id=1"));
+      assertTrue(toString.contains("tenantId=tenant1"));
       assertTrue(toString.contains("newInterval=120"));
       assertTrue(toString.contains("oldInterval=60"));
       assertTrue(toString.contains("url=http://test.url"));
@@ -381,9 +389,9 @@ class AlertCronServiceTest {
 
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForUpdate() {
-      UpdateAlertInCronManager model1 = new UpdateAlertInCronManager(1, 120, 60, "http://test.url");
-      UpdateAlertInCronManager model2 = new UpdateAlertInCronManager(1, 120, 60, "http://test.url");
-      UpdateAlertInCronManager model3 = new UpdateAlertInCronManager(2, 120, 60, "http://test.url");
+      UpdateCronDto model1 = new UpdateCronDto(1, "tenant1", 120, 60, "http://test.url");
+      UpdateCronDto model2 = new UpdateCronDto(1, "tenant1", 120, 60, "http://test.url");
+      UpdateCronDto model3 = new UpdateCronDto(2, "tenant1", 120, 60, "http://test.url");
 
       assertEquals(model1, model2);
       assertEquals(model1.hashCode(), model2.hashCode());
@@ -402,17 +410,21 @@ class AlertCronServiceTest {
           30,
           "google-client-id",
           true,
+          "project-id",
           "jwt-secret",
           "http://otel-collector.url",
           "http://interaction-config.url",
           "http://logs-collector.url",
           "http://metric-collector.url",
           "http://span-collector.url",
+          "http://custom-event-collector.url",
           "config-bucket",
           "config/details.json",
           "cloudfront-distribution-id",
           "/config/details.json",
-          "http://webhook.url"
+          "http://webhook.url",
+          "interaction/details.json",
+          "/interaction/details.json"
       );
 
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
@@ -426,11 +438,14 @@ class AlertCronServiceTest {
       assertEquals("http://logs-collector.url", config.getLogsCollectorUrl());
       assertEquals("http://metric-collector.url", config.getMetricCollectorUrl());
       assertEquals("http://span-collector.url", config.getSpanCollectorUrl());
+      assertEquals("http://custom-event-collector.url", config.getCustomEventCollectorUrl());
       assertEquals("config-bucket", config.getS3BucketName());
       assertEquals("config/details.json", config.getConfigDetailsS3BucketFilePath());
       assertEquals("cloudfront-distribution-id", config.getCloudFrontDistributionId());
       assertEquals("/config/details.json", config.getConfigDetailCloudFrontAssetPath());
       assertEquals("http://webhook.url", config.getWebhookUrl());
+      assertEquals("interaction/details.json", config.getInteractionDetailsS3BucketFilePath());
+      assertEquals("/interaction/details.json", config.getInteractionDetailCloudFrontAssetPath());
     }
 
     @Test
@@ -459,6 +474,8 @@ class AlertCronServiceTest {
       config.setCloudFrontDistributionId("new-distribution-id");
       config.setConfigDetailCloudFrontAssetPath("/new/path.json");
       config.setWebhookUrl("http://new-webhook.url");
+      config.setInteractionDetailsS3BucketFilePath("new/interaction-path.json");
+      config.setInteractionDetailCloudFrontAssetPath("/new/interaction-path.json");
 
       assertEquals("http://new-cron.url", config.getCronManagerBaseUrl());
       assertEquals("http://new-service.url", config.getServiceUrl());
@@ -476,6 +493,8 @@ class AlertCronServiceTest {
       assertEquals("new-distribution-id", config.getCloudFrontDistributionId());
       assertEquals("/new/path.json", config.getConfigDetailCloudFrontAssetPath());
       assertEquals("http://new-webhook.url", config.getWebhookUrl());
+      assertEquals("new/interaction-path.json", config.getInteractionDetailsS3BucketFilePath());
+      assertEquals("/new/interaction-path.json", config.getInteractionDetailCloudFrontAssetPath());
     }
 
     @Test
@@ -486,17 +505,21 @@ class AlertCronServiceTest {
           30,
           "google-client-id",
           true,
+          "project-id",
           "jwt-secret",
           "http://otel-collector.url",
           "http://interaction-config.url",
           "http://logs-collector.url",
           "http://metric-collector.url",
           "http://span-collector.url",
+          "http://custom-event-collector.url",
           "config-bucket",
           "config/details.json",
           "cloudfront-distribution-id",
           "/config/details.json",
-          "http://webhook.url"
+          "http://webhook.url",
+          "interaction/details.json",
+          "/interaction/details.json"
       );
       String toString = config.toString();
 
@@ -507,19 +530,22 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForApplicationConfig() {
       ApplicationConfig config1 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url"
+          "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config2 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url"
+          "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config3 = new ApplicationConfig(
-          "http://different.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url"
+          "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
 
       assertEquals(config1, config2);

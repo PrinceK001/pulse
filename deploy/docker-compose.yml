@@ -63,136 +63,34 @@ services:
         condition: service_healthy
     restart: "no"  # Only run once
 
-  kafka:
-    image: apache/kafka:latest
-    container_name: kafka
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-    ports:
-      - "9094:9094"
-    networks:
-      - pulse-network
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1",
-        ]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    ports:
-      - "8081:8080"  # host:container (access UI at http://localhost:8081)
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-      KAFKA_CLUSTERS_0_READONLY: "false"
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks:
-      - pulse-network
-    restart: unless-stopped
-
-    # OpenTelemetry Collector (Data Ingestion Pipeline)
-
-  vector:
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/rorylshanks/vector
-        VECTOR_REF: add-parquet
-        DEBIAN_VERSION: "12"
-    container_name: vector
-    command: [ ]
-    volumes:
-      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-      - vector-data:/var/lib/vector
-    networks:
-      - pulse-network
-    depends_on:
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    ports:
-      - "8686:8686"
-
-
-
-  otel-collector-1:
+  otel-collector:
     image: otel/opentelemetry-collector-contrib:0.137.0
-    container_name: pulse-otel-collector-1
-    command: [ "--config=/etc/otel-collector-1.yaml" ]
+    container_name: pulse-otel-collector
+    command: [ "--config=/etc/otel-collector.yaml" ]
     volumes:
-      - ../backend/ingestion/otel-collector-1.yaml:/etc/otel-collector-1.yaml:ro
-    networks:
-      - pulse-network
-    depends_on:
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector-1.yaml" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8888:8888"   # Prometheus metrics (collector internal)
-      - "13133:13133" # Health check
-
-  otel-collector-2:
-    image: otel/opentelemetry-collector-contrib:0.137.0
-    container_name: pulse-otel-collector-2
-    command: [ "--config=/etc/otel-collector-2.yaml" ]
-    volumes:
-      - ../backend/ingestion/otel-collector-2.yaml:/etc/otel-collector-2.yaml:ro
-    environment:
-      - CLICKHOUSE_ENDPOINT=tcp://clickhouse:9000
-      - CLICKHOUSE_DATABASE=${OTEL_CLICKHOUSE_DATABASE:-otel}
-      - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
-      - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
+      - ../backend/ingestion/otel-collector.yaml:/etc/otel-collector.yaml:ro
     networks:
       - pulse-network
     depends_on:
       clickhouse:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector-2.yaml" ]
+      test: [ "CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector.yaml" ]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 10s
-    # Optional: expose health/metrics on different host ports than collector-1
+    environment:
+      - CLICKHOUSE_ENDPOINT=tcp://clickhouse:9000
+      - CLICKHOUSE_DATABASE=${OTEL_CLICKHOUSE_DATABASE:-otel}
+      - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
+      - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
     ports:
-      - "8889:8888"    # internal metrics on 8888 -> host 8889
-      - "13134:13133"  # internal health_check -> host 13134
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics (collector internal)
+      - "13133:13133" # Health check
 
   # Pulse UI Service (React Frontend)
   pulse-ui:
@@ -230,6 +128,11 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # AWS Credentials for S3/Athena access
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+
       # MySQL Database Configuration
       - MYSQL_WRITER_HOST=mysql
       - MYSQL_READER_HOST=mysql
@@ -253,14 +156,33 @@ services:
       - CLICKHOUSE_PASSWORD=pulse_password
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_PORT=8123
+      - ENCRYPTION_MASTER_KEY=${VAULT_ENCRYPTION_MASTER_KEY}
 
       # S3 Configuration
       - S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME:-pulse-config}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
+      - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
 
       # CloudFront Configuration
       - CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID:-NONE}
       - CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH:-/config/pulse-config.json}
+      - INTERACTION_CLOUDFRONT_ASSET_PATH=${INTERACTION_CLOUDFRONT_ASSET_PATH:-/config/interaction-config.json}
+
+      # OpenTelemetry Configuration
+      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL}
+      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL}
+      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}
+      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}
+      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}
+      # Query Engine Configuration
+      - CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE:-athena}
+      # Athena Configuration (only used when QUERY_ENGINE=athena)
+      - CONFIG_SERVICE_APPLICATION_ATHENA_REGION=${CONFIG_SERVICE_APPLICATION_ATHENA_REGION:-ap-south-1}
+      - CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE=${CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE:-pulse_athena_db}
+      - CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION=${CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION:-s3://puls-otel-config/}
+      # GCP Configuration (only used when QUERY_ENGINE=gcp)
+      - CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID=${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
+      # - CONFIG_SERVICE_APPLICATION_GCP_DATASET=${CONFIG_SERVICE_APPLICATION_GCP_DATASET}
     networks:
       - pulse-network
     depends_on:
@@ -324,7 +246,5 @@ volumes:
   mysql-data:
     driver: local
   clickhouse-data:
-    driver: local
-  vector-data:
     driver: local
 

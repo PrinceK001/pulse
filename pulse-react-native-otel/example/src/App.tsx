@@ -12,7 +12,12 @@ import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
 import AndroidFeaturesExample from './examples/AndroidFeaturesExample';
 import InteractionDemo from './examples/InteractionDemo';
 
-Pulse.start();
+Pulse.start({
+  networkHeaders: {
+    requestHeaders: ['Content-Type', 'Authorization'],
+    responseHeaders: ['Content-Type', 'Cache-Control'],
+  },
+});
 
 type DemoConfig = {
   id: string;

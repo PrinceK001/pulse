@@ -89,6 +89,16 @@ public class PulseConfig {
 
     @JsonProperty("value")
     private String value;
+
+    @JsonProperty("type")
+    public String getType() {
+      return "string";
+    }
+
+    @JsonProperty("type")
+    public void setType(String type) {
+      // Ignore the incoming type value - we always return "string"
+    }
   }
 
   @Data
@@ -232,6 +242,9 @@ public class PulseConfig {
     @JsonProperty("spanCollectorUrl")
     private String spanCollectorUrl;
 
+    @JsonProperty("customEventCollectorUrl")
+    private String customEventCollectorUrl;
+
     @NotNull
     @JsonProperty("attributesToDrop")
     private List<EventFilter> attributesToDrop;
@@ -267,9 +280,6 @@ public class PulseConfig {
 
     @JsonProperty("featureName")
     private Features featureName;
-
-    @JsonProperty("enabled")
-    private boolean enabled;
 
     @JsonProperty("sessionSampleRate")
     private Double sessionSampleRate;

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.util.concurrent.TimeUnit
 import kotlin.error
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 @ExtendWith(MockKExtension::class)
@@ -444,6 +445,96 @@ class InteractionManagerTest {
                 )
                 assertSingleFinalInteraction(id)
             }
+
+        @Test
+        fun `two interaction config with same event sequence`() =
+            runTest(standardTestDispatcher) {
+                val firstConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        id = 1,
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            ),
+                    )
+                val secondConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        id = 2,
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            ),
+                    )
+
+                initMockInteractionManager(firstConfig, secondConfig)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction == null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                val ids = mockInteractionManager.interactionTrackerStatesState.value.runningIds
+
+                addEventWithNanoTimeFromBoot(
+                    "eventUnknown",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction == null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value.runningIds).containsAll(ids)
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction != null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                Assertions
+                    .assertThat(
+                        mockInteractionManager.interactionTrackerStatesState.value.map {
+                            (it as InteractionRunningStatus.OngoingMatch).interaction!!.id
+                        },
+                    ).containsAll(ids)
+            }
     }
 
     @Nested
@@ -674,7 +765,7 @@ class InteractionManagerTest {
             }
 
         @Test
-        fun `config with two event and trailing blacklisted events when first and second event is config first event`() =
+        fun `config with two event and trailing blacklisted events, when first(event1) comes twice to break the ongoing interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
                     InteractionRemoteFakeUtils.createFakeInteractionConfig(
@@ -698,7 +789,15 @@ class InteractionManagerTest {
                 assertSingleOngoingInteraction()
 
                 addEventWithNanoTimeFromBoot("event1")
-                assertSingleOngoingInteraction()
+                advanceTimeBy(1.seconds)
+                Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value).hasSize(2)
+                val interactionId1 =
+                    assertSingleFinalInteraction(
+                        interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+                        isSuccess = false,
+                    )
+                val interactionId2 = assertSingleOngoingInteraction(mockInteractionManager.interactionTrackerStatesState.value.last())
+                Assertions.assertThat(interactionId2).isNotEqualTo(interactionId1.first)
             }
 
         @Test
@@ -793,14 +892,51 @@ class InteractionManagerTest {
                 assertSingleOngoingInteraction(interactionId)
 
                 addEventWithNanoTimeFromBoot("event1")
-                val interactionId2 = assertSingleOngoingInteraction()
-                Assertions.assertThat(interactionId2).isNotEqualTo(interactionId)
+                advanceTimeBy(1.seconds)
+                val (interactionId2, _) =
+                    assertSingleFinalInteraction(
+                        interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+                        isSuccess = false,
+                    )
+                val interactionId3 = assertSingleOngoingInteraction(mockInteractionManager.interactionTrackerStatesState.value.last())
+                Assertions.assertThat(interactionId2).isEqualTo(interactionId)
+                Assertions.assertThat(interactionId2).isNotEqualTo(interactionId3)
 
                 addEventWithNanoTimeFromBoot("event2")
-                assertSingleOngoingInteraction(interactionId2)
+                assertSingleOngoingInteraction(interactionId3)
 
                 addEventWithNanoTimeFromBoot("event3")
-                assertSingleFinalInteraction(interactionId2)
+                assertSingleFinalInteraction(interactionId3)
+            }
+
+        @Test
+        fun `When first event comes instead of second event to break the ongoing match`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                val interactionId1 = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot("event1")
+                // advancing so that interactions are set
+                advanceTimeBy(1.seconds)
+                Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value).hasSize(2)
+                val (interactionId2, _) =
+                    assertSingleFinalInteraction(
+                        interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+                        isSuccess = false,
+                    )
+                Assertions.assertThat(interactionId1).isEqualTo(interactionId2)
+                val interactionId3 = assertSingleOngoingInteraction(mockInteractionManager.interactionTrackerStatesState.value.last())
+                Assertions.assertThat(interactionId2).isNotEqualTo(interactionId3)
             }
     }
 
@@ -858,12 +994,12 @@ class InteractionManagerTest {
                         ThrowingConsumer {
                             Assertions
                                 .assertThat(
-                                    (it as? InteractionRunningStatus.OngoingMatch ?: error("it is not of type OngoingMatch")).interaction,
+                                    (it as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(it)).interaction,
                                 ).isNotNull
                         },
                     ).extracting(
                         ThrowingExtractor {
-                            (it as? InteractionRunningStatus.OngoingMatch ?: error("it is not of type OngoingMatch")).interaction?.id
+                            (it as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(it)).interaction?.id
                                 ?: error("interaction is missing from Ongoing match")
                         },
                     ).doesNotHaveDuplicates()
@@ -1466,7 +1602,7 @@ class InteractionManagerTest {
     @Nested
     inner class `With wrong events` {
         @Test
-        fun `with no ongoing match, events contained event doesn't give error interaction`() =
+        fun `with no ongoing match, event2(out of order) doesn't give error interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
                     InteractionRemoteFakeUtils.createFakeInteractionConfig(
@@ -1603,8 +1739,30 @@ class InteractionManagerTest {
             .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
             .hasSize(1)
             .first()
+            .isNotNull
+
+        return assertSingleOngoingInteraction(
+            interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+            previousIdToMatch = previousIdToMatch,
+            skipAdvancing = skipAdvancing,
+        )
+    }
+
+    fun throwNotOfOngoingType(interactionRunningStatus: InteractionRunningStatus): Nothing =
+        error("interactionRunningStatus = $interactionRunningStatus is not of type OngoingMatch")
+
+    private fun TestScope.assertSingleOngoingInteraction(
+        interactionRunningStatus: InteractionRunningStatus,
+        previousIdToMatch: String? = null,
+        skipAdvancing: Boolean = false,
+    ): String {
+        if (!skipAdvancing) advanceTimeBy(1.seconds)
+        val ongoingMatchStatus =
+            interactionRunningStatus as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)
+        Assertions
+            .assertThat(interactionRunningStatus)
             .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
-            .extracting { (it as? InteractionRunningStatus.OngoingMatch ?: error("Not of type OngoingMatch")).interaction }
+            .extracting { ongoingMatchStatus.interaction }
             .isNull()
 
         previousIdToMatch?.let {
@@ -1612,15 +1770,14 @@ class InteractionManagerTest {
                 .assertThat(
                     (
                         mockInteractionManager.interactionTrackerStatesState.value[0] as? InteractionRunningStatus.OngoingMatch
-                            ?: error("Not of type OngoingMatch")
+                            ?: throwNotOfOngoingType(interactionRunningStatus)
                     ).interactionId,
                 ).isEqualTo(it)
         }
 
-        return (
-            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.OngoingMatch
-                ?: error("Not of type OngoingMatch")
-        ).interactionId
+        Assertions.assertThat(listOf(interactionRunningStatus).runningIds).containsExactly(ongoingMatchStatus.interactionId)
+
+        return interactionRunningStatus.interactionId
     }
 
     private fun TestScope.assertSingleFinalInteraction(
@@ -1634,12 +1791,30 @@ class InteractionManagerTest {
             .hasSize(1)
             .first()
             .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
-            .extracting { (it as? InteractionRunningStatus.OngoingMatch ?: error("Not of type OngoingMatch")).interaction }
+
+        return assertSingleFinalInteraction(
+            interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+            previousIdToMatch = previousIdToMatch,
+            skipAdvancing = skipAdvancing,
+            isSuccess = isSuccess,
+        )
+    }
+
+    private fun TestScope.assertSingleFinalInteraction(
+        interactionRunningStatus: InteractionRunningStatus,
+        previousIdToMatch: String? = null,
+        skipAdvancing: Boolean = false,
+        isSuccess: Boolean = true,
+    ): Pair<String, Interaction> {
+        if (!skipAdvancing) advanceTimeBy(1.seconds)
+        Assertions
+            .assertThat(interactionRunningStatus)
+            .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
+            .extracting { (it as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)).interaction }
             .isNotNull
 
         val finalInteractionOngoingStatus =
-            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.OngoingMatch
-                ?: error("Not of type OngoingMatch")
+            interactionRunningStatus as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)
         val interaction =
             finalInteractionOngoingStatus.interaction ?: error("Interaction should not be null")
         Assertions
@@ -1651,7 +1826,7 @@ class InteractionManagerTest {
         previousIdToMatch?.let {
             Assertions.assertThat(finalInteractionOngoingStatus.interactionId).isEqualTo(it)
         }
-        @Suppress("UNNECESSARY_NOT_NULL_ASSERTION")
+        Assertions.assertThat(listOf(interactionRunningStatus).runningIds).isEmpty()
         return finalInteractionOngoingStatus.interactionId to interaction
     }
 

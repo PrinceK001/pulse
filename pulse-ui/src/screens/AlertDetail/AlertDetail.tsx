@@ -5,6 +5,7 @@ import {
   IconSquareRoundedX, IconClock, IconUser, IconCalendar, IconActivity,
   IconBell, IconBellOff, IconAlertTriangle, IconChevronDown, IconChevronRight,
   IconClock2, IconClockHour4, IconClockHour8, IconCalendarTime, IconCalendarWeek,
+  IconBrandSlack,
 } from "@tabler/icons-react";
 import { AlertDetailProps } from "./AlertDetail.interface";
 import classes from "./AlertDetail.module.css";
@@ -17,7 +18,9 @@ import { useResumeAlert } from "../../hooks/useResumeAlert";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
 import { useGetAlertMetrics } from "../../hooks/useGetAlertMetrics";
+import { useGetNotificationChannelById } from "../../hooks/useGetNotificationChannelById";
 import { showNotification } from "../../helpers/showNotification";
+import { formatNetworkApiScopeName, isNetworkApiScopeName } from "../AlertFormWizard/utils/scopeNameUtils";
 
 const OPERATOR_SYMBOLS: Record<string, string> = {
   GREATER_THAN: ">", LESS_THAN: "<", GREATER_THAN_OR_EQUAL: "≥", LESS_THAN_OR_EQUAL: "≤", EQUAL: "=",
@@ -25,8 +28,18 @@ const OPERATOR_SYMBOLS: Record<string, string> = {
 
 const formatDuration = (seconds: number): string => {
   if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  }
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  let result = `${hrs}h`;
+  if (mins > 0) result += ` ${mins}m`;
+  if (secs > 0) result += ` ${secs}s`;
+  return result;
 };
 
 const formatDate = (date: string | Date) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -77,6 +90,12 @@ export function AlertDetail(_props: AlertDetailProps) {
   // Fetch metrics based on alert's scope
   const alertScope = alertData?.data?.scope || "";
   const { data: metricsData } = useGetAlertMetrics({ scope: alertScope });
+  
+  // Fetch notification channel by ID
+  const notificationChannelId = alertData?.data?.notification_channel_id ?? null;
+  const { data: notificationChannelData } = useGetNotificationChannelById({
+    notificationChannelId,
+  });
 
   const toggleScopeExpanded = (scopeId: number) => {
     setExpandedScopes(prev => {
@@ -119,6 +138,9 @@ export function AlertDetail(_props: AlertDetailProps) {
   // Build metric labels lookup from fetched metrics
   const metricLabels: Record<string, string> = {};
   metricsData?.data?.metrics?.forEach((m) => { metricLabels[m.name] = m.label; });
+
+  // Get notification channel from fetched data
+  const notificationChannel = notificationChannelData?.data ?? null;
 
   const snoozeAlertMutation = useSnoozeAlert({
     onSettled: (data, error) => {
@@ -177,9 +199,10 @@ export function AlertDetail(_props: AlertDetailProps) {
     );
   }
 
+  const isNoData = alert.status === "NO_DATA";
   const StatusIcon = alert.is_snoozed ? IconBellOff : isFiring ? IconBellRinging : IconBell;
-  const statusColor = alert.is_snoozed ? "#94a3b8" : isFiring || alert.status === "NO_DATA" ? "#ef4444" : "#10b981";
-  const statusLabel = alert.is_snoozed ? "Snoozed" : alert.status;
+  const statusColor = alert.is_snoozed ? "#94a3b8" : isNoData ? "#9ca3af" : isFiring ? "#ef4444" : "#10b981";
+  const statusLabel = alert.is_snoozed ? "Snoozed" : isNoData ? "No Data" : alert.status;
 
   // Format snooze end time
   const formatSnoozeUntil = (timestamp: number | null) => {
@@ -282,12 +305,20 @@ export function AlertDetail(_props: AlertDetailProps) {
                   </div>
                   <Divider my="xs" color="rgba(14,201,194,0.1)" />
                   <div className={classes.thresholdsList}>
-                    {Object.entries(condition.threshold || {}).map(([name, value]) => (
-                      <div key={name} className={classes.thresholdItem}>
-                        <span className={classes.thresholdName}>{name}</span>
-                        <span className={classes.thresholdValue}>{value}</span>
-                      </div>
-                    ))}
+                    {Object.entries(condition.threshold || {}).map(([name, value]) => {
+                      // Format network_api scope names for display
+                      const displayName = isNetworkApiScopeName(name) 
+                        ? formatNetworkApiScopeName(name) 
+                        : name;
+                      return (
+                        <div key={name} className={classes.thresholdItem}>
+                          <Tooltip label={name} position="top" withArrow disabled={displayName === name}>
+                            <span className={classes.thresholdName}>{displayName}</span>
+                          </Tooltip>
+                          <span className={classes.thresholdValue}>{value}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -308,7 +339,19 @@ export function AlertDetail(_props: AlertDetailProps) {
               </div>
               <div className={classes.configItem}>
                 <span className={classes.configLabel}>Notification Channel</span>
-                <span className={classes.configValue}>Channel #{alert.notification_channel_id}</span>
+                {notificationChannel ? (
+                  <Tooltip label={notificationChannel.config} withArrow>
+                    <span className={classes.configValue} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {notificationChannel.type === 'slack' && <IconBrandSlack size={14} style={{ color: '#4a154b' }} />}
+                      {notificationChannel.name}
+                      {!notificationChannel.is_active && (
+                        <Badge size="xs" color="red" variant="light">Deleted</Badge>
+                      )}
+                    </span>
+                  </Tooltip>
+                ) : (
+                  <span className={classes.configValue}>Channel #{alert.notification_channel_id}</span>
+                )}
               </div>
               <div className={classes.configItem}>
                 <span className={classes.configLabel}>Status</span>
@@ -382,9 +425,15 @@ export function AlertDetail(_props: AlertDetailProps) {
                             </Badge>
                             <Tooltip label={scopeHistory.scope_name} position="top">
                               <span className={classes.scopeNameText}>
-                                {scopeHistory.scope_name.length > 25 
-                                  ? `${scopeHistory.scope_name.slice(0, 25)}...` 
-                                  : scopeHistory.scope_name}
+                                {(() => {
+                                  // Format network_api scope names for display
+                                  const displayName = isNetworkApiScopeName(scopeHistory.scope_name)
+                                    ? formatNetworkApiScopeName(scopeHistory.scope_name)
+                                    : scopeHistory.scope_name;
+                                  return displayName.length > 35 
+                                    ? `${displayName.slice(0, 35)}...` 
+                                    : displayName;
+                                })()}
                               </span>
                             </Tooltip>
                           </div>

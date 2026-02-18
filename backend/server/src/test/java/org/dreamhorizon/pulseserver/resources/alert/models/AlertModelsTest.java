@@ -164,7 +164,8 @@ class AlertModelsTest {
           .evaluationInterval(300)
           .severityId(1)
           .notificationChannelId(1)
-          .notificationWebhookUrl("http://webhook.url")
+          .notificationType("slack")
+          .notificationConfig("http://webhook.url")
           .createdBy("user")
           .updatedBy("user")
           .createdAt(now)
@@ -186,7 +187,8 @@ class AlertModelsTest {
       assertEquals(300, dto.getEvaluationInterval());
       assertEquals(1, dto.getSeverityId());
       assertEquals(1, dto.getNotificationChannelId());
-      assertEquals("http://webhook.url", dto.getNotificationWebhookUrl());
+      assertEquals("slack", dto.getNotificationType());
+      assertEquals("http://webhook.url", dto.getNotificationConfig());
       assertEquals("user", dto.getCreatedBy());
       assertEquals("user", dto.getUpdatedBy());
       assertTrue(dto.getIsActive());
@@ -209,7 +211,8 @@ class AlertModelsTest {
       dto.setEvaluationInterval(600);
       dto.setSeverityId(2);
       dto.setNotificationChannelId(2);
-      dto.setNotificationWebhookUrl("http://new.url");
+      dto.setNotificationType("email");
+      dto.setNotificationConfig("team@example.com");
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
       dto.setCreatedAt(now);
@@ -404,11 +407,13 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      AlertNotificationChannelResponseDto dto = new AlertNotificationChannelResponseDto(1, "Slack", "http://slack.webhook");
+      AlertNotificationChannelResponseDto dto = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "http://slack.webhook", true);
 
       assertEquals(1, dto.getNotificationChannelId());
       assertEquals("Slack", dto.getName());
-      assertEquals("http://slack.webhook", dto.getNotificationWebhookUrl());
+      assertEquals("slack", dto.getType());
+      assertEquals("http://slack.webhook", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
@@ -416,11 +421,16 @@ class AlertModelsTest {
       AlertNotificationChannelResponseDto dto = AlertNotificationChannelResponseDto.builder()
           .notificationChannelId(2)
           .name("Email")
-          .notificationWebhookUrl("http://email.webhook")
+          .type("email")
+          .config("team@example.com")
+          .isActive(true)
           .build();
 
       assertEquals(2, dto.getNotificationChannelId());
       assertEquals("Email", dto.getName());
+      assertEquals("email", dto.getType());
+      assertEquals("team@example.com", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
@@ -429,17 +439,21 @@ class AlertModelsTest {
 
       dto.setNotificationChannelId(3);
       dto.setName("PagerDuty");
-      dto.setNotificationWebhookUrl("http://pagerduty.webhook");
+      dto.setType("slack");
+      dto.setConfig("http://pagerduty.webhook");
+      dto.setIsActive(true);
 
       assertEquals(3, dto.getNotificationChannelId());
       assertEquals("PagerDuty", dto.getName());
-      assertEquals("http://pagerduty.webhook", dto.getNotificationWebhookUrl());
+      assertEquals("slack", dto.getType());
+      assertEquals("http://pagerduty.webhook", dto.getConfig());
+      assertTrue(dto.getIsActive());
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      AlertNotificationChannelResponseDto dto1 = new AlertNotificationChannelResponseDto(1, "Slack", "url");
-      AlertNotificationChannelResponseDto dto2 = new AlertNotificationChannelResponseDto(1, "Slack", "url");
+      AlertNotificationChannelResponseDto dto1 = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "url", true);
+      AlertNotificationChannelResponseDto dto2 = new AlertNotificationChannelResponseDto(1, "Slack", "slack", "url", true);
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());
@@ -930,12 +944,13 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      GetAlertsListRequestDto dto = new GetAlertsListRequestDto("Test", "Interaction", "user1", "user2", 10, 0);
+      GetAlertsListRequestDto dto = new GetAlertsListRequestDto("Test", "Interaction", "user1", "user2", "active", 10, 0);
 
       assertEquals("Test", dto.getName());
       assertEquals("Interaction", dto.getScope());
       assertEquals("user1", dto.getCreatedBy());
       assertEquals("user2", dto.getUpdatedBy());
+      assertEquals("active", dto.getStatus());
       assertEquals(10, dto.getLimit());
       assertEquals(0, dto.getOffset());
     }
@@ -961,8 +976,8 @@ class AlertModelsTest {
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      GetAlertsListRequestDto dto1 = new GetAlertsListRequestDto("Test", "Interaction", "user", "user", 10, 0);
-      GetAlertsListRequestDto dto2 = new GetAlertsListRequestDto("Test", "Interaction", "user", "user", 10, 0);
+      GetAlertsListRequestDto dto1 = new GetAlertsListRequestDto("Test", "Interaction", "user", "user", null, 10, 0);
+      GetAlertsListRequestDto dto2 = new GetAlertsListRequestDto("Test", "Interaction", "user", "user", null, 10, 0);
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());
@@ -1115,10 +1130,11 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto("Slack", "{\"webhook\":\"url\"}");
+      CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto("Slack", "slack", "http://webhook.url");
 
       assertEquals("Slack", dto.getName());
-      assertEquals("{\"webhook\":\"url\"}", dto.getConfig());
+      assertEquals("slack", dto.getType());
+      assertEquals("http://webhook.url", dto.getConfig());
     }
 
     @Test
@@ -1126,16 +1142,18 @@ class AlertModelsTest {
       CreateAlertNotificationChannelRequestDto dto = new CreateAlertNotificationChannelRequestDto();
 
       dto.setName("Email");
-      dto.setConfig("{\"email\":\"test@test.com\"}");
+      dto.setType("email");
+      dto.setConfig("test@test.com");
 
       assertEquals("Email", dto.getName());
-      assertEquals("{\"email\":\"test@test.com\"}", dto.getConfig());
+      assertEquals("email", dto.getType());
+      assertEquals("test@test.com", dto.getConfig());
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      CreateAlertNotificationChannelRequestDto dto1 = new CreateAlertNotificationChannelRequestDto("Slack", "{}");
-      CreateAlertNotificationChannelRequestDto dto2 = new CreateAlertNotificationChannelRequestDto("Slack", "{}");
+      CreateAlertNotificationChannelRequestDto dto1 = new CreateAlertNotificationChannelRequestDto("Slack", "slack", "http://webhook.url");
+      CreateAlertNotificationChannelRequestDto dto2 = new CreateAlertNotificationChannelRequestDto("Slack", "slack", "http://webhook.url");
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());
@@ -1375,40 +1393,43 @@ class AlertModelsTest {
 
   // AddAlertToCronManager Tests
   @Nested
-  class TestAddAlertToCronManager {
+  class TestAddCronDto {
 
     @Test
     void shouldCreateWithNoArgs() {
-      AddAlertToCronManager dto = new AddAlertToCronManager();
+      AddCronDto dto = new AddCronDto();
       assertNotNull(dto);
     }
 
     @Test
     void shouldCreateWithAllArgs() {
-      AddAlertToCronManager dto = new AddAlertToCronManager(1, 300, "http://localhost/api");
+      AddCronDto dto = new AddCronDto(1, 300, "http://localhost/api", "tenant1");
 
       assertEquals(1, dto.getId());
       assertEquals(300, dto.getInterval());
       assertEquals("http://localhost/api", dto.getUrl());
+      assertEquals("tenant1", dto.getTenantId());
     }
 
     @Test
     void shouldSetAndGetFields() {
-      AddAlertToCronManager dto = new AddAlertToCronManager();
+      AddCronDto dto = new AddCronDto();
 
       dto.setId(2);
       dto.setInterval(600);
       dto.setUrl("http://new.url/api");
+      dto.setTenantId("tenant2");
 
       assertEquals(2, dto.getId());
       assertEquals(600, dto.getInterval());
       assertEquals("http://new.url/api", dto.getUrl());
+      assertEquals("tenant2", dto.getTenantId());
     }
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      AddAlertToCronManager dto1 = new AddAlertToCronManager(1, 300, "url");
-      AddAlertToCronManager dto2 = new AddAlertToCronManager(1, 300, "url");
+      AddCronDto dto1 = new AddCronDto(1, 300, "url", "tenant1");
+      AddCronDto dto2 = new AddCronDto(1, 300, "url", "tenant1");
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());
@@ -1416,7 +1437,7 @@ class AlertModelsTest {
 
     @Test
     void shouldHaveCorrectToString() {
-      AddAlertToCronManager dto = new AddAlertToCronManager(1, 300, "url");
+      AddCronDto dto = new AddCronDto(1, 300, "url", "tenant1");
       assertNotNull(dto.toString());
       assertTrue(dto.toString().contains("1"));
     }
@@ -1470,19 +1491,20 @@ class AlertModelsTest {
 
   // UpdateAlertInCronManager Tests
   @Nested
-  class TestUpdateAlertInCronManager {
+  class TestUpdateCronDto {
 
     @Test
     void shouldCreateWithNoArgs() {
-      UpdateAlertInCronManager dto = new UpdateAlertInCronManager();
+      UpdateCronDto dto = new UpdateCronDto();
       assertNotNull(dto);
     }
 
     @Test
     void shouldCreateWithAllArgs() {
-      UpdateAlertInCronManager dto = new UpdateAlertInCronManager(1, 600, 300, "http://localhost/api");
+      UpdateCronDto dto = new UpdateCronDto(1, "tenant1", 600, 300, "http://localhost/api");
 
       assertEquals(1, dto.getId());
+      assertEquals("tenant1", dto.getTenantId());
       assertEquals(600, dto.getNewInterval());
       assertEquals(300, dto.getOldInterval());
       assertEquals("http://localhost/api", dto.getUrl());
@@ -1490,14 +1512,16 @@ class AlertModelsTest {
 
     @Test
     void shouldSetAndGetFields() {
-      UpdateAlertInCronManager dto = new UpdateAlertInCronManager();
+      UpdateCronDto dto = new UpdateCronDto();
 
       dto.setId(2);
+      dto.setTenantId("tenant2");
       dto.setNewInterval(900);
       dto.setOldInterval(600);
       dto.setUrl("http://new.url/api");
 
       assertEquals(2, dto.getId());
+      assertEquals("tenant2", dto.getTenantId());
       assertEquals(900, dto.getNewInterval());
       assertEquals(600, dto.getOldInterval());
       assertEquals("http://new.url/api", dto.getUrl());
@@ -1505,8 +1529,8 @@ class AlertModelsTest {
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      UpdateAlertInCronManager dto1 = new UpdateAlertInCronManager(1, 600, 300, "url");
-      UpdateAlertInCronManager dto2 = new UpdateAlertInCronManager(1, 600, 300, "url");
+      UpdateCronDto dto1 = new UpdateCronDto(1, "tenant1", 600, 300, "url");
+      UpdateCronDto dto2 = new UpdateCronDto(1, "tenant1", 600, 300, "url");
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());
@@ -1514,7 +1538,7 @@ class AlertModelsTest {
 
     @Test
     void shouldHaveCorrectToString() {
-      UpdateAlertInCronManager dto = new UpdateAlertInCronManager(1, 600, 300, "url");
+      UpdateCronDto dto = new UpdateCronDto(1, "tenant1", 600, 300, "url");
       assertNotNull(dto.toString());
       assertTrue(dto.toString().contains("1"));
     }

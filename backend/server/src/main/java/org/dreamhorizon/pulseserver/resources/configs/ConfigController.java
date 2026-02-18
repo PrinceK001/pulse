@@ -23,6 +23,7 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 
 @Slf4j
@@ -45,6 +46,11 @@ public class ConfigController {
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PulseConfig>> getActiveSdkConfig() {
+    String tenantId = TenantContext.getTenantId();
+    log.info("Fetching active SDK config for tenant: {}", tenantId);
+    if (tenantId == null || tenantId.isBlank()) {
+      throw new IllegalStateException("Tenant ID is required");
+    }
     return configService.getActiveSdkConfig()
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -74,7 +80,9 @@ public class ConfigController {
         interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
-        interaction.setConfigUrl(applicationConfig.getInteractionConfigUrl());
+        String tenantId = TenantContext.requireTenantId();
+        String configUrl = applicationConfig.getInteractionConfigUrl() + "/" + tenantId + "/config/interaction.json";
+        interaction.setConfigUrl(configUrl);
       }
     }
   }
@@ -90,6 +98,9 @@ public class ConfigController {
       }
       if (signals.getSpanCollectorUrl() == null || signals.getSpanCollectorUrl().isBlank()) {
         signals.setSpanCollectorUrl(applicationConfig.getSpanCollectorUrl());
+      }
+      if (signals.getCustomEventCollectorUrl() == null || signals.getCustomEventCollectorUrl().isBlank()) {
+        signals.setCustomEventCollectorUrl(applicationConfig.getCustomEventCollectorUrl());
       }
     }
   }

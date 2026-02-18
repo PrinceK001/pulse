@@ -5,6 +5,7 @@ import type {
   NavigationIntegrationOptions,
   NavigationRoute,
 } from './navigation.interface';
+import { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
 import { pushRecentRouteKey, LOG_TAGS } from './utils';
 import { discardSpan } from '../trace';
 import {
@@ -25,8 +26,25 @@ import {
   INITIAL_SCREEN_SESSION_STATE,
 } from './screen-session';
 import { useNavigationTracking as useNavigationTrackingBase } from './useNavigationTracking';
+import { isSupportedPlatform } from '../initialization';
+import PulseReactNativeOtel from '../NativePulseReactNativeOtel';
+import { getFeaturesFromRemoteConfig } from '../config';
+import {
+  PULSE_FEATURE_NAMES,
+  type NavigationFeatureName,
+} from '../pulse.constants';
 
 export type { NavigationRoute, NavigationIntegrationOptions };
+export { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
+
+let currentNavigationUnregister: (() => void) | null = null;
+
+export function uninstallNavigationIntegration(): void {
+  if (currentNavigationUnregister) {
+    currentNavigationUnregister();
+    currentNavigationUnregister = null;
+  }
+}
 
 export interface ReactNavigationIntegration {
   registerNavigationContainer: (
@@ -35,12 +53,41 @@ export interface ReactNavigationIntegration {
   markContentReady: () => void;
 }
 
+function resolveNavigationFeatureState(
+  features: ReturnType<typeof getFeaturesFromRemoteConfig>,
+  featureName: NavigationFeatureName,
+  optionValue: boolean
+): boolean {
+  if (features !== undefined && features !== null)
+    return features[featureName] ?? optionValue;
+  return optionValue;
+}
+
 export function createReactNavigationIntegration(
   options?: NavigationIntegrationOptions
 ): ReactNavigationIntegration {
-  const screenSessionTracking = options?.screenSessionTracking ?? true;
-  const screenNavigationTracking = options?.screenNavigationTracking ?? true;
-  const screenInteractiveTracking = options?.screenInteractiveTracking ?? false;
+  const features = getFeaturesFromRemoteConfig();
+
+  const screenSessionTracking = resolveNavigationFeatureState(
+    features,
+    PULSE_FEATURE_NAMES.SCREEN_SESSION,
+    options?.screenSessionTracking ??
+      DEFAULT_NAVIGATION_OPTIONS.screenSessionTracking
+  );
+
+  const screenNavigationTracking = resolveNavigationFeatureState(
+    features,
+    PULSE_FEATURE_NAMES.RN_SCREEN_LOAD,
+    options?.screenNavigationTracking ??
+      DEFAULT_NAVIGATION_OPTIONS.screenNavigationTracking
+  );
+
+  const screenInteractiveTracking = resolveNavigationFeatureState(
+    features,
+    PULSE_FEATURE_NAMES.RN_SCREEN_INTERACTIVE,
+    options?.screenInteractiveTracking ??
+      DEFAULT_NAVIGATION_OPTIONS.screenInteractiveTracking
+  );
 
   let navigationContainer: NavigationContainer | undefined;
   let recentRouteKeys: string[] = [];
@@ -79,6 +126,12 @@ export function createReactNavigationIntegration(
     screenSessionTracking,
     screenSessionState
   );
+
+  const setCurrentScreenName = (screenName: string): void => {
+    if (isSupportedPlatform()) {
+      PulseReactNativeOtel.setCurrentScreenName(screenName);
+    }
+  };
 
   const onNavigationDispatch = (): void => {
     try {
@@ -120,6 +173,10 @@ export function createReactNavigationIntegration(
       const currentRoute = navigationContainer.getCurrentRoute();
       if (!currentRoute) {
         return;
+      }
+
+      if (currentRoute.name) {
+        setCurrentScreenName(currentRoute.name);
       }
 
       screenLoadTracker.handleStateChange(currentRoute);
@@ -222,6 +279,9 @@ export function createReactNavigationIntegration(
           }
           navigationContainer = undefined;
           isInitialized = false;
+          if (currentNavigationUnregister === unmountCleanup) {
+            currentNavigationUnregister = null;
+          }
 
           clearGlobalMarkContentReady(
             updatedInteractiveTracker.markContentReady
@@ -233,6 +293,9 @@ export function createReactNavigationIntegration(
       if (currentRoute) {
         screenLoadState.latestRoute = currentRoute;
         recentRouteKeys = pushRecentRouteKey(recentRouteKeys, currentRoute.key);
+        if (currentRoute.name) {
+          setCurrentScreenName(currentRoute.name);
+        }
 
         const appState = AppState.currentState as AppStateStatus;
         if (
@@ -253,6 +316,7 @@ export function createReactNavigationIntegration(
       );
       isInitialized = true;
 
+      currentNavigationUnregister = unmountCleanup;
       return unmountCleanup;
     } catch (error) {
       console.error(
