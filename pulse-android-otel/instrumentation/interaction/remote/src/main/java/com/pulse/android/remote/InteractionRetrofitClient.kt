@@ -11,26 +11,14 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 public class InteractionRetrofitClient(
     private val url: String,
     private val okHttpClient: OkHttpClient,
-    private val headers: Map<String, String> = emptyMap(),
     private val json: Json = PulseSerialisationUtils.jsonConfigForSerialisation,
 ) {
     private val retrofit: Retrofit by lazy {
-        val clientBuilder = okHttpClient.newBuilder()
-        if (headers.isNotEmpty()) {
-            clientBuilder.addInterceptor { chain ->
-                val original = chain.request()
-                val requestBuilder = original.newBuilder()
-                headers.forEach { (key, value) ->
-                    requestBuilder.header(key, value)
-                }
-                chain.proceed(requestBuilder.build())
-            }
-        }
         Retrofit
             .Builder()
             .baseUrl(PulseNetworkingUtils.extractBaseUrlWithSlash(url))
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .client(clientBuilder.build())
+            .client(okHttpClient)
             .build()
     }
 
@@ -38,8 +26,5 @@ public class InteractionRetrofitClient(
         retrofit.create(InteractionApiService::class.java)
     }
 
-    public fun newInstance(
-        url: String,
-        headers: Map<String, String> = this.headers,
-    ): InteractionRetrofitClient = InteractionRetrofitClient(url, okHttpClient, headers, json)
+    public fun newInstance(url: String): InteractionRetrofitClient = InteractionRetrofitClient(url, okHttpClient, json)
 }

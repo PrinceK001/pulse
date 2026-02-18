@@ -19,6 +19,7 @@ internal class PulseSdkConfigRestProviderTest {
     private lateinit var provider: PulseSdkConfigRestProvider
     private lateinit var okHttpClient: OkHttpClient
     private lateinit var configUrl: String
+    private val headerPair = "headerKey" to "headerValue"
 
     @field:TempDir
     lateinit var tempFolder: File
@@ -41,6 +42,7 @@ internal class PulseSdkConfigRestProviderTest {
             PulseSdkConfigRestProvider(
                 cacheDir = cacheDir,
                 okHttpClient = okHttpClient,
+                headers = mapOf(headerPair),
             ) {
                 configUrl
             }
@@ -144,6 +146,22 @@ internal class PulseSdkConfigRestProviderTest {
                 assertThat(okHttpClient.cache!!.requestCount()).isEqualTo(2)
                 assertThat(okHttpClient.cache!!.networkCount()).isEqualTo(2)
                 assertThat(okHttpClient.cache!!.hitCount()).isEqualTo(0)
+            }
+
+        @Test
+        fun `headers gets appended when passed in the api`() =
+            runTest {
+                mockWebServer.enqueue(
+                    MockResponse()
+                        .setResponseCode(200)
+                        .setBody(successResponseJson)
+                        .setHeader("Content-Type", "application/json")
+                        .setHeader("Cache-Control", "no-store"),
+                )
+                provider.provide()
+
+                val request = mockWebServer.takeRequest()
+                assertThat(request.headers).contains(headerPair)
             }
     }
 

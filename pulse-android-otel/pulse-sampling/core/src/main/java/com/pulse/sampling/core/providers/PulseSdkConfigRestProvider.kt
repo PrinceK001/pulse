@@ -37,12 +37,11 @@ public class PulseSdkConfigRestProvider(
             restClients
                 .getOrPut(url) {
                     (
-                        retrofitClient?.newInstance(url, headers)
+                        retrofitClient?.newInstance(url)
                             ?: run {
                                 PulseSdkConfigRetrofitClient(
                                     url = url,
                                     okhttpClient = finalOkHttpClient,
-                                    headers = headers,
                                 ).apply {
                                     retrofitClient = this
                                 }
@@ -53,7 +52,10 @@ public class PulseSdkConfigRestProvider(
         @Suppress("SuspendFunSwallowedCancellation")
         val restResponseResult =
             runCatching {
-                restClient.getConfig(url)
+                restClient.getConfig(
+                    fullFileUrl = url,
+                    headers = headers,
+                )
             }.onFailure { throwable ->
                 currentCoroutineContext().ensureActive()
                 // removing cache as api has failed

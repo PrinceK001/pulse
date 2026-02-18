@@ -67,7 +67,7 @@ class PulseSdkConfigRetrofitClientTest {
                 },
             )
 
-            val config = retrofitClient.apiService.getConfig(configUrl)
+            val config = retrofitClient.apiService.getConfig(configUrl, emptyMap())
 
             assertThat(config).isNotNull
             assertThat(config.version).isEqualTo(1)
@@ -156,7 +156,7 @@ class PulseSdkConfigRetrofitClientTest {
 
             val result =
                 runCatching {
-                    retrofitClient.apiService.getConfig(configUrl)
+                    retrofitClient.apiService.getConfig(configUrl, emptyMap())
                 }
 
             assertThat(result.isFailure).isTrue()
@@ -239,7 +239,7 @@ class PulseSdkConfigRetrofitClientTest {
                 },
             )
 
-            val config = retrofitClient.apiService.getConfig(configUrl)
+            val config = retrofitClient.apiService.getConfig(configUrl, emptyMap())
 
             assertThat(config).isNotNull
             assertThat(config.sampling.rules[0].sdks)
@@ -282,7 +282,11 @@ class PulseSdkConfigRetrofitClientTest {
                 },
             )
 
-            val config = retrofitClient.apiService.getConfig(configUrl)
+            val config =
+                retrofitClient.apiService.getConfig(
+                    fullFileUrl = configUrl,
+                    headers = emptyMap(),
+                )
             assertThat(config).isNotNull
         }
 

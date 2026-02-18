@@ -25,18 +25,17 @@ public class InteractionConfigRestFetcher(
             restClients
                 .getOrPut(url) {
                     (
-                        interactionRetrofitClient?.newInstance(url, headers)
+                        interactionRetrofitClient?.newInstance(url)
                             ?: run {
                                 InteractionRetrofitClient(
                                     url = url,
                                     okHttpClient = PulseNetworkingUtils.okHttpClient,
-                                    headers = headers,
                                 ).apply {
                                     interactionRetrofitClient = this
                                 }
                             }
                     ).apiService
-                }.getInteractions(url)
+                }.getInteractions(fullFileUrl = url, headers = headers)
         return restResponse
     }
 }

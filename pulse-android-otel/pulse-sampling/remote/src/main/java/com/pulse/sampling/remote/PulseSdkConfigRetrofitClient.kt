@@ -15,7 +15,6 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 public class PulseSdkConfigRetrofitClient(
     private val url: String,
     private val okhttpClient: OkHttpClient,
-    private val headers: Map<String, String> = emptyMap(),
     private val json: Json = PulseSerialisationUtils.jsonConfigForSerialisation,
 ) {
     private val retrofit: Retrofit by lazy {
@@ -31,9 +30,9 @@ public class PulseSdkConfigRetrofitClient(
         retrofit.create(PulseSdkConfigApiService::class.java)
     }
 
-    private fun buildOkHttpClient(): OkHttpClient {
-        val builder = okhttpClient.newBuilder()
+    private fun buildOkHttpClient(): OkHttpClient =
         if (okhttpClient.cache != null && PulseOtelUtils.isDebug()) {
+            val builder = okhttpClient.newBuilder()
             builder.eventListener(
                 object : EventListener() {
                     override fun cacheConditionalHit(
@@ -64,28 +63,19 @@ public class PulseSdkConfigRetrofitClient(
                     }
                 },
             )
+            builder.build()
+        } else {
+            okhttpClient
         }
-
-        if (headers.isNotEmpty()) {
-            builder.addInterceptor { chain ->
-                val original = chain.request()
-                val requestBuilder = original.newBuilder()
-                headers.forEach { (key, value) ->
-                    requestBuilder.header(key, value)
-                }
-                chain.proceed(requestBuilder.build())
-            }
-        }
-
-        return builder.build()
-    }
 
     private companion object {
         private const val TAG = "PulseSdkConfigRetrofitClient"
     }
 
-    public fun newInstance(
-        url: String,
-        headers: Map<String, String> = this.headers,
-    ): PulseSdkConfigRetrofitClient = PulseSdkConfigRetrofitClient(url, okhttpClient, headers, json)
+    public fun newInstance(url: String): PulseSdkConfigRetrofitClient =
+        PulseSdkConfigRetrofitClient(
+            url = url,
+            okhttpClient = okhttpClient,
+            json = json,
+        )
 }
