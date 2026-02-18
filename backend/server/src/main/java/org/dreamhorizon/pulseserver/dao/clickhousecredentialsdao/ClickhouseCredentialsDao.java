@@ -40,7 +40,11 @@ public class ClickhouseCredentialsDao {
   public Single<ClickhouseCredentials> saveTenantCredentials(String tenantId, String plainPassword) {
     try {
       String clickhouseUsername = "tenant_" + tenantId;
-      PasswordEncryptionUtil.EncryptedPassword encrypted = encryptionUtil.encryptPassword(plainPassword);
+      
+      // Encrypt password and generate salt and digest separately
+      String encryptedPassword = encryptionUtil.encrypt(plainPassword);
+      String salt = encryptionUtil.generateSalt();
+      String digest = encryptionUtil.generateDigest(plainPassword);
 
       MySQLPool pool = mysqlClient.getWriterPool();
       return pool.preparedQuery(INSERT_CREDENTIALS)
@@ -48,9 +52,9 @@ public class ClickhouseCredentialsDao {
               Tuple.of(
                   tenantId,
                   clickhouseUsername,
-                  encrypted.getEncryptedPassword(),
-                  encrypted.getSalt(),
-                  encrypted.getDigest(),
+                  encryptedPassword,
+                  salt,
+                  digest,
                   true))
           .map(
               result -> {
@@ -114,15 +118,18 @@ public class ClickhouseCredentialsDao {
 
   public Single<ClickhouseCredentials> updateTenantCredentials(String tenantId, String newPlainPassword) {
     try {
-      PasswordEncryptionUtil.EncryptedPassword encrypted = encryptionUtil.encryptPassword(newPlainPassword);
+      // Encrypt password and generate salt and digest separately
+      String encryptedPassword = encryptionUtil.encrypt(newPlainPassword);
+      String salt = encryptionUtil.generateSalt();
+      String digest = encryptionUtil.generateDigest(newPlainPassword);
 
       MySQLPool pool = mysqlClient.getWriterPool();
       return pool.preparedQuery(UPDATE_CREDENTIALS)
           .rxExecute(
               Tuple.of(
-                  encrypted.getEncryptedPassword(),
-                  encrypted.getSalt(),
-                  encrypted.getDigest(),
+                  encryptedPassword,
+                  salt,
+                  digest,
                   tenantId))
           .flatMap(result -> {
             if (result.rowCount() == 0) {
@@ -201,7 +208,7 @@ public class ClickhouseCredentialsDao {
 
   private ClickhouseCredentials mapRowToTenantCredentials(Row row) {
     String encryptedPassword = row.getString("clickhouse_password_encrypted");
-    String decryptedPassword = encryptionUtil.decryptPassword(encryptedPassword);
+    String decryptedPassword = encryptionUtil.decrypt(encryptedPassword);
 
     return ClickhouseCredentials.builder()
         .id(row.getLong("id"))

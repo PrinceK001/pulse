@@ -10,14 +10,14 @@ USE pulse_db;
 -- Create tenants table first (referenced by other tables)
 CREATE TABLE IF NOT EXISTS tenants (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    tenant_id VARCHAR(64) UNIQUE,
+    tenant_id VARCHAR(64) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    gcp_tenant_id VARCHAR(32) NOT NULL,
-    domain_name VARCHAR(32) NOT NULL,
+    gcp_tenant_id VARCHAR(32) NULL,
+    domain_name VARCHAR(32) NULL,
     INDEX idx_tenant_active (is_active),
     INDEX idx_gcp_tenant_id (gcp_tenant_id)
 );
@@ -343,10 +343,94 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';
 -- FLUSH PRIVILEGES;
 
--- Athena job tracking table
+-- ============================================================
+-- NEW TABLES FOR MULTI-TENANCY & RBAC (February 2026)
+-- These must be created BEFORE athena_job due to foreign key dependencies
+-- ============================================================
+
+-- Users table for authentication and user management
+CREATE TABLE IF NOT EXISTS users (
+    id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id           VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique user identifier (user-{uuid})',
+    email             VARCHAR(255) NOT NULL UNIQUE COMMENT 'User email from Google OAuth',
+    name              VARCHAR(255) NOT NULL COMMENT 'User display name',
+    profile_picture   VARCHAR(512) COMMENT 'URL to user profile picture',
+    status            ENUM('pending', 'active', 'suspended') NOT NULL DEFAULT 'pending' COMMENT 'pending=added by admin, active=logged in',
+    firebase_uid      VARCHAR(255) NULL UNIQUE COMMENT 'Firebase user ID for authentication',
+    last_login_at     TIMESTAMP NULL COMMENT 'Track user activity',
+    is_active         BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'User account status',
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_user_email (email),
+    INDEX idx_user_id (user_id),
+    INDEX idx_user_active (is_active),
+    INDEX idx_user_status (status),
+    INDEX idx_user_firebase_uid (firebase_uid)
+);
+
+-- Projects table (hierarchy: tenant -> projects)
+CREATE TABLE IF NOT EXISTS projects (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project identifier (proj-{uuid})',
+    tenant_id VARCHAR(64) NOT NULL COMMENT 'Parent tenant ID',
+    name VARCHAR(255) NOT NULL COMMENT 'Project name',
+    description TEXT COMMENT 'Project description',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Project status',
+    created_by VARCHAR(255) NOT NULL COMMENT 'User who created the project',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    INDEX idx_project_tenant (tenant_id, is_active)
+);
+
+-- Project API Keys table for rotatable, encrypted API keys
+CREATE TABLE IF NOT EXISTS project_api_keys (
+    id                          BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id                  VARCHAR(64) NOT NULL COMMENT 'Project identifier (proj-{uuid})',
+    api_key_encrypted           TEXT NOT NULL COMMENT 'AES-256 encrypted API key',
+    encryption_salt             VARCHAR(100) NOT NULL COMMENT 'Salt used for encryption',
+    api_key_digest              VARCHAR(100) NOT NULL COMMENT 'SHA-256 digest for fast lookup',
+    is_active                   BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Key active status',
+    grace_period_ends_at        TIMESTAMP NULL COMMENT 'For smooth key rotation',
+    created_by                  VARCHAR(255) NOT NULL COMMENT 'User who created the key',
+    created_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deactivated_at              TIMESTAMP NULL COMMENT 'When key was deactivated',
+    deactivated_by              VARCHAR(255) NULL COMMENT 'User who deactivated the key',
+    deactivation_reason         VARCHAR(255) NULL COMMENT 'Reason for deactivation',
+    
+    CONSTRAINT fk_pak_project FOREIGN KEY (project_id) 
+        REFERENCES projects(project_id) ON DELETE CASCADE,
+    INDEX idx_project_active (project_id, is_active),
+    INDEX idx_api_key_digest (api_key_digest),
+    INDEX idx_grace_period (grace_period_ends_at)
+) COMMENT='Rotatable encrypted API keys for SDK authentication';
+
+-- ClickHouse Project Credentials (per-project ClickHouse users)
+CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(100) NOT NULL UNIQUE COMMENT 'Project ID (proj-{uuid})',
+    clickhouse_username VARCHAR(100) NOT NULL COMMENT 'ClickHouse username for this project',
+    clickhouse_password_encrypted TEXT NOT NULL COMMENT 'AES encrypted password',
+    encryption_salt VARCHAR(100) NOT NULL COMMENT 'Salt used for encryption',
+    password_digest VARCHAR(100) NOT NULL COMMENT 'SHA-256 digest for verification',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Credential active status',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_ch_project_cred FOREIGN KEY (project_id) 
+        REFERENCES projects(project_id) ON DELETE CASCADE,
+    
+    INDEX idx_project_active (project_id, is_active),
+    INDEX idx_username (clickhouse_username)
+);
+
+-- Athena job tracking table (depends on projects table)
 CREATE TABLE IF NOT EXISTS athena_job (
     job_id VARCHAR(255) PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+    tenant_id VARCHAR(64) NOT NULL DEFAULT 'default' COMMENT 'Parent tenant for organizational hierarchy',
+    project_id VARCHAR(64) COMMENT 'Project where query was executed (data isolation)',
     query_string TEXT NOT NULL,
     user_email VARCHAR(255) NOT NULL,
     query_execution_id VARCHAR(255),
@@ -366,9 +450,14 @@ CREATE TABLE IF NOT EXISTS athena_job (
     INDEX idx_user_email (user_email),
     INDEX idx_user_email_created_at (user_email, created_at),
     INDEX idx_athena_job_tenant (tenant_id),
-    CONSTRAINT fk_athena_job_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+    INDEX idx_athena_job_project (project_id),
+    INDEX idx_athena_job_tenant_project (tenant_id, project_id),
+    CONSTRAINT fk_athena_job_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
+    CONSTRAINT fk_athena_job_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
+-- DEPRECATED: Use clickhouse_project_credentials instead (per-project isolation)
+-- This table is kept for backward compatibility only
 CREATE TABLE IF NOT EXISTS clickhouse_tenant_credentials (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenant_id VARCHAR(100) NOT NULL UNIQUE,
@@ -396,5 +485,5 @@ CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
 );
 
 -- Display summary
-SELECT 'Database initialization completed successfully!' AS status;
+SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';
