@@ -2,7 +2,7 @@ package org.dreamhorizon.pulseserver.dao.athena;
 
 public class AthenaJobQueries {
   public static final String CREATE_JOB =
-      "INSERT INTO athena_job (job_id, query_string, user_email, status) VALUES (?, ?, ?, 'RUNNING')";
+      "INSERT INTO athena_job (job_id, tenant_id, query_string, user_email, status) VALUES (?, ?, ?, ?, 'RUNNING')";
 
   public static final String UPDATE_JOB_WITH_EXECUTION_ID =
       "UPDATE athena_job SET query_execution_id = ?, status = ?, created_at = ?, updated_at = ? WHERE job_id = ?";

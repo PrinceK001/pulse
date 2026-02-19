@@ -27,11 +27,11 @@ public class AthenaJobDao {
     return TenantContext.requireTenantId();
   }
 
-  public Single<String> createJob(String queryString, String userEmail) {
+  public Single<String> createJob(String tenantId, String queryString, String userEmail) {
     String jobId = UUID.randomUUID().toString();
     return executeUpdate(
         AthenaJobQueries.CREATE_JOB,
-        Tuple.of(jobId, queryString, userEmail),
+        Tuple.of(jobId, tenantId, queryString, userEmail),
         jobId,
         "Error creating Athena job"
     );
