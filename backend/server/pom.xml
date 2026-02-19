@@ -287,13 +287,6 @@
             <version>2.15.2</version>
         </dependency>
 
-        <!-- OpenFGA SDK for ReBAC Authorization -->
-        <dependency>
-            <groupId>dev.openfga</groupId>
-            <artifactId>openfga-sdk</artifactId>
-            <version>0.7.2</version>
-        </dependency>
-
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-junit5</artifactId>
