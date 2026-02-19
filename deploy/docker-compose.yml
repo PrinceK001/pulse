@@ -17,7 +17,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-pulse_root_password}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER:-pulse_user}", "-p${MYSQL_PASSWORD:-pulse_password}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -80,6 +80,10 @@ services:
       clickhouse:
         condition: service_healthy
     restart: unless-stopped
+    # Healthcheck disabled: the contrib image is scratch-based (no shell,
+    # wget, or curl). Health is verified externally via :13133.
+    healthcheck:
+      disable: true
     environment:
       - CLICKHOUSE_ENDPOINT=tcp://clickhouse:9000
       - CLICKHOUSE_DATABASE=${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -112,7 +116,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/healthcheck.txt" ]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost/healthcheck.txt" ]
       interval: 30s
       timeout: 10s
       retries: 3

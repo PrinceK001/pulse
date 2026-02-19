@@ -100,7 +100,7 @@ docker run -d \
     -e "MYSQL_PASSWORD=${MYSQL_PASSWORD}" \
     -v "${VOLUME_MYSQL}:/var/lib/mysql" \
     -v "${DEPLOY_DIR}/db/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
-    --health-cmd "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD}" \
+    --health-cmd "mysqladmin ping -h localhost -u${MYSQL_USER} -p${MYSQL_PASSWORD}" \
     --health-interval 10s \
     --health-timeout 5s \
     --health-retries 5 \
@@ -263,7 +263,7 @@ docker run -d \
     --restart unless-stopped \
     -p 3000:80 \
     -e NODE_ENV=production \
-    --health-cmd 'curl -f http://localhost/healthcheck.txt' \
+    --health-cmd 'wget --spider -q http://localhost/healthcheck.txt' \
     --health-interval 30s \
     --health-timeout 10s \
     --health-retries 3 \

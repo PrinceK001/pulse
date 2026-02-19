@@ -36,9 +36,6 @@ RUN yarn build
 # Production stage with nginx
 FROM nginx:alpine
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
-
 # Copy custom nginx configuration
 COPY --from=builder /app/build /usr/share/nginx/html
 
@@ -55,12 +52,11 @@ RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
     echo '    }' >> /etc/nginx/conf.d/default.conf && \
     echo '}' >> /etc/nginx/conf.d/default.conf
 
-# Expose port
 EXPOSE 80
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost/healthcheck.txt || exit 1
+  CMD wget --spider -q http://localhost/healthcheck.txt || exit 1
 
-# Start nginx
+USER nginx
+
 CMD ["nginx", "-g", "daemon off;"]
