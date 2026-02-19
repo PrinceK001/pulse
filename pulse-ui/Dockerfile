@@ -33,15 +33,14 @@ ENV NODE_OPTIONS="--max-old-space-size=3072"
 # Build the application
 RUN yarn build
 
-# Production stage with nginx
+# Production stage with nginx (non-root)
 FROM nginx:alpine
 
-# Copy custom nginx configuration
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# Create nginx configuration for React Router
+# Prepare directories and config so nginx can run as non-root on port 8080
 RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
-    echo '    listen 80;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    listen 8080;' >> /etc/nginx/conf.d/default.conf && \
     echo '    location / {' >> /etc/nginx/conf.d/default.conf && \
     echo '        root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
     echo '        index index.html index.htm;' >> /etc/nginx/conf.d/default.conf && \
@@ -50,12 +49,15 @@ RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
     echo '    location /healthcheck.txt {' >> /etc/nginx/conf.d/default.conf && \
     echo '        root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
     echo '    }' >> /etc/nginx/conf.d/default.conf && \
-    echo '}' >> /etc/nginx/conf.d/default.conf
+    echo '}' >> /etc/nginx/conf.d/default.conf && \
+    sed -i 's|/run/nginx.pid|/tmp/nginx.pid|' /etc/nginx/nginx.conf && \
+    chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
+    chmod -R g+w /var/cache/nginx /var/log/nginx /tmp
 
-EXPOSE 80
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget --spider -q http://localhost/healthcheck.txt || exit 1
+  CMD wget --spider -q http://127.0.0.1:8080/healthcheck.txt || exit 1
 
 USER nginx
 

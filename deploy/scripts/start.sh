@@ -261,9 +261,9 @@ docker run -d \
     --name "$CONTAINER_UI" \
     --network "$NETWORK_NAME" \
     --restart unless-stopped \
-    -p 3000:80 \
+    -p 3000:8080 \
     -e NODE_ENV=production \
-    --health-cmd 'wget --spider -q http://localhost/healthcheck.txt' \
+    --health-cmd 'wget --spider -q http://127.0.0.1:8080/healthcheck.txt' \
     --health-interval 30s \
     --health-timeout 10s \
     --health-retries 3 \
