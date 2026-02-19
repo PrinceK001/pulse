@@ -1,4 +1,11 @@
-package org.dreamhorizon.pulseserver.util;
+package org.dreamhorizon.pulseserver.util.encryption;
+
+import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.ALGORITHM;
+import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.DIGEST_ALGORITHM;
+import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.GCM_IV_LENGTH;
+import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.GCM_TAG_LENGTH;
+import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.SALT_LENGTH;
+import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.TRANSFORMATION;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -11,44 +18,42 @@ import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import lombok.Builder;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 
+/**
+ * Encryption utility for ClickHouse tenant passwords.
+ * Uses AES-GCM encryption with SHA-256 digest for verification.
+ */
 @Slf4j
 @Singleton
-public class PasswordEncryptionUtil {
-  private static final String ALGORITHM = "AES";
-  private static final String TRANSFORMATION = "AES/GCM/NoPadding";
-  private static final String DIGEST_ALGORITHM = "SHA-256";
-  private static final int GCM_IV_LENGTH = 12;  // 96 bits recommended for GCM
-  private static final int GCM_TAG_LENGTH = 128; // 128 bits authentication tag
+public class ClickhousePasswordEncryptionUtil implements EncryptionUtil {
 
   private final SecretKey secretKey;
   private final SecureRandom secureRandom;
 
   @Inject
-  public PasswordEncryptionUtil(ClickhouseConfig clickhouseConfig) {
+  public ClickhousePasswordEncryptionUtil(ApplicationConfig applicationConfig) {
     try {
-      String encryptionKey = clickhouseConfig.getEncryptionMasterKey();
+      String encryptionKey = applicationConfig.getEncryptionMasterKey();
       if (encryptionKey == null || encryptionKey.isBlank()) {
-        throw new IllegalStateException("encryptionMasterKey is not configured in ClickhouseConfig");
+        throw new IllegalStateException("encryptionMasterKey is not configured in ApplicationConfig");
       }
       byte[] decodedKey = Base64.getDecoder().decode(encryptionKey);
       this.secretKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, ALGORITHM);
       this.secureRandom = new SecureRandom();
-      log.info("Encryption key initialized successfully from ClickhouseConfig (AES-GCM)");
+      log.info("ClickhousePasswordEncryptionUtil initialized successfully (AES-GCM)");
     } catch (Exception e) {
-      log.error("Failed to initialize encryption key", e);
+      log.error("Failed to initialize ClickhousePasswordEncryptionUtil", e);
       throw new RuntimeException("Encryption key initialization failed", e);
     }
   }
 
-  public EncryptedPassword encryptPassword(String plainPassword) {
+  @Override
+  public EncryptedData encrypt(String plainValue) {
     try {
       // Generate random salt for digest
-      byte[] salt = new byte[16];
+      byte[] salt = new byte[SALT_LENGTH];
       secureRandom.nextBytes(salt);
       String saltBase64 = Base64.getEncoder().encodeToString(salt);
 
@@ -60,52 +65,54 @@ public class PasswordEncryptionUtil {
       Cipher cipher = Cipher.getInstance(TRANSFORMATION);
       GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
       cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec);
-      byte[] encryptedPassword = cipher.doFinal(plainPassword.getBytes(StandardCharsets.UTF_8));
+      byte[] encryptedBytes = cipher.doFinal(plainValue.getBytes(StandardCharsets.UTF_8));
 
       // Combine IV + encrypted data for storage
-      ByteBuffer byteBuffer = ByteBuffer.allocate(iv.length + encryptedPassword.length);
+      ByteBuffer byteBuffer = ByteBuffer.allocate(iv.length + encryptedBytes.length);
       byteBuffer.put(iv);
-      byteBuffer.put(encryptedPassword);
+      byteBuffer.put(encryptedBytes);
       String encryptedBase64 = Base64.getEncoder().encodeToString(byteBuffer.array());
 
-      String digest = generateDigest(plainPassword + saltBase64);
+      String digest = generateDigest(plainValue + saltBase64);
 
-      return EncryptedPassword.builder()
-          .encryptedPassword(encryptedBase64)
+      return EncryptedData.builder()
+          .encryptedValue(encryptedBase64)
           .salt(saltBase64)
           .digest(digest)
           .build();
     } catch (Exception e) {
-      log.error("Password encryption failed", e);
-      throw new RuntimeException("Password encryption failed", e);
+      log.error("Encryption failed", e);
+      throw new RuntimeException("Encryption failed", e);
     }
   }
 
-  public String decryptPassword(String encryptedPasswordBase64) {
+  @Override
+  public String decrypt(String encryptedValue) {
     try {
       // Decode and extract IV + encrypted data
-      byte[] decoded = Base64.getDecoder().decode(encryptedPasswordBase64);
+      byte[] decoded = Base64.getDecoder().decode(encryptedValue);
       ByteBuffer byteBuffer = ByteBuffer.wrap(decoded);
 
       byte[] iv = new byte[GCM_IV_LENGTH];
       byteBuffer.get(iv);
 
-      byte[] encryptedPassword = new byte[byteBuffer.remaining()];
-      byteBuffer.get(encryptedPassword);
+      byte[] encryptedBytes = new byte[byteBuffer.remaining()];
+      byteBuffer.get(encryptedBytes);
 
       // Decrypt using AES-GCM
       Cipher cipher = Cipher.getInstance(TRANSFORMATION);
       GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
       cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
-      byte[] decrypted = cipher.doFinal(encryptedPassword);
+      byte[] decrypted = cipher.doFinal(encryptedBytes);
 
       return new String(decrypted, StandardCharsets.UTF_8);
     } catch (Exception e) {
-      log.error("Password decryption failed", e);
-      throw new RuntimeException("Password decryption failed", e);
+      log.error("Decryption failed", e);
+      throw new RuntimeException("Decryption failed", e);
     }
   }
 
+  @Override
   public String generateDigest(String input) {
     try {
       MessageDigest digest = MessageDigest.getInstance(DIGEST_ALGORITHM);
@@ -117,21 +124,15 @@ public class PasswordEncryptionUtil {
     }
   }
 
-  public boolean verifyPassword(String plainPassword, String salt, String storedDigest) {
+  @Override
+  public boolean verify(String plainValue, String salt, String storedDigest) {
     try {
-      String computedDigest = generateDigest(plainPassword + salt);
+      String computedDigest = generateDigest(plainValue + salt);
       return computedDigest.equals(storedDigest);
     } catch (Exception e) {
-      log.error("Password verification failed", e);
+      log.error("Verification failed", e);
       return false;
     }
   }
-
-  @Data
-  @Builder
-  public static class EncryptedPassword {
-    private String encryptedPassword;
-    private String salt;
-    private String digest;
-  }
 }
+

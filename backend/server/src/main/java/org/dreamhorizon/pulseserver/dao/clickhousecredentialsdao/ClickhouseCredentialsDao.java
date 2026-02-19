@@ -27,20 +27,21 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
 import org.dreamhorizon.pulseserver.service.tenant.TenantAuditAction;
-import org.dreamhorizon.pulseserver.util.PasswordEncryptionUtil;
+import org.dreamhorizon.pulseserver.util.encryption.ClickhousePasswordEncryptionUtil;
+import org.dreamhorizon.pulseserver.util.encryption.EncryptedData;
 
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ClickhouseCredentialsDao {
   private final MysqlClient mysqlClient;
-  private final PasswordEncryptionUtil encryptionUtil;
+  private final ClickhousePasswordEncryptionUtil encryptionUtil;
 
 
   public Single<ClickhouseCredentials> saveTenantCredentials(String tenantId, String plainPassword) {
     try {
       String clickhouseUsername = "tenant_" + tenantId;
-      PasswordEncryptionUtil.EncryptedPassword encrypted = encryptionUtil.encryptPassword(plainPassword);
+      EncryptedData encrypted = encryptionUtil.encrypt(plainPassword);
 
       MySQLPool pool = mysqlClient.getWriterPool();
       return pool.preparedQuery(INSERT_CREDENTIALS)
@@ -48,7 +49,7 @@ public class ClickhouseCredentialsDao {
               Tuple.of(
                   tenantId,
                   clickhouseUsername,
-                  encrypted.getEncryptedPassword(),
+                  encrypted.getEncryptedValue(),
                   encrypted.getSalt(),
                   encrypted.getDigest(),
                   true))
@@ -114,13 +115,13 @@ public class ClickhouseCredentialsDao {
 
   public Single<ClickhouseCredentials> updateTenantCredentials(String tenantId, String newPlainPassword) {
     try {
-      PasswordEncryptionUtil.EncryptedPassword encrypted = encryptionUtil.encryptPassword(newPlainPassword);
+      EncryptedData encrypted = encryptionUtil.encrypt(newPlainPassword);
 
       MySQLPool pool = mysqlClient.getWriterPool();
       return pool.preparedQuery(UPDATE_CREDENTIALS)
           .rxExecute(
               Tuple.of(
-                  encrypted.getEncryptedPassword(),
+                  encrypted.getEncryptedValue(),
                   encrypted.getSalt(),
                   encrypted.getDigest(),
                   tenantId))
@@ -201,7 +202,7 @@ public class ClickhouseCredentialsDao {
 
   private ClickhouseCredentials mapRowToTenantCredentials(Row row) {
     String encryptedPassword = row.getString("clickhouse_password_encrypted");
-    String decryptedPassword = encryptionUtil.decryptPassword(encryptedPassword);
+    String decryptedPassword = encryptionUtil.decrypt(encryptedPassword);
 
     return ClickhouseCredentials.builder()
         .id(row.getLong("id"))
