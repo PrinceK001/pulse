@@ -76,9 +76,9 @@ public class UploadInteractionDetailService {
     return String.format("config/tenants/%s/%s", tenantId, basePath);
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
     return interactionDao
-        .getAllActiveAndRunningInteractions()
+        .getAllActiveAndRunningInteractions(tenant)
         .map(this::toInteractionConfigs)
         .flatMap(this::pushToObjectStoreAndInvalidateCache)
         .doOnError(this::handleUploadError)

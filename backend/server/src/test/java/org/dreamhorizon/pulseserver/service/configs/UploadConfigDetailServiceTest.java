@@ -85,20 +85,20 @@ class UploadConfigDetailServiceTest {
           .description("Active Test Config")
           .build();
 
-      when(configService.getActiveSdkConfig()).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_TENANT_ASSET_PATH)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore()
+      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
           .blockingGet();
 
       // Then
       assertThat(result).isEqualTo(EmptyResponse.emptyResponse);
 
-      verify(configService).getActiveSdkConfig();
+      verify(configService).getActiveSdkConfig(TenantContext.requireTenantId());
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_TENANT_FILE_PATH, activeConfig);
       verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_TENANT_ASSET_PATH);
       verifyNoMoreInteractions(configService, s3BucketClient, cloudFrontClient);
@@ -108,16 +108,16 @@ class UploadConfigDetailServiceTest {
     void shouldPropagateErrorWhenConfigServiceFails() {
       // Given
       RuntimeException configError = new RuntimeException("Failed to get active config");
-      when(configService.getActiveSdkConfig()).thenReturn(Single.error(configError));
+      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.error(configError));
 
       // When
-      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore().test();
+      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to get active config"));
 
-      verify(configService).getActiveSdkConfig();
+      verify(configService).getActiveSdkConfig(TenantContext.requireTenantId());
       verify(s3BucketClient, never()).uploadObject(any(), any(), any());
       verify(cloudFrontClient, never()).invalidateCache(any(), any());
     }
@@ -132,18 +132,18 @@ class UploadConfigDetailServiceTest {
 
       RuntimeException s3Error = new RuntimeException("S3 upload failed");
 
-      when(configService.getActiveSdkConfig()).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.error(s3Error));
 
       // When
-      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore().test();
+      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("S3 upload failed"));
 
-      verify(configService).getActiveSdkConfig();
+      verify(configService).getActiveSdkConfig(TenantContext.requireTenantId());
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_TENANT_FILE_PATH, activeConfig);
       verify(cloudFrontClient, never()).invalidateCache(any(), any());
     }
@@ -158,20 +158,20 @@ class UploadConfigDetailServiceTest {
 
       RuntimeException cloudFrontError = new RuntimeException("CloudFront invalidation failed");
 
-      when(configService.getActiveSdkConfig()).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_TENANT_ASSET_PATH)))
           .thenReturn(Single.error(cloudFrontError));
 
       // When
-      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore().test();
+      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("CloudFront invalidation failed"));
 
-      verify(configService).getActiveSdkConfig();
+      verify(configService).getActiveSdkConfig(TenantContext.requireTenantId());
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_TENANT_FILE_PATH, activeConfig);
       verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_TENANT_ASSET_PATH);
     }
@@ -196,14 +196,14 @@ class UploadConfigDetailServiceTest {
           .description("Custom Config")
           .build();
 
-      when(configService.getActiveSdkConfig()).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(customBucket), eq(customTenantFilePath), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(customDistributionId), eq(customTenantAssetPath)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore()
+      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
           .blockingGet();
 
       // Then
@@ -220,14 +220,14 @@ class UploadConfigDetailServiceTest {
           .version(5L)
           .build();
 
-      when(configService.getActiveSdkConfig()).thenReturn(Single.just(minimalConfig));
+      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(minimalConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), eq(minimalConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_TENANT_ASSET_PATH)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore()
+      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
           .blockingGet();
 
       // Then

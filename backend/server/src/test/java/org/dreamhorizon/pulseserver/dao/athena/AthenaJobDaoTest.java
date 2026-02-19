@@ -89,9 +89,8 @@ class AthenaJobDaoTest {
       verify(preparedQuery).rxExecute(tupleCaptor.capture());
       Tuple capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getString(0)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(1)).isNotNull(); // tenant_id
-      assertThat(capturedTuple.getString(2)).isEqualTo(queryString);
-      assertThat(capturedTuple.getString(3)).isEqualTo(userEmail);
+      assertThat(capturedTuple.getString(1)).isEqualTo(queryString);
+      assertThat(capturedTuple.getString(2)).isEqualTo(userEmail);
     }
 
     @Test
@@ -133,7 +132,6 @@ class AthenaJobDaoTest {
       assertThat((Timestamp) capturedTuple.getValue(2)).isEqualTo(submissionDateTime);
       assertThat((Timestamp) capturedTuple.getValue(3)).isNotNull();
       assertThat(capturedTuple.getString(4)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(5)).isNotNull(); // tenant_id
     }
   }
 
@@ -178,7 +176,6 @@ class AthenaJobDaoTest {
       assertThat((Timestamp) capturedTuple.getValue(1)).isEqualTo(completionDateTime);
       assertThat((Timestamp) capturedTuple.getValue(2)).isNotNull();
       assertThat(capturedTuple.getString(3)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(4)).isNotNull(); // tenant_id
     }
   }
 

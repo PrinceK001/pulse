@@ -41,7 +41,8 @@ public class UploadConfigDetailService {
   }
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
-      PulseConfig config
+      PulseConfig config,
+      String tenant
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
     String tenantId = TenantContext.requireTenantId();
@@ -73,10 +74,10 @@ public class UploadConfigDetailService {
     return String.format("tenants/%s/%s", tenantId, basePath);
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
     return configService
-        .getActiveSdkConfig()
-        .flatMap(this::pushToObjectStoreAndInvalidateCache)
+        .getActiveSdkConfig(tenant)
+        .flatMap(config -> pushToObjectStoreAndInvalidateCache(config, tenant))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }
