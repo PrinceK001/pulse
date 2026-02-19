@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 public class UploadConfigDetailService {
@@ -42,10 +41,9 @@ public class UploadConfigDetailService {
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
       PulseConfig config,
-      String tenant
+      String tenantId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    String tenantId = TenantContext.requireTenantId();
     String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getConfigDetailsS3BucketFilePath());
     String cloudFrontAssetPath = getTenantAwarePath(tenantId, applicationConfig.getConfigDetailCloudFrontAssetPath());
 
@@ -71,7 +69,7 @@ public class UploadConfigDetailService {
    * Format: tenants/{tenantId}/{basePath}
    */
   private String getTenantAwarePath(String tenantId, String basePath) {
-    return String.format("tenants/%s/%s", tenantId, basePath);
+    return String.format("config/tenants/%s/%s", tenantId, basePath);
   }
 
   public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
