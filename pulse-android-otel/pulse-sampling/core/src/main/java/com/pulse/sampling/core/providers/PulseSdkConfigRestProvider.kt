@@ -35,21 +35,13 @@ public class PulseSdkConfigRestProvider(
         @Suppress("SuspendFunSwallowedCancellation")
         val restResponseResult =
             runCatching {
-                restClient.getConfig()
+                restClient.getConfig(url)
             }.onFailure {
                 currentCoroutineContext().ensureActive()
-                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, error msg = ${it.message ?: "no-err-msg"}" }
+                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, url = $url error msg = ${it.message ?: "no-err-msg"}" }
             }
         return if (restResponseResult.isSuccess) {
-            val restResponse = restResponseResult.getOrThrow()
-            if (restResponse.error == null) {
-                restResponse.data
-            } else {
-                PulseOtelUtils.logDebug(TAG) {
-                    "Sdk config returned error = ${(restResponse.error ?: error("error is null in getConfigs")).message}"
-                }
-                null
-            }
+            restResponseResult.getOrThrow()
         } else {
             PulseOtelUtils.logDebug(TAG) {
                 "Failed to fetch sdk config: ${(
