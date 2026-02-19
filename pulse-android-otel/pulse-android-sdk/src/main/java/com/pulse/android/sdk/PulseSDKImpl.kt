@@ -19,6 +19,7 @@ import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
+import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
 import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
@@ -414,7 +415,7 @@ internal class PulseSDKImpl :
                             attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
-                        attributesBuilder.put(PULSE_METERING_SESSION_ID, meteredSessionManager.getSessionId())
+                        attributesBuilder.put(PulseSessionAttributes.PULSE_METERING_SESSION_ID, meteredSessionManager.getSessionId())
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())
                         }
@@ -695,8 +696,6 @@ internal class PulseSDKImpl :
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
         private const val PROJECT_ID_HEADER_KEY = "X-API-KEY"
-
-        private val PULSE_METERING_SESSION_ID: AttributeKey<String> = AttributeKey.stringKey("pulse.metering.session.id")
         private const val METERING_SESSION_HEADER_KEY = "X-Pulse-Metering-Session-ID"
 
         internal object PrefsName {
