@@ -80,7 +80,7 @@ class ConfigControllerTest {
             .description("Test Config")
             .build();
 
-        when(configService.getSdkConfig(version)).thenReturn(Single.just(mockConfig));
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version)).thenReturn(Single.just(mockConfig));
 
         // When
         CompletionStage<Response<PulseConfig>> result = configController.getSdkConfig(version);
@@ -92,7 +92,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(1L, resp.getData().getVersion());
             assertEquals("Test Config", resp.getData().getDescription());
-            verify(configService, times(1)).getSdkConfig(version);
+            verify(configService, times(1)).getSdkConfig(TenantContext.requireTenantId(), version);
           });
           testContext.completeNow();
         });
@@ -105,7 +105,7 @@ class ConfigControllerTest {
         // Given
         Integer version = 999;
 
-        when(configService.getSdkConfig(version))
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Config not found", "Config not found", 404)));
 
@@ -119,7 +119,7 @@ class ConfigControllerTest {
             assertInstanceOf(WebApplicationException.class, err);
             WebApplicationException webException = (WebApplicationException) err;
             assertEquals(404, webException.getResponse().getStatus());
-            verify(configService, times(1)).getSdkConfig(version);
+            verify(configService, times(1)).getSdkConfig(TenantContext.requireTenantId(), version);
           });
           testContext.completeNow();
         });
@@ -132,7 +132,7 @@ class ConfigControllerTest {
         // Given
         Integer version = 1;
 
-        when(configService.getSdkConfig(version))
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Database error", "Database error", 500)));
 
