@@ -31,5 +31,11 @@ public class ProjectUsageLimitQueries {
 
   public static final String GET_LIMIT_HISTORY_BY_PROJECT_ID =
       "SELECT " + LIMIT_COLUMNS + " FROM project_usage_limits WHERE project_id = ? AND is_active = FALSE ORDER BY disabled_at DESC";
+
+  public static final String GET_ALL_ACTIVE_LIMITS =
+      "SELECT " + LIMIT_COLUMNS + " FROM project_usage_limits WHERE is_active = TRUE ORDER BY project_id";
+
+  public static final String GET_ALL_LIMITS =
+      "SELECT " + LIMIT_COLUMNS + " FROM project_usage_limits ORDER BY project_id, created_at DESC";
 }
 

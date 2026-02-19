@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.service.tiering.models;
+package org.dreamhorizon.pulseserver.service.usagelimit.models;
 
 import lombok.Getter;
 

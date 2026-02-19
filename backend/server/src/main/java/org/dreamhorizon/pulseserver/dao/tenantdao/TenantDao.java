@@ -98,19 +98,19 @@ public class TenantDao {
         .doOnError(error -> log.error("Failed to fetch all tenants", error));
   }
 
-  public Single<Tenant> updateTenant(String tenantId, String name, String description) {
+  public Single<Tenant> updateTenant(Tenant tenant) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(UPDATE_TENANT)
-        .rxExecute(Tuple.of(name, description, tenantId))
+        .rxExecute(Tuple.of(tenant.getName(), tenant.getDescription(), tenant.getTenantId()))
         .flatMap(result -> {
           if (result.rowCount() == 0) {
-            return Single.error(new RuntimeException("Tenant not found: " + tenantId));
+            return Single.error(new RuntimeException("Tenant not found: " + tenant.getTenantId()));
           }
-          log.info("Updated tenant: {}", tenantId);
-          return getTenantById(tenantId)
-              .switchIfEmpty(Single.error(new RuntimeException("Tenant not found after update: " + tenantId)));
+          log.info("Updated tenant: {}", tenant.getTenantId());
+          // Return the updated tenant (we know the values since we just set them)
+          return Single.just(tenant);
         })
-        .doOnError(error -> log.error("Failed to update tenant: {}", tenantId, error));
+        .doOnError(error -> log.error("Failed to update tenant: {}", tenant.getTenantId(), error));
   }
 
   public Completable deactivateTenant(String tenantId) {
@@ -203,19 +203,28 @@ public class TenantDao {
         .doOnError(error -> log.error("Failed to fetch tenants by tierId: {}", tierId, error));
   }
 
-  public Single<Tenant> updateTenantTier(String tenantId, int tierId) {
+  public Single<Tenant> updateTenantTier(Tenant tenant, int tierId) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(UPDATE_TENANT_TIER)
-        .rxExecute(Tuple.of(tierId, tenantId))
+        .rxExecute(Tuple.of(tierId, tenant.getTenantId()))
         .flatMap(result -> {
           if (result.rowCount() == 0) {
-            return Single.error(new RuntimeException("Tenant not found: " + tenantId));
+            return Single.error(new RuntimeException("Tenant not found: " + tenant.getTenantId()));
           }
-          log.info("Updated tenant {} tier to {}", tenantId, tierId);
-          return getTenantById(tenantId)
-              .switchIfEmpty(Single.error(new RuntimeException("Tenant not found after tier update: " + tenantId)));
+          log.info("Updated tenant {} tier to {}", tenant.getTenantId(), tierId);
+          // Return the updated tenant with new tier
+          return Single.just(Tenant.builder()
+              .tenantId(tenant.getTenantId())
+              .name(tenant.getName())
+              .description(tenant.getDescription())
+              .gcpTenantId(tenant.getGcpTenantId())
+              .domainName(tenant.getDomainName())
+              .tierId(tierId)
+              .isActive(tenant.getIsActive())
+              .createdAt(tenant.getCreatedAt())
+              .build());
         })
-        .doOnError(error -> log.error("Failed to update tier for tenant: {}", tenantId, error));
+        .doOnError(error -> log.error("Failed to update tier for tenant: {}", tenant.getTenantId(), error));
   }
 
   private Tenant mapRowToTenant(Row row) {

@@ -103,7 +103,7 @@ public class TierDao {
         .doOnError(error -> log.error("Failed to fetch all tiers", error));
   }
 
-  public Completable updateTier(Tier tier) {
+  public Single<Tier> updateTier(Tier tier) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(UPDATE_TIER)
         .rxExecute(
@@ -113,35 +113,60 @@ public class TierDao {
                 tier.getIsCustomLimitsAllowed(),
                 tier.getUsageLimitDefaults(),
                 tier.getTierId()))
-        .ignoreElement()
-        .doOnComplete(() -> log.info("Updated tier: {}", tier.getTierId()))
+        .flatMap(result -> {
+          if (result.rowCount() == 0) {
+            return Single.error(new RuntimeException("Tier not found: " + tier.getTierId()));
+          }
+          log.info("Updated tier: {}", tier.getTierId());
+          // Return the updated tier (we know the values since we just set them)
+          return Single.just(tier);
+        })
         .doOnError(error -> log.error("Failed to update tier: {}", tier.getTierId(), error));
   }
 
-  public Completable updateTierDefaults(Integer tierId, String usageLimitDefaults) {
+  public Single<Tier> updateTierDefaults(Integer tierId, String usageLimitDefaults) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(UPDATE_TIER_DEFAULTS)
         .rxExecute(Tuple.of(usageLimitDefaults, tierId))
-        .ignoreElement()
-        .doOnComplete(() -> log.info("Updated tier defaults for tier: {}", tierId))
+        .flatMap(result -> {
+          if (result.rowCount() == 0) {
+            return Single.error(new RuntimeException("Tier not found: " + tierId));
+          }
+          log.info("Updated tier defaults for tier: {}", tierId);
+          // Fetch the updated tier to return complete entity
+          return getTierById(tierId)
+              .switchIfEmpty(Single.error(new RuntimeException("Tier not found after update: " + tierId)));
+        })
         .doOnError(error -> log.error("Failed to update tier defaults: {}", tierId, error));
   }
 
-  public Completable deactivateTier(Integer tierId) {
+  public Single<Tier> deactivateTier(Integer tierId) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(DEACTIVATE_TIER)
         .rxExecute(Tuple.of(tierId))
-        .ignoreElement()
-        .doOnComplete(() -> log.info("Deactivated tier: {}", tierId))
+        .flatMap(result -> {
+          if (result.rowCount() == 0) {
+            return Single.error(new RuntimeException("Tier not found: " + tierId));
+          }
+          log.info("Deactivated tier: {}", tierId);
+          return getTierById(tierId)
+              .switchIfEmpty(Single.error(new RuntimeException("Tier not found after deactivation: " + tierId)));
+        })
         .doOnError(error -> log.error("Failed to deactivate tier: {}", tierId, error));
   }
 
-  public Completable activateTier(Integer tierId) {
+  public Single<Tier> activateTier(Integer tierId) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(ACTIVATE_TIER)
         .rxExecute(Tuple.of(tierId))
-        .ignoreElement()
-        .doOnComplete(() -> log.info("Activated tier: {}", tierId))
+        .flatMap(result -> {
+          if (result.rowCount() == 0) {
+            return Single.error(new RuntimeException("Tier not found: " + tierId));
+          }
+          log.info("Activated tier: {}", tierId);
+          return getTierById(tierId)
+              .switchIfEmpty(Single.error(new RuntimeException("Tier not found after activation: " + tierId)));
+        })
         .doOnError(error -> log.error("Failed to activate tier: {}", tierId, error));
   }
 

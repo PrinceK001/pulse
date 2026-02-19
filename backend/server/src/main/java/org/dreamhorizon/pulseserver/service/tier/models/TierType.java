@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.service.tiering.models;
+package org.dreamhorizon.pulseserver.service.tier.models;
 
 public enum TierType {
   FREE("free"),

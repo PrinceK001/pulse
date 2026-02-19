@@ -2,6 +2,8 @@ package org.dreamhorizon.pulseserver.dao.projectdao;
 
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.CHECK_ACTIVE_LIMIT_EXISTS;
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ACTIVE_LIMIT_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ALL_ACTIVE_LIMITS;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ALL_LIMITS;
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ALL_LIMITS_BY_PROJECT_ID;
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_LIMIT_BY_ID;
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_LIMIT_HISTORY_BY_PROJECT_ID;
@@ -144,6 +146,24 @@ public class ProjectUsageLimitDao {
           return row.getLong("count") > 0;
         })
         .doOnError(error -> log.error("Failed to check active limit existence for project: {}", projectId, error));
+  }
+
+  public Flowable<ProjectUsageLimit> getAllActiveLimits() {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.query(GET_ALL_ACTIVE_LIMITS)
+        .rxExecute()
+        .toFlowable()
+        .flatMap(rowSet -> Flowable.fromIterable(rowSet).map(row -> mapRowToUsageLimit((Row) row)))
+        .doOnError(error -> log.error("Failed to fetch all active limits", error));
+  }
+
+  public Flowable<ProjectUsageLimit> getAllLimits() {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.query(GET_ALL_LIMITS)
+        .rxExecute()
+        .toFlowable()
+        .flatMap(rowSet -> Flowable.fromIterable(rowSet).map(row -> mapRowToUsageLimit((Row) row)))
+        .doOnError(error -> log.error("Failed to fetch all limits", error));
   }
 
   /**

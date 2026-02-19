@@ -102,19 +102,19 @@ public class ProjectDao {
         .doOnError(error -> log.error("Failed to fetch project IDs for tenant: {}", tenantId, error));
   }
 
-  public Single<Project> updateProject(int projectId, String name, String description) {
+  public Single<Project> updateProject(Project project) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(UPDATE_PROJECT)
-        .rxExecute(Tuple.of(name, description, projectId))
+        .rxExecute(Tuple.of(project.getName(), project.getDescription(), project.getProjectId()))
         .flatMap(result -> {
           if (result.rowCount() == 0) {
-            return Single.error(new RuntimeException("Project not found: " + projectId));
+            return Single.error(new RuntimeException("Project not found: " + project.getProjectId()));
           }
-          log.info("Updated project: {}", projectId);
-          return getProjectById(projectId)
-              .switchIfEmpty(Single.error(new RuntimeException("Project not found after update: " + projectId)));
+          log.info("Updated project: {}", project.getProjectId());
+          // Return the updated project (we know the values since we just set them)
+          return Single.just(project);
         })
-        .doOnError(error -> log.error("Failed to update project: {}", projectId, error));
+        .doOnError(error -> log.error("Failed to update project: {}", project.getProjectId(), error));
   }
 
   public Completable deactivateProject(int projectId) {
