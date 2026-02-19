@@ -59,7 +59,7 @@ class AthenaServiceTest {
 
     @Test
     void shouldSubmitQuerySuccessfully() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
@@ -155,7 +155,7 @@ class AthenaServiceTest {
 
     @Test
     void shouldHandleQueryFailure() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
@@ -466,7 +466,7 @@ class AthenaServiceTest {
 
     @Test
     void shouldHandleFetchResultsError() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
@@ -713,7 +713,7 @@ class AthenaServiceTest {
 
     @Test
     void shouldHandleSubmitQueryWithNullStatistics() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
@@ -748,7 +748,7 @@ class AthenaServiceTest {
 
     @Test
     void shouldHandleSubmitQueryWithNullResultConfiguration() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
