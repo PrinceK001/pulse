@@ -3,6 +3,7 @@
 
 package com.pulse.android.remote
 
+import com.pulse.otel.utils.PulseNetworkingUtils
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -20,7 +21,11 @@ class InteractionRetrofitClientTest {
     fun setup() {
         mockWebServer = MockWebServer()
         mockWebServer.start()
-        client = InteractionRetrofitClient(mockWebServer.url("/").toString())
+        client =
+            InteractionRetrofitClient(
+                url = mockWebServer.url("/").toString(),
+                okHttpClient = PulseNetworkingUtils.okHttpClient,
+            )
     }
 
     @AfterEach
@@ -40,7 +45,11 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response = client.apiService.getInteractions(configUrl)
+            val response =
+                client.apiService.getInteractions(
+                    fullFileUrl = configUrl,
+                    headers = emptyMap(),
+                )
 
             assertThat(response)
                 .isNotNull
@@ -75,7 +84,10 @@ class InteractionRetrofitClientTest {
 
             val result =
                 runCatching {
-                    client.apiService.getInteractions(configUrl)
+                    client.apiService.getInteractions(
+                        fullFileUrl = configUrl,
+                        headers = emptyMap(),
+                    )
                 }
 
             assertThat(result.isFailure).isTrue()
@@ -103,7 +115,11 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response = client.apiService.getInteractions(configUrl)
+            val response =
+                client.apiService.getInteractions(
+                    fullFileUrl = configUrl,
+                    headers = emptyMap(),
+                )
 
             assertThat(response).isNotNull.isEmpty()
         }
@@ -146,7 +162,11 @@ class InteractionRetrofitClientTest {
                     .setHeader("Content-Type", "application/json"),
             )
 
-            val response = newClient.apiService.getInteractions(configUrl)
+            val response =
+                newClient.apiService.getInteractions(
+                    fullFileUrl = configUrl,
+                    headers = emptyMap(),
+                )
 
             assertThat(response).isNotNull.hasSize(1)
             assertThat(response[0].name).isEqualTo("Test")
@@ -156,7 +176,11 @@ class InteractionRetrofitClientTest {
     fun `creation of retrofit client with file url should not crash`() =
         runTest {
             val configUrl = mockWebServer.url("/$CONFIG_REL_URL").toString()
-            val client = InteractionRetrofitClient(configUrl)
+            val client =
+                InteractionRetrofitClient(
+                    url = configUrl,
+                    okHttpClient = PulseNetworkingUtils.okHttpClient,
+                )
             mockWebServer.enqueue(
                 MockResponse().apply {
                     setResponseCode(200)
@@ -165,8 +189,37 @@ class InteractionRetrofitClientTest {
                 },
             )
 
-            val response = client.apiService.getInteractions(configUrl)
+            val response =
+                client.apiService.getInteractions(
+                    fullFileUrl = configUrl,
+                    headers = emptyMap(),
+                )
             assertThat(response).isNotNull
+        }
+
+    @Test
+    fun `headers gets appended when passed in the api`() =
+        runTest {
+            val configUrl = mockWebServer.url("/$CONFIG_REL_URL").toString()
+            val client =
+                InteractionRetrofitClient(
+                    url = configUrl,
+                    okHttpClient = PulseNetworkingUtils.okHttpClient,
+                )
+            mockWebServer.enqueue(
+                MockResponse().apply {
+                    setResponseCode(200)
+                    setBody(successResponseJson)
+                    setHeader("Content-Type", "application/json")
+                },
+            )
+
+            client.apiService.getInteractions(
+                fullFileUrl = configUrl,
+                headers = mapOf("headerKey" to "headerValue"),
+            )
+            val request = mockWebServer.takeRequest()
+            assertThat(request.headers).contains("headerKey" to "headerValue")
         }
 
     private companion object {
