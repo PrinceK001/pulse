@@ -73,7 +73,7 @@ public class UploadInteractionDetailService {
    * Format: tenants/{tenantId}/{basePath}
    */
   private String getTenantAwarePath(String tenantId, String basePath) {
-    return String.format("tenants/%s/%s", tenantId, basePath);
+    return String.format("config/tenants/%s/%s", tenantId, basePath);
   }
 
   public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {
