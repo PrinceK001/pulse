@@ -1,0 +1,80 @@
+---
+description: Where constants and types live – feature-first; global only for shared/app-wide
+globs: "**/*.constants.ts,**/*.interface.ts,src/constants/**/*.ts"
+alwaysApply: false
+---
+
+# Constants and types organization (Pulse UI)
+
+See also `feature-first-abstraction.mdc`.
+
+## Feature-first
+
+- **One feature/screen:** Constants and types live **inside that feature** (e.g. `SessionReplay.constants.ts`, `SessionReplay.interface.ts`, `SessionReplay/utils/`).
+- **2+ features or app-wide:** Use `src/constants/`, `src/utils/`, `src/types/` (e.g. ROUTES, API_BASE_URL, theme, `getErrorMessage`, shared formatters).
+
+## What belongs in feature constants
+
+- Page sizes, filter defaults, labels for that screen
+- Numeric thresholds, polling intervals, timeouts for that feature
+- UI labels/colors mapped to enums for that feature
+- Preset values and options for that feature
+
+## What belongs in global constants/types
+
+- Routes, app config, feature flags
+- Theme / design tokens used across the app
+- Shared utilities (error handling, formatters used in 3+ places)
+- Shared types used by multiple services or features
+
+## API endpoints
+
+Feature-specific endpoints: keep in the service file or the feature's constants. App-wide or shared API config: `src/constants/` or a dedicated module. When in doubt, keep in the feature.
+
+## Do NOT hardcode API-driven values
+
+**Values that come from the API should NOT be hardcoded in the UI.**
+
+```ts
+// ❌ BAD – Hardcoded values that should come from API
+const dateRanges = [
+  { value: "1h", label: "Last hour" },
+  { value: "1", label: "Last 24 hours" },
+  { value: "7d", label: "Last 7 days" },
+];
+
+const environments = ["production", "staging", "development"];
+
+// ✅ GOOD – Fetch from API or use app config
+const [dateRanges, setDateRanges] = useState<DateRangeOption[]>([]);
+const [environments, setEnvironments] = useState<string[]>([]);
+
+useEffect(() => {
+  // Fetch from API or config service
+  fetchAppConfig().then(config => {
+    setDateRanges(config.dateRanges);
+    setEnvironments(config.environments);
+  });
+}, []);
+```
+
+**What NOT to hardcode:**
+- Date range options (should come from backend or app config)
+- Environment names (production, staging, dev - may vary by deployment)
+- Project/platform names (iOS, Android, Web - customer may add more)
+- Filter options that are backend-driven
+- Dropdown values populated by backend
+- Status lists, tag types, etc. that backend defines
+
+**What you CAN hardcode:**
+- UI-only constants (colors, spacing, animation durations)
+- Component prop defaults
+- Local feature flags for UI behavior
+- TypeScript type literals for known enums (when backend contract is stable)
+
+**When migrating existing code:**
+- If the value exists, keep it hardcoded for now (don't break working code)
+- For **new features**: Always fetch from API or config
+- When touching old code: If you're already refactoring, move hardcoded values to API calls
+
+**Rule of thumb:** If the value could change without a deploy (backend adds a new environment, new date range option, new filter), it should come from the API, not be hardcoded.

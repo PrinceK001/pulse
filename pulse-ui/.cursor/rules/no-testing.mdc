@@ -1,0 +1,8 @@
+---
+description: No test files in this repo – testing is handled separately
+alwaysApply: true
+---
+
+# No testing files (Pulse UI)
+
+**Do not add test files** (e.g. `*.test.tsx`, `*.spec.ts`, `__tests__/`) to this repo. Testing is handled separately. If the user asks for tests, suggest they be added in the external test suite or pipeline, not in pulse-ui.

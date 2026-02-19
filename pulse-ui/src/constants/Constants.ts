@@ -13,6 +13,7 @@ import {
   IconNetwork,
   IconUsers,
   IconDatabaseSearch,
+  IconVideo,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -49,6 +50,7 @@ import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { RealTimeQuery } from "../screens/RealTimeQuery";
+import { SessionReplay } from "../screens/SessionReplay";
 
 export const APP_NAME: string = "Pulse";
 
@@ -227,6 +229,12 @@ export const ROUTES: Routes = {
     path: "/query-builder",
     element: RealTimeQuery,
   },
+  SESSION_REPLAY: {
+    key: "SESSION_REPLAY",
+    basePath: "/session-replay",
+    path: "/session-replay",
+    element: SessionReplay,
+  },
 };
 
 // Settings sub-routes (handled internally by Settings component)
@@ -280,7 +288,13 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: ROUTES.NETWORK_LIST.path,
     iconSize: 25,
   },
-  
+  {
+    tabName: "Session Replay",
+    icon: IconVideo,
+    routeTo: ROUTES.SESSION_REPLAY.basePath,
+    path: ROUTES.SESSION_REPLAY.path,
+    iconSize: 25,
+  },
   {
     tabName: "Query Builder",
     icon: IconDatabaseSearch,

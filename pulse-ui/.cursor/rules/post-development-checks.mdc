@@ -1,0 +1,151 @@
+---
+priority: P0
+category: Quality Assurance
+applies_to: All development work
+---
+
+# Post-Development Checks
+
+**CRITICAL:** After ANY code changes, you MUST verify there are no TypeScript or lint errors.
+
+## Mandatory Workflow
+
+After making ANY code changes (edits, new files, refactors), you MUST:
+
+### 1. TypeScript Compilation Check (REQUIRED)
+```bash
+cd pulse/pulse-ui && npx tsc --noEmit
+```
+**Expected:** Exit code 0 (no errors)
+
+### 2. Lint Check on Modified Files (REQUIRED)
+Use `ReadLints` tool on all files you modified.
+
+**Expected:** No new errors introduced by your changes
+
+### 3. Fix Issues Immediately (REQUIRED)
+If either check fails:
+- ❌ **DO NOT** proceed with other tasks
+- ❌ **DO NOT** create documentation about the errors
+- ✅ **FIX** the errors immediately
+- ✅ **RE-RUN** checks until clean
+
+## Common Issues and Prevention
+
+### TypeScript Errors
+
+#### Unused Imports
+```typescript
+// ❌ Bad - importing but not using
+import { IconFilter, IconX } from '@tabler/icons-react';
+
+// ✅ Good - only import what you use
+import { IconSearch } from '@tabler/icons-react';
+```
+
+**Prevention:** After removing UI elements, remove their imports.
+
+#### Unused Variables/Functions
+```typescript
+// ❌ Bad - defined but never used
+const formatDuration = (ms: number) => { ... };
+const getTagIcon = (type: string) => { ... };
+
+// ✅ Good - remove unused helpers after refactoring
+// (only keep what's actually called in the component)
+```
+
+**Prevention:** When refactoring UI (removing columns, changing layout), remove old helper functions.
+
+#### Implicit `any` Types
+```typescript
+// ❌ Bad - TypeScript infers 'any'
+onUpdate={(updates) => handleUpdate(updates)}
+onCategoryChange={(category) => handleChange(category)}
+
+// ✅ Good - explicit types
+onUpdate={(updates: Partial<FilterCondition>) => handleUpdate(updates)}
+onCategoryChange={(category: FilterCategory) => handleChange(category)}
+```
+
+**Prevention:** Always add explicit types to lambda/callback parameters in JSX.
+
+#### Module Not Found (Stale Cache)
+```
+Cannot find module './ComponentName'
+```
+
+**Fix:** Clear TypeScript cache and recompile
+```bash
+rm -rf node_modules/.cache tsconfig.tsbuildinfo
+npx tsc --noEmit
+```
+
+### ESLint Warnings
+
+#### Unused Imports in Mantine/Icons
+Common after UI refactors. Always review and remove:
+```typescript
+// After removing Tags column:
+import { Badge } from '@mantine/core'; // ❌ Remove if not used
+import { IconX } from '@tabler/icons-react'; // ❌ Remove if not used
+```
+
+## Integration with Development Flow
+
+### After File Extraction/Organization
+When moving components to separate files:
+1. ✅ Move component code
+2. ✅ Move interfaces/types used by component
+3. ✅ Move imports needed by component
+4. ✅ Update exports
+5. ✅ Update imports in parent file
+6. ✅ Remove leftover imports/types from parent
+7. 🔍 **RUN: `npx tsc --noEmit`**
+8. 🔍 **RUN: `ReadLints` on both files**
+
+### After UI Refactoring
+When changing/removing UI elements:
+1. ✅ Update JSX
+2. ✅ Remove unused helper functions
+3. ✅ Remove unused imports (icons, components)
+4. ✅ Update types if needed
+5. 🔍 **RUN: `npx tsc --noEmit`**
+6. 🔍 **RUN: `ReadLints` on modified file**
+
+### After Constants/Types Changes
+When refactoring constants or types:
+1. ✅ Update constant/type definitions
+2. ✅ Update all references
+3. ✅ Remove old constants/types
+4. 🔍 **RUN: `npx tsc --noEmit`**
+5. 🔍 **RUN: `ReadLints` on all modified files**
+
+## Checklist Template
+
+Before marking work as complete:
+
+- [ ] All TypeScript compilation passes (`npx tsc --noEmit` = exit 0)
+- [ ] No new lint errors on modified files (`ReadLints`)
+- [ ] All unused imports removed
+- [ ] All unused functions/variables removed
+- [ ] All lambda parameters have explicit types
+- [ ] If moved files: exports/imports updated and verified
+
+## Why This Matters
+
+1. **Prevents Runtime Errors:** TypeScript catches bugs before they reach production
+2. **Maintains Code Quality:** Lint rules enforce consistency
+3. **Saves Time:** Catching issues immediately is faster than debugging later
+4. **Respects P0 Rules:** Aligns with `priorities-and-stack.mdc` and `file-organization.mdc`
+5. **Professional Standard:** Clean compilation is non-negotiable for production code
+
+## Rule Summary
+
+**P0 (Non-negotiable):**
+- ✅ TypeScript must compile without errors (`npx tsc --noEmit`)
+- ✅ No new lint errors on modified files
+- ✅ Fix issues immediately, don't document them
+- ✅ Re-run checks after fixes until clean
+
+**Remember:** "It compiles" is the baseline, not the finish line.

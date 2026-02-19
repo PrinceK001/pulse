@@ -1,0 +1,215 @@
+---
+description: File Organization & Single Responsibility - One file, one purpose
+alwaysApply: true
+---
+
+# File Organization & Single Responsibility (P0)
+
+**Core principle:** Every file has ONE clear responsibility. No mixing concerns.
+
+## P0 Rules (Enforced)
+
+### 1. Component Files (.tsx)
+**ONE component per file. Period.**
+
+✅ **Good:**
+```typescript
+// Button.tsx - ONLY the Button component
+export function Button({ children, onClick }: ButtonProps) {
+  return <button onClick={onClick}>{children}</button>;
+}
+```
+
+❌ **Bad:**
+```typescript
+// Button.tsx - Multiple components
+export function Button() { ... }
+function ButtonIcon() { ... }  // ❌ Extract to ButtonIcon.tsx
+function ButtonGroup() { ... }  // ❌ Extract to ButtonGroup.tsx
+```
+
+**Exception:** Small, tightly-coupled helper components used ONLY by the parent can stay internal:
+```typescript
+// AdvancedFilterBuilder.tsx
+export function AdvancedFilterBuilder() {
+  return <Modal>...</Modal>;
+}
+
+// ✅ OK - Only used by AdvancedFilterBuilder, not exported
+function ConditionRow({ condition }: { condition: FilterCondition }) {
+  // Small helper, tightly coupled to parent
+}
+```
+
+### 2. No Interfaces/Types in Component Files
+**Types belong in `.types.ts` or `.interface.ts` files.**
+
+✅ **Good:**
+```
+SessionReplay.tsx          - Component only
+SessionReplay.types.ts     - All interfaces/types
+SessionReplay.constants.ts - All constants
+```
+
+❌ **Bad:**
+```typescript
+// SessionReplay.tsx
+interface SessionData { ... }  // ❌ Move to .types.ts
+interface FilterState { ... }  // ❌ Move to .types.ts
+const DATE_OPTIONS = [...];     // ❌ Move to .constants.ts
+
+export function SessionReplay() { ... }
+```
+
+### 3. No Constants in Component Files
+**Constants belong in `.constants.ts` files.**
+
+❌ **Bad:**
+```typescript
+// SessionReplay.tsx
+const DEFAULT_PAGE_SIZE = 10;  // ❌ Move to constants
+const DATE_FORMAT = 'YYYY-MM-DD'; // ❌ Move to constants
+```
+
+✅ **Good:**
+```typescript
+// SessionReplay.constants.ts
+export const PAGINATION = {
+  defaultPageSize: 10,
+  pageSizeOptions: [10, 25, 50, 100],
+} as const;
+
+export const DATE_FORMAT = 'YYYY-MM-DD';
+```
+
+### 4. Props Interfaces - Co-located with Component
+**Exception:** Component-specific props can stay in the component file if small (1-3 fields).
+
+✅ **OK for small props:**
+```typescript
+// Button.tsx
+interface ButtonProps {
+  children: React.ReactNode;
+  onClick: () => void;
+}
+
+export function Button({ children, onClick }: ButtonProps) { ... }
+```
+
+✅ **Better for complex props:**
+```typescript
+// SessionReplay.types.ts
+export interface SessionReplayProps {
+  initialFilters?: FilterGroup;
+  onSessionSelect?: (id: string) => void;
+  defaultView?: 'list' | 'grid';
+  // ... many fields
+}
+
+// SessionReplay.tsx
+import { SessionReplayProps } from './SessionReplay.types';
+export function SessionReplay(props: SessionReplayProps) { ... }
+```
+
+### 5. Never Name Constants "TEMP_" or "LEGACY_"
+**These names scream "I know this is wrong but I'm leaving it anyway."**
+
+❌ **Terrible naming:**
+```typescript
+export const TEMP_HARDCODED = { ... };  // ❌ Apologetic, unclear
+export const LEGACY_CONFIG = { ... };    // ❌ When will you fix it?
+export const TODO_REMOVE = { ... };      // ❌ Just fix it now
+```
+
+✅ **Clear, honest naming:**
+```typescript
+// If it's mock data:
+export const MOCK_DATE_RANGES = { ... };  // Clear it's for development
+
+// If it will come from API:
+export const DEFAULT_DATE_RANGES = { ... };  // Clear it's a default
+// With comment:
+// TODO: Fetch from /api/config/date-ranges (tracked in JIRA-123)
+
+// If it's configuration:
+export const DATE_RANGE_CONFIG = { ... };  // Clear it's config
+```
+
+## File Structure Examples
+
+### ✅ Correct Structure
+
+```
+SessionReplay/
+├── SessionReplay.tsx              - Component only
+├── SessionReplay.types.ts         - All interfaces/types
+├── SessionReplay.constants.ts     - All constants
+├── SessionReplay.hooks.ts         - Custom hooks
+├── SessionReplay.utils.ts         - Utility functions
+├── SessionReplay.module.css       - Styles
+└── components/
+    ├── SessionTable.tsx           - One component
+    ├── SessionTable.types.ts      - Its types
+    ├── FilterBar.tsx              - One component
+    └── FilterBar.types.ts         - Its types
+```
+
+### ❌ Wrong Structure
+
+```
+SessionReplay/
+└── SessionReplay.tsx  - ❌ 2000 lines with:
+    - SessionReplay component
+    - SessionTable component  (extract!)
+    - FilterBar component     (extract!)
+    - 10+ interfaces          (extract to .types.ts!)
+    - Constants               (extract to .constants.ts!)
+    - Utility functions       (extract to .utils.ts!)
+```
+
+## Migration Strategy
+
+**When touching a file that violates these rules:**
+
+1. **Extract one thing per commit:**
+   - Commit 1: Extract constants to `.constants.ts`
+   - Commit 2: Extract types to `.types.ts`
+   - Commit 3: Extract helper components
+
+2. **Update imports progressively:**
+   ```typescript
+   // Before
+   import { SessionReplay } from './SessionReplay';
+   
+   // After
+   import { SessionReplay } from './SessionReplay';
+   import type { SessionReplayProps } from './SessionReplay.types';
+   import { DATE_RANGE_CONFIG } from './SessionReplay.constants';
+   ```
+
+3. **Don't rewrite everything at once.** Fix it when you touch it.
+
+## P0 Checklist for New Code
+
+Before committing a component file, verify:
+
+- [ ] File contains ONE component (or component + small internal helpers)
+- [ ] No interface/type definitions (except small props interfaces)
+- [ ] No constants (except tiny inline ones like `const maxRetries = 3;`)
+- [ ] No "TEMP_", "LEGACY_", "TODO_REMOVE" in names
+- [ ] Types are in `.types.ts`
+- [ ] Constants are in `.constants.ts`
+- [ ] File is < 500 lines (if larger, split into sub-components)
+
+## Why This Matters
+
+1. **Findability:** "Where's the FilterState type?" → Always in `.types.ts`
+2. **Reusability:** Constants/types can be imported without the component
+3. **Testing:** Easier to test isolated functions/types
+4. **Code Review:** Smaller files = faster reviews
+5. **Onboarding:** Clear structure = faster understanding
+6. **AI Assistance:** LLMs understand single-purpose files better
+
+---
+
+**Enforcement:** This is P0. No exceptions without explicit justification in PR.

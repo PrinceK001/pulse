@@ -1,0 +1,27 @@
+---
+description: API services – centralized per feature, typed requests/responses, env-based config
+globs: "src/services/**/*.ts,src/clients/**/*.ts"
+alwaysApply: false
+---
+
+# API and services (Pulse UI)
+
+## Centralized API services
+
+One service file (or folder) per feature domain. Export typed functions or a class with typed methods; use the shared client from `src/clients/` for base URL and interceptors. Types: use feature's `.interface.ts` or service-scoped types; no `any`.
+
+```ts
+// services/sessionReplay/SessionReplayService.ts
+export async function getSessions(filters: SessionReplayFilters): Promise<SessionReplayResponse> {
+  const response = await client.get<SessionReplayResponse>('/api/sessions', { params: filters });
+  return response.data;
+}
+```
+
+## Mock-ready / env config
+
+Use `process.env.REACT_APP_*` for base URL and flags. See `.env.example`. Example: `REACT_APP_PULSE_SERVER_URL`, `REACT_APP_MOCK_API`. Constants like `API_BASE_URL` or `REQUEST_TIMEOUT` can live in `src/constants/Constants.ts` for app-wide use. Feature-specific endpoint paths can live next to the service or in the feature's constants.
+
+## Usage
+
+Services are called from **TanStack Query** (useQuery/useMutation in hooks under `src/screens/<Feature>/hooks/`). Don't call services directly from JSX; wrap in hooks.

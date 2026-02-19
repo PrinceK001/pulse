@@ -1,0 +1,18 @@
+---
+description: Error handling in services, utils, hooks – surface errors, use errorHandling utils, actionable UI
+globs: "src/services/**/*.ts,src/utils/**/*.ts,src/hooks/**/*.ts,src/screens/**/hooks/**/*.ts"
+alwaysApply: false
+---
+
+# Error handling (Pulse UI)
+
+When editing services, utils, or hooks that touch API or user-facing errors:
+
+- **Surface errors** – Don’t swallow; show a message or toast. Use `src/utils/errorHandling.ts`: `classifyError`, `ErrorType`, `ErrorInfo`. For simple message extraction use the existing `getErrorMessage` pattern (or errorHandling) used in the codebase.
+- **Actionable UI** – Error states should offer a path forward (e.g. Retry button, clear message). Avoid error UI that only dismisses with no action.
+- **Typing** – No `any` for errors. Use `unknown` and type guards or `Error` / project error types.
+- **Services** – In catch blocks: log if needed, then rethrow or return a typed error result so callers (hooks/components) can show UI. Let useQuery/useMutation handle loading/error state when using TQ.
+
+**getErrorMessage pattern:** Use `unknown` and type guards. Example: `if (axios.isAxiosError(error))` then read `error.response?.data`; else `error instanceof Error ? error.message : 'Unknown error'`. Prefer the existing `getErrorMessage` (or equivalent) from `src/utils/errorHandling.ts` so the codebase stays consistent.
+
+Reference: `src/utils/errorHandling.ts`.

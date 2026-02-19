@@ -1,0 +1,26 @@
+---
+description: Screens and data layer – useQuery, useMutation, ROUTES, services
+globs: "src/screens/**/*.tsx,src/screens/**/*.ts,src/services/**/*.ts"
+alwaysApply: false
+---
+
+# Screens & data (Pulse UI)
+
+When working under `src/screens/` or `src/services/`:
+
+## Adding a new screen
+
+1. Create folder `src/screens/<ScreenName>/` with at least: `<ScreenName>.tsx`, `index.ts` (re-export). Put **feature constants** in `<ScreenName>.constants.ts`, **feature types** in `<ScreenName>.interface.ts`, **feature utils** in `utils/` inside the screen folder. Do not add feature-specific constants/utils to top-level `src/constants/` or `src/utils/`—keep the feature self-contained.
+2. Add route in `src/constants/Constants.ts`: new key in `ROUTES` with `key`, `path`, `basePath`, `element: ScreenName`.
+3. Add nav entry in `Constants.ts` if the screen should appear in the sidebar (e.g. `NAVBAR_ITEMS`).
+4. Use TanStack Query in the screen or in a hook under `src/screens/<ScreenName>/hooks/`; call services from `src/services/` (services can be per-feature under `src/services/<feature>/` or shared).
+
+## Data
+
+- **New code**: Prefer useQuery/useMutation + services. useQuery in a hook (e.g. `useScreenNameData`); useMutation with invalidateQueries in `onSuccess` (e.g. `useScreenNameActions`).
+- **Existing code**: Some screens still use manual fetch + useState. Leave them as-is unless you’re already refactoring that screen.
+- **No loaders/actions** – this app does not use Remix.
+
+## Services
+
+- Keep API calls in `src/services/<feature>/` or `src/services/<FeatureName>Service.ts`. Use existing clients; use `REACT_APP_*` env for base URL. Feature-specific endpoint URLs or config can live in the feature’s constants or next to the service; only put truly shared API config in global constants.

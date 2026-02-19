@@ -1,0 +1,24 @@
+---
+description: Environment variables and import order (Pulse UI)
+globs: "**/*.ts,**/*.tsx"
+alwaysApply: false
+---
+
+# Environment and imports (Pulse UI)
+
+## Environment variables
+
+Use **`REACT_APP_`** prefix for client-exposed env vars. See `.env.example`. Examples: `REACT_APP_PULSE_SERVER_URL`, `REACT_APP_MOCK_API`. Access via `process.env.REACT_APP_*`. Don't commit secrets; document needed vars in `.env.example`.
+
+## Import order (recommended)
+
+1. React
+2. Third-party (TanStack Query, React Router, Mantine, etc.)
+3. Internal services / clients
+4. Hooks (shared then feature)
+5. Components
+6. Types (`import type ...`)
+7. Constants / utils
+8. Styles (`import styles from './X.module.css'`)
+
+Keep imports grouped and avoid circular dependencies. Prefer feature-local imports over deep `~/` paths when the file is in the same feature.

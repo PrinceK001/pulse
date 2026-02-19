@@ -1,0 +1,14 @@
+---
+description: Session Replay in Pulse – product role, UI layout, design tokens. Use when working on Session Replay screen or related UI.
+globs: "src/screens/SessionReplay/**/*"
+alwaysApply: false
+---
+
+# Session Replay context (Pulse UI)
+
+When working under `src/screens/SessionReplay/`, use this and the docs so UI and copy match product intent.
+
+- **What it is:** Session Replay is Pulse’s evidence layer—users watch reconstructed sessions (DOM/view + events, not video) to see why metrics moved, why users dropped off, or what the user saw when something crashed.
+- **UI (from pulse-docs):** Session list with filters; stat cards (Total Sessions, Avg Duration, Total Interactions, Avg Events/Session); replay viewer (playback controls, timeline); teal theme (primary teal, borders, gradients). See **pulse-docs/session-replay/02-ui-implementation/QUICK_REFERENCE.md** for layout, colors, typography, spacing, icons.
+- **Feature scope:** List + filters + playback + shareable links. Stats come from backend (do not derive from paginated list). Interaction quality overlay and deep links to traces are differentiators; follow existing implementation and QUICK_REFERENCE.
+- **Domain and product details:** `.cursor/DOMAIN_CONTEXT.md` and **pulse-docs/session-replay/01_CONTEXT.md**.

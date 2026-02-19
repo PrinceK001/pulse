@@ -1,0 +1,16 @@
+---
+description: TypeScript best practices – strict typing, no any, unknown, inference, narrowing. Aligns with TS and Pulse UI .cursorrules.
+globs: "**/*.ts,**/*.tsx"
+alwaysApply: false
+---
+
+# TypeScript paradigm (Pulse UI)
+
+Follow these so code stays type-safe and maintainable. See also `.cursor/TECH_STACK_PRACTICES.md` and `.cursor/rules/typescript-practices.mdc`.
+
+- **Strict mode:** Project uses strict TypeScript. Do not disable or use `any` to bypass errors.
+- **No `any`:** Use proper types or `unknown` + type guards. For errors: `unknown` and `if (error instanceof Error)` or project error types.
+- **Inference:** Let TypeScript infer where obvious (e.g. return types of simple functions, local variables). Add explicit types for public APIs, function parameters, and when inference is wrong or unclear.
+- **Narrowing:** Prefer type guards, `in`, `typeof`, `instanceof`, and discriminated unions over `as` assertions. Use `as` only when you have no other option and you are sure of the type.
+- **Nullish coalescing:** Use `??` for default values (only null/undefined trigger the default). Avoid `||` when `0`, `''`, or `false` are valid.
+- **Interfaces vs types:** Either is fine. Use `type` for object shapes and unions; use `interface` for extendable contracts. Be consistent in a file.

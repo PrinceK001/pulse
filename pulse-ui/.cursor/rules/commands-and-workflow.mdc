@@ -1,0 +1,15 @@
+---
+description: Commands to run and workflow – lint after edits, reference canonical examples. Matches Cursor best practices.
+alwaysApply: true
+---
+
+# Commands
+
+- `yarn lint`: Run the linter (from pulse-ui root). Use `yarn lint:fix` for auto-fixable issues.
+- `yarn format`: Run the formatter. Run after changing code so style stays consistent.
+
+# Workflow
+
+- **After making code changes:** Run `yarn lint` (and `yarn format` if you changed formatting). Fix any **new** errors in the files you changed, then list the changed files. See the **verify-after-edit** skill (`.cursor/skills/verify-after-edit/SKILL.md`) for the full steps.
+- **Canonical examples:** Don’t guess patterns. See **AGENTS.md** → "Reference implementations" table for where to look (e.g. screen structure → `src/screens/SessionReplay/`, API service → `src/services/sessionReplay/`, error handling → `src/utils/errorHandling.ts`). Read those files and match their patterns.
+- **New screen or route:** Follow the **add-new-screen** skill. Routes live in `src/constants/Constants.ts` (`ROUTES`); add the screen folder under `src/screens/`.

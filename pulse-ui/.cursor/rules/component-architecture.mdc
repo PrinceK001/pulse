@@ -1,0 +1,54 @@
+---
+description: Clean JSX, feature folder structure, screen component pattern. No logic in JSX.
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# Component architecture (Pulse UI)
+
+## Clean JSX – no logic in JSX
+
+**Never put business logic, conditions, or async work directly in JSX.** Extract to custom hooks; components receive data and callbacks as props.
+
+```tsx
+// ❌ BAD: Logic in JSX
+<button onClick={async () => {
+  setIsRetrying(true);
+  try {
+    await retrySubmission(submission.id);
+    showToast('Success');
+  } catch (error) { showToast(getErrorMessage(error)); }
+  finally { setIsRetrying(false); }
+}}>Retry</button>
+
+// ✅ GOOD: Logic in hook, clean JSX
+const { shouldShowRetry, isRetrying, handleRetry } = useSubmissionActions(submission);
+return shouldShowRetry && (
+  <button onClick={() => handleRetry(submission.id)} disabled={isRetrying}>Retry</button>
+);
+```
+
+## Feature folder structure
+
+Each screen/feature is self-contained under `src/screens/FeatureName/`:
+
+```
+FeatureName/
+├── FeatureName.tsx              # Main component (clean JSX)
+├── FeatureName.interface.ts     # Types
+├── FeatureName.constants.ts    # Feature constants (not global)
+├── index.ts
+├── hooks/                       # useQuery, useMutation, actions, derived state
+├── components/                 # Subcomponents
+└── utils/                      # Feature-specific helpers (optional)
+```
+
+**App-level:** Screens in `src/screens/`; shared in `src/components/`, `src/constants/`, `src/services/`, `src/stores/`, `src/hooks/`, `src/utils/`, `src/types/`. **Feature-first:** constants, utils, types live **inside the feature** unless truly shared across 2+ features. See `feature-first-abstraction.mdc`.
+
+## Screen component pattern
+
+1. Imports (React, types, constants, components, hooks, styles)
+2. Component: call custom hooks (data, actions), simple derived state, effects for cleanup only, then **clean JSX**
+3. Styles at bottom (CSS module)
+
+Use `useQuery`/`useMutation` in hooks under `hooks/`; screen uses those hooks and renders. Error UI: show message + Retry (or clear path forward), not only dismiss.

@@ -1,0 +1,29 @@
+---
+description: Routing, useQuery/useMutation patterns, custom hooks, Zustand/Context for UI state
+globs: "src/screens/**/*.ts,src/screens/**/*.tsx,src/hooks/**/*.ts"
+alwaysApply: false
+---
+
+# Data, routing, and hooks (Pulse UI)
+
+**No Remix.** Use React Router + TanStack Query.
+
+## Routing
+
+Routes are defined in `src/constants/Constants.ts` (`ROUTES`); rendered in `App.tsx`. No file-based routing. Add new screens to `ROUTES` and, if needed, `NAVBAR_ITEMS`.
+
+## Data: useQuery and useMutation
+
+- **Fetch:** `useQuery({ queryKey: ['featureKey', deps], queryFn: () => Service.getList(...) })` in a hook under `src/screens/<Feature>/hooks/`.
+- **Mutate:** `useMutation({ mutationFn: Service.create, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['featureKey'] }) })`. Prefer invalidation over manual cache updates. Handle errors (e.g. toast via getErrorMessage) in onError or in the component.
+- Keep queryKey consistent so invalidation works across the feature.
+
+## Custom hooks
+
+Use hooks for: data (useQuery), mutations (useMutation + invalidateQueries), polling, derived state, and UI state that belongs to the feature. Don't put this logic in JSX. See `component-architecture.mdc` and `component-structure-rules.mdc`.
+
+## Client state: Zustand and Context
+
+- **Zustand** (`src/stores/`): Cross-feature or app-wide UI state (filters, sidebar, modals). Don't put server-fetched data in Zustand; use TanStack Query cache.
+- **Context:** When you need a provider boundary for feature-scoped UI state.
+- **useState/useReducer:** Local UI state that stays in one screen/component.

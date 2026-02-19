@@ -1,0 +1,34 @@
+---
+description: P0/P1/P2 priorities and where to find stack/conventions. Always applied.
+alwaysApply: true
+---
+
+# Priorities (Pulse UI)
+
+**Don't over-engineer.** Match the file you're in; improve gradually.
+
+- **P0 (must):**
+  - No `any`
+  - No explicit `undefined` for initialization (use `null` or appropriate falsy)
+  - No hardcoded API-driven values (fetch from backend/config)
+  - **One component per file** (no multiple components in same file)
+  - **No types/interfaces in component files** (use `.types.ts`)
+  - **No constants in component files** (use `.constants.ts`)
+  - **Never name things "TEMP_", "LEGACY_", "TODO_REMOVE"** (be honest and clear)
+  - **TypeScript must compile without errors** (`npx tsc --noEmit`)
+  - **No new lint errors on modified files** (`ReadLints` tool)
+  - Handle errors in new code
+  - Types for public/API contracts
+- **P1 (should, for new code):** Prefer useQuery/useMutation; clean JSX; named constants for domain values; actionable error UX.
+- **P2 (aim for, over time):** Full alignment with rules in `.cursor/rules/`; refactor when touching code, not in big rewrites.
+
+**When in doubt:** Match existing patterns in the file or screen you're in.
+
+# Stack and conventions
+
+- **Stack, paths, reference implementations:** See **AGENTS.md** (stack table, key paths, "Reference implementations" table). Use it as the single source for canonical examples—read those files and match their patterns.
+- **Tech practices (TypeScript, TanStack Query, Mantine):** See `.cursor/TECH_STACK_PRACTICES.md`.
+- **Domain (Pulse, Session Replay):** See `.cursor/DOMAIN_CONTEXT.md`.
+- **File organization (one file = one purpose):** See `.cursor/rules/file-organization.mdc`.
+- **Post-development checks (P0):** See `.cursor/rules/post-development-checks.mdc` - after ANY code changes, run `npx tsc --noEmit` and `ReadLints` on modified files. Fix issues immediately.
+- **No Remix.** Use TanStack Query and `src/services/`; routes in `src/constants/Constants.ts`, rendered in `App.tsx`.

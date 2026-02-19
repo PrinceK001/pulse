@@ -289,6 +289,11 @@ export class MockResponseGenerator {
       return this.handleSdkConfigEndpoints(pathname, method, request);
     }
 
+    // Session Replay endpoints (singular - new feature)
+    if (pathname.includes("/session-replay")) {
+      return this.handleSessionReplayEndpoints(pathname, method, request);
+    }
+
     // Default response
     return {
       data: { message: "Mock response not implemented" },
@@ -5098,12 +5103,124 @@ ${
       }
     }
 
+    // Session Replay endpoints
+    if (pathname.includes("/session-replay")) {
+      return this.handleSessionReplayEndpoints(pathname, method, request);
+    }
+
     return {
       data: null,
       status: 404,
       error: {
         code: "NOT_FOUND",
         message: `Data query endpoint not found: ${method} ${pathname}`,
+        cause: "Invalid endpoint or method",
+      },
+    };
+  }
+
+  /**
+   * Handle Session Replay endpoints
+   */
+  private handleSessionReplayEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest
+  ): MockResponse {
+    const {
+      generateSessionsResponse,
+      generateSessionDetailResponse,
+      generateFilterSchemaResponse,
+      generateDateRangeConfigResponse,
+      generateQuickFiltersResponse,
+      generateBulkTagResponse,
+      generateBulkDeleteResponse,
+      generateExportResponse,
+    } = require("./responses/sessionReplayResponses");
+
+    // GET /api/v1/session-replay/sessions
+    if (pathname.endsWith("/sessions") && method === "GET") {
+      const url = this.parseURL(request.url);
+      const queryParams: Record<string, any> = {};
+      url.searchParams.forEach((value, key) => {
+        queryParams[key] = value;
+      });
+
+      return {
+        data: generateSessionsResponse(queryParams),
+        status: 200,
+      };
+    }
+
+    // GET /api/v1/session-replay/sessions/:id
+    if (pathname.match(/\/sessions\/[^/]+$/) && method === "GET") {
+      const sessionId = pathname.split("/").pop();
+      return {
+        data: generateSessionDetailResponse(sessionId!),
+        status: 200,
+      };
+    }
+
+    // GET /api/v1/session-replay/filters/schema
+    if (pathname.includes("/filters/schema") && method === "GET") {
+      const url = this.parseURL(request.url);
+      const queryParams: Record<string, any> = {};
+      url.searchParams.forEach((value, key) => {
+        queryParams[key] = value;
+      });
+
+      return {
+        data: generateFilterSchemaResponse(queryParams),
+        status: 200,
+      };
+    }
+
+    // GET /api/v1/session-replay/config/date-ranges
+    if (pathname.includes("/config/date-ranges") && method === "GET") {
+      return {
+        data: generateDateRangeConfigResponse(),
+        status: 200,
+      };
+    }
+
+    // GET /api/v1/session-replay/config/quick-filters
+    if (pathname.includes("/config/quick-filters") && method === "GET") {
+      return {
+        data: generateQuickFiltersResponse(),
+        status: 200,
+      };
+    }
+
+    // POST /api/v1/session-replay/sessions/bulk-tag
+    if (pathname.includes("/sessions/bulk-tag") && method === "POST") {
+      return {
+        data: generateBulkTagResponse(),
+        status: 200,
+      };
+    }
+
+    // DELETE /api/v1/session-replay/sessions/bulk-delete
+    if (pathname.includes("/sessions/bulk-delete") && method === "DELETE") {
+      return {
+        data: generateBulkDeleteResponse(),
+        status: 200,
+      };
+    }
+
+    // POST /api/v1/session-replay/sessions/export
+    if (pathname.includes("/sessions/export") && method === "POST") {
+      return {
+        data: generateExportResponse(),
+        status: 200,
+      };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: `Session Replay endpoint not found: ${method} ${pathname}`,
         cause: "Invalid endpoint or method",
       },
     };

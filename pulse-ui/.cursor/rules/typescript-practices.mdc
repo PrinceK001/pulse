@@ -1,0 +1,83 @@
+---
+description: TypeScript – no any, type guards, nullish coalescing, enums/const, file naming. Detailed practices.
+globs: "**/*.ts,**/*.tsx"
+alwaysApply: false
+---
+
+# TypeScript practices (Pulse UI)
+
+See also `typescript-paradigm.mdc` and `.cursor/TECH_STACK_PRACTICES.md`.
+
+## No `any` – zero tolerance
+
+Use proper types or `unknown` + type guards. For errors: `unknown` and `error instanceof Error` or project error types.
+
+```ts
+// ❌ BAD
+catch (error: any) { const msg = error.message; }
+
+// ✅ GOOD
+catch (error: unknown) {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+}
+```
+
+Minimize `as` and `!`. Use type guards, narrowing, and nullish coalescing (`??`) instead.
+
+## No `undefined` for initialization – use `null` or appropriate falsy values
+
+**`undefined` is reserved for the runtime engine.** Do not explicitly use `undefined` for initialization or as a falsy value.
+
+```ts
+// ❌ BAD
+const [data, setData] = useState<Data | undefined>(undefined);
+const result = value ?? undefined;
+onChange={(value) => setValue(value ?? undefined)}
+
+// ✅ GOOD
+const [data, setData] = useState<Data | null>(null);
+const result = value ?? null;
+onChange={(value) => setValue(value ?? "")}
+// Or omit the param entirely when the value is absent
+```
+
+**When to use each falsy value:**
+- `null` – for missing objects, absent data, or "no value yet"
+- `""` – for empty strings
+- `0` – for zero numbers
+- `false` – for booleans
+- `[]` – for empty arrays
+
+**Only use `undefined`:**
+- In type signatures for optional properties (`prop?: string`)
+- When the runtime engine sets it (uninitialized variables, missing object properties)
+- Never explicitly assign or initialize to `undefined`
+
+## Nullish coalescing (`??`) not `||`
+
+Use `??` for default values so `0`, `''`, and `false` are not replaced. Use `||` only when you intend that behavior.
+
+## Named constants and enums for domain values
+
+Avoid magic strings/numbers for shared or domain-critical values. Use enums or const objects for fixed sets; named constants for numbers (timeouts, limits). Centralize in the feature's constants file (e.g. `SessionReplay.constants.ts`).
+
+```ts
+// ✅ GOOD
+export const ROLLOUT_COMPLETE_PERCENT = 100;
+export enum Platform { ANDROID = 'ANDROID', IOS = 'IOS' }
+if (platform === Platform.ANDROID && percentage === ROLLOUT_COMPLETE_PERCENT) { ... }
+```
+
+Import enums as **values** (not `import type`) when using in comparisons.
+
+## No complex nested ternaries
+
+Extract to named functions or object lookups. Single-level ternaries for UI are fine (e.g. `label = isActive ? 'Active' : 'Inactive'`).
+
+## Optional props
+
+Prefer omitting optional props over passing `undefined`. Use conditional spreading in JSX for optional props; call functions without the param when the value is absent. For objects with multiple optional properties, use imperative style (build object, then `if (x) obj.x = x`).
+
+## File naming
+
+Use `[feature].[type].ts` or `ComponentName.tsx` / `ComponentName.interface.ts` / `ComponentName.constants.ts`. Avoid generic names like `common.tsx`, `helpers.ts`. Prefer PascalCase for components/screens.

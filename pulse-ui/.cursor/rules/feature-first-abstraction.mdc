@@ -1,0 +1,33 @@
+---
+description: Feature-first constants, utils, types – when to use global vs feature
+alwaysApply: true
+---
+
+# Feature-first: right abstraction
+
+**Do not pollute global space.** Constants, utils, and types belong **inside the feature** (or component) that uses them by default. Use top-level `src/constants/`, `src/utils/`, `src/types/` only after careful consideration.
+
+## Where things go
+
+| Scope | Location | Examples |
+|-------|----------|----------|
+| **One feature/screen** | Inside that feature | `src/screens/SessionReplay/SessionReplay.constants.ts`, `SessionReplay.interface.ts`, `SessionReplay/utils/` |
+| **One feature’s child component** | Inside that component | `SessionReplay/components/AdvancedFilterBuilder/` with its own constants/utils if needed |
+| **2+ features or app-wide** | Global | `src/constants/` (routes, app config), `src/utils/` (e.g. errorHandling), `src/types/` (shared API types) |
+
+## Qualifies for global
+
+- App config (routes, base URLs, app name)
+- Theme / design tokens used across the app
+- Shared utilities used in multiple features (e.g. `getErrorMessage`, date/number formatters used in 3+ places)
+- Shared types used by multiple services/features
+
+## Stays in feature
+
+- Feature-specific constants (page size, filter defaults, labels for that screen)
+- Feature-specific utils (transform logic, formatters for that screen only)
+- Feature-specific types (props, request/response for that feature’s APIs)
+
+## Sharing between features
+
+Prefer **duplicate** if small and might diverge. **Extract to global** only when clearly cross-feature, stable, and used in 2+ places. Avoid “we might use it elsewhere” as the only reason.

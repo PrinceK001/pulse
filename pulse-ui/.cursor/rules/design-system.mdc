@@ -1,0 +1,39 @@
+---
+description: UI/UX and design system – stats from backend, colors, radius, error UI, button hierarchy, Mantine
+globs: "**/*.tsx,**/*.module.css"
+alwaysApply: false
+---
+
+# Design system (Pulse UI)
+
+## Stats and pagination
+
+**Never compute aggregate stats from the current page only.** Stats (totals, counts) must come from the backend (full dataset). Display the stats object the API returns; don't derive totals from `items.length` of the paginated list.
+
+## Entity/platform colors
+
+**Platform/entity colors are static (identity), not status-based.** e.g. Android = green, iOS = blue always. Communicate status via **variant** (filled/outline/light), **opacity**, or tooltips, not by changing the entity's color.
+
+## Border radius
+
+Use a consistent system: e.g. `radius="md"` for containers (Card, Paper), `radius="sm"` for elements (Button, Badge, Input). Don't mix random radius values.
+
+## Error states
+
+Error UI must be **action-oriented**: icon + single clear message + **Retry** (or other recovery) button. Use Paper/Card for layout. No redundant title+message; no close (X) button as the only action. See `error-handling.mdc`.
+
+## Color palette (B2B)
+
+Prefer professional colors: **blue** primary actions, **gray** secondary, **green** success, **orange** warning, **red** error. Avoid playful colors (grape, pink, violet, lime) for primary UI. Pulse UI uses a teal theme in places (see Session Replay QUICK_REFERENCE).
+
+## Button hierarchy
+
+Use consistent variants in a column/section: e.g. one primary (filled), rest outline or light. Don't mix unrelated colors/variants for the same action type.
+
+## Mantine and styles
+
+Use Mantine components (Button, Paper, Group, Stack, Table, etc.) and `@tabler/icons-react`. Use CSS modules (`*.module.css`) for screen-specific layout. See `.cursor/TECH_STACK_PRACTICES.md` and theme in `src/theme/`.
+
+## Accessibility
+
+Semantic HTML; labels for form controls; ARIA where it adds clarity. Error and loading states should be understandable and actionable.

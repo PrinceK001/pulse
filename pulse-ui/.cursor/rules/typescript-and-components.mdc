@@ -1,0 +1,27 @@
+---
+description: TypeScript and component rules for Pulse UI (.ts, .tsx)
+globs: "**/*.ts,**/*.tsx"
+alwaysApply: false
+---
+
+# TypeScript & components (Pulse UI)
+
+When editing `.ts` or `.tsx` in pulse-ui:
+
+## TypeScript
+
+- **No `any`** – use proper types; for errors use `unknown` or type guards. (P0.)
+- **Constants** – prefer named constants/enums for domain values and magic numbers; local one-offs are OK.
+- **Nullish coalescing** – use `??` for defaults, not `||`.
+- **Types** – prefer `*.interface.ts` **in the feature (or component)** for that feature’s types; inline for local-only props. Use `src/types/` only for types shared across multiple features.
+
+## Components
+
+- **Clean JSX** – no business logic in JSX; put logic in custom hooks and pass handlers/derived values as props.
+- **One component per file**; export from `index.ts` where used.
+- **Props** – destructure in the function signature.
+- **Hooks** – custom hooks in separate files (e.g. `hooks/useX.ts`), not inside component files.
+
+## File naming
+
+- Components: `PascalCase.tsx`. Types/constants: `FeatureName.interface.ts`, `FeatureName.constants.ts` (or under `src/constants/`).

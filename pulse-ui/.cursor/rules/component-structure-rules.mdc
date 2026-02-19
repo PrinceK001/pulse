@@ -1,0 +1,40 @@
+---
+description: Props destructuring, hooks in separate files, one component per file, no pure functions in JSX files
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# Component structure rules (Pulse UI)
+
+## Props: destructure in function parameters
+
+**Never use `props.something` inside the component.** Destructure in the function signature.
+
+```tsx
+// ❌ BAD
+export function Card(props: CardProps) {
+  const { title } = props;
+  return <div>{props.title}</div>;
+}
+
+// ✅ GOOD
+export function Card({ title, children }: CardProps) {
+  return <div>{title}{children}</div>;
+}
+```
+
+## Custom hooks in separate files
+
+**Never define custom hooks inside component files.** Put them in `use[HookName].ts` under the feature's `hooks/` folder. Hook file naming: `use[HookName].ts` (not `.tsx`). Pure functions (no React hooks) should not be named with `use` prefix.
+
+## One logical component per file
+
+Default: one main component per file. Extract subcomponents when reused, non-trivial, or when the file gets long. Very small helpers (< 5 lines, used only in this file) may stay in the same file, at the bottom after the main component.
+
+## No pure functions in component files
+
+Pure functions (no React hooks, no JSX) belong in utils or constants files, not inside component files. Use constants or utils under the feature (e.g. `RELEASE_STATUS_COLORS` in constants, `getDropZoneClassName` in utils).
+
+## Types in separate files
+
+Prefer `.interface.ts` (or `.types.ts`) in the feature for that feature's types. Inline props only for local-only, simple shapes. Shared types in `src/types/` only when used across features.

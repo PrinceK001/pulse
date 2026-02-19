@@ -1,0 +1,11 @@
+# Pulse UI – Cursor rules (stub)
+
+**Full rules:** `.cursor/rules/*.mdc`. This stub keeps Cursor finding project rules at the root.
+
+**Commands and workflow (run every time):** `.cursor/rules/commands-and-workflow.mdc` – `yarn lint`, `yarn format`, run lint after edits, see AGENTS.md for canonical examples.
+
+**Priorities:** `.cursor/rules/priorities-and-stack.mdc` – P0/P1/P2, pointers to AGENTS.md and TECH_STACK_PRACTICES.
+
+**Plans:** Use Plan Mode (Shift+Tab); save plans to `.cursor/plans/`. See `.cursor/plans/README.md`.
+
+**Rest:** See the "Where to look" table in `.cursor/README.md` or open any `.mdc` in `.cursor/rules/` by topic (component-architecture, typescript-practices, api-and-services, etc.).

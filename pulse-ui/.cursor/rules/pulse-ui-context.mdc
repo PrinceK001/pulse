@@ -1,0 +1,17 @@
+---
+description: Pulse UI project context – stack and where things live
+alwaysApply: true
+---
+
+# Pulse UI context
+
+You are working in **Pulse UI** (React frontend for Pulse observability). This rule applies in every conversation in this project.
+
+- **Stack**: React 18, React Router 6, TanStack Query, Zustand, Mantine, TypeScript. Build: Webpack (CRA-style).
+- **No Remix**: Do not suggest loaders, actions, or useFetcher.
+- **Data**: Repo is mixed—many flows use TanStack Query (`src/hooks/`), some screens use manual fetch. For **new** code prefer useQuery/useMutation + `src/services/`. Don’t demand rewrites of existing code.
+- **Routes**: `src/constants/Constants.ts` (`ROUTES`) and `src/App.tsx`. New screens: add to `ROUTES`, create `src/screens/<ScreenName>/`.
+- **Feature-first**: Constants, utils, types live **inside the feature** (e.g. `FeatureName.constants.ts`, `FeatureName/utils/`, `FeatureName.interface.ts`). Use `src/constants/`, `src/utils/`, `src/types/` only for **truly shared** app-wide code. Don’t pollute global space.
+- **Priorities**: P0 = no `any`, error handling, types for APIs. P1 = prefer TQ for new code, clean JSX, actionable errors, right abstraction (feature vs global). Improve gradually; don’t over-engineer.
+- **Conventions**: `AGENTS.md` and `.cursor/rules/*.mdc`. Root `.cursorrules` is a stub that points to the rules. Match existing patterns in the file you're editing.
+- **Domain**: What Pulse is and what Session Replay is → `.cursor/DOMAIN_CONTEXT.md`. **Tech stack practices** (TypeScript, TanStack Query, Mantine) → `.cursor/TECH_STACK_PRACTICES.md`.
