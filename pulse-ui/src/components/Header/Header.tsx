@@ -9,6 +9,7 @@ import {
   Avatar,
   Button,
   Stack,
+  Select,
 } from "@mantine/core";
 
 import classes from "./Header.module.css";
@@ -26,9 +27,10 @@ import {
   IconCircleChevronRight,
   IconLogout,
   IconUserScan,
+  IconFolder,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import { googleLogout } from "@react-oauth/google";
 import { getCookies, removeAllCookies } from "../../helpers/cookies";
 import {
@@ -36,6 +38,8 @@ import {
   isGcpMultiTenantEnabled,
 } from "../../helpers/gcpAuth";
 import { MULTI_TENANT_CONSTANTS } from "../../constants";
+import { getProjectContext, setProjectContext } from "../../helpers/projectContext";
+import { getUserProjects, ProjectSummary } from "../../helpers/getUserProjects";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
@@ -44,6 +48,17 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
   );
   const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
   const currentTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const currentProject = getProjectContext();
+
+  useEffect(() => {
+    // Fetch projects for dropdown
+    getUserProjects().then(response => {
+      if (response.data) {
+        setProjects(response.data.projects);
+      }
+    });
+  }, []);
 
   const onClick = () => {
     navigate("/");
@@ -57,6 +72,20 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
     }
     removeAllCookies();
     navigate(ROUTES.LOGIN.basePath);
+  };
+
+  const handleProjectSwitch = (projectId: string | null) => {
+    if (!projectId) return;
+    
+    const selectedProject = projects.find(p => p.projectId === projectId);
+    if (selectedProject) {
+      setProjectContext({
+        projectId: selectedProject.projectId,
+        projectName: selectedProject.name,
+      });
+      // Reload the page to refresh all data with new project context
+      window.location.reload();
+    }
   };
 
   return (
@@ -90,6 +119,23 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
             </Text>
           </div>
         </Group>
+        
+        {/* Project Switcher */}
+        {currentProject && projects.length > 1 && (
+          <Select
+            leftSection={<IconFolder size={18} />}
+            placeholder="Select project"
+            data={projects.map(p => ({
+              value: p.projectId,
+              label: p.name,
+            }))}
+            value={currentProject.projectId}
+            onChange={handleProjectSwitch}
+            className={classes.projectDropdown}
+            comboboxProps={{ withinPortal: true }}
+          />
+        )}
+        
         <Box className={classes.userInformation}>
           <Popover width={200} position="bottom" withArrow shadow="md">
             <Popover.Target>

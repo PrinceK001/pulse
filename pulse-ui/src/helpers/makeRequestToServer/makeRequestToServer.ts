@@ -22,6 +22,7 @@ function buildAuthHeaders(): Record<string, string> {
   const accessToken = getCookies(COOKIES_KEY.ACCESS_TOKEN);
   const tokenType = getCookies(COOKIES_KEY.TOKEN_TYPE) || "Bearer";
   const userEmail = getCookies(COOKIES_KEY.USER_EMAIL);
+  const projectId = getCookies(COOKIES_KEY.PROJECT_ID);
 
   const headers: Record<string, string> = {
     Authorization: `${tokenType} ${accessToken}`,
@@ -29,6 +30,11 @@ function buildAuthHeaders(): Record<string, string> {
 
   if (userEmail && userEmail !== "undefined") {
     headers["user-email"] = userEmail;
+  }
+
+  // Add project-id header for project-scoped requests
+  if (projectId && projectId !== "undefined") {
+    headers["X-Project-ID"] = projectId;
   }
 
   return headers;

@@ -42,6 +42,9 @@ import { NetworkDetail } from "../screens/NetworkDetail";
 import { NetworkList } from "../screens/NetworkList";
 import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
+import { Onboarding } from "../screens/Onboarding";
+import { ProjectSelection } from "../screens/ProjectSelection";
+import { ProjectSettings } from "../screens/ProjectSettings";
 import { SamplingConfig } from "../screens/SamplingConfig";
 import { Settings } from "../screens/Settings";
 import { AlertListingPage } from "../screens/AlertListingPage";
@@ -131,6 +134,18 @@ export const ROUTES: Routes = {
     path: "/login",
     element: Login,
   },
+  ONBOARDING: {
+    key: "ONBOARDING",
+    basePath: "/onboarding",
+    path: "/onboarding",
+    element: Onboarding,
+  },
+  PROJECT_SELECTION: {
+    key: "PROJECT_SELECTION",
+    basePath: "/project-selection",
+    path: "/project-selection",
+    element: ProjectSelection,
+  },
   UNIVERSAL_QUERYING: {
     key: "UNIVERSAL_QUERYING",
     basePath: "/universal-querying",
@@ -202,6 +217,12 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings/*",
     element: Settings,
+  },
+  PROJECT_SETTINGS: {
+    key: "PROJECT_SETTINGS",
+    basePath: "/project-settings",
+    path: "/project-settings",
+    element: ProjectSettings,
   },
   ALERTS: {
     key: "ALERTS",
@@ -806,6 +827,8 @@ export const COOKIES_KEY: Record<string, string> = {
   EXPIRES_IN: "expiresIn",
   TENANT_ID: "tenantId",
   TENANT_NAME: "tenantName",
+  PROJECT_ID: "projectId",
+  PROJECT_NAME: "projectName",
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {

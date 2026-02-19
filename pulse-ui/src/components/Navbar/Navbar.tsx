@@ -259,6 +259,21 @@ export function Navbar({
                 </Group>
               </Box>
 
+              {/* Project Settings Link */}
+              <Box
+                className={classes.menuItem}
+                onClick={() => navigate(ROUTES.PROJECT_SETTINGS.basePath)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>Project Settings</Text>
+                    <Text size="xs" c="dimmed">API Keys & Collaborators</Text>
+                  </Box>
+                </Group>
+              </Box>
+
               {/* Help Link */}
               <Anchor
                 href={NAVBAR_CONSTANTS.HELP_LINK}
