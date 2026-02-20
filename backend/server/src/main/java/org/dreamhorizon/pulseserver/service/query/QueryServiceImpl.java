@@ -73,6 +73,21 @@ public class QueryServiceImpl implements QueryService {
             }));
   }
 
+  private String appendProjectId(String originalQuery, String projectId) {
+    String project = String.format("AND project_id = '%s'", projectId);
+
+    // 1. Trim whitespace
+    // 2. Remove one or more trailing semicolons using regex
+    // 3. Trim again to be safe
+    String cleanedBase = originalQuery.trim()
+        .replaceAll(";+$", "")
+        .trim();
+
+    // Return the joined query.
+    // We add a space to ensure the fragment doesn't touch the last word of the base.
+    return cleanedBase + " " + project.trim() + ";";
+  }
+
   private Single<QueryJob> handleQueryState(String jobId, String queryExecutionId, QueryStatus status, Long initialDataScannedBytes) {
     if (status == QueryStatus.SUCCEEDED) {
       log.info("Query completed within {} seconds for job: {}", Constants.QUERY_TIMEOUT_SECONDS, jobId);
