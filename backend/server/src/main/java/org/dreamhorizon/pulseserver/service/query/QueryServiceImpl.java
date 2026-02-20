@@ -41,13 +41,16 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
     }
 
-    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryString);
+    String tenantId = TenantContext.requireTenantId();
+    String queryWithProjectId = String.format("%s AND project_id = %s", queryString, tenantId);
+
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId);
     if (!validationResult.isValid()) {
       return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
 
-    return queryJobDao.createJob(TenantContext.requireTenantId(), queryString, userEmail.trim())
-        .flatMap(jobId -> queryClient.submitQuery(queryString)
+    return queryJobDao.createJob(tenantId, queryWithProjectId, userEmail.trim())
+        .flatMap(jobId -> queryClient.submitQuery(queryWithProjectId)
             .flatMap(queryExecutionId -> queryClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
                   Long initialDataScannedBytes = execution.getDataScannedInBytes();
