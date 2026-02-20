@@ -275,7 +275,7 @@ public class InteractionDao {
 
   public Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions() {
     QueryConfiguration configuration = QueryConfiguration.newQuery(GET_TELEMETRY_FILTER_VALUES)
-        .tenantId(ProjectContext.getProjectId())
+        .projectId(ProjectContext.getProjectId())
         .build();
 
     return clickhouseQueryService.executeQueryOrCreateJob(configuration)
