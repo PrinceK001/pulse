@@ -47,6 +47,7 @@ public class UploadConfigDetailService {
     String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getConfigDetailsS3BucketFilePath());
     String cloudFrontAssetPath = getTenantAwarePath(tenantId, applicationConfig.getConfigDetailCloudFrontAssetPath());
 
+    log.info("Uploading to S3 at path: {}", cloudFrontAssetPath);
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
             applicationConfig.getS3BucketName(),
