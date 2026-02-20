@@ -27,12 +27,56 @@ public class UserProjectsService {
     /**
      * Get all projects accessible to a user within a tenant.
      * 
+     * TEMPORARY: Returns ALL projects in the tenant until OpenFGA is fully integrated.
+     * TODO: Restore OpenFGA role-based filtering when ready.
+     * 
      * @param userId User ID
      * @param tenantId Tenant ID
      * @return UserProjectsResult with project list and redirect hint
      */
     public Single<UserProjectsResult> getUserProjects(String userId, String tenantId) {
         log.info("Fetching projects for user: userId={}, tenantId={}", userId, tenantId);
+        log.warn("TEMPORARY: Returning ALL projects in tenant (OpenFGA not integrated)");
+        
+        // TEMPORARY FIX: Return all projects in the tenant
+        // Once OpenFGA is integrated, uncomment the OpenFGA code below and remove this section
+        return projectDao.getProjectsByTenantId(tenantId)
+            .map(projects -> {
+                // Convert Project entities to ProjectSummary
+                List<ProjectSummary> projectList = new ArrayList<>();
+                for (Project project : projects) {
+                    projectList.add(ProjectSummary.builder()
+                        .projectId(project.getProjectId())
+                        .name(project.getName())
+                        .description(project.getDescription())
+                        .isActive(project.getIsActive())
+                        .role("admin") // Default role until OpenFGA is integrated
+                        .build());
+                }
+                
+                // Calculate redirect hint
+                String redirectTo;
+                if (projectList.isEmpty()) {
+                    redirectTo = null;
+                    log.info("No projects found in tenant");
+                } else if (projectList.size() == 1) {
+                    redirectTo = "/projects/" + projectList.get(0).getProjectId();
+                    log.info("Single project, redirecting to: {}", redirectTo);
+                } else {
+                    redirectTo = "/project-selection";
+                    log.info("Multiple projects ({}), redirecting to selection page", projectList.size());
+                }
+                
+                return UserProjectsResult.builder()
+                    .projects(projectList)
+                    .redirectTo(redirectTo)
+                    .build();
+            })
+            .doOnError(error -> 
+                log.error("Failed to fetch projects: userId={}, tenantId={}", userId, tenantId, error)
+            );
+        
+        /* TODO: Restore this OpenFGA-based implementation when ready:
         
         return openFgaService.getUserProjectsInTenant(userId, tenantId)
             .flatMap(projectIds -> {
@@ -60,15 +104,15 @@ public class UserProjectsService {
                             )
                             .switchIfEmpty(Single.defer(() -> {
                                 log.warn("Project not found: projectId={}, skipping", projectId);
-                                return Single.just((ProjectSummary) null); // Return null for missing projects
+                                return Single.just((ProjectSummary) null);
                             }))
                             .onErrorResumeNext(error -> {
                                 log.warn("Failed to fetch project details: projectId={}, skipping. Error: {}", 
                                     projectId, error.getMessage());
-                                return Single.just((ProjectSummary) null); // Return null on error
+                                return Single.just((ProjectSummary) null);
                             })
                     )
-                    .filter(project -> project != null) // Filter out nulls
+                    .filter(project -> project != null)
                     .toList()
                     .map(projects -> {
                         List<ProjectSummary> projectList = new ArrayList<>();
@@ -78,7 +122,6 @@ public class UserProjectsService {
                             }
                         }
                         
-                        // Calculate redirect hint
                         String redirectTo;
                         if (projectList.isEmpty()) {
                             redirectTo = null;
@@ -100,6 +143,7 @@ public class UserProjectsService {
             .doOnError(error -> 
                 log.error("Failed to fetch projects: userId={}, tenantId={}", userId, tenantId, error)
             );
+        */
     }
     
     /**

@@ -47,6 +47,7 @@ public class UserDao {
                     user.getEmail(),
                     user.getName(),
                     status,
+                    user.getFirebaseUid(),
                     user.getIsActive() != null ? user.getIsActive() : Boolean.TRUE))
             .map(result -> {
                 log.info("Created user: {} ({}) with status: {}", user.getEmail(), user.getUserId(), status);

@@ -31,16 +31,20 @@ public class OnboardingService {
     private final ProjectService projectService;
     private final OpenFgaService openFgaService;
     private final JwtService jwtService;
+    private final UserService userService;
     
     /**
      * Complete onboarding for a new user.
      * Creates a tenant and first project, sets up authorization.
      * 
+     * IMPORTANT: This method receives Firebase UID but must use database userId for role assignments.
+     * It looks up the user by email (created during login) to get the correct database userId.
+     * 
      * RESTRICTION: Users can only be part of ONE organization during onboarding.
      * If user is already part of any tenant (as owner, admin, or member), onboarding will fail.
      * Users must not have any existing tenant associations to onboard.
      * 
-     * @param userId User ID (from Firebase)
+     * @param firebaseUid Firebase User ID (from Firebase token)
      * @param email User email
      * @param name User display name
      * @param organizationName Organization/tenant name
@@ -49,32 +53,41 @@ public class OnboardingService {
      * @return OnboardingResult with tenant, project, and JWT tokens
      */
     public Single<OnboardingResult> completeOnboarding(
-            String userId,
+            String firebaseUid,
             String email,
             String name,
             String organizationName,
             String projectName,
             String projectDescription) {
         
-        log.info("Starting onboarding: userId={}, org={}, project={}", 
-            userId, organizationName, projectName);
+        log.info("Starting onboarding: firebaseUid={}, email={}, org={}, project={}", 
+            firebaseUid, email, organizationName, projectName);
         
-        // Validate: User cannot be part of any tenant already
-        return openFgaService.getUserTenants(userId)
-            .flatMap(existingTenants -> {
-                if (existingTenants != null && !existingTenants.isEmpty()) {
-                    // User is already part of one or more tenants - block onboarding
-                    log.warn("Onboarding blocked: User is already part of {} organization(s): userId={}", 
-                        existingTenants.size(), userId);
-                    return Single.error(new IllegalStateException(
-                        "User is already part of an organization. You cannot onboard if you're already " +
-                        "associated with any organization. Please use an existing organization or contact support."));
-                }
-                // No existing tenants - proceed
-                return proceedWithOnboarding(userId, email, name, organizationName, projectName, projectDescription);
+        // CRITICAL FIX: Look up the database user by email (created during login)
+        // This ensures we use the same database userId for OpenFGA role assignments
+        return userService.getOrCreateUser(email, name, firebaseUid)
+            .flatMap(user -> {
+                String dbUserId = user.getUserId();
+                log.info("Onboarding user lookup: firebaseUid={}, dbUserId={}, email={}", 
+                    firebaseUid, dbUserId, email);
+                
+                // Validate: User cannot be part of any tenant already
+                return openFgaService.getUserTenants(dbUserId)
+                    .flatMap(existingTenants -> {
+                        if (existingTenants != null && !existingTenants.isEmpty()) {
+                            // User is already part of one or more tenants - block onboarding
+                            log.warn("Onboarding blocked: User is already part of {} organization(s): dbUserId={}", 
+                                existingTenants.size(), dbUserId);
+                            return Single.error(new IllegalStateException(
+                                "User is already part of an organization. You cannot onboard if you're already " +
+                                "associated with any organization. Please use an existing organization or contact support."));
+                        }
+                        // No existing tenants - proceed with database userId
+                        return proceedWithOnboarding(dbUserId, email, name, organizationName, projectName, projectDescription);
+                    });
             })
             .doOnError(error -> 
-                log.error("Onboarding failed: userId={}", userId, error)
+                log.error("Onboarding failed: firebaseUid={}, email={}", firebaseUid, email, error)
             );
     }
     

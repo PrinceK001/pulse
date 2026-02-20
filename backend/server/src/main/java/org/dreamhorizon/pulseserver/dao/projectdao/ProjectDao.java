@@ -173,13 +173,7 @@ public class ProjectDao {
             .tenantId(row.getString("tenant_id"))
             .name(row.getString("name"))
             .description(row.getString("description"))
-            .apiKey(null)  // Not stored in projects table
-            .id(row.getLong("id"))
-            .projectId(row.getString("project_id"))
-            .tenantId(row.getString("tenant_id"))
-            .name(row.getString("name"))
-            .description(row.getString("description"))
-            .apiKey(row.getString("api_key"))
+            .apiKey(null)  // Not stored in projects table - managed in project_api_keys
             .isActive(row.getBoolean("is_active"))
             .createdBy(row.getString("created_by"))
             .createdAt(row.getLocalDateTime("created_at") != null ? 
