@@ -73,6 +73,8 @@ class ConfigControllerTest {
     @Test
     void shouldGetConfigByVersion(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+
+        TenantContext.setTenantId("default");
         // Given
         Integer version = 1;
         PulseConfig mockConfig = PulseConfig.builder()
@@ -104,7 +106,7 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         // Given
         Integer version = 999;
-
+        TenantContext.setTenantId("default");
         when(configService.getSdkConfig(TenantContext.requireTenantId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Config not found", "Config not found", 404)));
@@ -131,7 +133,7 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         // Given
         Integer version = 1;
-
+        TenantContext.setTenantId("default");
         when(configService.getSdkConfig(TenantContext.requireTenantId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Database error", "Database error", 500)));
