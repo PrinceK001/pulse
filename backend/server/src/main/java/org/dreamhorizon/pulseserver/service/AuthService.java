@@ -118,8 +118,8 @@ public class AuthService {
             // Check if user exists by email
             return userDao.getUserByEmail(userInfo.email)
                 .switchIfEmpty(Single.defer(() -> {
-                    // New user - create and needs onboarding
-                    return userService.getOrCreateUser(userInfo.email, userInfo.name);
+                    // New user - create with Firebase UID and needs onboarding
+                    return userService.getOrCreateUser(userInfo.email, userInfo.name, userInfo.userId);
                 }))
                 .flatMap(user -> {
                     // Check if user is pending (added by admin but never logged in)
@@ -127,7 +127,7 @@ public class AuthService {
                         log.info("Activating pending user on first login: userId={}, email={}", 
                             user.getUserId(), user.getEmail());
                         
-                        // Activate the user
+                        // Activate the user and update Firebase UID
                         return userDao.activateUser(
                             user.getUserId(), 
                             userInfo.userId,  // Firebase UID

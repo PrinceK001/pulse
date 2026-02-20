@@ -25,14 +25,17 @@ public class UserService {
     
     /**
      * Get an existing user by email or create a new user if not found.
-     * This is the primary method used during Google OAuth authentication.
+     * This is the primary method used during Google OAuth authentication and onboarding.
+     * 
+     * IMPROVEMENT: Now stores Firebase UID for better user identification and to prevent
+     * ID mismatch issues between login and onboarding flows.
      * 
      * @param email User email from Google OAuth
      * @param name User display name
-     * @param profilePicture Profile picture URL
+     * @param firebaseUid Firebase User ID (optional, but recommended for consistency)
      * @return Single<User> The existing or newly created user
      */
-    public Single<User> getOrCreateUser(String email, String name) {
+    public Single<User> getOrCreateUser(String email, String name, String firebaseUid) {
         return userDao.getUserByEmail(email)
             .switchIfEmpty(Single.defer(() -> {
                 String userId = "user-" + UUID.randomUUID().toString();
@@ -40,15 +43,28 @@ public class UserService {
                     .userId(userId)
                     .email(email)
                     .name(name)
+                    .firebaseUid(firebaseUid)  // Store Firebase UID for reference
                     .isActive(true)
                     .build();
                 
-                log.info("Creating new user: email={}, userId={}", email, userId);
+                log.info("Creating new user: email={}, userId={}, firebaseUid={}", email, userId, firebaseUid);
                 return userDao.createUser(newUser);
             }))
             .doOnSuccess(user -> 
-                log.debug("User retrieved: userId={}, email={}", user.getUserId(), user.getEmail())
+                log.debug("User retrieved: userId={}, email={}, firebaseUid={}", 
+                    user.getUserId(), user.getEmail(), user.getFirebaseUid())
             );
+    }
+    
+    /**
+     * Overload for backward compatibility (when firebaseUid is not available).
+     * 
+     * @param email User email
+     * @param name User display name
+     * @return Single<User> The existing or newly created user
+     */
+    public Single<User> getOrCreateUser(String email, String name) {
+        return getOrCreateUser(email, name, null);
     }
     
     /**
