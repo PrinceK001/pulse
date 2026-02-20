@@ -105,7 +105,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return headerTenantId.trim();
     }
 
-    //Temporary fix for supporting the projectId. This will be replaced once we have the complete project Onboarding in place
+    //This a Temporary fix for supporting the projectId.
+    //TODO: This will be replaced once we have the complete project Onboarding in place
     String projectId = requestContext.getHeaderString(PROJECT_HEADER);
     if (projectId != null && !projectId.isBlank()) {
       return projectId.trim();
