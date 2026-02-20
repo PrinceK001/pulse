@@ -4,6 +4,8 @@ import { setCookies } from "../cookies";
 import { COOKIES_KEY } from "../../constants";
 
 export type SetCookiesAfterAuthOptions = { 
+  // DEPRECATED: projectId and projectName now handled by React Context
+  // Keep for backward compatibility during migration
   projectId?: string;
   projectName?: string;
 };
@@ -30,16 +32,11 @@ export const setCookiesAfterAuthentication = (
     setCookies(COOKIES_KEY.EXPIRES_IN, `${loginResponse.expiresIn}`);
   }
   
-  // Tenant info
+  // Tenant info (for initial hydration only)
   if (loginResponse.tenantId) {
     setCookies(COOKIES_KEY.TENANT_ID, loginResponse.tenantId);
   }
   
-  // Project info (if provided - used after project selection)
-  if (options?.projectId) {
-    setCookies(COOKIES_KEY.PROJECT_ID, options.projectId);
-  }
-  if (options?.projectName) {
-    setCookies(COOKIES_KEY.PROJECT_NAME, options.projectName);
-  }
+  // NOTE: PROJECT_ID and PROJECT_NAME are no longer stored in cookies
+  // They are now managed by ProjectContext (React Context API)
 };

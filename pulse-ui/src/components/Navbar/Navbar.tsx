@@ -32,19 +32,16 @@ import {
   IconMessageCircle,
   IconUserCircle,
   IconSettings,
-  IconBuilding,
   IconUsers,
   IconFolder,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef } from "react";
-import { googleLogout } from "@react-oauth/google";
-import { getCookies, removeAllCookies } from "../../helpers/cookies";
-import {
-  signOutFirebase,
-  isGcpMultiTenantEnabled,
-} from "../../helpers/gcpAuth";
-import { getProjectContext } from "../../helpers/projectContext";
+import { getCookies } from "../../helpers/cookies";
+import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
+import { useTenantContext, useProjectContext } from "../../contexts";
+import { usePermissions } from "../../hooks";
+import { performLogout } from "../../helpers/logout";
 
 export function Navbar({
   toggle,
@@ -58,12 +55,20 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
-  const projectContext = getProjectContext();
+  const { projectId: contextProjectId, clearProject } = useProjectContext();
+  const { tenantId, tenantName, clearTenant } = useTenantContext();
+  const permissions = usePermissions();
+
+  const handleAllProjectsClick = () => {
+    console.log('[Navbar] Clearing project context and navigating to project selection');
+    clearProject();
+    navigate(ROUTES.PROJECT_SELECTION.basePath);
+  };
 
   function onItemClick(routeTo: string) {
     // Transform flat routes to project-scoped routes
-    if (projectContext && !routeTo.startsWith('/organization') && !routeTo.startsWith('/projects/')) {
-      const projectScopedRoute = `/projects/${projectContext.projectId}${routeTo}`;
+    if (contextProjectId && !routeTo.startsWith('/organization') && !routeTo.startsWith('/projects/')) {
+      const projectScopedRoute = `/projects/${contextProjectId}${routeTo}`;
       navigate(projectScopedRoute);
     } else {
       navigate(routeTo);
@@ -88,25 +93,28 @@ export function Navbar({
   };
 
   const onLogoClick = () => {
-    if (projectContext) {
-      navigate(`/projects/${projectContext.projectId}`);
+    if (contextProjectId) {
+      navigate(`/projects/${contextProjectId}`);
     } else {
       navigate("/");
     }
   };
 
   const onLogoutClick = async () => {
-    if (isGcpMultiTenantEnabled()) {
-      await signOutFirebase();
-    } else {
-      googleLogout();
-    }
-    removeAllCookies();
+    // Clear all React contexts explicitly
+    clearProject();
+    clearTenant();
+    console.log('[Navbar] Cleared project and tenant contexts');
+    
+    // Perform logout (clears cookies, sessionStorage, and signs out)
+    await performLogout();
+    
+    // Navigate to login
     navigate(ROUTES.LOGIN.basePath);
   };
 
   const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
-  const currentTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+  const currentTenantId = tenantId || getCookies(COOKIES_KEY.TENANT_ID);
 
   return (
     <AppShell.Navbar pt="md" pb="md" className={classes.navbarContainer}>
@@ -260,7 +268,7 @@ export function Navbar({
                       currentTenantId !== "undefined" && (
                         <Text size="xs" c="dimmed" mt={4}>
                           {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
-                          {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
+                          {tenantName || currentTenantId}
                         </Text>
                     )}
                   </Box>
@@ -274,14 +282,14 @@ export function Navbar({
               
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.ORGANIZATION_DASHBOARD.basePath)}
+                onClick={handleAllProjectsClick}
                 style={{ cursor: 'pointer' }}
               >
                 <Group gap="sm">
-                  <IconBuilding size={20} style={{ color: "#0ba09a" }} />
+                  <IconFolder size={20} style={{ color: "#0ba09a" }} />
                   <Box>
-                    <Text size="sm" fw={500}>Organization Dashboard</Text>
-                    <Text size="xs" c="dimmed">Overview & stats</Text>
+                    <Text size="sm" fw={500}>All Projects</Text>
+                    <Text size="xs" c="dimmed">Switch projects</Text>
                   </Box>
                 </Group>
               </Box>
@@ -300,72 +308,31 @@ export function Navbar({
                 </Group>
               </Box>
 
-              <Box
-                className={classes.menuItem}
-                onClick={() => navigate(ROUTES.ORGANIZATION_PROJECTS.basePath)}
-                style={{ cursor: 'pointer' }}
-              >
-                <Group gap="sm">
-                  <IconFolder size={20} style={{ color: "#0ba09a" }} />
-                  <Box>
-                    <Text size="sm" fw={500}>All Projects</Text>
-                    <Text size="xs" c="dimmed">Browse & manage</Text>
-                  </Box>
-                </Group>
-              </Box>
-
-              <Box
-                className={classes.menuItem}
-                onClick={() => navigate(ROUTES.ORGANIZATION_SETTINGS.basePath)}
-                style={{ cursor: 'pointer' }}
-              >
-                <Group gap="sm">
-                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
-                  <Box>
-                    <Text size="sm" fw={500}>Organization Settings</Text>
-                    <Text size="xs" c="dimmed">General & billing</Text>
-                  </Box>
-                </Group>
-              </Box>
-
               <Divider />
 
-              {/* Project Section */}
-              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Current Project</Text>
+              {/* Project Section - Only show if a project is selected */}
+              {contextProjectId && (
+                <>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Current Project</Text>
 
-              {/* Settings Link */}
-              <Box
-                className={classes.menuItem}
-                onClick={() => {
-                  if (projectContext) {
-                    navigate(`/projects/${projectContext.projectId}/settings`);
-                  }
-                }}
-                style={{ cursor: 'pointer' }}
-              >
-                <Group gap="sm">
-                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
-                  <Box>
-                    <Text size="sm" fw={500}>Project Settings</Text>
-                    <Text size="xs" c="dimmed">SDK Configuration & more</Text>
-                  </Box>
-                </Group>
-              </Box>
-
-              {/* Project Settings Link (API Keys & Collaborators) */}
-              <Box
-                className={classes.menuItem}
-                onClick={() => navigate(ROUTES.PROJECT_SETTINGS.basePath)}
-                style={{ cursor: 'pointer' }}
-              >
-                <Group gap="sm">
-                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
-                  <Box>
-                    <Text size="sm" fw={500}>API Keys & Access</Text>
-                    <Text size="xs" c="dimmed">API Keys & Collaborators</Text>
-                  </Box>
-                </Group>
-              </Box>
+                  {/* Settings Link */}
+                  {permissions.canManageProjectSettings && (
+                    <Box
+                      className={classes.menuItem}
+                      onClick={() => navigate(`/projects/${contextProjectId}/settings`)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <Group gap="sm">
+                        <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                        <Box>
+                          <Text size="sm" fw={500}>Settings</Text>
+                          <Text size="xs" c="dimmed">API Keys, Team & Configuration</Text>
+                        </Box>
+                      </Group>
+                    </Box>
+                  )}
+                </>
+              )}
 
               <Divider />
               {/* Help Link */}

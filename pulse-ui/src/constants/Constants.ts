@@ -58,6 +58,7 @@ import { OrganizationDashboard } from "../screens/OrganizationDashboard";
 import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
+import { CreateProject } from "../screens/CreateProject";
 import { LegacyRedirect } from "../components/LegacyRedirect";
 
 export const APP_NAME: string = "Pulse";
@@ -123,6 +124,12 @@ export const ROUTES: Routes = {
     basePath: "/organization/projects",
     path: "/organization/projects",
     element: OrganizationProjects,
+  },
+  CREATE_PROJECT: {
+    key: "CREATE_PROJECT",
+    basePath: "/organization/projects/new",
+    path: "/organization/projects/new",
+    element: CreateProject,
   },
   
   // Project-scoped routes (nested under /projects/:projectId)
@@ -999,10 +1006,8 @@ export const COOKIES_KEY: Record<string, string> = {
   ID_TOKEN: "idToken",
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
-  TENANT_ID: "tenantId",
-  TENANT_NAME: "tenantName",
-  PROJECT_ID: "projectId",
-  PROJECT_NAME: "projectName",
+  TENANT_ID: "tenantId", // Keep for initial hydration only
+  // REMOVED: PROJECT_ID, PROJECT_NAME, TENANT_NAME - Now handled by React Context
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {

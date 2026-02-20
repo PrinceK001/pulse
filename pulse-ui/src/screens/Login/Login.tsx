@@ -26,10 +26,12 @@ import { getCookies } from "../../helpers/cookies";
 import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpiration";
 import { logEvent } from "../../helpers/googleAnalytics";
 import { login } from "../../helpers/login";
+import { useTenantContext } from "../../contexts";
 
 export function Login() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
+  const { setTenantInfo } = useTenantContext();
   const [isFetchingTokensFromServer, setIsFetchingTokensFromServer] =
     useState<boolean>(false);
 
@@ -107,8 +109,19 @@ export function Login() {
           sessionStorage.setItem('firebase_token', firebaseToken);
           navigate(ROUTES.ONBOARDING.basePath);
         } else {
-          console.log("[Login] User authenticated, setting cookies and redirecting to project selection...");
+          console.log("[Login] User authenticated, setting tenant context and redirecting...");
+          // Set auth tokens in cookies
           await setCookiesAfterAuthentication(data);
+          
+          // Set tenant context
+          if (data.tenantId && data.tenantRole) {
+            setTenantInfo({
+              tenantId: data.tenantId,
+              tenantName: '', // Will be fetched from projects API
+              userRole: data.tenantRole as 'owner' | 'admin' | 'member',
+            });
+          }
+          
           navigate(ROUTES.PROJECT_SELECTION.basePath);
         }
       }
@@ -146,7 +159,18 @@ export function Login() {
         sessionStorage.setItem('firebase_token', 'dev-id-token');
         navigate(ROUTES.ONBOARDING.basePath);
       } else {
+        // Set auth tokens in cookies
         await setCookiesAfterAuthentication(data);
+        
+        // Set tenant context
+        if (data.tenantId && data.tenantRole) {
+          setTenantInfo({
+            tenantId: data.tenantId,
+            tenantName: '', // Will be fetched from projects API
+            userRole: data.tenantRole as 'owner' | 'admin' | 'member',
+          });
+        }
+        
         navigate(ROUTES.PROJECT_SELECTION.basePath);
       }
     }

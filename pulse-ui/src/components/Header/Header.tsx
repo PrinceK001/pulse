@@ -19,38 +19,16 @@ import {
   IconCircleChevronRight,
   IconFolder,
 } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
-import { getProjectContext, setProjectContext } from "../../helpers/projectContext";
-import { getUserProjects, ProjectSummary } from "../../helpers/getUserProjects";
+import { useTenantContext, useProjectContext } from "../../contexts";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const currentProject = getProjectContext();
-  console.log(currentProject);
+  const { projects } = useTenantContext();
+  const { projectId, projectName, plan, switchProject } = useProjectContext();
 
-  useEffect(() => {
-    // Fetch projects for dropdown
-    getUserProjects().then(response => {
-      if (response.data) {
-        setProjects(response.data.projects);
-      }
-    });
-  }, []);
-  console.log(projects);
-
-  const handleProjectSwitch = (projectId: string | null) => {
-    if (!projectId) return;
-    
-    const selectedProject = projects.find(p => p.projectId === projectId);
-    if (selectedProject) {
-      setProjectContext({
-        projectId: selectedProject.projectId,
-        projectName: selectedProject.name,
-      });
-      // Navigate to new project's dashboard
-      navigate(`/projects/${selectedProject.projectId}`);
-    }
+  const handleProjectSwitch = async (newProjectId: string | null) => {
+    if (!newProjectId || newProjectId === projectId) return;
+    await switchProject(newProjectId);
   };
 
   return (
@@ -77,11 +55,11 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
         
         {/* Project Display Section */}
         <Box className={classes.projectSection}>
-          {currentProject && projects.length <= 1 ? (
+          {projectId && projects.length <= 1 ? (
             // Single project - show name with upgrade badge (Free plan)
             <Group gap="xs" className={classes.projectInfo}>
               <IconFolder size={18} style={{ color: '#0ba09a' }} />
-              <Text className={classes.projectName}>{currentProject.projectName}</Text>
+              <Text className={classes.projectName}>{projectName}</Text>
               <Badge 
                 variant="light" 
                 color="teal"
@@ -89,10 +67,10 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
                 className={classes.upgradeBadge}
                 onClick={() => navigate('/pricing')}
               >
-                Free · Upgrade
+                {plan === 'free' ? 'Free' : 'Enterprise'} · Upgrade
               </Badge>
             </Group>
-          ) : currentProject && projects.length > 1 ? (
+          ) : projectId && projects.length > 1 ? (
             // Multiple projects - show selector
             <Select
               leftSection={<IconFolder size={18} />}
@@ -101,7 +79,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
                 value: p.projectId,
                 label: p.name,
               }))}
-              value={currentProject.projectId}
+              value={projectId}
               onChange={handleProjectSwitch}
               className={classes.projectDropdown}
               comboboxProps={{ withinPortal: true }}

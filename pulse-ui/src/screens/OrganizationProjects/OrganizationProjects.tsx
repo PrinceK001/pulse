@@ -1,46 +1,98 @@
-import { Container, Title, Grid, Card, Button, Group, Text } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
-import { getUserProjects, ProjectSummary } from '../../helpers/getUserProjects';
-import { useState, useEffect } from 'react';
+import { Container, Title, Grid, Card, Button, Group, Text, Badge } from '@mantine/core';
+import { IconPlus, IconFolder } from '@tabler/icons-react';
+import { useTenantContext } from '../../contexts';
+import { usePermissions } from '../../hooks';
 import { useNavigate } from 'react-router-dom';
 
 export function OrganizationProjects() {
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const { projects, isLoading } = useTenantContext();
+  const { canCreateProjects } = usePermissions();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    getUserProjects().then(response => {
-      if (response.data) {
-        setProjects(response.data.projects);
-      }
-    });
-  }, []);
+  const handleCreateProject = () => {
+    navigate('/organization/projects/new');
+  };
+
+  const handleProjectClick = (projectId: string) => {
+    navigate(`/projects/${projectId}`);
+  };
+
+  if (isLoading) {
+    return (
+      <Container size="xl">
+        <Text>Loading projects...</Text>
+      </Container>
+    );
+  }
 
   return (
     <Container size="xl">
       <Group justify="space-between" mb="xl">
-        <Title order={1}>All Projects</Title>
-        <Button leftSection={<IconPlus size={16} />}>
-          Create Project
-        </Button>
+        <div>
+          <Title order={1}>All Projects</Title>
+          <Text c="dimmed" size="sm">
+            Manage your projects and create new ones
+          </Text>
+        </div>
+        {canCreateProjects && (
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={handleCreateProject}
+            variant="gradient"
+            gradient={{ from: '#0ec9c2', to: '#0ba09a' }}
+          >
+            Create Project
+          </Button>
+        )}
       </Group>
       
-      <Grid>
-        {projects.map(project => (
-          <Grid.Col key={project.projectId} span={4}>
-            <Card 
-              shadow="sm" 
-              padding="lg"
-              onClick={() => navigate(`/projects/${project.projectId}`)}
-              style={{ cursor: 'pointer' }}
+      {projects.length === 0 ? (
+        <Card shadow="sm" padding="xl" style={{ textAlign: 'center' }}>
+          <Text c="dimmed" mb="md">
+            No projects yet. {canCreateProjects && 'Create your first project to get started.'}
+          </Text>
+          {canCreateProjects && (
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={handleCreateProject}
+              variant="light"
+              color="teal"
             >
-              <Text fw={500}>{project.name}</Text>
-              <Text size="sm" c="dimmed">{project.description || 'No description'}</Text>
-              <Text size="xs" c="dimmed" mt={4}>Role: {project.role}</Text>
-            </Card>
-          </Grid.Col>
-        ))}
-      </Grid>
+              Create First Project
+            </Button>
+          )}
+        </Card>
+      ) : (
+        <Grid>
+          {projects.map(project => (
+            <Grid.Col key={project.projectId} span={4}>
+              <Card 
+                shadow="sm" 
+                padding="lg"
+                onClick={() => handleProjectClick(project.projectId)}
+                style={{ cursor: 'pointer', height: '100%' }}
+                withBorder
+              >
+                <Group justify="space-between" mb="xs">
+                  <IconFolder size={24} style={{ color: '#0ba09a' }} />
+                  {project.isActive ? (
+                    <Badge color="teal" variant="light" size="sm">Active</Badge>
+                  ) : (
+                    <Badge color="gray" variant="light" size="sm">Inactive</Badge>
+                  )}
+                </Group>
+                <Text fw={500} size="lg" mb="xs">{project.name}</Text>
+                <Text size="sm" c="dimmed" lineClamp={2} mb="sm">
+                  {project.description || 'No description'}
+                </Text>
+                <Group justify="space-between" mt="auto">
+                  <Text size="xs" c="dimmed">Your Role: <strong>{project.role}</strong></Text>
+                </Group>
+              </Card>
+            </Grid.Col>
+          ))}
+        </Grid>
+      )}
     </Container>
   );
 }

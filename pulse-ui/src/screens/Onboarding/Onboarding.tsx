@@ -14,10 +14,10 @@ import classes from "./Onboarding.module.css";
 import { ROUTES, COMMON_CONSTANTS } from "../../constants";
 import { completeOnboarding } from "../../helpers/onboarding";
 import { setCookiesAfterAuthentication } from "../../helpers/setCookiesAfterAuthentication";
-import { setProjectContext } from "../../helpers/projectContext";
 import { showNotification } from "../../helpers/showNotification";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { useMantineTheme } from "@mantine/core";
+import { useTenantContext, useProjectContext } from "../../contexts";
 
 interface OnboardingUserData {
   userId: string;
@@ -29,6 +29,8 @@ interface OnboardingUserData {
 export function Onboarding() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
+  const { setTenantInfo, addProject } = useTenantContext();
+  const { setProject } = useProjectContext();
   
   const [userData, setUserData] = useState<OnboardingUserData | null>(null);
   const [organizationName, setOrganizationName] = useState("");
@@ -87,17 +89,35 @@ export function Onboarding() {
     );
     
     if (data) {
-      // Set cookies with project info
-      await setCookiesAfterAuthentication(data, {
-        projectId: data.projectId,
-        projectName: data.projectName,
+      console.log('[Onboarding] Onboarding successful, setting contexts');
+      
+      // Set cookies with auth tokens only
+      await setCookiesAfterAuthentication(data);
+      
+      // Set tenant context
+      setTenantInfo({
+        tenantId: data.tenantId,
+        tenantName: data.tenantName,
+        userRole: 'owner', // User who completes onboarding is always owner
       });
       
-      // Set project context in cookies
+      // Set project context
       if (data.projectId && data.projectName) {
-        setProjectContext({
+        setProject({
           projectId: data.projectId,
           projectName: data.projectName,
+          userRole: 'admin', // Owner's first project = admin
+          isActive: true,
+          plan: 'free',
+        });
+        
+        // Add project to tenant's projects list
+        addProject({
+          projectId: data.projectId,
+          name: data.projectName,
+          description: projectDescription.trim() || '',
+          isActive: true,
+          role: 'admin',
         });
       }
       

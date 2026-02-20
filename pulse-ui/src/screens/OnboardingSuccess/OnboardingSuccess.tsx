@@ -27,7 +27,7 @@ import {
 } from '@tabler/icons-react';
 import { showNotification } from '../../helpers/showNotification';
 import { getProjectApiKey } from '../../helpers/getProjectApiKey';
-import { getProjectContext } from '../../helpers/projectContext';
+import { useProjectContext } from '../../contexts';
 import classes from './OnboardingSuccess.module.css';
 
 export function OnboardingSuccess() {
@@ -36,8 +36,11 @@ export function OnboardingSuccess() {
   const navigate = useNavigate();
   const locationState = location.state || {};
   const projectId = urlProjectId; // Get from URL params
+  
+  // Get project info from context
+  const { projectName: contextProjectName, projectId: contextProjectId } = useProjectContext();
 
-  const [projectName, setProjectName] = useState<string | null>(locationState.projectName || null);
+  const [projectName, setProjectName] = useState<string | null>(locationState.projectName || contextProjectName || null);
   const [projectApiKey, setProjectApiKey] = useState<string | null>(locationState.projectApiKey || null);
   const [loading, setLoading] = useState(!locationState.projectName || !locationState.projectApiKey);
   
@@ -64,13 +67,13 @@ export function OnboardingSuccess() {
       setLoading(true);
 
       try {
-        // Get project name from project context (already set in cookies)
-        const projectContext = getProjectContext();
-        if (projectContext?.projectName) {
-          setProjectName(projectContext.projectName);
-        } else {
-          // If project context is missing, redirect to project dashboard
-          console.log('[OnboardingSuccess] No project context, redirecting');
+        // Get project name from React Context
+        if (contextProjectName && contextProjectId === projectId) {
+          console.log('[OnboardingSuccess] Using project name from context:', contextProjectName);
+          setProjectName(contextProjectName);
+        } else if (!projectName) {
+          // If context doesn't have the project name and it's not in state, redirect to project dashboard
+          console.log('[OnboardingSuccess] No project context, redirecting to dashboard');
           navigate(`/projects/${projectId}`, { replace: true });
           return;
         }
@@ -88,7 +91,7 @@ export function OnboardingSuccess() {
     };
 
     fetchProjectDetails();
-  }, [projectId, projectName, projectApiKey, navigate]);
+  }, [projectId, projectName, projectApiKey, navigate, contextProjectName, contextProjectId]);
 
   // Show loading while fetching
   if (loading || !projectId || !projectName || !projectApiKey) {
@@ -171,9 +174,9 @@ Pulse.initialize({
             <Text className={classes.title}>
               🎉 Project "{projectName}" Created Successfully!
             </Text>
-            <Text className={classes.subtitle}>
+            {/* <Text className={classes.subtitle}>
               Your analytics platform is ready. Follow the steps below to integrate Pulse into your app.
-            </Text>
+            </Text> */}
           </Box>
 
           {/* API Key Section */}
