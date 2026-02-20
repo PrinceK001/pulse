@@ -25,6 +25,7 @@ public abstract class SymbolFileService {
         .collect(Collectors.toMap(
             UploadMetadata::getFileName,
             m -> {
+              //TODO: Fix this once Project Onboarding is done.
               m.setProjectId(tenantId);
               return m;
             },
