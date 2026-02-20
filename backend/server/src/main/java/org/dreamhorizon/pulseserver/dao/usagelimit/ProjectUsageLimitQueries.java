@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.projectdao;
+package org.dreamhorizon.pulseserver.dao.usagelimit;
 
 public class ProjectUsageLimitQueries {
 

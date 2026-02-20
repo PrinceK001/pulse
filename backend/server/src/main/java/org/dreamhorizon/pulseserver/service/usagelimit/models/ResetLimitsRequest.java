@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResetLimitsRequest {
-  private Integer projectId;
+  private String projectId;
   private Integer tierId; // Optional, defaults to 1 (free tier)
   private String performedBy;
 }

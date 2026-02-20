@@ -16,7 +16,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProjectUsageLimitPublicInfo {
-  private Integer projectId;
+  private String projectId;
   private Map<String, UsageLimitPublicValue> usageLimits;
 }
 

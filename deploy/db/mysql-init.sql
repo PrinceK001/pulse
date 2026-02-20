@@ -455,7 +455,8 @@ CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
 -- Projects within a tenant
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS projects (
-    project_id INT PRIMARY KEY AUTO_INCREMENT,
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project identifier (projectName-{uuid})',
     tenant_id VARCHAR(64) NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -473,7 +474,7 @@ CREATE TABLE IF NOT EXISTS projects (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS project_usage_limits (
     project_usage_limit_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id INT NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
     usage_limits JSON NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -507,11 +508,13 @@ DELIMITER ;
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS project_api_keys (
     project_api_key_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id INT NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
     api_key_encrypted TEXT NOT NULL,
     encryption_salt VARCHAR(100) NOT NULL,
     api_key_digest VARCHAR(100) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    expires_at TIMESTAMP NULL COMMENT 'NULL means never expires',
     grace_period_ends_at TIMESTAMP NULL,
     created_by VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -521,7 +524,8 @@ CREATE TABLE IF NOT EXISTS project_api_keys (
     CONSTRAINT fk_pak_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     INDEX idx_pak_project_active (project_id, is_active),
     INDEX idx_pak_digest (api_key_digest),
-    INDEX idx_pak_grace_period (grace_period_ends_at)
+    INDEX idx_pak_grace_period (grace_period_ends_at),
+    INDEX idx_pak_expires (expires_at)
 );
 
 -- ============================================================================

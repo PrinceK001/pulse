@@ -16,7 +16,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SetCustomLimitsRequest {
-  private Integer projectId;
+  private String projectId;
   private Map<String, UsageLimitValue> limits; // Partial - only limits to change
   private String performedBy;
 }

@@ -1,16 +1,19 @@
-package org.dreamhorizon.pulseserver.dao.projectdao;
+package org.dreamhorizon.pulseserver.dao.project;
 
 public class ProjectQueries {
 
   private static final String PROJECT_COLUMNS =
-      "project_id, tenant_id, name, description, is_active, created_by, created_at, updated_at";
+      "id, project_id, tenant_id, name, description, is_active, created_by, created_at, updated_at";
 
   public static final String INSERT_PROJECT =
-      "INSERT INTO projects (tenant_id, name, description, is_active, created_by) "
-          + "VALUES (?, ?, ?, ?, ?)";
+      "INSERT INTO projects (project_id, tenant_id, name, description, is_active, created_by) "
+          + "VALUES (?, ?, ?, ?, ?, ?)";
+
+  public static final String GET_PROJECT_BY_PROJECT_ID =
+      "SELECT " + PROJECT_COLUMNS + " FROM projects WHERE project_id = ?";
 
   public static final String GET_PROJECT_BY_ID =
-      "SELECT " + PROJECT_COLUMNS + " FROM projects WHERE project_id = ?";
+      "SELECT " + PROJECT_COLUMNS + " FROM projects WHERE id = ?";
 
   public static final String GET_PROJECTS_BY_TENANT_ID =
       "SELECT " + PROJECT_COLUMNS + " FROM projects WHERE tenant_id = ? AND is_active = TRUE";

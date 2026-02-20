@@ -11,10 +11,10 @@ import io.reactivex.rxjava3.core.Single;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.projectdao.ProjectDao;
-import org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitDao;
-import org.dreamhorizon.pulseserver.dao.projectdao.models.Project;
-import org.dreamhorizon.pulseserver.dao.projectdao.models.ProjectUsageLimit;
+import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.project.models.Project;
+import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
+import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
 import org.dreamhorizon.pulseserver.dao.tierdao.TierDao;
@@ -49,7 +49,7 @@ public class UsageLimitService {
   /**
    * Gets project usage limits (public, simplified info).
    */
-  public Maybe<ProjectUsageLimitPublicInfo> getProjectLimitsPublic(int projectId) {
+  public Maybe<ProjectUsageLimitPublicInfo> getProjectLimitsPublic(String projectId) {
     return usageLimitDao.getActiveLimitByProjectId(projectId)
         .map(this::mapToPublicInfo)
         .doOnError(error -> log.error("Failed to get public limits for project: {}", projectId, error));
@@ -60,7 +60,7 @@ public class UsageLimitService {
   /**
    * Gets project usage limits (full info for internal use).
    */
-  public Maybe<ProjectUsageLimitInfo> getProjectLimits(int projectId) {
+  public Maybe<ProjectUsageLimitInfo> getProjectLimits(String projectId) {
     return usageLimitDao.getActiveLimitByProjectId(projectId)
         .map(this::mapToInfo)
         .doOnError(error -> log.error("Failed to get limits for project: {}", projectId, error));
@@ -87,7 +87,7 @@ public class UsageLimitService {
   /**
    * Gets limit history for a project (inactive records).
    */
-  public Flowable<ProjectUsageLimitInfo> getProjectLimitHistory(int projectId) {
+  public Flowable<ProjectUsageLimitInfo> getProjectLimitHistory(String projectId) {
     return usageLimitDao.getLimitHistoryByProjectId(projectId)
         .map(this::mapToInfo)
         .doOnError(error -> log.error("Failed to get limit history for project: {}", projectId, error));
@@ -166,8 +166,8 @@ public class UsageLimitService {
    * Builds context for custom limit operations.
    * Fetches project, tenant, tier, and current limits in a single chain.
    */
-  private Single<CustomLimitContext> buildCustomLimitContext(int projectId) {
-    return projectDao.getProjectById(projectId)
+  private Single<CustomLimitContext> buildCustomLimitContext(String projectId) {
+    return projectDao.getProjectByProjectId(projectId)
         .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId)))
         .flatMap(project -> tenantDao.getTenantById(project.getTenantId())
             .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + project.getTenantId())))

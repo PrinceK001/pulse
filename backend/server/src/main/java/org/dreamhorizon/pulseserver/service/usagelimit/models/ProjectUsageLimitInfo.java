@@ -17,7 +17,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class ProjectUsageLimitInfo {
   private Long projectUsageLimitId;
-  private Integer projectId;
+  private String projectId;
   private Map<String, UsageLimitValue> usageLimits;
   private Boolean isActive;
   private String createdAt;

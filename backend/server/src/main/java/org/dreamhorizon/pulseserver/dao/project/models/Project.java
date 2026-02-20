@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.projectdao.models;
+package org.dreamhorizon.pulseserver.dao.project.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,7 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Project {
-  private Integer projectId;
+  private Integer id;           // Auto-increment primary key
+  private String projectId;     // External identifier (projectName-{uuid})
   private String tenantId;
   private String name;
   private String description;

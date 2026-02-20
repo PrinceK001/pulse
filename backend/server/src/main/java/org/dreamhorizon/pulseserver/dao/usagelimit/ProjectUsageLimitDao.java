@@ -1,15 +1,15 @@
-package org.dreamhorizon.pulseserver.dao.projectdao;
+package org.dreamhorizon.pulseserver.dao.usagelimit;
 
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.CHECK_ACTIVE_LIMIT_EXISTS;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ACTIVE_LIMIT_BY_PROJECT_ID;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ALL_ACTIVE_LIMITS;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ALL_LIMITS;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_ALL_LIMITS_BY_PROJECT_ID;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_LIMIT_BY_ID;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.GET_LIMIT_HISTORY_BY_PROJECT_ID;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.INSERT_USAGE_LIMIT;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.SOFT_DELETE_ACTIVE_LIMIT;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectUsageLimitQueries.SOFT_DELETE_ACTIVE_LIMITS_FOR_PROJECTS;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.CHECK_ACTIVE_LIMIT_EXISTS;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ACTIVE_LIMIT_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ALL_ACTIVE_LIMITS;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ALL_LIMITS;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ALL_LIMITS_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_LIMIT_BY_ID;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_LIMIT_HISTORY_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.INSERT_USAGE_LIMIT;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.SOFT_DELETE_ACTIVE_LIMIT;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.SOFT_DELETE_ACTIVE_LIMITS_FOR_PROJECTS;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.projectdao.models.ProjectUsageLimit;
+import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 
 @Slf4j
 @Singleton
@@ -33,7 +33,7 @@ import org.dreamhorizon.pulseserver.dao.projectdao.models.ProjectUsageLimit;
 public class ProjectUsageLimitDao {
   private final MysqlClient mysqlClient;
 
-  public Single<ProjectUsageLimit> createUsageLimit(int projectId, String usageLimitsJson, String createdBy) {
+  public Single<ProjectUsageLimit> createUsageLimit(String projectId, String usageLimitsJson, String createdBy) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(INSERT_USAGE_LIMIT)
         .rxExecute(Tuple.of(projectId, usageLimitsJson, createdBy))
@@ -51,7 +51,7 @@ public class ProjectUsageLimitDao {
         .doOnError(error -> log.error("Failed to create usage limit for project: {}", projectId, error));
   }
 
-  public Maybe<ProjectUsageLimit> getActiveLimitByProjectId(int projectId) {
+  public Maybe<ProjectUsageLimit> getActiveLimitByProjectId(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(GET_ACTIVE_LIMIT_BY_PROJECT_ID)
         .rxExecute(Tuple.of(projectId))
@@ -77,7 +77,7 @@ public class ProjectUsageLimitDao {
         .doOnError(error -> log.error("Failed to fetch limit by id: {}", limitId, error));
   }
 
-  public Flowable<ProjectUsageLimit> getAllLimitsByProjectId(int projectId) {
+  public Flowable<ProjectUsageLimit> getAllLimitsByProjectId(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(GET_ALL_LIMITS_BY_PROJECT_ID)
         .rxExecute(Tuple.of(projectId))
@@ -86,7 +86,7 @@ public class ProjectUsageLimitDao {
         .doOnError(error -> log.error("Failed to fetch all limits for project: {}", projectId, error));
   }
 
-  public Flowable<ProjectUsageLimit> getLimitHistoryByProjectId(int projectId) {
+  public Flowable<ProjectUsageLimit> getLimitHistoryByProjectId(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(GET_LIMIT_HISTORY_BY_PROJECT_ID)
         .rxExecute(Tuple.of(projectId))
@@ -95,7 +95,7 @@ public class ProjectUsageLimitDao {
         .doOnError(error -> log.error("Failed to fetch limit history for project: {}", projectId, error));
   }
 
-  public Completable softDeleteActiveLimit(int projectId, String disabledBy, String disabledReason) {
+  public Completable softDeleteActiveLimit(String projectId, String disabledBy, String disabledReason) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(SOFT_DELETE_ACTIVE_LIMIT)
         .rxExecute(Tuple.of(disabledBy, disabledReason, projectId))
@@ -110,7 +110,7 @@ public class ProjectUsageLimitDao {
         .doOnError(error -> log.error("Failed to soft-delete active limit for project: {}", projectId, error));
   }
 
-  public Completable softDeleteActiveLimitsForProjects(List<Integer> projectIds, String disabledBy, String disabledReason) {
+  public Completable softDeleteActiveLimitsForProjects(List<String> projectIds, String disabledBy, String disabledReason) {
     if (projectIds == null || projectIds.isEmpty()) {
       return Completable.complete();
     }
@@ -137,7 +137,7 @@ public class ProjectUsageLimitDao {
         .doOnError(error -> log.error("Failed to soft-delete active limits for projects: {}", projectIds, error));
   }
 
-  public Single<Boolean> hasActiveLimit(int projectId) {
+  public Single<Boolean> hasActiveLimit(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(CHECK_ACTIVE_LIMIT_EXISTS)
         .rxExecute(Tuple.of(projectId))
@@ -171,7 +171,7 @@ public class ProjectUsageLimitDao {
    * and creating a new one with the updated limits.
    */
   public Single<ProjectUsageLimit> updateUsageLimits(
-      int projectId,
+      String projectId,
       String newUsageLimitsJson,
       String performedBy,
       String disabledReason) {
@@ -182,7 +182,7 @@ public class ProjectUsageLimitDao {
   private ProjectUsageLimit mapRowToUsageLimit(Row row) {
     return ProjectUsageLimit.builder()
         .projectUsageLimitId(row.getLong("project_usage_limit_id"))
-        .projectId(row.getInteger("project_id"))
+        .projectId(row.getString("project_id"))
         .usageLimits(row.getString("usage_limits"))
         .isActive(row.getBoolean("is_active"))
         .createdAt(row.getLocalDateTime("created_at") != null ? row.getLocalDateTime("created_at").toString() : null)

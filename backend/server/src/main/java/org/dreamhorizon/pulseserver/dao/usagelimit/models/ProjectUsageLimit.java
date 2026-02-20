@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.projectdao.models;
+package org.dreamhorizon.pulseserver.dao.usagelimit.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ProjectUsageLimit {
   private Long projectUsageLimitId;
-  private Integer projectId; // References projects.project_id
+  private String projectId;
   private String usageLimits; // JSON string
   private Boolean isActive;
   private String createdAt;

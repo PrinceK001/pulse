@@ -1,21 +1,23 @@
-package org.dreamhorizon.pulseserver.dao.projectdao.models;
+package org.dreamhorizon.pulseserver.resources.apikeys.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * REST response for API key metadata (no raw key).
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProjectApiKey {
-  private Long projectApiKeyId;
-  private Integer projectId;
-  private String apiKeyEncrypted;
-  private String encryptionSalt;
-  private String apiKeyDigest;
+public class ApiKeyRestResponse {
+  private Long apiKeyId;
+  private String projectId;
+  private String displayName;
   private Boolean isActive;
+  private String expiresAt;
   private String gracePeriodEndsAt;
   private String createdBy;
   private String createdAt;
