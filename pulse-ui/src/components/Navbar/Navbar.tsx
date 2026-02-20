@@ -32,6 +32,9 @@ import {
   IconMessageCircle,
   IconUserCircle,
   IconSettings,
+  IconBuilding,
+  IconUsers,
+  IconFolder,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef } from "react";
@@ -41,6 +44,7 @@ import {
   signOutFirebase,
   isGcpMultiTenantEnabled,
 } from "../../helpers/gcpAuth";
+import { getProjectContext } from "../../helpers/projectContext";
 
 export function Navbar({
   toggle,
@@ -54,20 +58,41 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
+  const projectContext = getProjectContext();
 
   function onItemClick(routeTo: string) {
-    navigate(routeTo);
+    // Transform flat routes to project-scoped routes
+    if (projectContext && !routeTo.startsWith('/organization') && !routeTo.startsWith('/projects/')) {
+      const projectScopedRoute = `/projects/${projectContext.projectId}${routeTo}`;
+      navigate(projectScopedRoute);
+    } else {
+      navigate(routeTo);
+    }
   }
 
   const isActive = (path: string) => {
     const decodedRouteName = decodeURIComponent(pathname);
+    
+    // For project-scoped routes, check the part after /projects/:projectId
+    if (decodedRouteName.startsWith('/projects/')) {
+      const projectPathParts = decodedRouteName.split('/').slice(3); // Skip '', 'projects', projectId
+      const projectPath = '/' + projectPathParts.join('/');
+      const basePath = '/' + path.split('/')[1];
+      return projectPath.startsWith(basePath);
+    }
+    
+    // For other routes, use the old logic
     const base = path.split("/")[1];
     const baseMatch = decodedRouteName.split("/")[1];
     return base === baseMatch;
   };
 
   const onLogoClick = () => {
-    navigate("/");
+    if (projectContext) {
+      navigate(`/projects/${projectContext.projectId}`);
+    } else {
+      navigate("/");
+    }
   };
 
   const onLogoutClick = async () => {
@@ -244,22 +269,90 @@ export function Navbar({
 
               <Divider />
 
-              {/* Settings Link */}
+              {/* Organization Section */}
+              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Organization</Text>
+              
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.SETTINGS.basePath)}
+                onClick={() => navigate(ROUTES.ORGANIZATION_DASHBOARD.basePath)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconBuilding size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>Organization Dashboard</Text>
+                    <Text size="xs" c="dimmed">Overview & stats</Text>
+                  </Box>
+                </Group>
+              </Box>
+
+              <Box
+                className={classes.menuItem}
+                onClick={() => navigate(ROUTES.ORGANIZATION_MEMBERS.basePath)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconUsers size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>Members</Text>
+                    <Text size="xs" c="dimmed">Team management</Text>
+                  </Box>
+                </Group>
+              </Box>
+
+              <Box
+                className={classes.menuItem}
+                onClick={() => navigate(ROUTES.ORGANIZATION_PROJECTS.basePath)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconFolder size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>All Projects</Text>
+                    <Text size="xs" c="dimmed">Browse & manage</Text>
+                  </Box>
+                </Group>
+              </Box>
+
+              <Box
+                className={classes.menuItem}
+                onClick={() => navigate(ROUTES.ORGANIZATION_SETTINGS.basePath)}
                 style={{ cursor: 'pointer' }}
               >
                 <Group gap="sm">
                   <IconSettings size={20} style={{ color: "#0ba09a" }} />
                   <Box>
-                    <Text size="sm" fw={500}>Settings</Text>
+                    <Text size="sm" fw={500}>Organization Settings</Text>
+                    <Text size="xs" c="dimmed">General & billing</Text>
+                  </Box>
+                </Group>
+              </Box>
+
+              <Divider />
+
+              {/* Project Section */}
+              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Current Project</Text>
+
+              {/* Settings Link */}
+              <Box
+                className={classes.menuItem}
+                onClick={() => {
+                  if (projectContext) {
+                    navigate(`/projects/${projectContext.projectId}/settings`);
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>Project Settings</Text>
                     <Text size="xs" c="dimmed">SDK Configuration & more</Text>
                   </Box>
                 </Group>
               </Box>
 
-              {/* Project Settings Link */}
+              {/* Project Settings Link (API Keys & Collaborators) */}
               <Box
                 className={classes.menuItem}
                 onClick={() => navigate(ROUTES.PROJECT_SETTINGS.basePath)}
@@ -268,12 +361,13 @@ export function Navbar({
                 <Group gap="sm">
                   <IconSettings size={20} style={{ color: "#0ba09a" }} />
                   <Box>
-                    <Text size="sm" fw={500}>Project Settings</Text>
+                    <Text size="sm" fw={500}>API Keys & Access</Text>
                     <Text size="xs" c="dimmed">API Keys & Collaborators</Text>
                   </Box>
                 </Group>
               </Box>
 
+              <Divider />
               {/* Help Link */}
               <Anchor
                 href={NAVBAR_CONSTANTS.HELP_LINK}

@@ -2,19 +2,9 @@ import { useState, useEffect } from 'react';
 import { Stack, Title, Text, Card, Group, Button, Code, CopyButton, ActionIcon, Tooltip, Loader } from '@mantine/core';
 import { IconCopy, IconCheck, IconRefresh } from '@tabler/icons-react';
 import { getProjectContext } from '../../../helpers/projectContext';
+import { getProjectApiKey } from '../../../helpers/getProjectApiKey';
 import { makeRequest } from '../../../helpers/makeRequest';
 import { API_BASE_URL } from '../../../constants';
-
-interface ApiKeyItem {
-  id: string;
-  key: string;
-  createdAt: string;
-  isActive: boolean;
-}
-
-interface ApiKeysResponse {
-  keys: ApiKeyItem[];
-}
 
 export function ApiKeyManagement() {
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -31,23 +21,8 @@ export function ApiKeyManagement() {
     if (!projectContext) return;
     
     setLoading(true);
-    
-    // X-Project-ID header is automatically added by makeRequestToServer
-    const response = await makeRequest<ApiKeysResponse>({
-      url: `${API_BASE_URL}/v1/project/api-keys`,
-      init: { method: 'GET' },
-    });
-    
-    if (response.data?.keys && response.data.keys.length > 0) {
-      // Get the active key
-      const activeKey = response.data.keys.find(k => k.isActive);
-      setApiKey(activeKey?.key || null);
-    } else {
-      // Fallback: Show dummy key when API doesn't exist yet or returns no keys
-      console.log('[ApiKeyManagement] No API keys found, showing dummy key');
-      setApiKey(`pulse_${projectContext.projectId}_sk_dummy_development_key`);
-    }
-    
+    const key = await getProjectApiKey(projectContext.projectId);
+    setApiKey(key);
     setLoading(false);
   };
 

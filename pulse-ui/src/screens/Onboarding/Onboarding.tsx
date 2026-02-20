@@ -105,8 +105,14 @@ export function Onboarding() {
       sessionStorage.removeItem('onboarding_user');
       sessionStorage.removeItem('firebase_token');
       
-      // Navigate to dashboard (project already set, no need for project selection)
-      navigate(ROUTES.HOME.basePath);
+      // Navigate to project-scoped onboarding success page
+      navigate(`/projects/${data.projectId}/onboarding`, {
+        state: {
+          projectId: data.projectId,
+          projectName: data.projectName,
+          projectApiKey: data.projectApiKey,
+        }
+      });
     }
     
     if (error) {

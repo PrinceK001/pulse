@@ -22,6 +22,11 @@ export const getProjectContext = (): ProjectInfo | null => {
   return { projectId, projectName };
 };
 
+export const getProjectIdFromPath = (pathname: string): string | null => {
+  const match = pathname.match(/^\/projects\/([^/]+)/);
+  return match ? match[1] : null;
+};
+
 export const clearProjectContext = () => {
   removeCookie(COOKIES_KEY.PROJECT_ID);
   removeCookie(COOKIES_KEY.PROJECT_NAME);
