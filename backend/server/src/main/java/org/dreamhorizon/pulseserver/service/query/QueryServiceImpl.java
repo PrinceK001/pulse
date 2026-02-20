@@ -43,7 +43,7 @@ public class QueryServiceImpl implements QueryService {
 
     String tenantId = TenantContext.requireTenantId();
     // Appending TenantId for now. Will be changed to projectId once those changes are deployed.
-    String queryWithProjectId = String.format("%s AND project_id = '%s'", queryString, tenantId);
+    String queryWithProjectId = appendProjectId(queryString, tenantId);
 
     SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId);
     if (!validationResult.isValid()) {
