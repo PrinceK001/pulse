@@ -1,4 +1,4 @@
-import { QueryResult, QueryExecutionState } from "../../RealTimeQuery.interface";
+import { QueryExecutionState } from "../../RealTimeQuery.interface";
 
 /**
  * Props for the AiQuery component

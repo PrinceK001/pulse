@@ -66,7 +66,7 @@ export function useAiChatSession(options: UseAiChatSessionOptions): UseAiChatSes
       setSelectedMessageId(null);
       setPinnedFindings([]);
     }
-  }, [sessionId, initialSession?.id, initialSession?.messages, initialSession?.pinnedFindings, initialSession?.selectedMessageId]);
+  }, [sessionId, initialSession]);
 
   // Track the loading assistant message id so we can update it on completion
   const loadingMessageIdRef = useRef<string | null>(null);

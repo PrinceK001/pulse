@@ -17,8 +17,6 @@ export function extractTimeRangeFromSql(
   const whereMatch = sqlUpper.match(/WHERE\s+(.+?)(?:\s+GROUP\s+BY|\s+ORDER\s+BY|\s+LIMIT|$)/i);
   if (!whereMatch) return null;
 
-  const _whereClause = whereMatch[1];
-  
   // Pattern to match TIMESTAMP literals: TIMESTAMP 'YYYY-MM-DD HH:MM:SS'
   const timestampPattern = /TIMESTAMP\s+['"]([\d\s\-:]+)['"]/gi;
   
