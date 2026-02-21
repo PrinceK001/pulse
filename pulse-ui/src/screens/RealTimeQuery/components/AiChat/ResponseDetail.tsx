@@ -21,7 +21,6 @@ import {
   IconTable,
   IconChartBar,
   IconChevronDown,
-  IconChevronRight,
   IconAlertTriangle,
   IconAlertCircle,
   IconCircleCheck,
