@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChatMessage, PinnedFinding } from "../components/AiChat/AiChat.interface";
+import { ChatMessage } from "../components/AiChat/AiChat.interface";
 import {
   AiChatSessionData,
   generateSessionId,
