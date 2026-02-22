@@ -34,6 +34,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String ALERTS_PATH_PREFIX = "alerts";
+  private static final String LOGS_INGESTION_PATH = "v1/logs";
 
   private JwtService jwtService;
 
@@ -71,7 +72,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     return normalizedPath.equals(HEALTHCHECK_PATH)
         || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
         || normalizedPath.startsWith(AUTH_PATH_PREFIX)
-        || normalizedPath.startsWith(ALERTS_PATH_PREFIX);
+        || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+        || normalizedPath.startsWith(LOGS_INGESTION_PATH);
   }
 
   @Override
