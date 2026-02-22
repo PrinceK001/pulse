@@ -1,16 +1,9 @@
 package org.dreamhorizon.pulseserver.dao.projectdao;
 
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.ACTIVATE_PROJECT;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.CHECK_PROJECT_EXISTS;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.CHECK_SLUG_EXISTS;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.COUNT_PROJECTS_BY_TENANT;
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.DEACTIVATE_PROJECT;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.DELETE_PROJECT;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.GET_ALL_PROJECTS_BY_TENANT;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.GET_PROJECTS_BY_TENANT;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.GET_ACTIVE_PROJECT_COUNT;
+import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.GET_PROJECTS_BY_TENANT_ID;
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.GET_PROJECT_BY_ID;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.GET_PROJECT_BY_ID_AND_TENANT;
-import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.GET_PROJECT_BY_SLUG;
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.INSERT_PROJECT;
 import static org.dreamhorizon.pulseserver.dao.projectdao.ProjectQueries.UPDATE_PROJECT;
 
@@ -24,62 +17,51 @@ import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.projectdao.models.Project;
+import org.dreamhorizon.pulseserver.model.Project;
 
 /**
- * Data Access Object for project operations.
+ * Data Access Object for Project operations.
+ * Handles CRUD operations for projects within tenants.
  */
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ProjectDao {
-
   private final MysqlClient mysqlClient;
 
   /**
-   * Create a new project.
+   * Create a new project in the database.
+   * Note: api_key is NOT inserted here - it will be managed via project_api_keys table
    *
-   * @param tenantId    The tenant ID
-   * @param name        Project name
-   * @param description Project description (optional)
-   * @param slug        URL-friendly slug (optional, will be generated from name if not provided)
-   * @param createdBy   User ID of the creator
-   * @return Single emitting the created project
+   * @param project Project object to create
+   * @return Single containing the created project
    */
-  public Single<Project> createProject(String tenantId, String name, String description,
-                                       String slug, String createdBy) {
-    String projectId = UUID.randomUUID().toString();
-    String projectSlug = slug != null && !slug.isBlank() ? slug : generateSlug(name);
-
+  public Single<Project> createProject(Project project) {
     MySQLPool pool = mysqlClient.getWriterPool();
-    Tuple params = Tuple.tuple()
-        .addString(projectId)
-        .addString(tenantId)
-        .addString(name)
-        .addString(description)
-        .addString(projectSlug)
-        .addBoolean(true)
-        .addString(createdBy);
-    
     return pool.preparedQuery(INSERT_PROJECT)
-        .rxExecute(params)
-        .flatMap(result -> {
-          log.info("Created project: {} in tenant: {}", projectId, tenantId);
-          return getProjectById(projectId)
-              .switchIfEmpty(Single.error(new RuntimeException("Failed to retrieve created project")));
+        .rxExecute(
+            Tuple.wrap(java.util.Arrays.asList(
+                project.getProjectId(),
+                project.getTenantId(),
+                project.getName(),
+                project.getDescription(),
+                true,
+                project.getCreatedBy())))
+        .map(result -> {
+          log.info("Created project: {} for tenant: {}", project.getProjectId(), project.getTenantId());
+          return project;
         })
-        .doOnError(error -> log.error("Failed to create project: {} in tenant: {}", name, tenantId, error));
+        .doOnError(error -> log.error("Failed to create project: {}", project.getProjectId(), error));
   }
 
   /**
-   * Get a project by ID.
+   * Get project by project ID.
    *
-   * @param projectId The project ID
-   * @return Maybe emitting the project if found
+   * @param projectId Project ID (format: proj-{uuid})
+   * @return Maybe containing the project if found
    */
   public Maybe<Project> getProjectById(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
@@ -87,6 +69,7 @@ public class ProjectDao {
         .rxExecute(Tuple.of(projectId))
         .flatMapMaybe(rowSet -> {
           if (rowSet.size() == 0) {
+            log.debug("Project not found: {}", projectId);
             return Maybe.empty();
           }
           return Maybe.just(mapRowToProject(rowSet.iterator().next()));
@@ -95,100 +78,71 @@ public class ProjectDao {
   }
 
   /**
-   * Get a project by ID, ensuring it belongs to the specified tenant.
+   * Get project by API key.
+   * Note: This method is deprecated - API key lookups should use project_api_keys table
    *
-   * @param projectId The project ID
-   * @param tenantId  The tenant ID
-   * @return Maybe emitting the project if found
+   * @param apiKey API key
+   * @return Maybe empty (API keys not stored in projects table)
+   * @deprecated API keys are managed in project_api_keys table
    */
-  public Maybe<Project> getProjectByIdAndTenant(String projectId, String tenantId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_PROJECT_BY_ID_AND_TENANT)
-        .rxExecute(Tuple.of(projectId, tenantId))
-        .flatMapMaybe(rowSet -> {
-          if (rowSet.size() == 0) {
-            return Maybe.empty();
-          }
-          return Maybe.just(mapRowToProject(rowSet.iterator().next()));
-        })
-        .doOnError(error -> log.error("Failed to fetch project: {} in tenant: {}", projectId, tenantId, error));
+  @Deprecated
+  public Maybe<Project> getProjectByApiKey(String apiKey) {
+    log.warn("getProjectByApiKey called but api_key is not in projects table - use ProjectApiKeyDao instead");
+    return Maybe.empty();
   }
 
   /**
-   * Get all active projects for a tenant.
+   * Get all projects for a tenant.
    *
-   * @param tenantId The tenant ID
-   * @return Single emitting list of projects
+   * @param tenantId Tenant ID
+   * @return Single containing list of projects
    */
-  public Single<List<Project>> getProjectsByTenant(String tenantId) {
+  public Single<List<Project>> getProjectsByTenantId(String tenantId) {
     MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_PROJECTS_BY_TENANT)
+    return pool.preparedQuery(GET_PROJECTS_BY_TENANT_ID)
         .rxExecute(Tuple.of(tenantId))
         .map(rowSet -> {
           List<Project> projects = new ArrayList<>();
           for (Row row : rowSet) {
             projects.add(mapRowToProject(row));
           }
+          log.debug("Found {} projects for tenant: {}", projects.size(), tenantId);
           return projects;
         })
         .doOnError(error -> log.error("Failed to fetch projects for tenant: {}", tenantId, error));
   }
 
   /**
-   * Get all projects (including inactive) for a tenant.
+   * Get count of active projects for a tenant.
    *
-   * @param tenantId The tenant ID
-   * @return Single emitting list of projects
+   * @param tenantId Tenant ID
+   * @return Single containing the count
    */
-  public Single<List<Project>> getAllProjectsByTenant(String tenantId) {
+  public Single<Integer> getActiveProjectCount(String tenantId) {
     MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_ALL_PROJECTS_BY_TENANT)
+    return pool.preparedQuery(GET_ACTIVE_PROJECT_COUNT)
         .rxExecute(Tuple.of(tenantId))
         .map(rowSet -> {
-          List<Project> projects = new ArrayList<>();
-          for (Row row : rowSet) {
-            projects.add(mapRowToProject(row));
-          }
-          return projects;
+          Row row = rowSet.iterator().next();
+          int count = row.getLong("count").intValue();
+          log.debug("Active project count for tenant {}: {}", tenantId, count);
+          return count;
         })
-        .doOnError(error -> log.error("Failed to fetch all projects for tenant: {}", tenantId, error));
+        .doOnError(error -> log.error("Failed to get project count for tenant: {}", tenantId, error));
   }
 
   /**
-   * Get a project by slug within a tenant.
+   * Update project information.
    *
-   * @param tenantId The tenant ID
-   * @param slug     The project slug
-   * @return Maybe emitting the project if found
+   * @param projectId   Project ID
+   * @param name        Updated name
+   * @param description Updated description
+   * @return Completable that completes when update is successful
    */
-  public Maybe<Project> getProjectBySlug(String tenantId, String slug) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_PROJECT_BY_SLUG)
-        .rxExecute(Tuple.of(tenantId, slug))
-        .flatMapMaybe(rowSet -> {
-          if (rowSet.size() == 0) {
-            return Maybe.empty();
-          }
-          return Maybe.just(mapRowToProject(rowSet.iterator().next()));
-        })
-        .doOnError(error -> log.error("Failed to fetch project by slug: {} in tenant: {}", slug, tenantId, error));
-  }
-
-  /**
-   * Update a project.
-   *
-   * @param projectId   The project ID
-   * @param tenantId    The tenant ID
-   * @param name        New name
-   * @param description New description
-   * @param slug        New slug
-   * @return Completable that completes when update succeeds
-   */
-  public Completable updateProject(String projectId, String tenantId,
-                                   String name, String description, String slug) {
+  public Completable updateProject(String projectId, String name, String description) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(UPDATE_PROJECT)
-        .rxExecute(Tuple.of(name, description, slug, projectId, tenantId))
+        .rxExecute(Tuple.of(name, description, projectId))
         .flatMapCompletable(result -> {
           if (result.rowCount() == 0) {
             return Completable.error(new RuntimeException("Project not found: " + projectId));
@@ -200,147 +154,49 @@ public class ProjectDao {
   }
 
   /**
-   * Deactivate a project (soft delete).
+   * Deactivate a project.
    *
-   * @param projectId The project ID
-   * @param tenantId  The tenant ID
-   * @return Completable that completes when deactivation succeeds
+   * @param projectId Project ID
+   * @return Completable that completes when deactivation is successful
    */
-  public Completable deactivateProject(String projectId, String tenantId) {
+  public Completable deactivateProject(String projectId) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(DEACTIVATE_PROJECT)
-        .rxExecute(Tuple.of(projectId, tenantId))
+        .rxExecute(Tuple.of(projectId))
         .flatMapCompletable(result -> {
           if (result.rowCount() == 0) {
             log.warn("No project found to deactivate: {}", projectId);
-          } else {
-            log.info("Deactivated project: {}", projectId);
           }
+          log.info("Deactivated project: {}", projectId);
           return Completable.complete();
         })
         .doOnError(error -> log.error("Failed to deactivate project: {}", projectId, error));
   }
 
   /**
-   * Activate a project.
-   *
-   * @param projectId The project ID
-   * @param tenantId  The tenant ID
-   * @return Completable that completes when activation succeeds
+   * Maps a database row to a Project object.
+   * Note: apiKey field will be null - it's managed separately via project_api_keys table
    */
-  public Completable activateProject(String projectId, String tenantId) {
-    MySQLPool pool = mysqlClient.getWriterPool();
-    return pool.preparedQuery(ACTIVATE_PROJECT)
-        .rxExecute(Tuple.of(projectId, tenantId))
-        .flatMapCompletable(result -> {
-          if (result.rowCount() == 0) {
-            return Completable.error(new RuntimeException("Project not found: " + projectId));
-          }
-          log.info("Activated project: {}", projectId);
-          return Completable.complete();
-        })
-        .doOnError(error -> log.error("Failed to activate project: {}", projectId, error));
-  }
-
-  /**
-   * Delete a project permanently.
-   *
-   * @param projectId The project ID
-   * @param tenantId  The tenant ID
-   * @return Completable that completes when deletion succeeds
-   */
-  public Completable deleteProject(String projectId, String tenantId) {
-    MySQLPool pool = mysqlClient.getWriterPool();
-    return pool.preparedQuery(DELETE_PROJECT)
-        .rxExecute(Tuple.of(projectId, tenantId))
-        .flatMapCompletable(result -> {
-          if (result.rowCount() == 0) {
-            log.warn("No project found to delete: {}", projectId);
-          } else {
-            log.info("Deleted project: {}", projectId);
-          }
-          return Completable.complete();
-        })
-        .doOnError(error -> log.error("Failed to delete project: {}", projectId, error));
-  }
-
-  /**
-   * Check if a project exists.
-   *
-   * @param projectId The project ID
-   * @return Single emitting true if project exists
-   */
-  public Single<Boolean> projectExists(String projectId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(CHECK_PROJECT_EXISTS)
-        .rxExecute(Tuple.of(projectId))
-        .map(rowSet -> {
-          Row row = rowSet.iterator().next();
-          return row.getLong("count") > 0;
-        })
-        .doOnError(error -> log.error("Failed to check project existence: {}", projectId, error));
-  }
-
-  /**
-   * Check if a slug is already used by another project in the tenant.
-   *
-   * @param tenantId  The tenant ID
-   * @param slug      The slug to check
-   * @param projectId The current project ID (to exclude from check)
-   * @return Single emitting true if slug is already in use
-   */
-  public Single<Boolean> slugExists(String tenantId, String slug, String projectId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(CHECK_SLUG_EXISTS)
-        .rxExecute(Tuple.of(tenantId, slug, projectId != null ? projectId : ""))
-        .map(rowSet -> {
-          Row row = rowSet.iterator().next();
-          return row.getLong("count") > 0;
-        })
-        .doOnError(error -> log.error("Failed to check slug existence: {} in tenant: {}", slug, tenantId, error));
-  }
-
-  /**
-   * Count active projects for a tenant.
-   *
-   * @param tenantId The tenant ID
-   * @return Single emitting the count
-   */
-  public Single<Long> countProjectsByTenant(String tenantId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(COUNT_PROJECTS_BY_TENANT)
-        .rxExecute(Tuple.of(tenantId))
-        .map(rowSet -> {
-          Row row = rowSet.iterator().next();
-          return row.getLong("count");
-        })
-        .doOnError(error -> log.error("Failed to count projects for tenant: {}", tenantId, error));
-  }
-
   private Project mapRowToProject(Row row) {
     return Project.builder()
+        .id(row.getLong("id"))
         .projectId(row.getString("project_id"))
         .tenantId(row.getString("tenant_id"))
         .name(row.getString("name"))
         .description(row.getString("description"))
-        .slug(row.getString("slug"))
+        .apiKey(null)  // Not stored in projects table
+        .id(row.getLong("id"))
+        .projectId(row.getString("project_id"))
+        .tenantId(row.getString("tenant_id"))
+        .name(row.getString("name"))
+        .description(row.getString("description"))
+        .apiKey(row.getString("api_key"))
         .isActive(row.getBoolean("is_active"))
-        .createdAt(row.getLocalDateTime("created_at") != null
-            ? row.getLocalDateTime("created_at").toString() : null)
-        .updatedAt(row.getLocalDateTime("updated_at") != null
-            ? row.getLocalDateTime("updated_at").toString() : null)
         .createdBy(row.getString("created_by"))
+        .createdAt(row.getLocalDateTime("created_at") != null ?
+            row.getLocalDateTime("created_at").toString() : null)
+        .updatedAt(row.getLocalDateTime("updated_at") != null ?
+            row.getLocalDateTime("updated_at").toString() : null)
         .build();
-  }
-
-  private String generateSlug(String name) {
-    if (name == null || name.isBlank()) {
-      return UUID.randomUUID().toString().substring(0, 8);
-    }
-    return name.toLowerCase()
-        .replaceAll("[^a-z0-9\\s-]", "")
-        .replaceAll("\\s+", "-")
-        .replaceAll("-+", "-")
-        .replaceAll("^-|-$", "");
   }
 }
