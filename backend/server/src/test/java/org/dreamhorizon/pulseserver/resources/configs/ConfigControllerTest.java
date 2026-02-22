@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
@@ -32,8 +33,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
-import org.dreamhorizon.pulseserver.tenant.Tenant;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -60,9 +59,7 @@ class ConfigControllerTest {
   @BeforeEach
   void setup() {
     configController = new ConfigController(configService, applicationConfig);
-    TenantContext.setTenant(Tenant.builder()
-        .tenantId("default")
-        .build());
+    ProjectContext.setProjectId("default");
   }
 
   @Nested
@@ -80,7 +77,7 @@ class ConfigControllerTest {
             .description("Test Config")
             .build();
 
-        when(configService.getSdkConfig(version)).thenReturn(Single.just(mockConfig));
+        when(configService.getSdkConfig(ProjectContext.getProjectId(), version)).thenReturn(Single.just(mockConfig));
 
         // When
         CompletionStage<Response<PulseConfig>> result = configController.getSdkConfig(version);
@@ -92,7 +89,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(1L, resp.getData().getVersion());
             assertEquals("Test Config", resp.getData().getDescription());
-            verify(configService, times(1)).getSdkConfig(version);
+            verify(configService, times(1)).getSdkConfig(ProjectContext.getProjectId(), version);
           });
           testContext.completeNow();
         });
@@ -105,7 +102,7 @@ class ConfigControllerTest {
         // Given
         Integer version = 999;
 
-        when(configService.getSdkConfig(version))
+        when(configService.getSdkConfig(ProjectContext.getProjectId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Config not found", "Config not found", 404)));
 
@@ -119,7 +116,7 @@ class ConfigControllerTest {
             assertInstanceOf(WebApplicationException.class, err);
             WebApplicationException webException = (WebApplicationException) err;
             assertEquals(404, webException.getResponse().getStatus());
-            verify(configService, times(1)).getSdkConfig(version);
+            verify(configService, times(1)).getSdkConfig(ProjectContext.getProjectId(), version);
           });
           testContext.completeNow();
         });
@@ -132,7 +129,7 @@ class ConfigControllerTest {
         // Given
         Integer version = 1;
 
-        when(configService.getSdkConfig(version))
+        when(configService.getSdkConfig(ProjectContext.getProjectId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Database error", "Database error", 500)));
 
@@ -168,7 +165,7 @@ class ConfigControllerTest {
             .description("Active Config")
             .build();
 
-        when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(mockConfig));
+        when(configService.getActiveSdkConfig(ProjectContext.getProjectId())).thenReturn(Single.just(mockConfig));
 
         // When
         CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
@@ -180,7 +177,7 @@ class ConfigControllerTest {
             assertNotNull(resp);
             assertEquals(5L, resp.getVersion());
             assertEquals("Active Config", resp.getDescription());
-            verify(configService, times(1)).getActiveSdkConfig(TenantContext.requireTenantId());
+            verify(configService, times(1)).getActiveSdkConfig(ProjectContext.getProjectId());
           });
           testContext.completeNow();
         });
@@ -192,7 +189,7 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
         // Given
-        when(configService.getActiveSdkConfig(TenantContext.requireTenantId()))
+        when(configService.getActiveSdkConfig(ProjectContext.getProjectId()))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "No active config", "No active config", 404)));
 
@@ -204,7 +201,7 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNotNull(err);
             assertInstanceOf(WebApplicationException.class, err);
-            verify(configService, times(1)).getActiveSdkConfig(TenantContext.requireTenantId());
+            verify(configService, times(1)).getActiveSdkConfig(ProjectContext.getProjectId());
           });
           testContext.completeNow();
         });
@@ -235,7 +232,8 @@ class ConfigControllerTest {
             .build();
 
         ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
-        when(configService.createSdkConfig(configDataCaptor.capture())).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), configDataCaptor.capture())).thenReturn(
+            Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -248,7 +246,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(10L, resp.getData().getVersion());
             assertEquals(userEmail, configDataCaptor.getValue().getUser());
-            verify(configService, times(1)).createSdkConfig(any(ConfigData.class));
+            verify(configService, times(1)).createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class));
           });
           testContext.completeNow();
         });
@@ -267,7 +265,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 11L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -298,7 +296,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 12L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -330,7 +328,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 13L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -365,7 +363,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 14L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -400,7 +398,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 15L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -429,7 +427,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 16L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -461,7 +459,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 30L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -491,7 +489,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 31L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -519,7 +517,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 32L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -549,7 +547,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 33L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -577,7 +575,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 34L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -607,7 +605,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 35L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -639,7 +637,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 36L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -667,7 +665,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 37L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -697,7 +695,7 @@ class ConfigControllerTest {
         pulseConfig.getInteraction().setCollectorUrl("http://collector.example.com");
         pulseConfig.getInteraction().setConfigUrl("http://config.example.com");
 
-        when(configService.createSdkConfig(any(ConfigData.class)))
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class)))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Creation failed", "Creation failed", 500)));
 
@@ -920,7 +918,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 21L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -971,7 +969,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 22L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -1054,7 +1052,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 23L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -1111,7 +1109,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 24L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -1137,7 +1135,8 @@ class ConfigControllerTest {
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 20L);
 
         ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
-        when(configService.createSdkConfig(configDataCaptor.capture())).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(ProjectContext.getProjectId(), configDataCaptor.capture())).thenReturn(
+            Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =

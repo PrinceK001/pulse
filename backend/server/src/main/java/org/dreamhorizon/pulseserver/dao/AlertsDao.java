@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.query.AlertsQuery;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.error.ServiceError;
@@ -52,8 +53,6 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.Metric;
 import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.util.AlertMapper;
 import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 

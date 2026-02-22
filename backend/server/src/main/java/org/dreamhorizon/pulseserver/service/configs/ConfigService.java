@@ -8,11 +8,11 @@ import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesRes
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 
 public interface ConfigService {
-  Single<PulseConfig> getSdkConfig(long version);
+  Single<PulseConfig> getSdkConfig(String projectId, long version);
 
-  Single<PulseConfig> getActiveSdkConfig(String tenant);
+  Single<PulseConfig> getActiveSdkConfig(String projectId);
 
-  Single<PulseConfig> createSdkConfig(ConfigData createConfig);
+  Single<PulseConfig> createSdkConfig(String projectId, ConfigData createConfig);
 
   Single<AllConfigdetails> getAllSdkConfigDetails();
 

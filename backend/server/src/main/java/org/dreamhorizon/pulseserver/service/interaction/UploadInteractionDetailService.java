@@ -44,11 +44,11 @@ public class UploadInteractionDetailService {
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
       List<InteractionConfig> interactions,
-      String tenantId
+      String projectId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailsS3BucketFilePath());
-    String cloudFrontAssetPath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailCloudFrontAssetPath());
+    String s3FilePath = getTenantAwarePath(projectId, applicationConfig.getInteractionDetailsS3BucketFilePath());
+    String cloudFrontAssetPath = getTenantAwarePath(projectId, applicationConfig.getInteractionDetailCloudFrontAssetPath());
 
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
@@ -58,8 +58,8 @@ public class UploadInteractionDetailService {
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful for tenant: {}, invalidating CloudFront cache for distribution: {}",
-              tenantId, distributionId);
+          log.info("S3 upload successful for project: {}, invalidating CloudFront cache for distribution: {}",
+              projectId, distributionId);
           return cloudFrontClient
               .invalidateCache(
                   distributionId,
@@ -75,11 +75,11 @@ public class UploadInteractionDetailService {
     return String.format("config/tenants/%s/%s", tenantId, basePath);
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String projectId) {
     return interactionDao
-        .getAllActiveAndRunningInteractions(tenant)
+        .getAllActiveAndRunningInteractions(projectId)
         .map(this::toInteractionConfigs)
-        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, tenant))
+        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, projectId))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }

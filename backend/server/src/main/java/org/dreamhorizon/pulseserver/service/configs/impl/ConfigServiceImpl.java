@@ -24,7 +24,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 @Slf4j
 public class ConfigServiceImpl implements ConfigService {
@@ -51,20 +50,20 @@ public class ConfigServiceImpl implements ConfigService {
         .recordStats()
         .buildAsync((String projectId, java.util.concurrent.Executor executor) -> {
           log.info("Loading config into cache for project: {}", projectId);
-          return sdkConfigsDao.getConfig()
+          return sdkConfigsDao.getConfig(projectId)
               .toCompletionStage()
               .toCompletableFuture();
         });
   }
 
   @Override
-  public Single<PulseConfig> getSdkConfig(long version) {
-    return sdkConfigsDao.getConfig(version);
+  public Single<PulseConfig> getSdkConfig(String projectId, long version) {
+    return sdkConfigsDao.getConfig(projectId, version);
   }
 
   @Override
-  public Single<PulseConfig> getActiveSdkConfig(String tenantId) {
-    CompletableFuture<PulseConfig> fut = latestConfigCache.get(tenantId);
+  public Single<PulseConfig> getActiveSdkConfig(String projectId) {
+    CompletableFuture<PulseConfig> fut = latestConfigCache.get(projectId);
     return Single.create(emitter -> {
       fut.whenComplete((result, throwable) -> {
         if (throwable != null) {
@@ -79,17 +78,16 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
-    String tenantId = ProjectContext.getProjectId();
+  public Single<PulseConfig> createSdkConfig(String projectId, ConfigData createConfigRequest) {
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
-          latestConfigCache.synchronous().invalidate(tenantId);
-          log.info("Invalidated config cache for tenant: {}", tenantId);
+          latestConfigCache.synchronous().invalidate(projectId);
+          log.info("Invalidated config cache for project: {}", projectId);
           uploadConfigDetailService
-              .pushInteractionDetailsToObjectStore(tenantId)
+              .pushInteractionDetailsToObjectStore(projectId)
               .subscribe();
         })
-        .doOnError(err -> log.error("error while creating config for tenant: {}", tenantId, err));
+        .doOnError(err -> log.error("error while creating config for project: {}", projectId, err));
   }
 
   @Override

@@ -11,10 +11,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 /**
  * DAO for Athena job operations.
@@ -24,13 +23,6 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AthenaJobDao {
   private final MysqlClient mysqlClient;
-
-  /**
-   * Gets the current tenant ID from the TenantContext.
-   */
-  private String getTenantId() {
-    return TenantContext.requireTenantId();
-  }
 
   /**
    * Gets the current project ID from the ProjectContext.
@@ -43,7 +35,7 @@ public class AthenaJobDao {
     String jobId = UUID.randomUUID().toString();
     return executeUpdate(
         AthenaJobQueries.CREATE_JOB,
-        Tuple.of(jobId, tenantId, queryString, userEmail),
+        Tuple.of(jobId, tenantId, getProjectId(), queryString, userEmail),
         jobId,
         "Error creating Athena job"
     );
@@ -54,7 +46,7 @@ public class AthenaJobDao {
     Timestamp updatedAt = submissionDateTime != null ? submissionDateTime : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_WITH_EXECUTION_ID,
-        Tuple.of(queryExecutionId, status.name(), submissionDateTime, updatedAt, jobId, getProjectId()),
+        Tuple.of(queryExecutionId, status.name(), submissionDateTime, updatedAt, jobId),
         true,
         "Error updating job with execution ID: " + jobId
     );
