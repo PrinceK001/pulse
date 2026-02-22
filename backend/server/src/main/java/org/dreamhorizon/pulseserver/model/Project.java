@@ -11,14 +11,14 @@ import lombok.Data;
 @Data
 @Builder
 public class Project {
-  private Long id;
-  private String projectId;       // Format: proj-{uuid}
-  private String tenantId;        // Parent tenant
-  private String name;            // Project display name
-  private String description;     // Project description
-  private String apiKey;          // Format: pulse_{projectId}_sk_{random}
-  private Boolean isActive;       // Project active status
-  private String createdBy;       // User ID of creator
-  private String createdAt;
-  private String updatedAt;
+    private Long id;
+    private String projectId;       // Format: proj-{uuid}
+    private String tenantId;        // Parent tenant
+    private String name;            // Project display name
+    private String description;     // Project description
+    private String apiKey;          // Format: pulse_{projectId}_sk_{random}
+    private Boolean isActive;       // Project active status
+    private String createdBy;       // User ID of creator
+    private String createdAt;
+    private String updatedAt;
 }

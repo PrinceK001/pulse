@@ -24,12 +24,12 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 @Slf4j
 public class ConfigServiceImpl implements ConfigService {
 
-  private static final int MAX_TENANTS_IN_CACHE = 100;
+  private static final int MAX_PROJECTS_IN_CACHE = 100;
 
   private final SdkConfigsDao sdkConfigsDao;
   private final UploadConfigDetailService uploadConfigDetailService;
@@ -45,12 +45,12 @@ public class ConfigServiceImpl implements ConfigService {
     Objects.requireNonNull(ctx, "ConfigServiceImpl must be created on a Vert.x context thread");
 
     this.latestConfigCache = Caffeine.newBuilder()
-        .maximumSize(MAX_TENANTS_IN_CACHE)
+        .maximumSize(MAX_PROJECTS_IN_CACHE)
         .executor(cmd -> ctx.runOnContext(v -> cmd.run()))
         .expireAfterWrite(Duration.ofHours(1))
         .recordStats()
-        .buildAsync((String tenantId, java.util.concurrent.Executor executor) -> {
-          log.info("Loading config into cache for tenant: {}", tenantId);
+        .buildAsync((String projectId, java.util.concurrent.Executor executor) -> {
+          log.info("Loading config into cache for project: {}", projectId);
           return sdkConfigsDao.getConfig()
               .toCompletionStage()
               .toCompletableFuture();
@@ -68,10 +68,10 @@ public class ConfigServiceImpl implements ConfigService {
     return Single.create(emitter -> {
       fut.whenComplete((result, throwable) -> {
         if (throwable != null) {
-          log.error("Error fetching config from cache for tenant: {}", tenantId, throwable);
+          log.error("Error fetching config from cache for project: {}", projectId, throwable);
           emitter.onError(throwable);
         } else {
-          log.debug("Returning config from cache for tenant: {}", tenantId);
+          log.debug("Returning config from cache for project: {}", projectId);
           emitter.onSuccess(result);
         }
       });
@@ -80,7 +80,7 @@ public class ConfigServiceImpl implements ConfigService {
 
   @Override
   public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
-    String tenantId = TenantContext.requireTenantId();
+    String tenantId = ProjectContext.getProjectId();
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(tenantId);

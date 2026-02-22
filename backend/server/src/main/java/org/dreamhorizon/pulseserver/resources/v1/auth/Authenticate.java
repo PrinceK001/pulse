@@ -19,6 +19,8 @@ import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
+import org.dreamhorizon.pulseserver.resources.v1.auth.models.LoginRequest;
+import org.dreamhorizon.pulseserver.resources.v1.auth.models.LoginResponse;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.VerifyAuthTokenResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
@@ -46,6 +48,24 @@ public class Authenticate {
     } catch (Exception e) {
       String cause = e.getMessage() != null ? e.getMessage() : "Invalid ID token";
       throw ServiceError.SERVICE_UNKNOWN_EXCEPTION.getCustomException("Something went wrong", cause);
+    }
+  }
+
+  @POST
+  @Path("/login")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<LoginResponse>> login(
+      @RequestBody(description = "Login with Firebase ID token")
+      @Valid
+      LoginRequest loginRequest) {
+    try {
+      return authService
+          .login(loginRequest.getFirebaseIdToken())
+          .to(RestResponse.jaxrsRestHandler());
+    } catch (Exception e) {
+      String cause = e.getMessage() != null ? e.getMessage() : "Invalid ID token";
+      throw ServiceError.SERVICE_UNKNOWN_EXCEPTION.getCustomException("Login failed", cause);
     }
   }
 

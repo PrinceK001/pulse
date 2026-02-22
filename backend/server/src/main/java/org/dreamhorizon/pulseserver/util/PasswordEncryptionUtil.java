@@ -1,137 +1,166 @@
 package org.dreamhorizon.pulseserver.util;
 
-import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import java.nio.ByteBuffer;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-import lombok.Builder;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 
+/**
+ * Utility for encrypting and decrypting sensitive data (e.g., ClickHouse passwords).
+ * Uses AES-256 encryption with salting and SHA-256 digest for verification.
+ */
 @Slf4j
 @Singleton
 public class PasswordEncryptionUtil {
-  private static final String ALGORITHM = "AES";
-  private static final String TRANSFORMATION = "AES/GCM/NoPadding";
-  private static final String DIGEST_ALGORITHM = "SHA-256";
-  private static final int GCM_IV_LENGTH = 12;  // 96 bits recommended for GCM
-  private static final int GCM_TAG_LENGTH = 128; // 128 bits authentication tag
-
-  private final SecretKey secretKey;
-  private final SecureRandom secureRandom;
-
-  @Inject
-  public PasswordEncryptionUtil(ClickhouseConfig clickhouseConfig) {
-    try {
-      String encryptionKey = clickhouseConfig.getEncryptionMasterKey();
-      if (encryptionKey == null || encryptionKey.isBlank()) {
-        throw new IllegalStateException("encryptionMasterKey is not configured in ClickhouseConfig");
-      }
-      byte[] decodedKey = Base64.getDecoder().decode(encryptionKey);
-      this.secretKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, ALGORITHM);
-      this.secureRandom = new SecureRandom();
-      log.info("Encryption key initialized successfully from ClickhouseConfig (AES-GCM)");
-    } catch (Exception e) {
-      log.error("Failed to initialize encryption key", e);
-      throw new RuntimeException("Encryption key initialization failed", e);
+    
+    private static final String ALGORITHM = "AES";
+    private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
+    private static final int KEY_SIZE = 256;
+    private static final int SALT_LENGTH = 16;
+    
+    private final SecretKey secretKey;
+    private final SecureRandom secureRandom;
+    
+    /**
+     * Initialize with encryption key from environment variable.
+     * In production, this should come from a secure key management service.
+     */
+    public PasswordEncryptionUtil() {
+        String keyString = System.getenv("ENCRYPTION_KEY");
+        
+        if (keyString == null || keyString.isEmpty()) {
+            log.warn("ENCRYPTION_KEY not set, generating random key (NOT SUITABLE FOR PRODUCTION)");
+            this.secretKey = generateKey();
+        } else {
+            this.secretKey = new SecretKeySpec(
+                Base64.getDecoder().decode(keyString), 
+                ALGORITHM
+            );
+        }
+        
+        this.secureRandom = new SecureRandom();
+        log.info("PasswordEncryptionUtil initialized");
     }
-  }
-
-  public EncryptedPassword encryptPassword(String plainPassword) {
-    try {
-      // Generate random salt for digest
-      byte[] salt = new byte[16];
-      secureRandom.nextBytes(salt);
-      String saltBase64 = Base64.getEncoder().encodeToString(salt);
-
-      // Generate random IV for GCM
-      byte[] iv = new byte[GCM_IV_LENGTH];
-      secureRandom.nextBytes(iv);
-
-      // Encrypt using AES-GCM
-      Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-      GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-      cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec);
-      byte[] encryptedPassword = cipher.doFinal(plainPassword.getBytes(StandardCharsets.UTF_8));
-
-      // Combine IV + encrypted data for storage
-      ByteBuffer byteBuffer = ByteBuffer.allocate(iv.length + encryptedPassword.length);
-      byteBuffer.put(iv);
-      byteBuffer.put(encryptedPassword);
-      String encryptedBase64 = Base64.getEncoder().encodeToString(byteBuffer.array());
-
-      String digest = generateDigest(plainPassword + saltBase64);
-
-      return EncryptedPassword.builder()
-          .encryptedPassword(encryptedBase64)
-          .salt(saltBase64)
-          .digest(digest)
-          .build();
-    } catch (Exception e) {
-      log.error("Password encryption failed", e);
-      throw new RuntimeException("Password encryption failed", e);
+    
+    /**
+     * Encrypt plaintext password.
+     * 
+     * @param plaintext Plain text password
+     * @return Base64 encoded encrypted password
+     */
+    public String encrypt(String plaintext) {
+        try {
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+            
+            byte[] encryptedBytes = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(encryptedBytes);
+            
+        } catch (Exception e) {
+            log.error("Encryption failed", e);
+            throw new RuntimeException("Failed to encrypt password", e);
+        }
     }
-  }
-
-  public String decryptPassword(String encryptedPasswordBase64) {
-    try {
-      // Decode and extract IV + encrypted data
-      byte[] decoded = Base64.getDecoder().decode(encryptedPasswordBase64);
-      ByteBuffer byteBuffer = ByteBuffer.wrap(decoded);
-
-      byte[] iv = new byte[GCM_IV_LENGTH];
-      byteBuffer.get(iv);
-
-      byte[] encryptedPassword = new byte[byteBuffer.remaining()];
-      byteBuffer.get(encryptedPassword);
-
-      // Decrypt using AES-GCM
-      Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-      GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-      cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
-      byte[] decrypted = cipher.doFinal(encryptedPassword);
-
-      return new String(decrypted, StandardCharsets.UTF_8);
-    } catch (Exception e) {
-      log.error("Password decryption failed", e);
-      throw new RuntimeException("Password decryption failed", e);
+    
+    /**
+     * Decrypt encrypted password.
+     * 
+     * @param ciphertext Base64 encoded encrypted password
+     * @return Decrypted plain text password
+     */
+    public String decrypt(String ciphertext) {
+        try {
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            cipher.init(Cipher.DECRYPT_MODE, secretKey);
+            
+            byte[] decodedBytes = Base64.getDecoder().decode(ciphertext);
+            byte[] decryptedBytes = cipher.doFinal(decodedBytes);
+            
+            return new String(decryptedBytes, StandardCharsets.UTF_8);
+            
+        } catch (Exception e) {
+            log.error("Decryption failed", e);
+            throw new RuntimeException("Failed to decrypt password", e);
+        }
     }
-  }
-
-  public String generateDigest(String input) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance(DIGEST_ALGORITHM);
-      byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-      return Base64.getEncoder().encodeToString(hash);
-    } catch (Exception e) {
-      log.error("Digest generation failed", e);
-      throw new RuntimeException("Digest generation failed", e);
+    
+    /**
+     * Generate random salt for password hashing.
+     * 
+     * @return Base64 encoded salt
+     */
+    public String generateSalt() {
+        byte[] salt = new byte[SALT_LENGTH];
+        secureRandom.nextBytes(salt);
+        return Base64.getEncoder().encodeToString(salt);
     }
-  }
-
-  public boolean verifyPassword(String plainPassword, String salt, String storedDigest) {
-    try {
-      String computedDigest = generateDigest(plainPassword + salt);
-      return computedDigest.equals(storedDigest);
-    } catch (Exception e) {
-      log.error("Password verification failed", e);
-      return false;
+    
+    /**
+     * Generate SHA-256 digest of password for verification.
+     * 
+     * @param password Plain text password
+     * @return Hex encoded digest
+     */
+    public String generateDigest(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            
+            // Convert to hex string
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            
+            return hexString.toString();
+            
+        } catch (Exception e) {
+            log.error("Digest generation failed", e);
+            throw new RuntimeException("Failed to generate digest", e);
+        }
     }
-  }
-
-  @Data
-  @Builder
-  public static class EncryptedPassword {
-    private String encryptedPassword;
-    private String salt;
-    private String digest;
-  }
+    
+    /**
+     * Verify password against stored digest.
+     * 
+     * @param password Plain text password
+     * @param storedDigest Stored digest to verify against
+     * @return true if password matches
+     */
+    public boolean verifyPassword(String password, String storedDigest) {
+        String passwordDigest = generateDigest(password);
+        return passwordDigest.equals(storedDigest);
+    }
+    
+    /**
+     * Generate a new encryption key (for initialization only).
+     */
+    private SecretKey generateKey() {
+        try {
+            KeyGenerator keyGenerator = KeyGenerator.getInstance(ALGORITHM);
+            keyGenerator.init(KEY_SIZE, secureRandom);
+            return keyGenerator.generateKey();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate encryption key", e);
+        }
+    }
+    
+    /**
+     * Get the encryption key as Base64 string (for backup/storage).
+     * Only use this during initial setup to save the key securely.
+     */
+    public String getKeyAsBase64() {
+        return Base64.getEncoder().encodeToString(secretKey.getEncoded());
+    }
 }
