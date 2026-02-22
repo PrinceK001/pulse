@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,6 +71,7 @@ class ConfigControllerTest {
     @Test
     void shouldGetConfigByVersion(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         Integer version = 1;
         PulseConfig mockConfig = PulseConfig.builder()
@@ -99,6 +101,7 @@ class ConfigControllerTest {
     @Test
     void shouldThrowExceptionWhenConfigNotFound(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         Integer version = 999;
 
@@ -126,6 +129,7 @@ class ConfigControllerTest {
     @Test
     void shouldHandleServiceError(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         Integer version = 1;
 
@@ -158,7 +162,8 @@ class ConfigControllerTest {
     @Test
     void shouldGetActiveConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+        ProjectContext.setProjectId("test");
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig mockConfig = PulseConfig.builder()
             .version(5L)
@@ -187,7 +192,8 @@ class ConfigControllerTest {
     @Test
     void shouldHandleServiceErrorForActiveConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+        ProjectContext.setProjectId("test");
+        ProjectContext.setProjectId("test");
         // Given
         when(configService.getActiveSdkConfig(ProjectContext.getProjectId()))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
@@ -217,6 +223,7 @@ class ConfigControllerTest {
     @Test
     void shouldCreateConfigSuccessfully(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
@@ -232,7 +239,7 @@ class ConfigControllerTest {
             .build();
 
         ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), configDataCaptor.capture())).thenReturn(
+        when(configService.createSdkConfig(anyString(), configDataCaptor.capture())).thenReturn(
             Single.just(createdConfig));
 
         // When
@@ -246,7 +253,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(10L, resp.getData().getVersion());
             assertEquals(userEmail, configDataCaptor.getValue().getUser());
-            verify(configService, times(1)).createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class));
+            verify(configService, times(1)).createSdkConfig(anyString(), any(ConfigData.class));
           });
           testContext.completeNow();
         });
@@ -256,6 +263,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultCollectorUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl(null);
@@ -287,6 +295,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultCollectorUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("   ");
@@ -316,8 +325,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Set tenant context inside Vert.x context
-        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+        ProjectContext.setProjectId("test");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
@@ -351,8 +361,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Set tenant context inside Vert.x context
-        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+        ProjectContext.setProjectId("test");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
@@ -385,8 +396,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyBothDefaultUrlsWhenBothNullOrBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Set tenant context inside Vert.x context
-        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+        ProjectContext.setProjectId("test");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();

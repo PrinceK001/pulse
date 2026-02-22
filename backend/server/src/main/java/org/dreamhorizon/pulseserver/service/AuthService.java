@@ -16,7 +16,6 @@ import java.util.Date;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.dreamhorizon.pulseserver.authz.OpenFgaService;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
@@ -27,7 +26,6 @@ import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromR
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.LoginResponse;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.VerifyAuthTokenResponseDto;
 import org.dreamhorizon.pulseserver.util.JwtUtils;
-import org.dreamhorizon.pulseserver.model.Project;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -43,7 +41,6 @@ public class AuthService {
   private final OpenFgaService openFgaService;
   private final UserService userService;
   private final UserDao userDao;
-  private final OpenFgaService openFgaService;
   private final ProjectService projectService;
   private volatile String firebaseJwksCache;
   private volatile long firebaseJwksCacheExpiryMillis;
@@ -120,34 +117,34 @@ public class AuthService {
 
     return verifySimpleFirebaseToken(firebaseIdToken)
         .flatMap(userInfo -> {
-            // Check if user exists by email
-            return userDao.getUserByEmail(userInfo.email)
-                .switchIfEmpty(Single.defer(() -> {
-                    // New user - create and needs onboarding
-                    return userService.getOrCreateUser(userInfo.email, userInfo.name);
-                }))
-                .flatMap(user -> {
-                    // Check if user is pending (added by admin but never logged in)
-                    if ("pending".equals(user.getStatus())) {
-                        log.info("Activating pending user on first login: userId={}, email={}",
-                            user.getUserId(), user.getEmail());
+          // Check if user exists by email
+          return userDao.getUserByEmail(userInfo.email)
+              .switchIfEmpty(Single.defer(() -> {
+                // New user - create and needs onboarding
+                return userService.getOrCreateUser(userInfo.email, userInfo.name);
+              }))
+              .flatMap(user -> {
+                // Check if user is pending (added by admin but never logged in)
+                if ("pending".equals(user.getStatus())) {
+                  log.info("Activating pending user on first login: userId={}, email={}",
+                      user.getUserId(), user.getEmail());
 
-                        // Activate the user
-                        return userDao.activateUser(
-                            user.getUserId(),
-                            userInfo.userId,  // Firebase UID
-                            userInfo.name
-                        ).andThen(Single.just(user.toBuilder()
-                            .status("active")
-                            .firebaseUid(userInfo.userId)
-                            .name(userInfo.name)
-                            .build()));
-                    } else {
-                        // Already active user - just update last login
-                        userDao.updateLastLogin(user.getUserId()).subscribe();
-                        return Single.just(user);
-                    }
-                });
+                  // Activate the user
+                  return userDao.activateUser(
+                      user.getUserId(),
+                      userInfo.userId,  // Firebase UID
+                      userInfo.name
+                  ).andThen(Single.just(user.toBuilder()
+                      .status("active")
+                      .firebaseUid(userInfo.userId)
+                      .name(userInfo.name)
+                      .build()));
+                } else {
+                  // Already active user - just update last login
+                  userDao.updateLastLogin(user.getUserId()).subscribe();
+                  return Single.just(user);
+                }
+              });
         })
         .flatMap(user ->
             // Query OpenFGA for user's projects
@@ -266,7 +263,8 @@ public class AuthService {
         }
 
         if (email == null || email.isBlank()) {
-          throw new IllegalArgumentException("Firebase token is missing email claim. Please ensure your authentication includes email permissions.");
+          throw new IllegalArgumentException(
+              "Firebase token is missing email claim. Please ensure your authentication includes email permissions.");
         }
 
         return new UserInfo(userId, email, name, picture);
@@ -337,41 +335,41 @@ public class AuthService {
     // Check if user exists in database
     return userDao.getUserByEmail(email)
         .flatMapSingle(user -> {
-            // User exists in DB
-            // Check if pending
-            if ("pending".equals(user.getStatus())) {
-                log.info("Activating pending dev user on first login: userId={}", user.getUserId());
-                return userDao.activateUser(user.getUserId(), user.getUserId() + "-firebase-uid", name)
-                    .andThen(openFgaService.getUserProjects(user.getUserId()))
-                    .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
-            } else {
-                // Active user - normal flow
-                userDao.updateLastLogin(user.getUserId()).subscribe();
-                return openFgaService.getUserProjects(user.getUserId())
-                    .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
-            }
+          // User exists in DB
+          // Check if pending
+          if ("pending".equals(user.getStatus())) {
+            log.info("Activating pending dev user on first login: userId={}", user.getUserId());
+            return userDao.activateUser(user.getUserId(), user.getUserId() + "-firebase-uid", name)
+                .andThen(openFgaService.getUserProjects(user.getUserId()))
+                .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
+          } else {
+            // Active user - normal flow
+            userDao.updateLastLogin(user.getUserId()).subscribe();
+            return openFgaService.getUserProjects(user.getUserId())
+                .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
+          }
         })
         .switchIfEmpty(Single.defer(() -> {
-            // User doesn't exist in DB - check OpenFGA for pre-assigned projects
-            log.info("Dev user not found in DB, checking OpenFGA: userId={}", userId);
-            return openFgaService.getUserProjects(userId)
-                .flatMap(projectIds -> {
-                    if (projectIds == null || projectIds.isEmpty()) {
-                        // No projects - needs onboarding
-                        return Single.just(LoginResponse.builder()
-                            .status("needs_onboarding")
-                            .userId(userId)
-                            .email(email)
-                            .name(name)
-                            .needsOnboarding(true)
-                            .build());
-                    } else {
-                        // Has projects but no DB record (created by admin)
-                        // This shouldn't happen in normal flow but handle it
-                        log.warn("User has OpenFGA projects but no DB record: {}", userId);
-                        return proceedWithDevLogin(userId, email, name, projectIds);
-                    }
-                });
+          // User doesn't exist in DB - check OpenFGA for pre-assigned projects
+          log.info("Dev user not found in DB, checking OpenFGA: userId={}", userId);
+          return openFgaService.getUserProjects(userId)
+              .flatMap(projectIds -> {
+                if (projectIds == null || projectIds.isEmpty()) {
+                  // No projects - needs onboarding
+                  return Single.just(LoginResponse.builder()
+                      .status("needs_onboarding")
+                      .userId(userId)
+                      .email(email)
+                      .name(name)
+                      .needsOnboarding(true)
+                      .build());
+                } else {
+                  // Has projects but no DB record (created by admin)
+                  // This shouldn't happen in normal flow but handle it
+                  log.warn("User has OpenFGA projects but no DB record: {}", userId);
+                  return proceedWithDevLogin(userId, email, name, projectIds);
+                }
+              });
         }))
         .doOnError(error ->
             log.error("Dev login failed: {}", error.getMessage(), error)
@@ -382,16 +380,16 @@ public class AuthService {
    * Helper to proceed with dev login after activation/verification
    */
   private Single<LoginResponse> proceedWithDevLogin(String userId, String email, String name,
-                                                     java.util.List<String> projectIds) {
+                                                    java.util.List<String> projectIds) {
     if (projectIds == null || projectIds.isEmpty()) {
-        log.info("Dev user has no projects, requires onboarding: userId={}", userId);
-        return Single.just(LoginResponse.builder()
-            .status("needs_onboarding")
-            .userId(userId)
-            .email(email)
-            .name(name)
-            .needsOnboarding(true)
-            .build());
+      log.info("Dev user has no projects, requires onboarding: userId={}", userId);
+      return Single.just(LoginResponse.builder()
+          .status("needs_onboarding")
+          .userId(userId)
+          .email(email)
+          .name(name)
+          .needsOnboarding(true)
+          .build());
     }
 
     // User has projects - get first project's tenant
@@ -401,26 +399,26 @@ public class AuthService {
 
     return projectService.getProjectById(firstProjectId)
         .map(project -> {
-            String tenantId = project.getTenantId();
+          String tenantId = project.getTenantId();
 
-            // Generate JWT tokens with tenantId
-            String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
-            String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+          // Generate JWT tokens with tenantId
+          String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+          String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
 
-            log.info("Dev login successful: userId={}, tenantId={}", userId, tenantId);
+          log.info("Dev login successful: userId={}, tenantId={}", userId, tenantId);
 
-            return LoginResponse.builder()
-                .status("authenticated")
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .userId(userId)
-                .email(email)
-                .name(name)
-                .tenantId(tenantId)
-                .needsOnboarding(false)
-                .tokenType(TOKEN_TYPE_BEARER)
-                .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-                .build();
+          return LoginResponse.builder()
+              .status("authenticated")
+              .accessToken(accessToken)
+              .refreshToken(refreshToken)
+              .userId(userId)
+              .email(email)
+              .name(name)
+              .tenantId(tenantId)
+              .needsOnboarding(false)
+              .tokenType(TOKEN_TYPE_BEARER)
+              .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+              .build();
         });
   }
 
@@ -668,7 +666,7 @@ public class AuthService {
    * If the user has a tenant relation in OpenFGA, return that tenant ID.
    * Otherwise, verify the user belongs to the provided fallback tenant.
    *
-   * @param email The user's email
+   * @param email            The user's email
    * @param fallbackTenantId The tenant ID from database lookup (used as fallback)
    * @return Single emitting the tenant ID
    */

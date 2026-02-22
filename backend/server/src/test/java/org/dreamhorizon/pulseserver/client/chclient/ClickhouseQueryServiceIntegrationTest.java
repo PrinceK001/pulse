@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
@@ -53,7 +54,13 @@ class ClickhouseQueryServiceIntegrationTest {
   private ClickhouseTenantConnectionPoolManager poolManager;
 
   @Mock
+  private ClickhouseProjectConnectionPoolManager projectPoolManager;
+
+  @Mock
   private ClickhouseCredentialsDao credentialsDao;
+
+  @Mock
+  private ClickhouseProjectCredentialsDao projectCredentialsDao;
 
   @Mock
   private ConnectionPool connectionPool;
@@ -72,7 +79,9 @@ class ClickhouseQueryServiceIntegrationTest {
         clickhouseReadClient,
         clickhouseWriteClient,
         poolManager,
-        credentialsDao
+        projectPoolManager,
+        credentialsDao,
+        projectCredentialsDao
     );
   }
 

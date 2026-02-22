@@ -11,14 +11,14 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
+import java.io.IOException;
+import java.lang.reflect.Method;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
-
-import java.io.IOException;
-import java.lang.reflect.Method;
 
 /**
  * JAX-RS filter that enforces authorization based on {@link RequiresPermission} annotations.
@@ -97,7 +97,7 @@ public class AuthzFilter implements ContainerRequestFilter {
     // Perform permission check
     try {
       OpenFgaService service = getOpenFgaService();
-      Boolean allowed = service.check(
+      Boolean allowed = service.checkPermission(
           userId,
           permission.relation(),
           permission.objectType(),
@@ -147,7 +147,7 @@ public class AuthzFilter implements ContainerRequestFilter {
     // Check if user has access to the tenant (can_view_tenant permission)
     try {
       OpenFgaService service = getOpenFgaService();
-      Boolean allowed = service.check(userId, "can_view_tenant", "tenant", tenantId)
+      Boolean allowed = service.checkPermission(userId, "can_view_tenant", "tenant", tenantId)
           .blockingGet();
 
       if (!Boolean.TRUE.equals(allowed)) {
@@ -185,7 +185,7 @@ public class AuthzFilter implements ContainerRequestFilter {
       }
 
       Claims claims = service.verifyToken(token);
-      
+
       // Try userId claim first, then fall back to email
       String userId = claims.get(CLAIM_USER_ID, String.class);
       if (userId == null || userId.isBlank()) {
@@ -194,7 +194,7 @@ public class AuthzFilter implements ContainerRequestFilter {
       if (userId == null || userId.isBlank()) {
         userId = claims.getSubject();
       }
-      
+
       return userId;
     } catch (Exception e) {
       log.debug("Failed to extract userId from token: {}", e.getMessage());
@@ -271,19 +271,6 @@ public class AuthzFilter implements ContainerRequestFilter {
       }
     }
     return jwtService;
-  }
-
-  // For testing purposes
-  void setOpenFgaService(OpenFgaService service) {
-    this.openFgaService = service;
-  }
-
-  void setOpenFgaConfig(OpenFgaConfig config) {
-    this.openFgaConfig = config;
-  }
-
-  void setJwtService(JwtService service) {
-    this.jwtService = service;
   }
 }
 

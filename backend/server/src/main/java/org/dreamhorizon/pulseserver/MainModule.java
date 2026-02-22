@@ -9,7 +9,6 @@ import com.google.inject.Singleton;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.authz.OpenFgaService;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
@@ -28,6 +27,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;

@@ -1,423 +1,818 @@
 package org.dreamhorizon.pulseserver.service;
 
+import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import dev.openfga.sdk.api.client.OpenFgaClient;
+import dev.openfga.sdk.api.client.model.ClientCheckRequest;
+import dev.openfga.sdk.api.client.model.ClientReadRequest;
+import dev.openfga.sdk.api.client.model.ClientTupleKey;
+import dev.openfga.sdk.api.client.model.ClientTupleKeyWithoutCondition;
+import dev.openfga.sdk.api.client.model.ClientWriteRequest;
+import dev.openfga.sdk.api.configuration.ClientConfiguration;
+import dev.openfga.sdk.api.model.Tuple;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 
 /**
- * DUMMY OpenFGA Service - For development/testing with in-memory store.
- * Maintains user-project-tenant relationships for testing without real OpenFGA.
- * <p>
- * This implementation:
- * - Stores role assignments in memory
- * - Returns actual projects after assignment
- * - Allows testing the full authentication flow
- * - Provides member listing with reverse lookups
- * - Supports cascading deletes
- * <p>
- * TODO: Replace this with real OpenFGA implementation before production!
+ * OpenFGA Service for Relationship-Based Access Control (ReBAC).
+ *
+ * <p>Manages user-tenant-project relationships via OpenFGA tuples and evaluates
+ * permissions using the OpenFGA check API against a stored authorization model.</p>
+ *
+ * <p>When OpenFGA is disabled (via config), all methods degrade gracefully:
+ * permission checks return true, writes are no-ops, and reads return empty results.</p>
  */
 @Slf4j
 @Singleton
 public class OpenFgaService {
 
-  // In-memory store for testing
-  // Map<userId, Map<projectId, role>>
-  private final Map<String, Map<String, String>> userProjectRoles = new ConcurrentHashMap<>();
+  private static final String USER_PREFIX = "user:";
+  private static final String TENANT_PREFIX = "tenant:";
+  private static final String PROJECT_PREFIX = "project:";
+  private static final Set<String> TENANT_ROLES = Set.of("admin", "member");
+  private static final Set<String> PROJECT_ROLES = Set.of("admin", "editor", "member");
 
-  // Map<userId, Map<tenantId, role>>
-  private final Map<String, Map<String, String>> userTenantRoles = new ConcurrentHashMap<>();
+  private final OpenFgaClient client;
+  private final boolean enabled;
 
-  // Map<projectId, tenantId>
-  private final Map<String, String> projectTenants = new ConcurrentHashMap<>();
-
-  // Reverse lookup maps for efficient member listing
-  // Map<tenantId, Set<userId>>
-  private final Map<String, Set<String>> tenantMembers = new ConcurrentHashMap<>();
-
-  // Map<projectId, Set<userId>>
-  private final Map<String, Set<String>> projectMembers = new ConcurrentHashMap<>();
-
-  public OpenFgaService() {
-    log.warn("⚠️  Using DUMMY OpenFGA Service with in-memory store!");
-    log.warn("⚠️  This is for testing only - replace with real OpenFGA before production!");
+  @Inject
+  public OpenFgaService(OpenFgaConfig config) throws Exception {
+    if (config != null && config.isEnabled()) {
+      ClientConfiguration configuration = new ClientConfiguration()
+          .apiUrl(config.getApiUrl())
+          .storeId(config.getStoreId())
+          .authorizationModelId(config.getAuthorizationModelId());
+      this.client = new OpenFgaClient(configuration);
+      this.enabled = true;
+      log.info("OpenFGA service initialized - store: {}, model: {}",
+          config.getStoreId(), config.getAuthorizationModelId());
+    } else {
+      this.client = null;
+      this.enabled = false;
+      log.warn("OpenFGA service is disabled - all permission checks will be permissive");
+    }
   }
 
   /**
-   * DUMMY: Always returns true
+   * Check if a user has a specific permission on a resource.
    *
    * @param userId       User ID
-   * @param action       Action/relation to check (e.g., "view", "edit", "delete")
+   * @param action       Action/relation to check (e.g., "can_view", "can_edit")
    * @param resourceType Resource type (e.g., "project", "tenant")
    * @param resourceId   Resource ID
-   * @return Single<Boolean> Always true in dummy implementation
+   * @return Single emitting true if allowed, false otherwise
    */
   public Single<Boolean> checkPermission(String userId, String action, String resourceType, String resourceId) {
-    log.debug("[DUMMY] Permission check: user={}, action={}, resource={}:{} -> ALLOWED",
-        userId, action, resourceType, resourceId);
-    return Single.just(true);
+    if (!enabled) {
+      log.debug("[DISABLED] Permission check: user={}, action={}, resource={}:{} -> ALLOWED",
+          userId, action, resourceType, resourceId);
+      return Single.just(true);
+    }
+    return Single.fromCallable(() -> {
+      ClientCheckRequest request = new ClientCheckRequest()
+          .user(USER_PREFIX + userId)
+          .relation(action)
+          ._object(resourceType + ":" + resourceId);
+      var response = client.check(request).get();
+      boolean allowed = Boolean.TRUE.equals(response.getAllowed());
+      log.debug("Permission check: user={}, action={}, resource={}:{} -> {}",
+          userId, action, resourceType, resourceId, allowed);
+      return allowed;
+    });
   }
 
   /**
-   * DUMMY: Stores role assignment in memory with reverse lookup
+   * Assign a role to a user on a tenant.
    *
    * @param userId   User ID
    * @param tenantId Tenant ID
-   * @param role     Role (e.g., "owner", "admin", "member")
-   * @return Completable Always completes successfully
+   * @param role     Role (e.g., "admin", "member")
+   * @return Completable that completes when the tuple is written
    */
   public Completable assignTenantRole(String userId, String tenantId, String role) {
-    log.info("[DUMMY] Assigning tenant role: user={}, tenant={}, role={}", userId, tenantId, role);
-    userTenantRoles.computeIfAbsent(userId, k -> new ConcurrentHashMap<>()).put(tenantId, role);
-    tenantMembers.computeIfAbsent(tenantId, k -> ConcurrentHashMap.newKeySet()).add(userId);
-    return Completable.complete();
+    if (!enabled) {
+      log.debug("[DISABLED] Assigning tenant role: user={}, tenant={}, role={}", userId, tenantId, role);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Assigning tenant role: user={}, tenant={}, role={}", userId, tenantId, role);
+      ClientWriteRequest request = new ClientWriteRequest()
+          .writes(List.of(new ClientTupleKey()
+              .user(USER_PREFIX + userId)
+              .relation(role)
+              ._object(TENANT_PREFIX + tenantId)));
+      client.write(request).get();
+    });
   }
 
   /**
-   * DUMMY: Stores role assignment in memory with reverse lookup
+   * Assign a role to a user on a project.
    *
    * @param userId    User ID
    * @param projectId Project ID
-   * @param role      Role (e.g., "admin", "editor", "viewer")
-   * @return Completable Always completes successfully
+   * @param role      Role (e.g., "admin", "editor", "member")
+   * @return Completable that completes when the tuple is written
    */
   public Completable assignProjectRole(String userId, String projectId, String role) {
-    log.info("[DUMMY] Assigning project role: user={}, project={}, role={}", userId, projectId, role);
-    userProjectRoles.computeIfAbsent(userId, k -> new ConcurrentHashMap<>()).put(projectId, role);
-    projectMembers.computeIfAbsent(projectId, k -> ConcurrentHashMap.newKeySet()).add(userId);
-    return Completable.complete();
+    if (!enabled) {
+      log.debug("[DISABLED] Assigning project role: user={}, project={}, role={}", userId, projectId, role);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Assigning project role: user={}, project={}, role={}", userId, projectId, role);
+      ClientWriteRequest request = new ClientWriteRequest()
+          .writes(List.of(new ClientTupleKey()
+              .user(USER_PREFIX + userId)
+              .relation(role)
+              ._object(PROJECT_PREFIX + projectId)));
+      client.write(request).get();
+    });
   }
 
   /**
-   * DUMMY: Updates role in memory
+   * Update a user's role on a project. Deletes the old tuple and writes the new one
+   * in a single transactional request.
    *
    * @param userId    User ID
    * @param projectId Project ID
    * @param newRole   New role
-   * @return Completable Always completes successfully
+   * @return Completable that completes when the role is updated
    */
   public Completable updateProjectRole(String userId, String projectId, String newRole) {
-    log.info("[DUMMY] Updating project role: user={}, project={}, newRole={}", userId, projectId, newRole);
-    userProjectRoles.computeIfAbsent(userId, k -> new ConcurrentHashMap<>()).put(projectId, newRole);
-    projectMembers.computeIfAbsent(projectId, k -> ConcurrentHashMap.newKeySet()).add(userId);
-    return Completable.complete();
+    if (!enabled) {
+      log.debug("[DISABLED] Updating project role: user={}, project={}, newRole={}", userId, projectId, newRole);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Updating project role: user={}, project={}, newRole={}", userId, projectId, newRole);
+      String currentRole = findUserRoleOnObject(USER_PREFIX + userId, PROJECT_PREFIX + projectId, PROJECT_ROLES);
+
+      if (currentRole != null && currentRole.equals(newRole)) {
+        log.debug("Role unchanged, skipping update");
+        return;
+      }
+
+      if (currentRole != null) {
+        ClientWriteRequest request = new ClientWriteRequest()
+            .writes(List.of(new ClientTupleKey()
+                .user(USER_PREFIX + userId)
+                .relation(newRole)
+                ._object(PROJECT_PREFIX + projectId)))
+            .deletes(List.of(new ClientTupleKeyWithoutCondition()
+                .user(USER_PREFIX + userId)
+                .relation(currentRole)
+                ._object(PROJECT_PREFIX + projectId)));
+        client.write(request).get();
+      } else {
+        ClientWriteRequest request = new ClientWriteRequest()
+            .writes(List.of(new ClientTupleKey()
+                .user(USER_PREFIX + userId)
+                .relation(newRole)
+                ._object(PROJECT_PREFIX + projectId)));
+        client.write(request).get();
+      }
+    });
   }
 
   /**
-   * DUMMY: Updates tenant role in memory
+   * Update a user's role on a tenant. Deletes the old tuple and writes the new one
+   * in a single transactional request.
    *
    * @param userId   User ID
    * @param tenantId Tenant ID
    * @param newRole  New role
-   * @return Completable Always completes successfully
+   * @return Completable that completes when the role is updated
    */
   public Completable updateTenantRole(String userId, String tenantId, String newRole) {
-    log.info("[DUMMY] Updating tenant role: user={}, tenant={}, newRole={}", userId, tenantId, newRole);
-    Map<String, String> tenants = userTenantRoles.get(userId);
-    if (tenants != null && tenants.containsKey(tenantId)) {
-      tenants.put(tenantId, newRole);
+    if (!enabled) {
+      log.debug("[DISABLED] Updating tenant role: user={}, tenant={}, newRole={}", userId, tenantId, newRole);
+      return Completable.complete();
     }
-    return Completable.complete();
+    return Completable.fromAction(() -> {
+      log.info("Updating tenant role: user={}, tenant={}, newRole={}", userId, tenantId, newRole);
+      String currentRole = findUserRoleOnObject(USER_PREFIX + userId, TENANT_PREFIX + tenantId, TENANT_ROLES);
+
+      if (currentRole != null && currentRole.equals(newRole)) {
+        log.debug("Role unchanged, skipping update");
+        return;
+      }
+
+      if (currentRole != null) {
+        ClientWriteRequest request = new ClientWriteRequest()
+            .writes(List.of(new ClientTupleKey()
+                .user(USER_PREFIX + userId)
+                .relation(newRole)
+                ._object(TENANT_PREFIX + tenantId)))
+            .deletes(List.of(new ClientTupleKeyWithoutCondition()
+                .user(USER_PREFIX + userId)
+                .relation(currentRole)
+                ._object(TENANT_PREFIX + tenantId)));
+        client.write(request).get();
+      } else {
+        ClientWriteRequest request = new ClientWriteRequest()
+            .writes(List.of(new ClientTupleKey()
+                .user(USER_PREFIX + userId)
+                .relation(newRole)
+                ._object(TENANT_PREFIX + tenantId)));
+        client.write(request).get();
+      }
+    });
   }
 
   /**
-   * DUMMY: Returns role from in-memory store
+   * Get a user's role in a project by reading stored tuples.
    *
    * @param userId    User ID
    * @param projectId Project ID
-   * @return Single<Optional<String>> Role if assigned, empty otherwise
+   * @return Single emitting the role if assigned, empty otherwise
    */
   public Single<Optional<String>> getUserRoleInProject(String userId, String projectId) {
-    Map<String, String> projects = userProjectRoles.get(userId);
-    if (projects != null && projects.containsKey(projectId)) {
-      String role = projects.get(projectId);
-      log.debug("[DUMMY] User role in project: user={}, project={} -> {}", userId, projectId, role);
-      return Single.just(Optional.of(role));
+    if (!enabled) {
+      log.debug("[DISABLED] getUserRoleInProject: user={}, project={}", userId, projectId);
+      return Single.just(Optional.empty());
     }
-    log.debug("[DUMMY] User role in project: user={}, project={} -> no role", userId, projectId);
-    return Single.just(Optional.empty());
+    return Single.fromCallable(() -> {
+      String role = findUserRoleOnObject(USER_PREFIX + userId, PROJECT_PREFIX + projectId, PROJECT_ROLES);
+      log.debug("User role in project: user={}, project={} -> {}", userId, projectId, role);
+      return Optional.ofNullable(role);
+    });
   }
 
   /**
-   * DUMMY: Returns tenant role from in-memory store
+   * Get a user's role in a tenant by reading stored tuples.
    *
    * @param userId   User ID
    * @param tenantId Tenant ID
-   * @return Single<Optional<String>> Role if assigned, empty otherwise
+   * @return Single emitting the role if assigned, empty otherwise
    */
   public Single<Optional<String>> getUserTenantRole(String userId, String tenantId) {
-    Map<String, String> tenants = userTenantRoles.get(userId);
-    if (tenants != null && tenants.containsKey(tenantId)) {
-      String role = tenants.get(tenantId);
-      log.debug("[DUMMY] User role in tenant: user={}, tenant={} -> {}", userId, tenantId, role);
-      return Single.just(Optional.of(role));
+    if (!enabled) {
+      log.debug("[DISABLED] getUserTenantRole: user={}, tenant={}", userId, tenantId);
+      return Single.just(Optional.empty());
     }
-    log.debug("[DUMMY] User role in tenant: user={}, tenant={} -> no role", userId, tenantId);
-    return Single.just(Optional.empty());
+    return Single.fromCallable(() -> {
+      String role = findUserRoleOnObject(USER_PREFIX + userId, TENANT_PREFIX + tenantId, TENANT_ROLES);
+      log.debug("User role in tenant: user={}, tenant={} -> {}", userId, tenantId, role);
+      return Optional.ofNullable(role);
+    });
   }
 
   /**
-   * DUMMY: Returns tenants from in-memory store
+   * Get all tenants a user belongs to.
    *
    * @param userId User ID
-   * @return Single<List<String>> List of tenant IDs
+   * @return Single emitting list of tenant IDs
    */
   public Single<List<String>> getUserTenants(String userId) {
-    Map<String, String> tenants = userTenantRoles.get(userId);
-    if (tenants != null && !tenants.isEmpty()) {
-      List<String> tenantIds = new ArrayList<>(tenants.keySet());
-      log.debug("[DUMMY] User tenants: user={} -> {} tenant(s)", userId, tenantIds.size());
-      return Single.just(tenantIds);
+    if (!enabled) {
+      log.debug("[DISABLED] getUserTenants: user={}", userId);
+      return Single.just(new ArrayList<>());
     }
-    log.debug("[DUMMY] User tenants: user={} -> empty list", userId);
-    return Single.just(new ArrayList<>());
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .user(USER_PREFIX + userId);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+
+      if (tuples == null || tuples.isEmpty()) {
+        log.debug("getUserTenants: user={} -> empty list", userId);
+        return new ArrayList<String>();
+      }
+
+      List<String> tenantIds = tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getObject() != null && key.getObject().startsWith(TENANT_PREFIX))
+          .filter(key -> TENANT_ROLES.contains(key.getRelation()))
+          .map(key -> key.getObject().substring(TENANT_PREFIX.length()))
+          .distinct()
+          .collect(Collectors.toList());
+
+      log.debug("getUserTenants: user={} -> {} tenant(s)", userId, tenantIds.size());
+      return tenantIds;
+    });
   }
 
   /**
-   * DUMMY: Returns all members of a tenant (reverse lookup)
+   * Get all members of a tenant.
    *
    * @param tenantId Tenant ID
-   * @return Single<Set<String>> Set of user IDs with access to tenant
+   * @return Single emitting set of user IDs
    */
   public Single<Set<String>> getTenantMembers(String tenantId) {
-    Set<String> members = tenantMembers.get(tenantId);
-    if (members != null && !members.isEmpty()) {
-      log.debug("[DUMMY] Get tenant members: tenant={} -> {} member(s)", tenantId, members.size());
-      return Single.just(new HashSet<>(members));
+    if (!enabled) {
+      log.debug("[DISABLED] getTenantMembers: tenant={}", tenantId);
+      return Single.just(new HashSet<>());
     }
-    log.debug("[DUMMY] Get tenant members: tenant={} -> empty set", tenantId);
-    return Single.just(new HashSet<>());
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          ._object(TENANT_PREFIX + tenantId);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+
+      if (tuples == null || tuples.isEmpty()) {
+        log.debug("getTenantMembers: tenant={} -> empty set", tenantId);
+        return new HashSet<String>();
+      }
+
+      Set<String> members = tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getUser() != null && key.getUser().startsWith(USER_PREFIX))
+          .filter(key -> TENANT_ROLES.contains(key.getRelation()))
+          .map(key -> key.getUser().substring(USER_PREFIX.length()))
+          .collect(Collectors.toSet());
+
+      log.debug("getTenantMembers: tenant={} -> {} member(s)", tenantId, members.size());
+      return members;
+    });
   }
 
   /**
-   * DUMMY: Returns all members of a project (reverse lookup)
+   * Get all members of a project.
    *
    * @param projectId Project ID
-   * @return Single<Set<String>> Set of user IDs with access to project
+   * @return Single emitting set of user IDs
    */
   public Single<Set<String>> getProjectMembers(String projectId) {
-    Set<String> members = projectMembers.get(projectId);
-    if (members != null && !members.isEmpty()) {
-      log.debug("[DUMMY] Get project members: project={} -> {} member(s)", projectId, members.size());
-      return Single.just(new HashSet<>(members));
+    if (!enabled) {
+      log.debug("[DISABLED] getProjectMembers: project={}", projectId);
+      return Single.just(new HashSet<>());
     }
-    log.debug("[DUMMY] Get project members: project={} -> empty set", projectId);
-    return Single.just(new HashSet<>());
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          ._object(PROJECT_PREFIX + projectId);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+
+      if (tuples == null || tuples.isEmpty()) {
+        log.debug("getProjectMembers: project={} -> empty set", projectId);
+        return new HashSet<String>();
+      }
+
+      Set<String> members = tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getUser() != null && key.getUser().startsWith(USER_PREFIX))
+          .filter(key -> PROJECT_ROLES.contains(key.getRelation()))
+          .map(key -> key.getUser().substring(USER_PREFIX.length()))
+          .collect(Collectors.toSet());
+
+      log.debug("getProjectMembers: project={} -> {} member(s)", projectId, members.size());
+      return members;
+    });
   }
 
   /**
-   * DUMMY: Removes user from project in memory (including reverse lookup)
+   * Remove a user from a project by deleting their role tuple.
    *
    * @param userId    User ID
    * @param projectId Project ID
-   * @return Completable Always completes successfully
+   * @return Completable that completes when the member is removed
    */
   public Completable removeProjectMember(String userId, String projectId) {
-    log.info("[DUMMY] Removing user from project: user={}, project={}", userId, projectId);
-    Map<String, String> projects = userProjectRoles.get(userId);
-    if (projects != null) {
-      projects.remove(projectId);
+    if (!enabled) {
+      log.debug("[DISABLED] removeProjectMember: user={}, project={}", userId, projectId);
+      return Completable.complete();
     }
-    Set<String> members = projectMembers.get(projectId);
-    if (members != null) {
-      members.remove(userId);
-    }
-    return Completable.complete();
+    return Completable.fromAction(() -> {
+      log.info("Removing user from project: user={}, project={}", userId, projectId);
+      String role = findUserRoleOnObject(USER_PREFIX + userId, PROJECT_PREFIX + projectId, PROJECT_ROLES);
+      if (role == null) {
+        log.debug("User has no role in project, nothing to remove");
+        return;
+      }
+      ClientWriteRequest request = new ClientWriteRequest()
+          .deletes(List.of(new ClientTupleKeyWithoutCondition()
+              .user(USER_PREFIX + userId)
+              .relation(role)
+              ._object(PROJECT_PREFIX + projectId)));
+      client.write(request).get();
+    });
   }
 
   /**
-   * DUMMY: Removes user from tenant and all tenant projects (cascading delete)
+   * Remove a user from a tenant and cascade-delete from all projects in that tenant.
    *
    * @param userId   User ID
    * @param tenantId Tenant ID
-   * @return Completable Always completes successfully
+   * @return Completable that completes when the member is removed
    */
   public Completable removeTenantMember(String userId, String tenantId) {
-    log.info("[DUMMY] Removing user from tenant (with cascade): user={}, tenant={}", userId, tenantId);
-
-    // Remove from tenant
-    Map<String, String> tenants = userTenantRoles.get(userId);
-    if (tenants != null) {
-      tenants.remove(tenantId);
+    if (!enabled) {
+      log.debug("[DISABLED] removeTenantMember: user={}, tenant={}", userId, tenantId);
+      return Completable.complete();
     }
-    Set<String> tenantMemberSet = tenantMembers.get(tenantId);
-    if (tenantMemberSet != null) {
-      tenantMemberSet.remove(userId);
-    }
+    return Completable.fromAction(() -> {
+      log.info("Removing user from tenant (with cascade): user={}, tenant={}", userId, tenantId);
 
-    // Cascade: Remove from all projects in this tenant
-    List<String> projectsInTenant = getProjectsInTenant(tenantId).blockingGet();
-    for (String projectId : projectsInTenant) {
-      removeProjectMember(userId, projectId).blockingAwait();
-    }
+      // 1. Delete tenant role tuple
+      String tenantRole = findUserRoleOnObject(USER_PREFIX + userId, TENANT_PREFIX + tenantId, TENANT_ROLES);
+      if (tenantRole != null) {
+        ClientWriteRequest deleteRequest = new ClientWriteRequest()
+            .deletes(List.of(new ClientTupleKeyWithoutCondition()
+                .user(USER_PREFIX + userId)
+                .relation(tenantRole)
+                ._object(TENANT_PREFIX + tenantId)));
+        client.write(deleteRequest).get();
+      }
 
-    return Completable.complete();
+      // 2. Cascade: remove from all projects in this tenant
+      List<String> projectsInTenant = readProjectsInTenant(tenantId);
+      for (String projectId : projectsInTenant) {
+        String projectRole = findUserRoleOnObject(USER_PREFIX + userId, PROJECT_PREFIX + projectId, PROJECT_ROLES);
+        if (projectRole != null) {
+          ClientWriteRequest deleteRequest = new ClientWriteRequest()
+              .deletes(List.of(new ClientTupleKeyWithoutCondition()
+                  .user(USER_PREFIX + userId)
+                  .relation(projectRole)
+                  ._object(PROJECT_PREFIX + projectId)));
+          client.write(deleteRequest).get();
+        }
+      }
+    });
   }
 
   /**
-   * DUMMY: Returns all projects in a tenant
+   * Get all projects in a tenant by reading parent relationship tuples.
    *
    * @param tenantId Tenant ID
-   * @return Single<List<String>> List of project IDs
+   * @return Single emitting list of project IDs
    */
   public Single<List<String>> getProjectsInTenant(String tenantId) {
-    List<String> projects = projectTenants.entrySet().stream()
-        .filter(entry -> tenantId.equals(entry.getValue()))
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toList());
-    log.debug("[DUMMY] Get projects in tenant: tenant={} -> {} project(s)", tenantId, projects.size());
-    return Single.just(projects);
+    if (!enabled) {
+      log.debug("[DISABLED] getProjectsInTenant: tenant={}", tenantId);
+      return Single.just(new ArrayList<>());
+    }
+    return Single.fromCallable(() -> {
+      List<String> projects = readProjectsInTenant(tenantId);
+      log.debug("getProjectsInTenant: tenant={} -> {} project(s)", tenantId, projects.size());
+      return projects;
+    });
   }
 
   /**
-   * DUMMY: Counts owners in a tenant
+   * Count users with the admin role on a tenant.
+   * The authorization model uses "admin" as the highest tenant role.
    *
    * @param tenantId Tenant ID
-   * @return Single<Integer> Number of owners
+   * @return Single emitting the number of admins
    */
   public Single<Integer> countTenantOwners(String tenantId) {
-    Set<String> members = tenantMembers.get(tenantId);
-    if (members == null || members.isEmpty()) {
+    if (!enabled) {
+      log.debug("[DISABLED] countTenantOwners: tenant={}", tenantId);
       return Single.just(0);
     }
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .relation("admin")
+          ._object(TENANT_PREFIX + tenantId);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
 
-    int ownerCount = 0;
-    for (String userId : members) {
-      Map<String, String> tenants = userTenantRoles.get(userId);
-      if (tenants != null && "owner".equals(tenants.get(tenantId))) {
-        ownerCount++;
+      if (tuples == null || tuples.isEmpty()) {
+        return 0;
       }
-    }
 
-    log.debug("[DUMMY] Count tenant owners: tenant={} -> {} owner(s)", tenantId, ownerCount);
-    return Single.just(ownerCount);
+      int count = (int) tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getUser() != null && key.getUser().startsWith(USER_PREFIX))
+          .count();
+
+      log.debug("countTenantOwners: tenant={} -> {} admin(s)", tenantId, count);
+      return count;
+    });
   }
 
   /**
-   * DUMMY: Counts admins in a project
+   * Count users with the admin role on a project.
    *
    * @param projectId Project ID
-   * @return Single<Integer> Number of admins
+   * @return Single emitting the number of admins
    */
   public Single<Integer> countProjectAdmins(String projectId) {
-    Set<String> members = projectMembers.get(projectId);
-    if (members == null || members.isEmpty()) {
+    if (!enabled) {
+      log.debug("[DISABLED] countProjectAdmins: project={}", projectId);
       return Single.just(0);
     }
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .relation("admin")
+          ._object(PROJECT_PREFIX + projectId);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
 
-    int adminCount = 0;
-    for (String userId : members) {
-      Map<String, String> projects = userProjectRoles.get(userId);
-      if (projects != null && "admin".equals(projects.get(projectId))) {
-        adminCount++;
+      if (tuples == null || tuples.isEmpty()) {
+        return 0;
       }
-    }
 
-    log.debug("[DUMMY] Count project admins: project={} -> {} admin(s)", projectId, adminCount);
-    return Single.just(adminCount);
+      int count = (int) tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getUser() != null && key.getUser().startsWith(USER_PREFIX))
+          .count();
+
+      log.debug("countProjectAdmins: project={} -> {} admin(s)", projectId, count);
+      return count;
+    });
   }
 
   /**
-   * DUMMY: Checks if user is tenant owner
+   * Check if a user is a tenant owner (admin — the highest role in the authorization model).
    *
    * @param userId   User ID
    * @param tenantId Tenant ID
-   * @return Single<Boolean> True if owner
+   * @return Single emitting true if the user is an admin of the tenant
    */
   public Single<Boolean> isTenantOwner(String userId, String tenantId) {
-    Map<String, String> tenants = userTenantRoles.get(userId);
-    if (tenants != null) {
-      boolean isOwner = "owner".equals(tenants.get(tenantId));
-      log.debug("[DUMMY] Is tenant owner: user={}, tenant={} -> {}", userId, tenantId, isOwner);
-      return Single.just(isOwner);
+    if (!enabled) {
+      log.debug("[DISABLED] isTenantOwner: user={}, tenant={}", userId, tenantId);
+      return Single.just(false);
     }
-    return Single.just(false);
+    return Single.fromCallable(() -> {
+      ClientCheckRequest request = new ClientCheckRequest()
+          .user(USER_PREFIX + userId)
+          .relation("admin")
+          ._object(TENANT_PREFIX + tenantId);
+      var response = client.check(request).get();
+      boolean isOwner = Boolean.TRUE.equals(response.getAllowed());
+      log.debug("isTenantOwner: user={}, tenant={} -> {}", userId, tenantId, isOwner);
+      return isOwner;
+    });
   }
 
   /**
-   * DUMMY: Checks if user is project admin
+   * Check if a user is a project admin.
+   * Uses the computed "effective_admin" relation which includes both direct project
+   * admins and tenant admins (via parent relationship).
    *
    * @param userId    User ID
    * @param projectId Project ID
-   * @return Single<Boolean> True if admin
+   * @return Single emitting true if the user is an effective admin of the project
    */
   public Single<Boolean> isProjectAdmin(String userId, String projectId) {
-    Map<String, String> projects = userProjectRoles.get(userId);
-    if (projects != null) {
-      boolean isAdmin = "admin".equals(projects.get(projectId));
-      log.debug("[DUMMY] Is project admin: user={}, project={} -> {}", userId, projectId, isAdmin);
-      return Single.just(isAdmin);
+    if (!enabled) {
+      log.debug("[DISABLED] isProjectAdmin: user={}, project={}", userId, projectId);
+      return Single.just(false);
     }
-    return Single.just(false);
+    return Single.fromCallable(() -> {
+      ClientCheckRequest request = new ClientCheckRequest()
+          .user(USER_PREFIX + userId)
+          .relation("effective_admin")
+          ._object(PROJECT_PREFIX + projectId);
+      var response = client.check(request).get();
+      boolean isAdmin = Boolean.TRUE.equals(response.getAllowed());
+      log.debug("isProjectAdmin: user={}, project={} -> {}", userId, projectId, isAdmin);
+      return isAdmin;
+    });
   }
 
   /**
-   * DUMMY: Stores project-tenant link in memory
+   * Link a project to a tenant by writing the parent relationship tuple.
    *
    * @param projectId Project ID
    * @param tenantId  Tenant ID
-   * @return Completable Always completes successfully
+   * @return Completable that completes when the tuple is written
    */
   public Completable linkProjectToTenant(String projectId, String tenantId) {
-    log.info("[DUMMY] Linking project to tenant: project={}, tenant={}", projectId, tenantId);
-    projectTenants.put(projectId, tenantId);
-    return Completable.complete();
+    if (!enabled) {
+      log.debug("[DISABLED] linkProjectToTenant: project={}, tenant={}", projectId, tenantId);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Linking project to tenant: project={}, tenant={}", projectId, tenantId);
+      ClientWriteRequest request = new ClientWriteRequest()
+          .writes(List.of(new ClientTupleKey()
+              .user(TENANT_PREFIX + tenantId)
+              .relation("parent")
+              ._object(PROJECT_PREFIX + projectId)));
+      client.write(request).get();
+    });
   }
 
   /**
-   * DUMMY: Checks tenant admin role from memory
+   * Check if a user is a tenant admin.
+   * Uses the computed "can_manage_tenant" relation from the authorization model.
    *
    * @param userId   User ID
    * @param tenantId Tenant ID
-   * @return Single<Boolean> True if user has admin/owner role
+   * @return Single emitting true if the user can manage the tenant
    */
   public Single<Boolean> isTenantAdmin(String userId, String tenantId) {
-    Map<String, String> tenants = userTenantRoles.get(userId);
-    if (tenants != null) {
-      String role = tenants.get(tenantId);
-      boolean isAdmin = "owner".equals(role) || "admin".equals(role);
-      log.debug("[DUMMY] Is tenant admin: user={}, tenant={}, role={} -> {}",
-          userId, tenantId, role, isAdmin);
-      return Single.just(isAdmin);
+    if (!enabled) {
+      log.debug("[DISABLED] isTenantAdmin: user={}, tenant={}", userId, tenantId);
+      return Single.just(false);
     }
-    log.debug("[DUMMY] Is tenant admin: user={}, tenant={} -> false (no role)", userId, tenantId);
-    return Single.just(false);
+    return Single.fromCallable(() -> {
+      ClientCheckRequest request = new ClientCheckRequest()
+          .user(USER_PREFIX + userId)
+          .relation("can_manage_tenant")
+          ._object(TENANT_PREFIX + tenantId);
+      var response = client.check(request).get();
+      boolean isAdmin = Boolean.TRUE.equals(response.getAllowed());
+      log.debug("isTenantAdmin: user={}, tenant={} -> {}", userId, tenantId, isAdmin);
+      return isAdmin;
+    });
   }
 
   /**
-   * DUMMY: Returns user's projects in tenant from in-memory store
+   * Get a user's projects within a specific tenant.
    *
    * @param userId   User ID
    * @param tenantId Tenant ID
-   * @return Single<List<String>> List of project IDs in the specified tenant
+   * @return Single emitting list of project IDs the user has access to in this tenant
    */
   public Single<List<String>> getUserProjectsInTenant(String userId, String tenantId) {
-    Map<String, String> projects = userProjectRoles.get(userId);
-    if (projects != null && !projects.isEmpty()) {
-      List<String> filteredProjects = projects.keySet().stream()
-          .filter(projectId -> tenantId.equals(projectTenants.get(projectId)))
-          .collect(Collectors.toList());
-      log.debug("[DUMMY] Get user projects in tenant: user={}, tenant={} -> {} project(s)",
-          userId, tenantId, filteredProjects.size());
-      return Single.just(filteredProjects);
+    if (!enabled) {
+      log.debug("[DISABLED] getUserProjectsInTenant: user={}, tenant={}", userId, tenantId);
+      return Single.just(new ArrayList<>());
     }
-    log.debug("[DUMMY] Get user projects in tenant: user={}, tenant={} -> empty list", userId, tenantId);
-    return Single.just(new ArrayList<>());
+    return Single.fromCallable(() -> {
+      // Read all tuples for this user
+      ClientReadRequest userRequest = new ClientReadRequest()
+          .user(USER_PREFIX + userId);
+      var userResponse = client.read(userRequest).get();
+      var userTuples = userResponse.getTuples();
+
+      if (userTuples == null || userTuples.isEmpty()) {
+        return new ArrayList<String>();
+      }
+
+      Set<String> userProjectIds = userTuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getObject() != null && key.getObject().startsWith(PROJECT_PREFIX))
+          .filter(key -> PROJECT_ROLES.contains(key.getRelation()))
+          .map(key -> key.getObject().substring(PROJECT_PREFIX.length()))
+          .collect(Collectors.toSet());
+
+      if (userProjectIds.isEmpty()) {
+        return new ArrayList<String>();
+      }
+
+      // Intersect with projects in this tenant
+      Set<String> tenantProjectIds = new HashSet<>(readProjectsInTenant(tenantId));
+
+      List<String> result = userProjectIds.stream()
+          .filter(tenantProjectIds::contains)
+          .collect(Collectors.toList());
+
+      log.debug("getUserProjectsInTenant: user={}, tenant={} -> {} project(s)",
+          userId, tenantId, result.size());
+      return result;
+    });
   }
 
+  /**
+   * Get all project IDs a user has access to (any role).
+   *
+   * @param userId User ID
+   * @return Single emitting list of project IDs
+   */
+  public Single<List<String>> getUserProjects(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getUserProjects: user={}", userId);
+      return Single.just(new ArrayList<>());
+    }
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .user(USER_PREFIX + userId);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
 
-  // Backward compatibility - keeping old method name
+      if (tuples == null || tuples.isEmpty()) {
+        log.debug("getUserProjects: user={} -> empty list", userId);
+        return new ArrayList<String>();
+      }
+
+      List<String> projectIds = tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getObject() != null && key.getObject().startsWith(PROJECT_PREFIX))
+          .filter(key -> PROJECT_ROLES.contains(key.getRelation()))
+          .map(key -> key.getObject().substring(PROJECT_PREFIX.length()))
+          .distinct()
+          .collect(Collectors.toList());
+
+      log.debug("getUserProjects: user={} -> {} project(s)", userId, projectIds.size());
+      return projectIds;
+    });
+  }
+
+  /**
+   * Find the tenant ID that a user belongs to.
+   * Queries OpenFGA for tuples where the user has an admin or member relation to a tenant.
+   *
+   * @param userEmail The user's email address
+   * @return Maybe emitting the tenant ID if found, empty if user has no tenant relations
+   */
+  public Maybe<String> getTenantForUser(String userEmail) {
+    if (!enabled) {
+      log.debug("[DISABLED] getTenantForUser: user={}", userEmail);
+      return Maybe.empty();
+    }
+    return Maybe.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .user(USER_PREFIX + userEmail);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+
+      if (tuples == null || tuples.isEmpty()) {
+        log.debug("No relations found for user: {}", userEmail);
+        return null;
+      }
+
+      Optional<String> tenantId = tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getObject() != null && key.getObject().startsWith(TENANT_PREFIX))
+          .filter(key -> TENANT_ROLES.contains(key.getRelation()))
+          .map(key -> key.getObject().substring(TENANT_PREFIX.length()))
+          .findFirst();
+
+      if (tenantId.isPresent()) {
+        log.info("Found tenant '{}' for user '{}'", tenantId.get(), userEmail);
+        return tenantId.get();
+      }
+
+      log.debug("No tenant relation found for user: {}", userEmail);
+      return null;
+    });
+  }
+
+  /**
+   * Check if a user belongs to a specific tenant (has admin or member relation).
+   *
+   * @param userEmail The user's email address
+   * @param tenantId  The tenant ID to check
+   * @return Single emitting true if user belongs to tenant
+   */
+  public Single<Boolean> userBelongsToTenant(String userEmail, String tenantId) {
+    if (!enabled) {
+      log.debug("[DISABLED] userBelongsToTenant: user={}, tenant={}", userEmail, tenantId);
+      return Single.just(true);
+    }
+    return checkPermission(userEmail, "admin", "tenant", tenantId)
+        .flatMap(isAdmin -> {
+          if (Boolean.TRUE.equals(isAdmin)) {
+            return Single.just(true);
+          }
+          return checkPermission(userEmail, "member", "tenant", tenantId);
+        });
+  }
+
   @Deprecated
   public Completable removeUserFromProject(String userId, String projectId) {
     return removeProjectMember(userId, projectId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // INTERNAL HELPERS
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Read stored tuples to find a user's direct role on an object.
+   * Only considers relations in the given allowedRoles set.
+   */
+  private String findUserRoleOnObject(String user, String object, Set<String> allowedRoles) throws Exception {
+    ClientReadRequest request = new ClientReadRequest()
+        .user(user)
+        ._object(object);
+    var response = client.read(request).get();
+    var tuples = response.getTuples();
+
+    if (tuples == null || tuples.isEmpty()) {
+      return null;
+    }
+
+    return tuples.stream()
+        .map(Tuple::getKey)
+        .map(key -> key.getRelation())
+        .filter(allowedRoles::contains)
+        .findFirst()
+        .orElse(null);
+  }
+
+  /**
+   * Read all project IDs linked to a tenant via the "parent" relation.
+   */
+  private List<String> readProjectsInTenant(String tenantId) throws Exception {
+    ClientReadRequest request = new ClientReadRequest()
+        .user(TENANT_PREFIX + tenantId)
+        .relation("parent");
+    var response = client.read(request).get();
+    var tuples = response.getTuples();
+
+    if (tuples == null || tuples.isEmpty()) {
+      return new ArrayList<>();
+    }
+
+    return tuples.stream()
+        .map(Tuple::getKey)
+        .filter(key -> key.getObject() != null && key.getObject().startsWith(PROJECT_PREFIX))
+        .map(key -> key.getObject().substring(PROJECT_PREFIX.length()))
+        .collect(Collectors.toList());
   }
 }

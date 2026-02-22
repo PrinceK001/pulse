@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
@@ -53,7 +54,13 @@ class ClickhouseQueryServiceTest {
   private ClickhouseTenantConnectionPoolManager poolManager;
 
   @Mock
+  private ClickhouseProjectConnectionPoolManager projectPoolManager;
+
+  @Mock
   private ClickhouseCredentialsDao credentialsDao;
+
+  @Mock
+  private ClickhouseProjectCredentialsDao projectCredentialsDao;
 
   @Mock
   private ConnectionPool connectionPool;
@@ -84,7 +91,9 @@ class ClickhouseQueryServiceTest {
         clickhouseReadClient,
         clickhouseWriteClient,
         poolManager,
-        credentialsDao
+        projectPoolManager,
+        credentialsDao,
+        projectCredentialsDao
     );
   }
 
@@ -422,9 +431,9 @@ class ClickhouseQueryServiceTest {
     @Test
     void shouldImplementEquals() {
       ClickhouseQueryService service1 = new ClickhouseQueryService(
-          clickhouseReadClient, clickhouseWriteClient, poolManager, credentialsDao);
+          clickhouseReadClient, clickhouseWriteClient, poolManager, projectPoolManager, credentialsDao, projectCredentialsDao);
       ClickhouseQueryService service2 = new ClickhouseQueryService(
-          clickhouseReadClient, clickhouseWriteClient, poolManager, credentialsDao);
+          clickhouseReadClient, clickhouseWriteClient, poolManager, projectPoolManager, credentialsDao, projectCredentialsDao);
 
       // Lombok @Data generates equals based on fields
       // Since objectMapper is final and created inline, services with same deps should be equal
