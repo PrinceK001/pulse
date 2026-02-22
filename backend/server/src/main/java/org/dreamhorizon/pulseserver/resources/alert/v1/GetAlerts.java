@@ -16,6 +16,7 @@ import org.dreamhorizon.pulseserver.resources.alert.models.GetAlertsListRequestD
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
+import org.dreamhorizon.pulseserver.authz.RequiresTenantAccess;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -28,6 +29,7 @@ public class GetAlerts {
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresTenantAccess
   public CompletionStage<Response<AlertDetailsPaginatedResponseDto>> getAlerts(
       @BeanParam GetAlertsListRequestDto getAlertsListRequestDto
   ) {
