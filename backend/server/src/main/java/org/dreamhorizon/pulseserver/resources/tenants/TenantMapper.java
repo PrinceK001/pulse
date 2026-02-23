@@ -1,8 +1,8 @@
 package org.dreamhorizon.pulseserver.resources.tenants;
 
 import java.util.List;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.resources.tenants.models.AuditListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.AuditLogRestResponse;

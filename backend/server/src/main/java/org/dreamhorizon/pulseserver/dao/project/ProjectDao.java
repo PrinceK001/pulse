@@ -1,18 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.project;
 
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.ACTIVATE_PROJECT;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.CHECK_PROJECT_EXISTS;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.CHECK_PROJECT_EXISTS_FOR_TENANT;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.COUNT_PROJECTS_BY_TENANT_ID;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.DEACTIVATE_PROJECT;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.DELETE_PROJECT;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_ALL_PROJECTS_BY_TENANT_ID;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_PROJECT_BY_ID;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_PROJECT_BY_PROJECT_ID;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_PROJECT_IDS_BY_TENANT_ID;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_PROJECTS_BY_TENANT_ID;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.INSERT_PROJECT;
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.UPDATE_PROJECT;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.*;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
