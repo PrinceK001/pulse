@@ -44,6 +44,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String ALERTS_PATH_PREFIX = "alerts";
+  private static final String LOGS_INGESTION_PATH = "v1/logs";
 
   private JwtService jwtService;
 
@@ -90,7 +91,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
         || normalizedPath.startsWith(AUTH_PATH_PREFIX)  // Includes /v1/auth/login
         || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
         || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
-        || normalizedPath.startsWith(ALERTS_PATH_PREFIX);
+        || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+        || normalizedPath.startsWith(LOGS_INGESTION_PATH);
   }
 
   @Override
@@ -120,6 +122,13 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     if (headerTenantId != null && !headerTenantId.isBlank()) {
       log.debug("Tenant ID resolved from header: {}", headerTenantId);
       return headerTenantId.trim();
+    }
+
+    //This a Temporary fix for supporting the projectId.
+    //TODO: This will be replaced once we have the complete project Onboarding in place
+    String projectId = requestContext.getHeaderString(PROJECT_HEADER);
+    if (projectId != null && !projectId.isBlank()) {
+      return projectId.trim();
     }
 
     log.error("Missing tenant ID (not found in token or X-Tenant-ID header) for path: {}",

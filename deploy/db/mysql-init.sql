@@ -89,7 +89,7 @@ CREATE TABLE interaction (
 
 -- Symbol files table with project_id in composite primary key
 CREATE TABLE symbol_files (
-    project_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL DEFAULT 'default',
     app_version VARCHAR(64) NOT NULL,
     app_version_code INT NOT NULL,
     platform ENUM('ios','android') NOT NULL,

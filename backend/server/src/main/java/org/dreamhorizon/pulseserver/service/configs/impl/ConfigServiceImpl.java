@@ -58,8 +58,8 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> getSdkConfig(long version) {
-    return sdkConfigsDao.getConfig(version);
+  public Single<PulseConfig> getSdkConfig(String tenantId, long version) {
+    return sdkConfigsDao.getConfig(tenantId, version);
   }
 
   @Override
@@ -87,7 +87,7 @@ public class ConfigServiceImpl implements ConfigService {
           latestConfigCache.synchronous().invalidate(projectId);
           log.info("Invalidated config cache for project: {}", projectId);
           uploadConfigDetailService
-              .pushInteractionDetailsToObjectStore()
+              .pushInteractionDetailsToObjectStore(tenantId)
               .subscribe();
         })
         .doOnError(err -> log.error("error while creating config for project: {}", projectId, err));

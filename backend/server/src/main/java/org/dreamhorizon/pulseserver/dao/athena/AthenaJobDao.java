@@ -29,7 +29,7 @@ public class AthenaJobDao {
    * Gets the current tenant ID from the TenantContext.
    */
   private String getTenantId() {
-    return TenantContext.getTenantId();
+    return TenantContext.requireTenantId();
   }
 
   /**
@@ -105,7 +105,7 @@ public class AthenaJobDao {
   }
 
   public Single<AthenaJob> getJobById(String jobId) {
-    return mysqlClient.getReaderPool()
+    return mysqlClient.getWriterPool()
         .preparedQuery(AthenaJobQueries.GET_JOB_BY_ID)
         .rxExecute(Tuple.of(jobId, getProjectId()))
         .map(rowSet -> {
