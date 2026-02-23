@@ -194,6 +194,12 @@ public class ProjectMemberService {
         log.info("Updating project role: user={}, project={}, newRole={}, updatedBy={}", 
             userId, projectId, newRole, updatedBy);
         
+        // Prevent self-role changes
+        if (userId.equals(updatedBy)) {
+            return Completable.error(new IllegalArgumentException(
+                "You cannot change your own role"));
+        }
+        
         // Validate role
         if (!isValidProjectRole(newRole)) {
             return Completable.error(new IllegalArgumentException(
