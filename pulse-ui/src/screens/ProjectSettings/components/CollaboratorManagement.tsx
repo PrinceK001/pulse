@@ -1,13 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Stack, Title, Text, Table, Button, Group, Modal, TextInput, Select, Badge, Loader } from '@mantine/core';
-import { IconUserPlus, IconTrash } from '@tabler/icons-react';
-import { getProjectContext } from '../../../helpers/projectContext';
+import { Stack, Title, Text, Table, Button, Group, Modal, TextInput, Select, Badge, Loader, ActionIcon } from '@mantine/core';
+import { IconUserPlus, IconTrash, IconCheck, IconX, IconEdit } from '@tabler/icons-react';
+import { makeRequest } from '../../../helpers/makeRequest';
+import { API_BASE_URL, COOKIES_KEY } from '../../../constants';
+import { usePermissions } from '../../../hooks';
+import { useProjectContext } from '../../../contexts';
+import { showNotification } from '../../../helpers/showNotification';
+import { getCookies } from '../../../helpers/cookies';
 
 interface Collaborator {
   userId: string;
   email: string;
   name: string;
-  role: string;
+  role: 'admin' | 'editor' | 'viewer';
+  status: string;
+  lastLoginAt?: string;
+}
+
+interface MemberListResponse {
+  members: Collaborator[];
+  totalCount: number;
 }
 
 export function CollaboratorManagement() {
@@ -16,7 +28,16 @@ export function CollaboratorManagement() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('viewer');
-  const projectContext = getProjectContext();
+  const [inviting, setInviting] = useState(false);
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+  const [editingRoleUserId, setEditingRoleUserId] = useState<string | null>(null);
+  const [newRole, setNewRole] = useState<string>('');
+  
+  const { projectId, projectName } = useProjectContext();
+  const { canInviteProjectMembers, canRemoveProjectMembers, projectRole } = usePermissions();
+  
+  // Get current user ID to prevent self-role changes
+  const currentUserId = getCookies(COOKIES_KEY.USER_ID);
 
   useEffect(() => {
     fetchCollaborators();
@@ -24,21 +45,110 @@ export function CollaboratorManagement() {
   }, []);
 
   const fetchCollaborators = async () => {
-    // TODO: Fetch collaborators from API
-    console.log('Fetch collaborators');
-    setLoading(false);
+    if (!projectId) return;
+    
+    setLoading(true);
+    try {
+      const response = await makeRequest<MemberListResponse>({
+        url: `${API_BASE_URL}/v1/projects/${projectId}/members`,
+        init: { method: 'GET' },
+      });
+      
+      if (response.data) {
+        setCollaborators(response.data.members);
+      } else {
+        showNotification('Error', response.error?.message || 'Failed to load members', <IconUserPlus />, '#fa5252');
+      }
+    } catch (error) {
+      console.error('[CollaboratorManagement] Error fetching members:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInvite = async () => {
-    // TODO: Implement invite API
-    console.log('Invite:', inviteEmail, inviteRole);
-    setInviteModalOpen(false);
-    setInviteEmail('');
+    if (!inviteEmail.trim() || !projectId) return;
+    
+    setInviting(true);
+    try {
+      const response = await makeRequest<Collaborator>({
+        url: `${API_BASE_URL}/v1/projects/${projectId}/members`,
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: inviteEmail.trim(),
+            role: inviteRole,
+          }),
+        },
+      });
+      
+      if (response.data) {
+        showNotification('Success', `Invitation sent to ${inviteEmail}`, <IconUserPlus />, '#0ec9c2');
+        setInviteModalOpen(false);
+        setInviteEmail('');
+        setInviteRole('viewer');
+        fetchCollaborators();
+      } else {
+        showNotification('Error', response.error?.message || 'Failed to invite member', <IconUserPlus />, '#fa5252');
+      }
+    } catch (error: any) {
+      showNotification('Error', error.message || 'Failed to invite member', <IconUserPlus />, '#fa5252');
+    } finally {
+      setInviting(false);
+    }
   };
 
-  const handleRemove = async (userId: string) => {
-    // TODO: Implement remove collaborator API
-    console.log('Remove:', userId);
+  const handleRemove = async (userId: string, userName: string) => {
+    if (!window.confirm(`Remove ${userName} from this project?`)) return;
+    if (!projectId) return;
+    
+    setRemovingUserId(userId);
+    try {
+      const response = await makeRequest<void>({
+        url: `${API_BASE_URL}/v1/projects/${projectId}/members/${userId}`,
+        init: { method: 'DELETE' },
+      });
+      
+      if (response.data !== undefined || !response.error) {
+        showNotification('Success', `${userName} removed from project`, <IconTrash />, '#0ec9c2');
+        fetchCollaborators();
+      } else {
+        showNotification('Error', response.error?.message || 'Failed to remove member', <IconTrash />, '#fa5252');
+      }
+    } catch (error: any) {
+      showNotification('Error', error.message || 'Failed to remove member', <IconTrash />, '#fa5252');
+    } finally {
+      setRemovingUserId(null);
+    }
+  };
+
+  const handleRoleUpdate = async (userId: string, currentRole: string) => {
+    if (!projectId || !newRole || newRole === currentRole) {
+      setEditingRoleUserId(null);
+      return;
+    }
+    
+    try {
+      const response = await makeRequest<void>({
+        url: `${API_BASE_URL}/v1/projects/${projectId}/members/${userId}`,
+        init: {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newRole }),
+        },
+      });
+      
+      if (response.data !== undefined || !response.error) {
+        showNotification('Success', 'Role updated successfully', <IconUserPlus />, '#0ec9c2');
+        setEditingRoleUserId(null);
+        fetchCollaborators();
+      } else {
+        showNotification('Error', response.error?.message || 'Failed to update role', <IconUserPlus />, '#fa5252');
+      }
+    } catch (error: any) {
+      showNotification('Error', error.message || 'Failed to update role', <IconUserPlus />, '#fa5252');
+    }
   };
 
   if (loading) {
@@ -56,15 +166,17 @@ export function CollaboratorManagement() {
         <div>
           <Title order={2}>Team Members</Title>
           <Text c="dimmed" size="sm">
-            Manage who has access to {projectContext?.projectName}
+            Manage who has access to {projectName}
           </Text>
         </div>
-        <Button
-          leftSection={<IconUserPlus size={16} />}
-          onClick={() => setInviteModalOpen(true)}
-        >
-          Invite Member
-        </Button>
+        {canInviteProjectMembers && (
+          <Button
+            leftSection={<IconUserPlus size={16} />}
+            onClick={() => setInviteModalOpen(true)}
+          >
+            Invite Member
+          </Button>
+        )}
       </Group>
 
       {collaborators.length > 0 ? (
@@ -78,26 +190,83 @@ export function CollaboratorManagement() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {collaborators.map((collab) => (
-              <Table.Tr key={collab.userId}>
-                <Table.Td>{collab.name}</Table.Td>
-                <Table.Td>{collab.email}</Table.Td>
-                <Table.Td>
-                  <Badge>{collab.role}</Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    color="red"
-                    leftSection={<IconTrash size={14} />}
-                    onClick={() => handleRemove(collab.userId)}
-                  >
-                    Remove
-                  </Button>
-                </Table.Td>
-              </Table.Tr>
-            ))}
+            {collaborators.map((collab) => {
+              const isCurrentUser = collab.userId === currentUserId;
+              return (
+                <Table.Tr 
+                  key={collab.userId}
+                  style={{ backgroundColor: isCurrentUser ? '#f8f9fa' : undefined }}
+                >
+                  <Table.Td>
+                    {collab.name}
+                    {isCurrentUser && <Text span c="dimmed" size="xs" ml="xs">(You)</Text>}
+                  </Table.Td>
+                  <Table.Td>{collab.email}</Table.Td>
+                  <Table.Td>
+                    {editingRoleUserId === collab.userId && projectRole === 'admin' ? (
+                      <Group gap="xs">
+                        <Select
+                          size="xs"
+                          value={newRole}
+                          onChange={(val) => setNewRole(val || collab.role)}
+                          data={[
+                            { value: 'admin', label: 'Admin' },
+                            { value: 'editor', label: 'Editor' },
+                            { value: 'viewer', label: 'Viewer' },
+                          ]}
+                          style={{ width: 120 }}
+                          disabled={isCurrentUser}
+                        />
+                        <ActionIcon 
+                          size="sm" 
+                          color="teal" 
+                          onClick={() => handleRoleUpdate(collab.userId, collab.role)}
+                          disabled={isCurrentUser}
+                        >
+                          <IconCheck size={14} />
+                        </ActionIcon>
+                        <ActionIcon size="sm" color="gray" onClick={() => setEditingRoleUserId(null)}>
+                          <IconX size={14} />
+                        </ActionIcon>
+                      </Group>
+                    ) : (
+                      <Group gap="xs">
+                        <Badge title={isCurrentUser ? "You cannot change your own role" : undefined}>
+                          {collab.role}
+                        </Badge>
+                        {projectRole === 'admin' && !isCurrentUser && (
+                          <ActionIcon
+                            size="xs"
+                            variant="subtle"
+                            onClick={() => {
+                              setEditingRoleUserId(collab.userId);
+                              setNewRole(collab.role);
+                            }}
+                          >
+                            <IconEdit size={12} />
+                          </ActionIcon>
+                        )}
+                      </Group>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    {canRemoveProjectMembers && !isCurrentUser && (
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="red"
+                        leftSection={<IconTrash size={14} />}
+                        onClick={() => handleRemove(collab.userId, collab.name)}
+                        loading={removingUserId === collab.userId}
+                        disabled={removingUserId === collab.userId}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
           </Table.Tbody>
         </Table>
       ) : (
@@ -128,7 +297,11 @@ export function CollaboratorManagement() {
             value={inviteRole}
             onChange={(val) => setInviteRole(val || 'viewer')}
           />
-          <Button onClick={handleInvite} disabled={!inviteEmail.trim()}>
+          <Button 
+            onClick={handleInvite} 
+            disabled={!inviteEmail.trim() || inviting}
+            loading={inviting}
+          >
             Send Invite
           </Button>
         </Stack>

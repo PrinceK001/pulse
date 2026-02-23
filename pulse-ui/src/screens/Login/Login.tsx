@@ -118,7 +118,7 @@ export function Login() {
             setTenantInfo({
               tenantId: data.tenantId,
               tenantName: '', // Will be fetched from projects API
-              userRole: data.tenantRole as 'owner' | 'admin' | 'member',
+              userRole: data.tenantRole as 'admin' | 'member',
             });
           }
           
@@ -167,7 +167,7 @@ export function Login() {
           setTenantInfo({
             tenantId: data.tenantId,
             tenantName: '', // Will be fetched from projects API
-            userRole: data.tenantRole as 'owner' | 'admin' | 'member',
+            userRole: data.tenantRole as 'admin' | 'member',
           });
         }
         

@@ -1005,6 +1005,7 @@ export const RADIO_LABLES: Record<string, string> = {
 export const COOKIES_KEY: Record<string, string> = {
   ACCESS_TOKEN: "accessToken",
   REFRESH_TOKEN: "refreshToken",
+  USER_ID: "userId",
   USER_NAME: "userName",
   USER_PICTURE: "userPicture",
   USER_EMAIL: "userEmail",

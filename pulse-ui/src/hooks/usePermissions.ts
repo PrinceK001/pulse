@@ -13,11 +13,11 @@ export function usePermissions() {
   
   return {
     // Tenant-level permissions (organization)
-    canInviteTenantMembers: tenantRole === 'owner' || tenantRole === 'admin',
-    canRemoveTenantMembers: tenantRole === 'owner' || tenantRole === 'admin',
-    canUpdateTenantRoles: tenantRole === 'owner',
-    canCreateProjects: tenantRole === 'owner' || tenantRole === 'admin',
-    canManageOrgSettings: tenantRole === 'owner',
+    canInviteTenantMembers: tenantRole === 'admin',
+    canRemoveTenantMembers: tenantRole === 'admin',
+    canUpdateTenantRoles: tenantRole === 'admin',
+    canCreateProjects: tenantRole === 'admin',
+    canManageOrgSettings: tenantRole === 'admin',
     canViewOrgMembers: !!tenantRole, // Any tenant member can view
     
     // Project-level permissions

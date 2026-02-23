@@ -98,7 +98,7 @@ export function Onboarding() {
       setTenantInfo({
         tenantId: data.tenantId,
         tenantName: data.tenantName,
-        userRole: 'owner', // User who completes onboarding is always owner
+        userRole: 'admin', // User who completes onboarding is always admin
       });
       
       // Set project context

@@ -28,6 +28,8 @@ import {
 import { showNotification } from '../../helpers/showNotification';
 import { getProjectApiKey } from '../../helpers/getProjectApiKey';
 import { useProjectContext } from '../../contexts';
+import { makeRequest } from '../../helpers/makeRequest';
+import { API_BASE_URL } from '../../constants';
 import classes from './OnboardingSuccess.module.css';
 
 export function OnboardingSuccess() {
@@ -48,6 +50,7 @@ export function OnboardingSuccess() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('viewer');
+  const [inviting, setInviting] = useState(false);
 
   // Fetch project details if not in location.state
   useEffect(() => {
@@ -79,8 +82,8 @@ export function OnboardingSuccess() {
         }
 
         // Fetch API key using shared helper
-        const apiKey = await getProjectApiKey(projectId);
-        setProjectApiKey(apiKey);
+        const apiKeyResult = await getProjectApiKey(projectId);
+        setProjectApiKey(apiKeyResult.key);
       } catch (error) {
         console.error('[OnboardingSuccess] Error fetching project details:', error);
         // On error, redirect to project dashboard
@@ -110,15 +113,34 @@ export function OnboardingSuccess() {
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const handleInviteMember = () => {
-    // TODO: Implement invite API call
-    showNotification(
-      'Coming Soon',
-      'Team invitation feature will be available soon',
-      <IconUsers />,
-      '#0ec9c2'
-    );
-    setInviteEmail('');
+  const handleInviteMember = async () => {
+    if (!inviteEmail.trim() || !projectId) return;
+    
+    setInviting(true);
+    try {
+      const response = await makeRequest<any>({
+        url: `${API_BASE_URL}/v1/projects/${projectId}/members`,
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: inviteEmail.trim(),
+            role: inviteRole,
+          }),
+        },
+      });
+      
+      if (response.data) {
+        showNotification('Success', `Invitation sent to ${inviteEmail}`, <IconUsers />, '#0ec9c2');
+        setInviteEmail('');
+      } else {
+        showNotification('Error', response.error?.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+      }
+    } catch (error: any) {
+      showNotification('Error', error.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+    } finally {
+      setInviting(false);
+    }
   };
 
   const handleGoToDashboard = () => {
@@ -282,7 +304,8 @@ Pulse.initialize({
                 variant="light"
                 color="teal"
                 onClick={handleInviteMember}
-                disabled={!inviteEmail}
+                disabled={!inviteEmail || inviting}
+                loading={inviting}
               >
                 Send Invite
               </Button>

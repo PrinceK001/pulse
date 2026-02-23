@@ -1,6 +1,8 @@
-<<<<<<< HEAD
 // New context-based hooks
 export { usePermissions } from './usePermissions';
+
+// AI hooks
+export * from './useAiQuery';
 
 // Analytics & Stats hooks
 export { useAnalytics } from './useAnalytics';
@@ -77,47 +79,3 @@ export * from './useValidateUniversalQuery';
 
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from './hooks.interface';
-=======
-export * from "./useGetInteractions";
-export * from "./useGetSessionReplays";
-export * from "./useGetDataQuery";
-export * from "./useQueryError";
-export * from "./useGetProblematicInteractionsStats";
-export * from "./useGetProblematicInteractions";
-export * from "./useGetInteractionDetailsGraphs";
-export * from "./useGetUserEngagementData";
-export * from "./useGetActiveSessionsData";
-export * from "./useGetScreensHealthData";
-export * from "./useGetTopInteractionsHealthData";
-// Alert hooks
-export * from "./useGetAlertList";
-export * from "./useGetAlertDetails";
-export * from "./useCreateAlert";
-export * from "./useUpdateAlert";
-export * from "./useGetAlertFilters";
-export * from "./useGetAlertEvaluationHistory";
-export * from "./useSnoozeAlert";
-export * from "./useResumeAlert";
-export * from "./useGetAlertScopes";
-export * from "./useGetAlertMetrics";
-export * from "./useGetAlertSeverities";
-export * from "./useGetAlertNotificationChannels";
-export * from "./useGetNotificationChannelById";
-export * from "./useCreateNotificationChannel";
-export * from "./useUpdateNotificationChannel";
-export * from "./useDeleteNotificationChannel";
-export * from "./useAnalytics";
-// SDK Config hooks
-export * from "./useSdkConfig";
-export * from "./useGetAppStats";
-// Session Timeline hooks
-export * from "./useGetSessionData";
-export * from "./useGetSpanDetails";
-// Real-time Querying hooks
-export * from "./useQueryMetadata";
-export * from "./useSubmitQuery";
-export * from "./useCancelQuery";
-export * from "./useGetQueryHistory";
-export * from "./useQueryStats";
-export * from "./useAiQuery";
->>>>>>> 46e50f468bc5bd94ee8348c6c724da11a92ee0d1

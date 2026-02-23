@@ -1,10 +1,8 @@
 import { Container, Title, Text, Stack, Card, Group, Button, Badge, List, ThemeIcon, Box } from '@mantine/core';
 import { IconCheck, IconMail, IconRocket, IconBuilding } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
 import classes from './Pricing.module.css';
 
 export function Pricing() {
-  const navigate = useNavigate();
 
   // TODO: Fetch current plan from project details API
   const currentPlan = 'free'; // Will come from backend later

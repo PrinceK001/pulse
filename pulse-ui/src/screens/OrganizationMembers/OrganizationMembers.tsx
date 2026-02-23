@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Container, Title, Table, Button, Group, Text, Modal, TextInput, Select, Badge, ActionIcon, Loader } from '@mantine/core';
-import { IconUserPlus, IconTrash } from '@tabler/icons-react';
+import { IconUserPlus, IconTrash, IconCheck, IconX, IconEdit } from '@tabler/icons-react';
 import { useTenantContext } from '../../contexts';
 import { usePermissions } from '../../hooks';
 import { showNotification } from '../../helpers/showNotification';
-import { API_BASE_URL } from '../../constants';
+import { API_BASE_URL, COOKIES_KEY } from '../../constants';
 import { makeRequest } from '../../helpers/makeRequest';
+import { getCookies } from '../../helpers/cookies';
 
 interface Member {
   userId: string;
@@ -23,7 +24,7 @@ interface MemberListResponse {
 
 export function OrganizationMembers() {
   const { tenantId } = useTenantContext();
-  const { canInviteTenantMembers, canRemoveTenantMembers } = usePermissions();
+  const { canInviteTenantMembers, canRemoveTenantMembers, canUpdateTenantRoles } = usePermissions();
   
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,14 +32,14 @@ export function OrganizationMembers() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<string>('member');
   const [inviting, setInviting] = useState(false);
+  const [editingRoleUserId, setEditingRoleUserId] = useState<string | null>(null);
+  const [newRole, setNewRole] = useState<string>('');
+  const [updatingRole, setUpdatingRole] = useState(false);
+  
+  // Get current user ID to prevent self-role changes
+  const currentUserId = getCookies(COOKIES_KEY.USER_ID);
 
-  useEffect(() => {
-    if (tenantId) {
-      fetchMembers();
-    }
-  }, [tenantId]);
-
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     if (!tenantId) return;
     
     setLoading(true);
@@ -65,7 +66,13 @@ export function OrganizationMembers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (tenantId) {
+      fetchMembers();
+    }
+  }, [tenantId, fetchMembers]);
 
   const handleInviteMember = async () => {
     if (!inviteEmail.trim() || !tenantId) return;
@@ -160,10 +167,39 @@ export function OrganizationMembers() {
     }
   };
 
+  const handleRoleUpdate = async (userId: string, currentRole: string, userName: string) => {
+    if (!tenantId || !newRole || newRole === currentRole) {
+      setEditingRoleUserId(null);
+      return;
+    }
+    
+    setUpdatingRole(true);
+    try {
+      const response = await makeRequest<void>({
+        url: `${API_BASE_URL}/v1/tenants/${tenantId}/members/${userId}`,
+        init: {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newRole }),
+        },
+      });
+      
+      if (response.data !== undefined || !response.error) {
+        showNotification('Success', `Updated ${userName}'s role to ${newRole}`, <IconUserPlus />, '#0ec9c2');
+        setEditingRoleUserId(null);
+        fetchMembers();
+      } else {
+        showNotification('Error', response.error?.message || 'Failed to update role', <IconUserPlus />, '#fa5252');
+      }
+    } catch (error: any) {
+      showNotification('Error', error.message || 'Failed to update role', <IconUserPlus />, '#fa5252');
+    } finally {
+      setUpdatingRole(false);
+    }
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role.toLowerCase()) {
-      case 'owner':
-        return 'grape';
       case 'admin':
         return 'blue';
       case 'member':
@@ -220,40 +256,100 @@ export function OrganizationMembers() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {members.map((member) => (
-              <Table.Tr key={member.userId}>
-                <Table.Td>{member.name}</Table.Td>
-                <Table.Td>{member.email}</Table.Td>
-                <Table.Td>
-                  <Badge color={getRoleBadgeColor(member.role)} variant="light">
-                    {member.role}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Badge color={member.status === 'active' ? 'teal' : 'gray'} variant="light">
-                    {member.status}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  {member.lastLoginAt 
-                    ? new Date(member.lastLoginAt).toLocaleDateString()
-                    : 'Never'}
-                </Table.Td>
-                {canRemoveTenantMembers && (
+            {members.map((member) => {
+              const isCurrentUser = member.userId === currentUserId;
+              return (
+                <Table.Tr 
+                  key={member.userId}
+                  style={{ backgroundColor: isCurrentUser ? '#f8f9fa' : undefined }}
+                >
                   <Table.Td>
-                    {member.role !== 'owner' && (
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        onClick={() => handleRemoveMember(member.userId, member.name)}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
+                    {member.name}
+                    {isCurrentUser && <Text span c="dimmed" size="xs" ml="xs">(You)</Text>}
+                  </Table.Td>
+                  <Table.Td>{member.email}</Table.Td>
+                  <Table.Td>
+                    {editingRoleUserId === member.userId && canUpdateTenantRoles ? (
+                      <Group gap="xs">
+                        <Select
+                          size="xs"
+                          value={newRole}
+                          onChange={(val) => setNewRole(val || member.role)}
+                          data={[
+                            { value: 'admin', label: 'Admin - Can manage members and projects' },
+                            { value: 'member', label: 'Member - Can view and access projects' },
+                          ]}
+                          style={{ width: 200 }}
+                          disabled={updatingRole || isCurrentUser}
+                        />
+                        <ActionIcon 
+                          size="sm" 
+                          color="teal" 
+                          onClick={() => handleRoleUpdate(member.userId, member.role, member.name)}
+                          loading={updatingRole}
+                          disabled={updatingRole || isCurrentUser}
+                        >
+                          <IconCheck size={14} />
+                        </ActionIcon>
+                        <ActionIcon 
+                          size="sm" 
+                          color="gray" 
+                          onClick={() => setEditingRoleUserId(null)}
+                          disabled={updatingRole}
+                        >
+                          <IconX size={14} />
+                        </ActionIcon>
+                      </Group>
+                    ) : (
+                      <Group gap="xs">
+                        <Badge 
+                          color={getRoleBadgeColor(member.role)} 
+                          variant="light"
+                          title={isCurrentUser ? "You cannot change your own role" : undefined}
+                        >
+                          {member.role}
+                        </Badge>
+                        {canUpdateTenantRoles && !isCurrentUser && (
+                          <ActionIcon
+                            size="xs"
+                            variant="subtle"
+                            onClick={() => {
+                              setEditingRoleUserId(member.userId);
+                              setNewRole(member.role);
+                            }}
+                          >
+                            <IconEdit size={12} />
+                          </ActionIcon>
+                        )}
+                      </Group>
                     )}
                   </Table.Td>
-                )}
-              </Table.Tr>
-            ))}
+                  <Table.Td>
+                    <Badge color={member.status === 'active' ? 'teal' : 'gray'} variant="light">
+                      {member.status}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    {member.lastLoginAt 
+                      ? new Date(member.lastLoginAt).toLocaleDateString()
+                      : 'Never'}
+                  </Table.Td>
+                  {canRemoveTenantMembers && (
+                    <Table.Td>
+                      {!isCurrentUser && (
+                        <ActionIcon
+                          color="red"
+                          variant="subtle"
+                          onClick={() => handleRemoveMember(member.userId, member.name)}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      )}
+                    </Table.Td>
+                  )}
+                </Table.Tr>
+              );
+            })}
           </Table.Tbody>
         </Table>
       )}

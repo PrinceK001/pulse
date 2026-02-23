@@ -15,6 +15,7 @@ export const setCookiesAfterAuthentication = (
   options?: SetCookiesAfterAuthOptions,
 ) => {
   // User info
+  setCookies(COOKIES_KEY.USER_ID, loginResponse.userId);
   setCookies(COOKIES_KEY.USER_EMAIL, loginResponse.email);
   setCookies(COOKIES_KEY.USER_NAME, loginResponse.name);
   

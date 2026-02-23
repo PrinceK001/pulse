@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Title, Text, Card, Group, Loader, Stack, Button } from '@mantine/core';
 import { IconFolder, IconPlus } from '@tabler/icons-react';
@@ -29,7 +29,7 @@ export function ProjectSelection() {
       setHasFetched(true);
     };
     fetchProjects();
-  }, []); // Include refreshProjects in dependencies
+  }, [refreshProjects]); // Include refreshProjects in dependencies
 
   // SECOND: Handle auto-selection after projects are loaded
   useEffect(() => {

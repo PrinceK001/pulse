@@ -4,14 +4,14 @@ import { getUserProjects, ProjectSummary } from '../helpers/getUserProjects';
 interface TenantInfo {
   tenantId: string;
   tenantName: string;
-  userRole: 'owner' | 'admin' | 'member';
+  userRole: 'admin' | 'member';
 }
 
 interface TenantContextType {
   // State
   tenantId: string | null;
   tenantName: string | null;
-  userRole: 'owner' | 'admin' | 'member' | null;
+  userRole: 'admin' | 'member' | null;
   projects: ProjectSummary[];
   isLoading: boolean;
   
@@ -29,7 +29,7 @@ const STORAGE_KEY = 'pulse_tenant_context';
 interface StoredTenantData {
   tenantId: string;
   tenantName: string;
-  userRole: 'owner' | 'admin' | 'member';
+  userRole: 'admin' | 'member';
   projects: ProjectSummary[];
   timestamp: number;
 }
@@ -37,7 +37,7 @@ interface StoredTenantData {
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<'owner' | 'admin' | 'member' | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -85,18 +85,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   }, [tenantId, tenantName, userRole, projects]);
 
-  const setTenantInfo = useCallback((tenant: TenantInfo) => {
-    console.log('[TenantContext] Setting tenant info:', tenant);
-    setTenantId(tenant.tenantId);
-    setTenantName(tenant.tenantName);
-    setUserRole(tenant.userRole);
-    
-    // Auto-fetch projects when tenant is set
-    if (tenant.tenantId) {
-      refreshProjects();
-    }
-  }, []);
-
   const refreshProjects = useCallback(async () => {
     // Get tenantId from state or sessionStorage
     const currentTenantId = tenantId || (() => {
@@ -134,6 +122,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, [tenantId]);
+
+  const setTenantInfo = useCallback((tenant: TenantInfo) => {
+    console.log('[TenantContext] Setting tenant info:', tenant);
+    setTenantId(tenant.tenantId);
+    setTenantName(tenant.tenantName);
+    setUserRole(tenant.userRole);
+    
+    // Auto-fetch projects when tenant is set
+    if (tenant.tenantId) {
+      refreshProjects();
+    }
+  }, [refreshProjects]);
 
   const addProject = useCallback((project: ProjectSummary) => {
     console.log('[TenantContext] Adding project:', project.projectId);
