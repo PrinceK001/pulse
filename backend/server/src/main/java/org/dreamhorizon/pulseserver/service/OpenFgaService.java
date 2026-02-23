@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import dev.openfga.sdk.api.client.OpenFgaClient;
 import dev.openfga.sdk.api.client.model.ClientCheckRequest;
+import dev.openfga.sdk.api.client.model.ClientListObjectsRequest;
 import dev.openfga.sdk.api.client.model.ClientReadRequest;
 import dev.openfga.sdk.api.client.model.ClientTupleKey;
 import dev.openfga.sdk.api.client.model.ClientTupleKeyWithoutCondition;
@@ -11,7 +12,6 @@ import dev.openfga.sdk.api.client.model.ClientWriteRequest;
 import dev.openfga.sdk.api.configuration.ClientConfiguration;
 import dev.openfga.sdk.api.model.Tuple;
 import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -39,7 +39,7 @@ public class OpenFgaService {
   private static final String TENANT_PREFIX = "tenant:";
   private static final String PROJECT_PREFIX = "project:";
   private static final Set<String> TENANT_ROLES = Set.of("admin", "member");
-  private static final Set<String> PROJECT_ROLES = Set.of("admin", "editor", "member");
+  private static final Set<String> PROJECT_ROLES = Set.of("admin", "editor", "viewer");
 
   private final OpenFgaClient client;
   private final boolean enabled;
@@ -278,26 +278,22 @@ public class OpenFgaService {
       return Single.just(new ArrayList<>());
     }
     return Single.fromCallable(() -> {
-      ClientReadRequest request = new ClientReadRequest()
-          .user(USER_PREFIX + userId);
-      var response = client.read(request).get();
-      var tuples = response.getTuples();
-
-      if (tuples == null || tuples.isEmpty()) {
-        log.debug("getUserTenants: user={} -> empty list", userId);
-        return new ArrayList<String>();
+      Set<String> tenantIds = new HashSet<>();
+      for (String role : TENANT_ROLES) {
+        ClientListObjectsRequest request = new ClientListObjectsRequest()
+            .user(USER_PREFIX + userId)
+            .relation(role)
+            .type("tenant");
+        var response = client.listObjects(request).get();
+        var objects = response.getObjects();
+        if (objects != null) {
+          objects.stream()
+              .map(obj -> obj.startsWith(TENANT_PREFIX) ? obj.substring(TENANT_PREFIX.length()) : obj)
+              .forEach(tenantIds::add);
+        }
       }
-
-      List<String> tenantIds = tuples.stream()
-          .map(Tuple::getKey)
-          .filter(key -> key.getObject() != null && key.getObject().startsWith(TENANT_PREFIX))
-          .filter(key -> TENANT_ROLES.contains(key.getRelation()))
-          .map(key -> key.getObject().substring(TENANT_PREFIX.length()))
-          .distinct()
-          .collect(Collectors.toList());
-
       log.debug("getUserTenants: user={} -> {} tenant(s)", userId, tenantIds.size());
-      return tenantIds;
+      return new ArrayList<>(tenantIds);
     });
   }
 
@@ -436,24 +432,6 @@ public class OpenFgaService {
           client.write(deleteRequest).get();
         }
       }
-    });
-  }
-
-  /**
-   * Get all projects in a tenant by reading parent relationship tuples.
-   *
-   * @param tenantId Tenant ID
-   * @return Single emitting list of project IDs
-   */
-  public Single<List<String>> getProjectsInTenant(String tenantId) {
-    if (!enabled) {
-      log.debug("[DISABLED] getProjectsInTenant: tenant={}", tenantId);
-      return Single.just(new ArrayList<>());
-    }
-    return Single.fromCallable(() -> {
-      List<String> projects = readProjectsInTenant(tenantId);
-      log.debug("getProjectsInTenant: tenant={} -> {} project(s)", tenantId, projects.size());
-      return projects;
     });
   }
 
@@ -621,53 +599,6 @@ public class OpenFgaService {
   }
 
   /**
-   * Get a user's projects within a specific tenant.
-   *
-   * @param userId   User ID
-   * @param tenantId Tenant ID
-   * @return Single emitting list of project IDs the user has access to in this tenant
-   */
-  public Single<List<String>> getUserProjectsInTenant(String userId, String tenantId) {
-    if (!enabled) {
-      log.debug("[DISABLED] getUserProjectsInTenant: user={}, tenant={}", userId, tenantId);
-      return Single.just(new ArrayList<>());
-    }
-    return Single.fromCallable(() -> {
-      // Read all tuples for this user
-      ClientReadRequest userRequest = new ClientReadRequest()
-          .user(USER_PREFIX + userId);
-      var userResponse = client.read(userRequest).get();
-      var userTuples = userResponse.getTuples();
-
-      if (userTuples == null || userTuples.isEmpty()) {
-        return new ArrayList<String>();
-      }
-
-      Set<String> userProjectIds = userTuples.stream()
-          .map(Tuple::getKey)
-          .filter(key -> key.getObject() != null && key.getObject().startsWith(PROJECT_PREFIX))
-          .filter(key -> PROJECT_ROLES.contains(key.getRelation()))
-          .map(key -> key.getObject().substring(PROJECT_PREFIX.length()))
-          .collect(Collectors.toSet());
-
-      if (userProjectIds.isEmpty()) {
-        return new ArrayList<String>();
-      }
-
-      // Intersect with projects in this tenant
-      Set<String> tenantProjectIds = new HashSet<>(readProjectsInTenant(tenantId));
-
-      List<String> result = userProjectIds.stream()
-          .filter(tenantProjectIds::contains)
-          .collect(Collectors.toList());
-
-      log.debug("getUserProjectsInTenant: user={}, tenant={} -> {} project(s)",
-          userId, tenantId, result.size());
-      return result;
-    });
-  }
-
-  /**
    * Get all project IDs a user has access to (any role).
    *
    * @param userId User ID
@@ -679,93 +610,23 @@ public class OpenFgaService {
       return Single.just(new ArrayList<>());
     }
     return Single.fromCallable(() -> {
-      ClientReadRequest request = new ClientReadRequest()
-          .user(USER_PREFIX + userId);
-      var response = client.read(request).get();
-      var tuples = response.getTuples();
-
-      if (tuples == null || tuples.isEmpty()) {
-        log.debug("getUserProjects: user={} -> empty list", userId);
-        return new ArrayList<String>();
+      Set<String> projectIds = new HashSet<>();
+      for (String role : PROJECT_ROLES) {
+        ClientListObjectsRequest request = new ClientListObjectsRequest()
+            .user(USER_PREFIX + userId)
+            .relation(role)
+            .type("project");
+        var response = client.listObjects(request).get();
+        var objects = response.getObjects();
+        if (objects != null) {
+          objects.stream()
+              .map(obj -> obj.startsWith(PROJECT_PREFIX) ? obj.substring(PROJECT_PREFIX.length()) : obj)
+              .forEach(projectIds::add);
+        }
       }
-
-      List<String> projectIds = tuples.stream()
-          .map(Tuple::getKey)
-          .filter(key -> key.getObject() != null && key.getObject().startsWith(PROJECT_PREFIX))
-          .filter(key -> PROJECT_ROLES.contains(key.getRelation()))
-          .map(key -> key.getObject().substring(PROJECT_PREFIX.length()))
-          .distinct()
-          .collect(Collectors.toList());
-
       log.debug("getUserProjects: user={} -> {} project(s)", userId, projectIds.size());
-      return projectIds;
+      return new ArrayList<>(projectIds);
     });
-  }
-
-  /**
-   * Find the tenant ID that a user belongs to.
-   * Queries OpenFGA for tuples where the user has an admin or member relation to a tenant.
-   *
-   * @param userEmail The user's email address
-   * @return Maybe emitting the tenant ID if found, empty if user has no tenant relations
-   */
-  public Maybe<String> getTenantForUser(String userEmail) {
-    if (!enabled) {
-      log.debug("[DISABLED] getTenantForUser: user={}", userEmail);
-      return Maybe.empty();
-    }
-    return Maybe.fromCallable(() -> {
-      ClientReadRequest request = new ClientReadRequest()
-          .user(USER_PREFIX + userEmail);
-      var response = client.read(request).get();
-      var tuples = response.getTuples();
-
-      if (tuples == null || tuples.isEmpty()) {
-        log.debug("No relations found for user: {}", userEmail);
-        return null;
-      }
-
-      Optional<String> tenantId = tuples.stream()
-          .map(Tuple::getKey)
-          .filter(key -> key.getObject() != null && key.getObject().startsWith(TENANT_PREFIX))
-          .filter(key -> TENANT_ROLES.contains(key.getRelation()))
-          .map(key -> key.getObject().substring(TENANT_PREFIX.length()))
-          .findFirst();
-
-      if (tenantId.isPresent()) {
-        log.info("Found tenant '{}' for user '{}'", tenantId.get(), userEmail);
-        return tenantId.get();
-      }
-
-      log.debug("No tenant relation found for user: {}", userEmail);
-      return null;
-    });
-  }
-
-  /**
-   * Check if a user belongs to a specific tenant (has admin or member relation).
-   *
-   * @param userEmail The user's email address
-   * @param tenantId  The tenant ID to check
-   * @return Single emitting true if user belongs to tenant
-   */
-  public Single<Boolean> userBelongsToTenant(String userEmail, String tenantId) {
-    if (!enabled) {
-      log.debug("[DISABLED] userBelongsToTenant: user={}, tenant={}", userEmail, tenantId);
-      return Single.just(true);
-    }
-    return checkPermission(userEmail, "admin", "tenant", tenantId)
-        .flatMap(isAdmin -> {
-          if (Boolean.TRUE.equals(isAdmin)) {
-            return Single.just(true);
-          }
-          return checkPermission(userEmail, "member", "tenant", tenantId);
-        });
-  }
-
-  @Deprecated
-  public Completable removeUserFromProject(String userId, String projectId) {
-    return removeProjectMember(userId, projectId);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -799,20 +660,19 @@ public class OpenFgaService {
    * Read all project IDs linked to a tenant via the "parent" relation.
    */
   private List<String> readProjectsInTenant(String tenantId) throws Exception {
-    ClientReadRequest request = new ClientReadRequest()
+    ClientListObjectsRequest request = new ClientListObjectsRequest()
         .user(TENANT_PREFIX + tenantId)
-        .relation("parent");
-    var response = client.read(request).get();
-    var tuples = response.getTuples();
+        .relation("parent")
+        .type("project");
+    var response = client.listObjects(request).get();
+    var objects = response.getObjects();
 
-    if (tuples == null || tuples.isEmpty()) {
+    if (objects == null || objects.isEmpty()) {
       return new ArrayList<>();
     }
 
-    return tuples.stream()
-        .map(Tuple::getKey)
-        .filter(key -> key.getObject() != null && key.getObject().startsWith(PROJECT_PREFIX))
-        .map(key -> key.getObject().substring(PROJECT_PREFIX.length()))
+    return objects.stream()
+        .map(obj -> obj.startsWith(PROJECT_PREFIX) ? obj.substring(PROJECT_PREFIX.length()) : obj)
         .collect(Collectors.toList());
   }
 }

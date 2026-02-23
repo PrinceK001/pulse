@@ -22,6 +22,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.TenantMemberService;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
+import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 /**
  * REST resource for tenant member management.
@@ -155,8 +156,8 @@ public class TenantMemberResource {
                     tenantId, targetUserId, removerId, "Tenant", "Admin"
                 );
             })
-            .toSingleDefault((Void) null)
-            .to(RestResponse.jaxrsRestHandler());
+            .andThen(Single.just(Response.<Void>successfulResponse(null)))
+            .to(CompletableFutureUtils::fromSingle);
     }
     
     /**
@@ -197,8 +198,8 @@ public class TenantMemberResource {
                     updaterId, "Tenant", "Admin"
                 );
             })
-            .toSingleDefault((Void) null)
-            .to(RestResponse.jaxrsRestHandler());
+            .andThen(Single.just(Response.<Void>successfulResponse(null)))
+            .to(CompletableFutureUtils::fromSingle);
     }
     
     /**
@@ -210,7 +211,7 @@ public class TenantMemberResource {
      * @return Success response
      */
     @POST
-    @Path("/../leave")
+    @Path("/leave")
     public CompletionStage<Response<Void>> leaveTenant(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("tenantId") String tenantId) {
@@ -221,8 +222,8 @@ public class TenantMemberResource {
         log.info("User leaving tenant: user={}, tenant={}", userId, tenantId);
         
         return tenantMemberService.leaveTenant(tenantId, userId, "Tenant")
-            .toSingleDefault((Void) null)
-            .to(RestResponse.jaxrsRestHandler());
+            .andThen(Single.just(Response.<Void>successfulResponse(null)))
+            .to(CompletableFutureUtils::fromSingle);
     }
     
     /**

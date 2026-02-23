@@ -53,7 +53,7 @@
         "editor": {
           "this": {}
         },
-        "member": {
+        "viewer": {
           "this": {}
         },
         "has_project_access": {
@@ -61,7 +61,7 @@
             "child": [
               {"computedUserset": {"relation": "admin"}},
               {"computedUserset": {"relation": "editor"}},
-              {"computedUserset": {"relation": "member"}}
+              {"computedUserset": {"relation": "viewer"}}
             ]
           }
         },
@@ -95,7 +95,7 @@
             "child": [
               {"computedUserset": {"relation": "effective_admin"}},
               {"computedUserset": {"relation": "editor"}},
-              {"computedUserset": {"relation": "member"}},
+              {"computedUserset": {"relation": "viewer"}},
               {"tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view_tenant"}}}
             ]
           }
@@ -106,7 +106,7 @@
           "parent": {"directly_related_user_types": [{"type": "tenant"}]},
           "admin": {"directly_related_user_types": [{"type": "user"}]},
           "editor": {"directly_related_user_types": [{"type": "user"}]},
-          "member": {"directly_related_user_types": [{"type": "user"}]}
+          "viewer": {"directly_related_user_types": [{"type": "user"}]}
         }
       }
     },

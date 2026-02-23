@@ -26,7 +26,6 @@ public class PerformanceMetricDistribution {
   @Path("/distribution")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PerformanceMetricDistributionRes>> getMetricDistribution(QueryRequest request) {
-    request.setTenantId(TenantContext.getTenantId());
     request.setProjectId(ProjectContext.getProjectId());
     return performanceMetricService.getMetricDistribution(request)
         .to(RestResponse.jaxrsRestHandler());

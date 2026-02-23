@@ -29,6 +29,10 @@ public class ProjectContext {
    * @return Project ID, or null if not set
    */
   public static String getProjectId() {
+    return projectIdContext.get();
+  }
+
+  public static String requireProjectId() {
     return Optional.ofNullable(projectIdContext.get())
         .orElseThrow(() -> new IllegalStateException("No tenant context is set"));
   }

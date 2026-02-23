@@ -115,10 +115,10 @@ public class AuthorizationFilter implements ContainerRequestFilter {
      */
     private String mapHttpMethodToAction(String method) {
         return switch (method.toUpperCase()) {
-            case "GET", "HEAD" -> "view";
-            case "POST", "PUT", "PATCH" -> "edit";
-            case "DELETE" -> "delete";
-            default -> "view";  // Default to most restrictive for unknown methods
+            case "GET", "HEAD" -> "can_view";
+            case "POST", "PUT", "PATCH" -> "can_edit";
+            case "DELETE" -> "can_delete_project";
+            default -> "can_view";
         };
     }
     

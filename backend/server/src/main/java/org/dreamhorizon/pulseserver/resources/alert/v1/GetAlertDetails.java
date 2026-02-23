@@ -16,7 +16,6 @@ import org.dreamhorizon.pulseserver.resources.alert.models.AlertDetailsResponseD
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
-import org.dreamhorizon.pulseserver.authz.RequiresTenantAccess;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -29,7 +28,6 @@ public class GetAlertDetails {
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @RequiresTenantAccess
   public CompletionStage<Response<AlertDetailsResponseDto>> getAlertDetails(@NotNull @PathParam("id") Integer alertId) {
     return alertsService
         .getAlertDetails(alertId)

@@ -23,6 +23,7 @@ import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.ProjectMemberService;
 import org.dreamhorizon.pulseserver.service.ProjectService;
 import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
+import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 /**
  * REST resource for project member management.
@@ -202,7 +203,7 @@ public class ProjectMemberResource {
                             });
                     });
             })
-            .toSingleDefault((Void) null)
+            .andThen(Single.just(Response.<Void>successfulResponse(null)))
             .onErrorResumeNext(error -> {
                 if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
                     return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
@@ -210,7 +211,7 @@ public class ProjectMemberResource {
                 }
                 return io.reactivex.rxjava3.core.Single.error(error);
             })
-            .to(RestResponse.jaxrsRestHandler());
+            .to(CompletableFutureUtils::fromSingle);
     }
     
     /**
@@ -273,7 +274,7 @@ public class ProjectMemberResource {
             .doOnComplete(() -> log.info("Successfully updated role for user {} in project {}", targetUserId, projectId))
             .doOnError(error -> log.error("Failed to update member role: user={}, project={}, error={}", 
                 targetUserId, projectId, error.getMessage(), error))
-            .toSingleDefault((Void) null)
+            .andThen(Single.just(Response.<Void>successfulResponse(null)))
             .onErrorResumeNext(error -> {
                 if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
                     return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
@@ -283,7 +284,7 @@ public class ProjectMemberResource {
                 log.error("Role update error being returned to client: {}", errorMsg);
                 return io.reactivex.rxjava3.core.Single.error(error);
             })
-            .to(RestResponse.jaxrsRestHandler());
+            .to(CompletableFutureUtils::fromSingle);
     }
     
     /**
@@ -295,7 +296,7 @@ public class ProjectMemberResource {
      * @return Success response
      */
     @POST
-    @Path("/../leave")
+    @Path("/leave")
     public CompletionStage<Response<Void>> leaveProject(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {
@@ -316,7 +317,7 @@ public class ProjectMemberResource {
             .flatMapCompletable(project -> {
                 return projectMemberService.leaveProject(projectId, userId, project.getName());
             })
-            .toSingleDefault((Void) null)
+            .andThen(Single.just(Response.<Void>successfulResponse(null)))
             .onErrorResumeNext(error -> {
                 if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
                     return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
@@ -324,7 +325,7 @@ public class ProjectMemberResource {
                 }
                 return io.reactivex.rxjava3.core.Single.error(error);
             })
-            .to(RestResponse.jaxrsRestHandler());
+            .to(CompletableFutureUtils::fromSingle);
     }
     
     /**
