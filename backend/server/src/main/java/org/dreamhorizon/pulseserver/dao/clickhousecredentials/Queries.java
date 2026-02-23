@@ -66,14 +66,14 @@ public class Queries {
 
 
   public static final String INSERT_AUDIT =
-      "INSERT INTO clickhouse_credential_audit (tenant_id, action, performed_by, details) "
+      "INSERT INTO clickhouse_credential_audit (project_id, action, performed_by, details) "
           + "VALUES (?, ?, ?, ?)";
 
-  public static final String GET_AUDIT_BY_TENANT =
-      "SELECT id, tenant_id, action, performed_by, details, created_at "
-          + "FROM clickhouse_credential_audit WHERE tenant_id = ? ORDER BY created_at DESC";
+  public static final String GET_AUDIT_BY_PROJECT =
+      "SELECT id, project_id, action, performed_by, details, created_at "
+          + "FROM clickhouse_credential_audit WHERE project_id = ? ORDER BY created_at DESC";
 
   public static final String GET_RECENT_AUDITS =
-      "SELECT id, tenant_id, action, performed_by, details, created_at "
+      "SELECT id, project_id, action, performed_by, details, created_at "
           + "FROM clickhouse_credential_audit ORDER BY created_at DESC LIMIT ?";
 }

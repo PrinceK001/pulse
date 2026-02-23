@@ -11,7 +11,6 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionConf
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 public class UploadInteractionDetailService {
@@ -44,12 +43,15 @@ public class UploadInteractionDetailService {
   }
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
-      List<InteractionConfig> interactions
+      List<InteractionConfig> interactions,
+      String tenantId,
+      String projectId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    String tenantId = TenantContext.requireTenantId();
-    String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailsS3BucketFilePath());
-    String cloudFrontAssetPath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailCloudFrontAssetPath());
+    String s3FilePath = getProjectAwarePath(tenantId, projectId, applicationConfig.getInteractionDetailsS3BucketFilePath());
+    String cloudFrontAssetPath = String.format("/%s",
+        getProjectAwarePath(tenantId, projectId, applicationConfig.getInteractionDetailCloudFrontAssetPath()));
+    log.info("Uploading to S3 at path: {} for tenant: {}, project: {}", s3FilePath, tenantId, projectId);
 
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
@@ -59,8 +61,8 @@ public class UploadInteractionDetailService {
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful for tenant: {}, invalidating CloudFront cache for distribution: {}",
-              tenantId, distributionId);
+          log.info("S3 upload successful for tenant: {}, project: {}, invalidating CloudFront cache for distribution: {}",
+              tenantId, projectId, distributionId);
           return cloudFrontClient
               .invalidateCache(
                   distributionId,
@@ -71,16 +73,26 @@ public class UploadInteractionDetailService {
   /**
    * Constructs a tenant-aware path by prefixing the base path with tenant directory.
    * Format: tenants/{tenantId}/{basePath}
+   * @deprecated Use getProjectAwarePath() instead for project-scoped interactions
    */
+  @Deprecated
   private String getTenantAwarePath(String tenantId, String basePath) {
-    return String.format("tenants/%s/%s", tenantId, basePath);
+    return String.format("config/tenants/%s/%s", tenantId, basePath);
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {
+  /**
+   * Constructs a project-aware path with tenant and project hierarchy.
+   * Format: config/tenants/{tenantId}/projects/{projectId}/{basePath}
+   */
+  private String getProjectAwarePath(String tenantId, String projectId, String basePath) {
+    return String.format("config/tenants/%s/projects/%s/%s", tenantId, projectId, basePath);
+  }
+
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenantId, String projectId) {
     return interactionDao
-        .getAllActiveAndRunningInteractions()
+        .getAllActiveAndRunningInteractions(tenantId)
         .map(this::toInteractionConfigs)
-        .flatMap(this::pushToObjectStoreAndInvalidateCache)
+        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, tenantId, projectId))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }

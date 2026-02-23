@@ -14,12 +14,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Slf4j
 public class MysqlSymbolFileService extends SymbolFileService {
   private final MysqlClient d11MysqlClient;
+
+  /**
+   * Gets the current project ID from the ProjectContext.
+   */
+  private String getProjectId() {
+    return ProjectContext.getProjectId();
+  }
 
   @SneakyThrows
   public static Buffer toBuffer(InputStream in) {
@@ -30,18 +38,21 @@ public class MysqlSymbolFileService extends SymbolFileService {
   public Single<Boolean> uploadFile(String fileName, InputStream fileInputStream, UploadMetadata metadata) {
     final String sql =
         "INSERT INTO symbol_files "
-            + "  (app_version, app_version_code, platform, framework, file_content, bundleid) "
-            + "VALUES (?,?,?,?,?,?) "
+            + "  (app_version, app_version_code, platform, framework, file_content, bundleid, project_id) "
+            + "VALUES (?,?,?,?,?,?,?) "
             + "ON DUPLICATE KEY UPDATE file_content = VALUES(file_content), bundleid = VALUES(bundleid)";
 
     return d11MysqlClient.getWriterPool()
         .preparedQuery(sql)
-        .execute(Tuple.wrap(Arrays.asList(metadata.getAppVersion(),
+        .execute(Tuple.wrap(Arrays.asList(
+            getProjectId(),
+            metadata.getAppVersion(),
             metadata.getVersionCode(),
             metadata.getPlatform(),
             metadata.getType(),
             toBuffer(fileInputStream),
-            metadata.getBundleId())))
+            metadata.getBundleId(),
+            metadata.getProjectId())))
         .map(rows -> true)
         .onErrorResumeNext(err -> {
           log.error("Exception while uploading mapping file for {}: {}", metadata.toString(), err.getMessage());
@@ -55,15 +66,17 @@ public class MysqlSymbolFileService extends SymbolFileService {
     final String sql = """
         SELECT file_content
         FROM symbol_files
-        WHERE app_version=? AND app_version_code=? AND platform=? AND framework=?
+        WHERE project_id=? AND app_version=? AND app_version_code=? AND platform=? AND framework=?
         LIMIT 1
         """;
 
     Tuple params = Tuple.of(
+        getProjectId(),
         metadata.getAppVersion(),
         metadata.getVersionCode(),
         metadata.getPlatform(),
-        metadata.getType()
+        metadata.getType(),
+        metadata.getProjectId()
     );
 
     return d11MysqlClient.getReaderPool()

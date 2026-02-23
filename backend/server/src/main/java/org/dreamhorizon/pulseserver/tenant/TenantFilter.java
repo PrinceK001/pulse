@@ -11,17 +11,24 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.ext.Provider;
 import java.io.IOException;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
 
 /**
- * JAX-RS filter that extracts tenant information from the request and sets it in the TenantContext.
+ * JAX-RS filter that extracts tenant and project information from the request.
+ * Sets TenantContext and ProjectContext for the request scope.
  *
  * <p>Tenant resolution order:</p>
  * <ol>
  *   <li>JWT token tenantId claim from Authorization header</li>
  *   <li>X-Tenant-ID header (explicit override, useful for admin operations)</li>
  * </ol>
+ *
+ * <p>Project resolution:</p>
+ * <ul>
+ *   <li>X-Project-ID header (required for project-scoped resources)</li>
+ * </ul>
  */
 @Slf4j
 @Provider
@@ -29,11 +36,15 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
   public static final String TENANT_HEADER = "X-Tenant-ID";
+  public static final String PROJECT_HEADER = "X-Project-ID";
   private static final String HEALTHCHECK_PATH = "healthcheck";
   private static final String AUTH_PATH_PREFIX = "v1/auth";
+  private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
+  private static final String INVITE_ACCEPT_PATH_PREFIX = "v1/invites/accept";
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String ALERTS_PATH_PREFIX = "alerts";
+  private static final String LOGS_INGESTION_PATH = "v1/logs";
 
   private JwtService jwtService;
 
@@ -60,6 +71,13 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     TenantContext.setTenantId(tenantId);
     log.debug("Request tenant context set to: {} for path: {}",
         tenantId, path);
+    
+    // Extract project ID from X-Project-ID header if present
+    String projectId = requestContext.getHeaderString(PROJECT_HEADER);
+    if (projectId != null && !projectId.isBlank()) {
+      ProjectContext.setProjectId(projectId.trim());
+      log.debug("Request project context set to: {} for path: {}", projectId, path);
+    }
   }
 
   private boolean isExcludedPath(String path) {
@@ -70,15 +88,19 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
     return normalizedPath.equals(HEALTHCHECK_PATH)
         || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
-        || normalizedPath.startsWith(AUTH_PATH_PREFIX)
-        || normalizedPath.startsWith(ALERTS_PATH_PREFIX);
+        || normalizedPath.startsWith(AUTH_PATH_PREFIX)  // Includes /v1/auth/login
+        || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
+        || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
+        || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+        || normalizedPath.startsWith(LOGS_INGESTION_PATH);
   }
 
   @Override
   public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext)
       throws IOException {
-    // Clear tenant context after request processing
+    // Clear both tenant and project context after request processing
     TenantContext.clear();
+    ProjectContext.clear();
   }
 
   /**
@@ -100,6 +122,13 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     if (headerTenantId != null && !headerTenantId.isBlank()) {
       log.debug("Tenant ID resolved from header: {}", headerTenantId);
       return headerTenantId.trim();
+    }
+
+    //This a Temporary fix for supporting the projectId.
+    //TODO: This will be replaced once we have the complete project Onboarding in place
+    String projectId = requestContext.getHeaderString(PROJECT_HEADER);
+    if (projectId != null && !projectId.isBlank()) {
+      return projectId.trim();
     }
 
     log.error("Missing tenant ID (not found in token or X-Tenant-ID header) for path: {}",

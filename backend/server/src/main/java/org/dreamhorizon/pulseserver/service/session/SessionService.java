@@ -17,6 +17,7 @@ import org.dreamhorizon.pulseserver.dao.query.UserExperienceCategoriesQuery;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.resources.session.models.GetSessionRequest;
 import org.dreamhorizon.pulseserver.resources.session.models.GetSessionResponse;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
@@ -83,6 +84,7 @@ public class SessionService {
         .newQuery(formattedQuery)
         .timeoutMs(2000)
         .tenantId(TenantContext.getTenantId())
+        .projectId(ProjectContext.getProjectId())
         .build();
     return clickhouseQueryService.executeQueryOrCreateJob(configuration, GetSessionResponse.Session.class)
         .map(result -> {

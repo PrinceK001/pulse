@@ -222,5 +222,18 @@ public class ProjectDao {
         .updatedAt(row.getLocalDateTime("updated_at") != null ? row.getLocalDateTime("updated_at").toString() : null)
         .build();
   }
+
+  public Single<Integer> getActiveProjectCount(String tenantId) {
+      MySQLPool pool = mysqlClient.getReaderPool();
+      return pool.preparedQuery(GET_ACTIVE_PROJECT_COUNT)
+          .rxExecute(Tuple.of(tenantId))
+          .map(rowSet -> {
+              Row row = rowSet.iterator().next();
+              int count = row.getLong("count").intValue();
+              log.debug("Active project count for tenant {}: {}", tenantId, count);
+              return count;
+          })
+          .doOnError(error -> log.error("Failed to get project count for tenant: {}", tenantId, error));
+  }
 }
 

@@ -39,6 +39,7 @@ creds.json
 .config
 *.env
 local.env
+*.bak
 
 creds.json
 
@@ -49,3 +50,6 @@ execution.log
 test-output/
 TestReport/
 /src/main/resources/symbolicate/
+
+docs/
+postman/

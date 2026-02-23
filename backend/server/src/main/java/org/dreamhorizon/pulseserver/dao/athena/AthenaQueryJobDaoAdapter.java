@@ -16,12 +16,14 @@ public class AthenaQueryJobDaoAdapter implements QueryJobDao {
   private final AthenaJobDao athenaJobDao;
 
   @Override
-  public Single<String> createJob(String queryString, String userEmail) {
+  public Single<String> createJob(String tenantId, String queryString, String userEmail) {
+    // AthenaJobDao.createJob() gets tenantId and projectId from context internally
     return athenaJobDao.createJob(queryString, userEmail);
   }
 
   @Override
-  public Single<Boolean> updateJobWithExecutionId(String jobId, String queryExecutionId, QueryJobStatus status, Timestamp submissionDateTime) {
+  public Single<Boolean> updateJobWithExecutionId(String jobId, String queryExecutionId, QueryJobStatus status,
+                                                  Timestamp submissionDateTime) {
     return athenaJobDao.updateJobWithExecutionId(jobId, queryExecutionId, mapToAthenaStatus(status), submissionDateTime);
   }
 
@@ -59,14 +61,16 @@ public class AthenaQueryJobDaoAdapter implements QueryJobDao {
   }
 
   @Override
-  public Single<Boolean> updateJobStatistics(String jobId, Long dataScannedInBytes, 
-      Long executionTimeMillis, Long engineExecutionTimeMillis, Long queryQueueTimeMillis, Timestamp updatedAt) {
-    return athenaJobDao.updateJobStatistics(jobId, dataScannedInBytes, executionTimeMillis, 
+  public Single<Boolean> updateJobStatistics(String jobId, Long dataScannedInBytes,
+                                             Long executionTimeMillis, Long engineExecutionTimeMillis, Long queryQueueTimeMillis,
+                                             Timestamp updatedAt) {
+    return athenaJobDao.updateJobStatistics(jobId, dataScannedInBytes, executionTimeMillis,
         engineExecutionTimeMillis, queryQueueTimeMillis, updatedAt);
   }
 
   @Override
-  public Single<List<QueryJob>> getQueriesForStatistics(String userEmail, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
+  public Single<List<QueryJob>> getQueriesForStatistics(String userEmail, java.time.LocalDateTime startDate,
+                                                        java.time.LocalDateTime endDate) {
     return athenaJobDao.getQueriesForStatistics(userEmail, startDate, endDate)
         .map(jobs -> jobs.stream()
             .map(this::mapToQueryJob)
