@@ -6,6 +6,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
@@ -131,7 +132,7 @@ public class TenantMemberResource {
      */
     @DELETE
     @Path("/{userId}")
-    public CompletionStage<Response<Void>> removeMember(
+    public CompletionStage<Response<Object>> removeMember(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("tenantId") String tenantId,
             @PathParam("userId") String targetUserId) {
@@ -155,13 +156,14 @@ public class TenantMemberResource {
                     tenantId, targetUserId, removerId, "Tenant", "Admin"
                 );
             })
-            .toSingleDefault((Void) null)
+            .toSingle(() -> Collections.emptyMap())
+            .map(obj -> (Object) obj)
             .to(RestResponse.jaxrsRestHandler());
     }
     
     /**
      * Update a member's role in a tenant.
-     * Requires tenant owner role.
+     * Requires tenant admin role.
      * 
      * @param authorization JWT token
      * @param tenantId Tenant ID
@@ -171,7 +173,7 @@ public class TenantMemberResource {
      */
     @PATCH
     @Path("/{userId}")
-    public CompletionStage<Response<Void>> updateMemberRole(
+    public CompletionStage<Response<Object>> updateMemberRole(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("tenantId") String tenantId,
             @PathParam("userId") String targetUserId,
@@ -183,13 +185,20 @@ public class TenantMemberResource {
         log.info("Updating tenant member role: user={}, tenant={}, newRole={}, updatedBy={}", 
             targetUserId, tenantId, request.getNewRole(), updaterId);
         
-        // Check if updater is tenant owner
-        return openFgaService.isTenantOwner(updaterId, tenantId)
-            .flatMapCompletable(isOwner -> {
-                if (!isOwner) {
+        // Prevent self-role changes
+        if (updaterId.equals(targetUserId)) {
+            return Single.error(ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                .getCustomException("Unauthorized", "You cannot change your own role"))
+                .to(RestResponse.jaxrsRestHandler());
+        }
+        
+        // Check if updater is tenant admin
+        return openFgaService.isTenantAdmin(updaterId, tenantId)
+            .flatMapCompletable(isAdmin -> {
+                if (!isAdmin) {
                     return io.reactivex.rxjava3.core.Completable.error(
                         ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                            .getCustomException("Unauthorized", "Only tenant owners can update member roles"));
+                            .getCustomException("Unauthorized", "Only tenant admins can update member roles"));
                 }
                 
                 return tenantMemberService.updateTenantRole(
@@ -197,7 +206,8 @@ public class TenantMemberResource {
                     updaterId, "Tenant", "Admin"
                 );
             })
-            .toSingleDefault((Void) null)
+            .toSingle(() -> Collections.emptyMap())
+            .map(obj -> (Object) obj)
             .to(RestResponse.jaxrsRestHandler());
     }
     
@@ -211,7 +221,7 @@ public class TenantMemberResource {
      */
     @POST
     @Path("/../leave")
-    public CompletionStage<Response<Void>> leaveTenant(
+    public CompletionStage<Response<Object>> leaveTenant(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("tenantId") String tenantId) {
         
@@ -221,7 +231,8 @@ public class TenantMemberResource {
         log.info("User leaving tenant: user={}, tenant={}", userId, tenantId);
         
         return tenantMemberService.leaveTenant(tenantId, userId, "Tenant")
-            .toSingleDefault((Void) null)
+            .toSingle(() -> Collections.emptyMap())
+            .map(obj -> (Object) obj)
             .to(RestResponse.jaxrsRestHandler());
     }
     
