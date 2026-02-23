@@ -139,7 +139,7 @@ public class InteractionDao {
 
   public Single<InteractionDetails> getInteractionDetails(@NotNull String useCaseId) {
     return d11MysqlClient
-        .getReaderPool()
+        .getWriterPool()
         .preparedQuery(GET_INTERACTION_DETAILS)
         .rxExecute(Tuple.of(getProjectId(), useCaseId))
         .flatMap(rowSet -> mapRowToInteractionDetails(useCaseId, rowSet));
@@ -160,6 +160,7 @@ public class InteractionDao {
     return InteractionDetails
         .builder()
         .id(row.getLong("interaction_id"))
+        .tenantId(row.getString("tenant_id"))
         .name(row.getString("name"))
         .description(details.getDescription())
         .status(InteractionStatus.fromString(row.getString("status")))
@@ -177,7 +178,7 @@ public class InteractionDao {
   }
 
   public Single<GetInteractionsResponse> getInteractions(@Valid GetInteractionsRequest request) {
-    return d11MysqlClient.getReaderPool()
+    return d11MysqlClient.getWriterPool()
         .preparedQuery(buildPaginatedGetInteractionsQuery(request))
         .rxExecute()
         .flatMap(rows -> {
@@ -200,8 +201,8 @@ public class InteractionDao {
         }).doOnError(error -> log.error("error in querying jobs : ", error));
   }
 
-  public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions() {
-    return d11MysqlClient.getReaderPool()
+  public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions(String tenant) {
+    return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_ALL_ACTIVE_AND_RUNNING_INTERACTIONS)
         .rxExecute(Tuple.of(getProjectId()))
         .flatMap(rows -> {

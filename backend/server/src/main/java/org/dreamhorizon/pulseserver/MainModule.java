@@ -15,6 +15,7 @@ import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionP
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
