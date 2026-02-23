@@ -31,5 +31,11 @@ public class UsageLimitValueRestDto {
   @Min(value = 0, message = "overage must be between 0 and 100")
   @Max(value = 100, message = "overage must be between 0 and 100")
   private Integer overage;
+
+  /**
+   * Computed field: value with overage applied.
+   * finalThreshold = value + (value * overage / 100)
+   */
+  private Long finalThreshold;
 }
 

@@ -283,11 +283,31 @@ public class UsageLimitService {
       return new HashMap<>();
     }
     try {
-      return objectMapper.readValue(json, new TypeReference<Map<String, UsageLimitValue>>() {});
+      Map<String, UsageLimitValue> limits = objectMapper.readValue(json, new TypeReference<Map<String, UsageLimitValue>>() {});
+      // Compute finalThreshold for each limit
+      limits.values().forEach(this::computeFinalThreshold);
+      return limits;
     } catch (JsonProcessingException e) {
       log.error("Failed to parse usage limits JSON", e);
       return new HashMap<>();
     }
+  }
+
+  /**
+   * Computes the finalThreshold for a usage limit value.
+   * finalThreshold = value + (value * overage / 100)
+   * This represents the actual threshold including the overage allowance.
+   */
+  private void computeFinalThreshold(UsageLimitValue limitValue) {
+    if (limitValue.getValue() == null) {
+      limitValue.setFinalThreshold(null);
+      return;
+    }
+    int overage = limitValue.getOverage() != null ? limitValue.getOverage() : 0;
+    // Using Math.addExact and Math.multiplyExact would throw on overflow, but for our use case
+    // simple arithmetic is sufficient since values are within reasonable bounds
+    long threshold = limitValue.getValue() + (limitValue.getValue() * overage / 100);
+    limitValue.setFinalThreshold(threshold);
   }
 
   // ==================== CONTEXT CLASSES ====================

@@ -19,5 +19,6 @@ public class UsageLimitValue {
   private String dataType;
   private Long value;
   private Integer overage;
+  private Long finalThreshold;
 }
 
