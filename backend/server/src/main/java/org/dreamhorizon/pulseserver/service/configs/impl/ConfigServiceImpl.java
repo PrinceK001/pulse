@@ -51,7 +51,7 @@ public class ConfigServiceImpl implements ConfigService {
         .recordStats()
         .buildAsync((String projectId, java.util.concurrent.Executor executor) -> {
           log.info("Loading config into cache for project: {}", projectId);
-          return sdkConfigsDao.getConfig()
+          return sdkConfigsDao.getConfig(projectId)
               .toCompletionStage()
               .toCompletableFuture();
         });
@@ -63,8 +63,7 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> getActiveSdkConfig() {
-    String projectId = ProjectContext.getProjectId();
+  public Single<PulseConfig> getActiveSdkConfig(String projectId) {
     CompletableFuture<PulseConfig> fut = latestConfigCache.get(projectId);
     return Single.create(emitter -> {
       fut.whenComplete((result, throwable) -> {
@@ -82,12 +81,14 @@ public class ConfigServiceImpl implements ConfigService {
   @Override
   public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
     String projectId = ProjectContext.getProjectId();
+    String tenantId = org.dreamhorizon.pulseserver.tenant.TenantContext.requireTenantId();
+    
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(projectId);
           log.info("Invalidated config cache for project: {}", projectId);
           uploadConfigDetailService
-              .pushInteractionDetailsToObjectStore(tenantId)
+              .pushInteractionDetailsToObjectStore(tenantId, projectId)
               .subscribe();
         })
         .doOnError(err -> log.error("error while creating config for project: {}", projectId, err));
