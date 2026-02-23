@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.tenantdao;
+package org.dreamhorizon.pulseserver.dao.tenant;
 
 public class TenantQueries {
 

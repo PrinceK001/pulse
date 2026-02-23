@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
-import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 

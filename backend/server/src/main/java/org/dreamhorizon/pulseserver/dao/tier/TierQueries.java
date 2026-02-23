@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.tierdao;
+package org.dreamhorizon.pulseserver.dao.tier;
 
 public class TierQueries {
 
@@ -44,4 +44,3 @@ public class TierQueries {
   public static final String CHECK_TIER_NAME_EXISTS =
       "SELECT COUNT(*) as count FROM tiers WHERE name = ?";
 }
-

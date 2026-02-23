@@ -1,17 +1,17 @@
-package org.dreamhorizon.pulseserver.dao.tierdao;
+package org.dreamhorizon.pulseserver.dao.tier;
 
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.ACTIVATE_TIER;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.CHECK_TIER_EXISTS;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.CHECK_TIER_NAME_EXISTS;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.DEACTIVATE_TIER;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.DELETE_TIER;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.GET_ALL_ACTIVE_TIERS;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.GET_ALL_TIERS;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.GET_TIER_BY_ID;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.GET_TIER_BY_NAME;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.INSERT_TIER;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.UPDATE_TIER;
-import static org.dreamhorizon.pulseserver.dao.tierdao.TierQueries.UPDATE_TIER_DEFAULTS;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.ACTIVATE_TIER;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.CHECK_TIER_EXISTS;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.CHECK_TIER_NAME_EXISTS;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.DEACTIVATE_TIER;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.DELETE_TIER;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.GET_ALL_ACTIVE_TIERS;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.GET_ALL_TIERS;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.GET_TIER_BY_ID;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.GET_TIER_BY_NAME;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.INSERT_TIER;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.UPDATE_TIER;
+import static org.dreamhorizon.pulseserver.dao.tier.TierQueries.UPDATE_TIER_DEFAULTS;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -26,7 +26,7 @@ import io.vertx.rxjava3.sqlclient.Tuple;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.tierdao.models.Tier;
+import org.dreamhorizon.pulseserver.dao.tier.models.Tier;
 
 @Slf4j
 @Singleton
@@ -225,4 +225,3 @@ public class TierDao {
         .build();
   }
 }
-

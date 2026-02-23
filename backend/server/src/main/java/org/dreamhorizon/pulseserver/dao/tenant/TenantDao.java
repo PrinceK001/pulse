@@ -1,18 +1,18 @@
-package org.dreamhorizon.pulseserver.dao.tenantdao;
+package org.dreamhorizon.pulseserver.dao.tenant;
 
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.ACTIVATE_TENANT;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.CHECK_TENANT_EXISTS;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.DEACTIVATE_TENANT;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.DELETE_TENANT;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_ALL_ACTIVE_TENANTS;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_ALL_TENANTS;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_DOMAIN_NAME;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_GCP_TENANT_ID;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_ID;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANTS_BY_TIER_ID;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.INSERT_TENANT;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.UPDATE_TENANT;
-import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.UPDATE_TENANT_TIER;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.ACTIVATE_TENANT;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.CHECK_TENANT_EXISTS;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.DEACTIVATE_TENANT;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.DELETE_TENANT;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.GET_ALL_ACTIVE_TENANTS;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.GET_ALL_TENANTS;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.GET_TENANT_BY_DOMAIN_NAME;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.GET_TENANT_BY_GCP_TENANT_ID;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.GET_TENANT_BY_ID;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.GET_TENANTS_BY_TIER_ID;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.INSERT_TENANT;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.UPDATE_TENANT;
+import static org.dreamhorizon.pulseserver.dao.tenant.TenantQueries.UPDATE_TENANT_TIER;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -26,7 +26,7 @@ import io.vertx.rxjava3.sqlclient.Tuple;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 
 @Slf4j
 @Singleton

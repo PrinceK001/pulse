@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.tenantdao.models;
+package org.dreamhorizon.pulseserver.dao.tenant.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -13,8 +13,8 @@ import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPo
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
-import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
-import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateCredentialsRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.TenantInfo;

@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Single;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;

@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.tierdao.models;
+package org.dreamhorizon.pulseserver.dao.tier.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,4 +18,3 @@ public class Tier {
   private Boolean isActive;
   private String createdAt;
 }
-
