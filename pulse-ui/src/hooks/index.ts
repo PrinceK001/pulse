@@ -1,5 +1,7 @@
 // New context-based hooks
 export { usePermissions } from './usePermissions';
+export { useTierLimits } from './useTierLimits';
+export type { TierLimits } from './useTierLimits';
 
 // AI hooks
 export * from './useAiQuery';

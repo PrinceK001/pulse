@@ -1,15 +1,27 @@
 import { Container, Title, Grid, Card, Button, Group, Text, Badge } from '@mantine/core';
-import { IconPlus, IconFolder } from '@tabler/icons-react';
+import { IconPlus, IconFolder, IconLock } from '@tabler/icons-react';
 import { useTenantContext } from '../../contexts';
-import { usePermissions } from '../../hooks';
+import { usePermissions, useTierLimits } from '../../hooks';
 import { useNavigate } from 'react-router-dom';
+import { showNotification } from '../../helpers/showNotification';
 
 export function OrganizationProjects() {
-  const { projects, isLoading } = useTenantContext();
-  const { canCreateProjects } = usePermissions();
+  const { projects, isLoading, tier } = useTenantContext();
+  const { canCreateProjects: hasPermission } = usePermissions();
+  const { canCreateProjects, maxProjects, currentProjectCount } = useTierLimits();
   const navigate = useNavigate();
 
   const handleCreateProject = () => {
+    if (!canCreateProjects) {
+      showNotification(
+        'Upgrade Required',
+        'Free tier is limited to 1 project. Upgrade to Enterprise for unlimited projects.',
+        <IconLock />,
+        'orange'
+      );
+      navigate('/pricing');
+      return;
+    }
     navigate('/organization/projects/new');
   };
 
@@ -28,22 +40,35 @@ export function OrganizationProjects() {
   return (
     <Container size="xl">
       <Group justify="space-between" mb="xl">
+        <Group>
+          <div>
+            <Title order={1}>All Projects</Title>
+            <Text c="dimmed" size="sm">
+              Manage your projects and create new ones
+            </Text>
+          </div>
+          <Badge color={tier === 'enterprise' ? 'blue' : 'gray'} variant="light" size="lg">
+            {tier === 'free' ? 'Free Tier' : 'Enterprise'}
+          </Badge>
+        </Group>
         <div>
-          <Title order={1}>All Projects</Title>
-          <Text c="dimmed" size="sm">
-            Manage your projects and create new ones
-          </Text>
+          {tier === 'free' && (
+            <Text size="sm" c="dimmed" mb="xs" ta="right">
+              {currentProjectCount} / {maxProjects} projects used
+            </Text>
+          )}
+          {hasPermission && (
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={handleCreateProject}
+              variant="gradient"
+              gradient={{ from: '#0ec9c2', to: '#0ba09a' }}
+              disabled={!canCreateProjects}
+            >
+              Create Project
+            </Button>
+          )}
         </div>
-        {canCreateProjects && (
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={handleCreateProject}
-            variant="gradient"
-            gradient={{ from: '#0ec9c2', to: '#0ba09a' }}
-          >
-            Create Project
-          </Button>
-        )}
       </Group>
       
       {projects.length === 0 ? (
@@ -51,14 +76,15 @@ export function OrganizationProjects() {
           <Text c="dimmed" mb="md">
             No projects yet. {canCreateProjects && 'Create your first project to get started.'}
           </Text>
-          {canCreateProjects && (
+          {hasPermission && (
             <Button
               leftSection={<IconPlus size={16} />}
               onClick={handleCreateProject}
               variant="light"
               color="teal"
+              disabled={!canCreateProjects}
             >
-              Create First Project
+              {canCreateProjects ? 'Create First Project' : 'Upgrade to Create Projects'}
             </Button>
           )}
         </Card>

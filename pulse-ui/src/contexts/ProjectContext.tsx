@@ -7,7 +7,7 @@ interface ProjectInfo {
   projectName: string;
   userRole: 'admin' | 'editor' | 'viewer';
   isActive?: boolean;
-  plan?: 'free' | 'enterprise';
+  plan?: 'free' | 'enterprise';  // @deprecated - Tier is now tenant-level, use TenantContext.tier instead
 }
 
 interface ProjectContextType {
@@ -15,7 +15,7 @@ interface ProjectContextType {
   projectId: string | null;
   projectName: string | null;
   userRole: 'admin' | 'editor' | 'viewer' | null;
-  plan: 'free' | 'enterprise' | null;
+  plan: 'free' | 'enterprise' | null;  // @deprecated - Tier is now tenant-level, use TenantContext.tier instead
   isActive: boolean;
   
   // Methods

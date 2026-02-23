@@ -99,6 +99,7 @@ export function Onboarding() {
         tenantId: data.tenantId,
         tenantName: data.tenantName,
         userRole: 'admin', // User who completes onboarding is always admin
+        tier: data.tier || 'free',
       });
       
       // Set project context

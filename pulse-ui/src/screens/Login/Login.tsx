@@ -119,6 +119,7 @@ export function Login() {
               tenantId: data.tenantId,
               tenantName: '', // Will be fetched from projects API
               userRole: data.tenantRole as 'admin' | 'member',
+              tier: data.tier || 'free',
             });
           }
           
@@ -168,6 +169,7 @@ export function Login() {
             tenantId: data.tenantId,
             tenantName: '', // Will be fetched from projects API
             userRole: data.tenantRole as 'admin' | 'member',
+            tier: data.tier || 'free',
           });
         }
         

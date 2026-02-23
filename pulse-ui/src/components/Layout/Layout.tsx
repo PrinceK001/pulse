@@ -47,6 +47,7 @@ export function Layout({ children }: LayoutProps) {
             tenantId: cookieTenantId,
             tenantName: '', // Will be populated from projects API
             userRole: 'member', // Default role, will be updated from projects API
+            tier: 'free', // Default tier, will be updated from login/projects API
           });
         } catch (error) {
           console.error('[Layout] Failed to initialize tenant context:', error);

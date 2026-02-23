@@ -1,11 +1,11 @@
 import { Container, Title, Text, Stack, Card, Group, Button, Badge, List, ThemeIcon, Box } from '@mantine/core';
 import { IconCheck, IconMail, IconRocket, IconBuilding } from '@tabler/icons-react';
+import { useTenantContext } from '../../contexts';
 import classes from './Pricing.module.css';
 
 export function Pricing() {
-
-  // TODO: Fetch current plan from project details API
-  const currentPlan = 'free'; // Will come from backend later
+  const { tier } = useTenantContext();
+  const currentPlan = tier || 'free';
 
   const handleContactUs = () => {
     window.open('mailto:sales@yourcompany.com?subject=Enterprise Plan Inquiry', '_blank');

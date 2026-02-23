@@ -13,6 +13,7 @@ export interface OnboardingResponse {
   name: string;
   tenantId: string;
   tenantName: string;
+  tier: 'free' | 'enterprise';
   projectId: string;
   projectName: string;
   projectApiKey: string;

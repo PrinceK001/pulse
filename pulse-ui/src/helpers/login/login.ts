@@ -14,6 +14,7 @@ export interface LoginResponse {
   name: string;
   tenantId?: string;
   tenantRole?: string;
+  tier?: 'free' | 'enterprise';
   needsOnboarding: boolean;
   tokenType?: string;
   expiresIn?: number;

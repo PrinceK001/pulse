@@ -5,6 +5,7 @@ interface TenantInfo {
   tenantId: string;
   tenantName: string;
   userRole: 'admin' | 'member';
+  tier: 'free' | 'enterprise';
 }
 
 interface TenantContextType {
@@ -12,6 +13,7 @@ interface TenantContextType {
   tenantId: string | null;
   tenantName: string | null;
   userRole: 'admin' | 'member' | null;
+  tier: 'free' | 'enterprise' | null;
   projects: ProjectSummary[];
   isLoading: boolean;
   
@@ -30,6 +32,7 @@ interface StoredTenantData {
   tenantId: string;
   tenantName: string;
   userRole: 'admin' | 'member';
+  tier: 'free' | 'enterprise';
   projects: ProjectSummary[];
   timestamp: number;
 }
@@ -38,6 +41,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
+  const [tier, setTier] = useState<'free' | 'enterprise' | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -53,6 +57,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           setTenantId(data.tenantId);
           setTenantName(data.tenantName);
           setUserRole(data.userRole);
+          setTier(data.tier);
           setProjects(data.projects);
           console.log('[TenantContext] Hydrated from sessionStorage:', data.tenantId);
           
@@ -69,6 +74,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         sessionStorage.removeItem(STORAGE_KEY);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist to sessionStorage whenever state changes
@@ -78,12 +84,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         tenantId,
         tenantName: tenantName || '',
         userRole,
+        tier: tier || 'free',
         projects,
         timestamp: Date.now(),
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
-  }, [tenantId, tenantName, userRole, projects]);
+  }, [tenantId, tenantName, userRole, tier, projects]);
 
   const refreshProjects = useCallback(async () => {
     // Get tenantId from state or sessionStorage
@@ -128,6 +135,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     setTenantId(tenant.tenantId);
     setTenantName(tenant.tenantName);
     setUserRole(tenant.userRole);
+    setTier(tenant.tier);
     
     // Auto-fetch projects when tenant is set
     if (tenant.tenantId) {
@@ -152,6 +160,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     setTenantId(null);
     setTenantName(null);
     setUserRole(null);
+    setTier(null);
     setProjects([]);
     sessionStorage.removeItem(STORAGE_KEY);
   }, []);
@@ -160,6 +169,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     tenantId,
     tenantName,
     userRole,
+    tier,
     projects,
     isLoading,
     setTenantInfo,

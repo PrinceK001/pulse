@@ -1,14 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Title, Text, Card, Group, Loader, Stack, Button } from '@mantine/core';
-import { IconFolder, IconPlus } from '@tabler/icons-react';
+import { IconFolder, IconPlus, IconLock } from '@tabler/icons-react';
 import { useTenantContext, useProjectContext } from '../../contexts';
+import { useTierLimits } from '../../hooks';
+import { showNotification } from '../../helpers/showNotification';
 import classes from './ProjectSelection.module.css';
 
 export function ProjectSelection() {
   const navigate = useNavigate();
   const { projects, isLoading, refreshProjects } = useTenantContext();
   const { projectId, switchProject } = useProjectContext();
+  const { canCreateProjects, maxProjects, currentProjectCount, isFree } = useTierLimits();
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
 
@@ -57,6 +60,16 @@ export function ProjectSelection() {
   }, [projectId, isLoading, projects, navigate, handleProjectSelect, hasFetched]);
 
   const handleCreateProject = () => {
+    if (!canCreateProjects) {
+      showNotification(
+        'Upgrade Required',
+        'Free tier is limited to 1 project. Upgrade to Enterprise for unlimited projects.',
+        <IconLock />,
+        'orange'
+      );
+      navigate('/pricing');
+      return;
+    }
     navigate('/organization/projects/new');
   };
 
@@ -132,15 +145,33 @@ export function ProjectSelection() {
             </Button>
           </Stack>
         ) : (
-          <Button
-            leftSection={<IconPlus size={18} />}
-            onClick={handleCreateProject}
-            variant="light"
-            color="teal"
-            style={{ alignSelf: 'center' }}
-          >
-            Create New Project
-          </Button>
+          <Stack align="center" gap="sm">
+            <Button
+              leftSection={<IconPlus size={18} />}
+              onClick={handleCreateProject}
+              variant="light"
+              color="teal"
+              disabled={!canCreateProjects}
+            >
+              {isFree && currentProjectCount >= 1 
+                ? 'Upgrade to Create Projects' 
+                : 'Create New Project'}
+            </Button>
+            {isFree && currentProjectCount >= 1 && (
+              <Text size="xs" c="orange" ta="center">
+                Free tier: {currentProjectCount}/{maxProjects} projects used.{' '}
+                <Text 
+                  component="span" 
+                  fw={600} 
+                  c="teal"
+                  onClick={() => navigate('/pricing')} 
+                  style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Upgrade to Enterprise
+                </Text> for unlimited projects.
+              </Text>
+            )}
+          </Stack>
         )}
       </Stack>
     </Container>
