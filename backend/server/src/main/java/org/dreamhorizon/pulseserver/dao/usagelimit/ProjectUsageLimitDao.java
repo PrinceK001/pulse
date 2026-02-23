@@ -19,6 +19,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,18 +38,31 @@ public class ProjectUsageLimitDao {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(INSERT_USAGE_LIMIT)
         .rxExecute(Tuple.of(projectId, usageLimitsJson, createdBy))
-        .map(result -> {
-          long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
-          log.info("Created usage limit {} for project: {}", generatedId, projectId);
-          return ProjectUsageLimit.builder()
-              .projectUsageLimitId(generatedId)
-              .projectId(projectId)
-              .usageLimits(usageLimitsJson)
-              .isActive(true)
-              .createdBy(createdBy)
-              .build();
-        })
+        .map(result -> mapToCreatedUsageLimit(result, projectId, usageLimitsJson, createdBy))
         .doOnError(error -> log.error("Failed to create usage limit for project: {}", projectId, error));
+  }
+
+  public Single<ProjectUsageLimit> createUsageLimit(SqlConnection conn, String projectId, String usageLimitsJson, String createdBy) {
+    return conn.preparedQuery(INSERT_USAGE_LIMIT)
+        .rxExecute(Tuple.of(projectId, usageLimitsJson, createdBy))
+        .map(result -> mapToCreatedUsageLimit(result, projectId, usageLimitsJson, createdBy))
+        .doOnError(error -> log.error("Failed to create usage limit for project: {}", projectId, error));
+  }
+
+  private ProjectUsageLimit mapToCreatedUsageLimit(
+      io.vertx.rxjava3.sqlclient.RowSet<Row> result,
+      String projectId,
+      String usageLimitsJson,
+      String createdBy) {
+    long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
+    log.info("Created usage limit {} for project: {}", generatedId, projectId);
+    return ProjectUsageLimit.builder()
+        .projectUsageLimitId(generatedId)
+        .projectId(projectId)
+        .usageLimits(usageLimitsJson)
+        .isActive(true)
+        .createdBy(createdBy)
+        .build();
   }
 
   public Maybe<ProjectUsageLimit> getActiveLimitByProjectId(String projectId) {

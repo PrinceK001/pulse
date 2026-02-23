@@ -10,6 +10,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -36,20 +37,36 @@ public class ProjectDao {
                 project.getDescription(),
                 true,
                 project.getCreatedBy()))
-        .map(result -> {
-          long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
-          log.info("Created project: {} (id: {}) for tenant: {}", project.getProjectId(), generatedId, project.getTenantId());
-          return Project.builder()
-              .id((int) generatedId)
-              .projectId(project.getProjectId())
-              .tenantId(project.getTenantId())
-              .name(project.getName())
-              .description(project.getDescription())
-              .isActive(true)
-              .createdBy(project.getCreatedBy())
-              .build();
-        })
+        .map(result -> mapToCreatedProject(result, project))
         .doOnError(error -> log.error("Failed to create project for tenant: {}", project.getTenantId(), error));
+  }
+
+  public Single<Project> createProject(SqlConnection conn, Project project) {
+    return conn.preparedQuery(INSERT_PROJECT)
+        .rxExecute(
+            Tuple.of(
+                project.getProjectId(),
+                project.getTenantId(),
+                project.getName(),
+                project.getDescription(),
+                true,
+                project.getCreatedBy()))
+        .map(result -> mapToCreatedProject(result, project))
+        .doOnError(error -> log.error("Failed to create project for tenant: {}", project.getTenantId(), error));
+  }
+
+  private Project mapToCreatedProject(io.vertx.rxjava3.sqlclient.RowSet<Row> result, Project project) {
+    long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
+    log.info("Created project: {} (id: {}) for tenant: {}", project.getProjectId(), generatedId, project.getTenantId());
+    return Project.builder()
+        .id((int) generatedId)
+        .projectId(project.getProjectId())
+        .tenantId(project.getTenantId())
+        .name(project.getName())
+        .description(project.getDescription())
+        .isActive(true)
+        .createdBy(project.getCreatedBy())
+        .build();
   }
 
   public Maybe<Project> getProjectByProjectId(String projectId) {
