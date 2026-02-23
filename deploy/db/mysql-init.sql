@@ -45,7 +45,7 @@ CREATE TABLE interaction (
 
 -- Symbol files table with tenant_id in composite primary key
 CREATE TABLE symbol_files (
-    tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+    project_id VARCHAR(64) NOT NULL DEFAULT 'default',
     app_version VARCHAR(64) NOT NULL,
     app_version_code INT NOT NULL,
     platform ENUM('ios','android') NOT NULL,
@@ -98,6 +98,7 @@ VALUES (
       "logsCollectorUrl": "http://10.0.2.2:4318/v1/logs",
       "metricCollectorUrl": "http://10.0.2.2:4318/v1/metrics",
       "spanCollectorUrl": "http://10.0.2.2:4318/v1/traces",
+      "customEventCollectorUrl": "http://10.0.2.2:4318/v1/events",
       "attributesToDrop": [],
       "attributesToAdd": []
     },
@@ -144,11 +145,6 @@ VALUES (
       },
       {
         "featureName": "custom_events",
-        "sessionSampleRate": 1,
-        "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
-      },
-      {
-        "featureName": "rn_navigation",
         "sessionSampleRate": 1,
         "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
       },

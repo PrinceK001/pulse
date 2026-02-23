@@ -6,7 +6,9 @@ package com.pulse.android.sdk
 import android.app.Application
 import android.content.Context
 import androidx.core.content.edit
+import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.otel.utils.PulseOtelUtils
+import com.pulse.otel.utils.PulseSerialisationUtils
 import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
@@ -57,7 +59,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -162,10 +163,9 @@ internal class PulseSDKImpl :
                 Context.MODE_PRIVATE,
             )
 
-        val json = Json {}
         val currentSdkConfig =
             sharedPrefs.getString(PrefsName.PULSE_SDK_CONFIG_KEY, null)?.let {
-                json.decodeFromString<PulseSdkConfig>(it)
+                PulseSerialisationUtils.jsonConfigForSerialisation.decodeFromString<PulseSdkConfig>(it)
             }
 
         PulseOtelUtils.logDebug(TAG) { "currentSdkConfig config version = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}" }
@@ -179,9 +179,13 @@ internal class PulseSDKImpl :
             val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
             apiCache.mkdirs()
             val newConfig =
-                PulseSdkConfigRestProvider(apiCache, endpointHeadersWithProject) {
+                PulseSdkConfigRestProvider(
+                    cacheDir = apiCache,
+                    okHttpClient = PulseNetworkingUtils.okHttpClient,
+                    headers = endpointHeadersWithProject,
+                ) {
                     configEndpointUrl
-                        ?: "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
+                        ?: "${PulseNetworkingUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
                 }.provide()
             val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
             PulseOtelUtils.logDebug(TAG) {
@@ -191,7 +195,10 @@ internal class PulseSDKImpl :
             }
             if (isDifferentVersion) {
                 sharedPrefs.edit(commit = true) {
-                    putString(PrefsName.PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
+                    putString(
+                        PrefsName.PULSE_SDK_CONFIG_KEY,
+                        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(newConfig),
+                    )
                 }
             }
         }
@@ -248,23 +255,25 @@ internal class PulseSDKImpl :
             currentSdkConfig?.let {
                 val url = it.signals.spanCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "spanCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: spanEndpointConnectivity
         val finalLogEndpointConnectivity =
             currentSdkConfig?.let {
                 val url = it.signals.logsCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "logsCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: logEndpointConnectivity
         val finalMetricEndpointConnectivity =
             currentSdkConfig?.let {
                 val url = it.signals.metricCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: metricEndpointConnectivity
         val finalCustomEventEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forCustomEvents(it.signals.metricCollectorUrl)
+                val url = it.signals.customEventCollectorUrl
+                PulseOtelUtils.logDebug(TAG) { "customEventCollectorUrl = $url" }
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: customEventConnectivity
 
         val otlpSpanExporter: SpanExporter =
@@ -323,7 +332,7 @@ internal class PulseSDKImpl :
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
             if (currentSdkConfig != null) {
-                instrumentationConfig.interaction { setConfigUrl { PulseOtelUtils.endWithSlash(currentSdkConfig.interaction.configUrl) } }
+                instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
             }
             pulseSamplingProcessors?.run {
                 val enabledFeatures = getEnabledFeatures()
