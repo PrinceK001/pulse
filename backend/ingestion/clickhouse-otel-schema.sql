@@ -166,3 +166,79 @@ ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
 SETTINGS index_granularity = 8192;
+
+-- ============================================================
+-- Aggregation table: monthly event counts + unique session counts
+-- Uses AggregatingMergeTree so uniqState/uniqMerge properly
+-- deduplicates session IDs across all 4 source tables.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS otel.tenant_monthly_usage
+(
+    tenant String,
+    month Date,
+    source LowCardinality(String),
+    event_count SimpleAggregateFunction(sum, UInt64),
+    session_count AggregateFunction(uniqCombined64, String)
+)
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(month)
+ORDER BY (tenant, month, source);
+
+-- ============================================================
+-- EVENT COUNT MVs (2 tables: logs + traces)
+-- These also contribute session IDs for deduplication.
+-- ============================================================
+
+-- MV 1: Logs (events + sessions)
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.tenant_monthly_logs_mv
+TO otel.tenant_monthly_usage
+AS SELECT
+    ServiceName AS tenant,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(SessionId, SessionId != '') AS session_count   
+FROM otel.otel_logs
+GROUP BY tenant, month, source;
+
+-- MV 2: Traces (events + sessions)
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.tenant_monthly_traces_mv
+TO otel.tenant_monthly_usage
+AS SELECT
+    ServiceName AS tenant,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(SessionId, SessionId != '') AS session_count   
+FROM otel.otel_traces
+GROUP BY tenant, month, source;
+
+-- ============================================================
+-- SESSION-ONLY MVs (2 more tables: metrics + stack traces)
+-- event_count = 0 because we don't count events from these.
+-- They only contribute session IDs for deduplication.
+-- ============================================================
+
+-- MV 3: Metrics (sessions only, no event count)
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.tenant_monthly_metrics_sessions_mv
+TO otel.tenant_monthly_usage
+AS SELECT
+    ServiceName AS tenant,
+    toStartOfMonth(TimeUnix) AS month,
+    'otel' AS source,
+    0 AS event_count,
+    uniqCombined64StateIf(SessionId, SessionId != '') AS session_count   
+FROM otel.otel_metrics_gauge
+GROUP BY tenant, month, source;
+
+-- MV 4: Stack trace events (sessions only, no event count)
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.tenant_monthly_stacktraces_sessions_mv
+TO otel.tenant_monthly_usage
+AS SELECT
+    TenantId AS tenant,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    0 AS event_count,
+    uniqCombined64StateIf(SessionId, SessionId != '') AS session_count   
+FROM otel.stack_trace_events
+GROUP BY tenant, month, source;
