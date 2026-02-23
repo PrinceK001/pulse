@@ -27,6 +27,9 @@ public class OnboardingResponse {
     @JsonProperty("tenantName")
     private String tenantName;
     
+    @JsonProperty("tier")
+    private String tier;  // Always "free" for new tenants
+    
     @JsonProperty("projectId")
     private String projectId;
     

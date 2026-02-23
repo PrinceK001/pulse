@@ -193,6 +193,7 @@ public class AuthService {
                                     .name(user.getName())
                                     .tenantId(tenantId)
                                     .tenantRole(tenantRole)
+                                    .tier("free")  // TODO: Query from database
                                     .needsOnboarding(false)
                                     .tokenType(TOKEN_TYPE_BEARER)
                                     .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
@@ -428,6 +429,7 @@ public class AuthService {
                         .name(name)
                         .tenantId(tenantId)
                         .tenantRole(tenantRole)
+                        .tier("free")  // TODO: Query from database
                         .needsOnboarding(false)
                         .tokenType(TOKEN_TYPE_BEARER)
                         .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)

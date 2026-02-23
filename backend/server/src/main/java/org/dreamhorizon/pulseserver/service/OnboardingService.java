@@ -139,6 +139,7 @@ public class OnboardingService {
                             .name(name)
                             .tenantId(tenantId)
                             .tenantName(organizationName)
+                            .tier("free")  // New tenants always start with free tier
                             .projectId(project.getProjectId())
                             .projectName(project.getName())
                             .projectApiKey(project.getApiKey())
@@ -168,6 +169,7 @@ public class OnboardingService {
         private String name;
         private String tenantId;
         private String tenantName;
+        private String tier;  // Tenant tier: "free" or "enterprise"
         private String projectId;
         private String projectName;
         private String projectApiKey;
