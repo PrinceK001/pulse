@@ -15,11 +15,6 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.List;
 
-/**
- * Service for managing per-project ClickHouse users and row policies.
- * This service automates the creation of dedicated ClickHouse users
- * with row-level security policies for each project.
- */
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -37,19 +32,24 @@ public class ClickhouseProjectService {
         "otel.otel_metrics_gauge",
         "otel.stack_trace_events"
     );
-    
-    /**
-     * Complete setup for a project's ClickHouse access.
-     * Creates user, row policies, and saves credentials.
-     * 
-     * @param projectId Project ID
-     * @return Completable that completes when setup is done
-     */
-    public Completable setupProjectClickhouseUser(String projectId) {
-        String username = generateUsername(projectId);
-        String password = generateSecurePassword();
-        
-        log.info("Setting up ClickHouse user for project: {}, username: {}", projectId, username);
+
+    // ==================== CREDENTIAL GENERATION (Pure, no I/O) ====================
+
+    public String generateUsername(String projectId) {
+        String sanitized = projectId.replace("-", "_").replace("proj_", "");
+        return "project_" + sanitized;
+    }
+
+    public String generatePassword() {
+        byte[] bytes = new byte[PASSWORD_LENGTH];
+        RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    // ==================== CLICKHOUSE OPERATIONS (No MySQL) ====================
+
+    public Completable createClickhouseUserAndPolicies(String projectId, String username, String password) {
+        log.info("Creating ClickHouse user and policies for project: {}, username: {}", projectId, username);
         
         return Completable.fromAction(() -> {
             ConnectionPool adminPool = poolManager.getAdminPool();
@@ -78,29 +78,40 @@ public class ClickhouseProjectService {
             String grantSQL = String.format("GRANT SELECT ON otel.* TO %s", username);
             executeSQL(adminPool, grantSQL);
             log.info("Granted SELECT permissions to: {}", username);
-            
         })
-        .andThen(
-            // Step 4: Save encrypted credentials to MySQL
-            credentialsDao.saveCredentials(projectId, username, password)
-                .ignoreElement()
-        )
         .doOnComplete(() -> 
-            log.info("Successfully set up ClickHouse access for project: {}", projectId)
+            log.info("Successfully created ClickHouse user and policies for project: {}", projectId)
         )
         .doOnError(error -> 
-            log.error("Failed to setup ClickHouse user: projectId={}, error={}", 
+            log.error("Failed to create ClickHouse user: projectId={}, error={}", 
                 projectId, error.getMessage(), error)
         );
     }
-    
+
+    // ==================== COMBINED OPERATIONS (Backward Compatible) ====================
+
     /**
-     * Remove ClickHouse access for a project.
-     * Drops user and row policies.
+     * Complete setup for a project's ClickHouse access.
+     * Generates credentials, creates CH user/policies, and saves credentials to MySQL.
      * 
-     * @param projectId Project ID
-     * @return Completable
+     * Note: For transactional flows, use generateUsername(), generatePassword(),
+     * save credentials via DAO with SqlConnection, then call createClickhouseUserAndPolicies().
      */
+    public Completable setupProjectClickhouseUser(String projectId) {
+        String username = generateUsername(projectId);
+        String password = generatePassword();
+        
+        return createClickhouseUserAndPolicies(projectId, username, password)
+            .andThen(credentialsDao.saveCredentials(projectId, username, password).ignoreElement())
+            .doOnComplete(() -> 
+                log.info("Successfully set up ClickHouse access for project: {}", projectId)
+            )
+            .doOnError(error -> 
+                log.error("Failed to setup ClickHouse user: projectId={}, error={}", 
+                    projectId, error.getMessage(), error)
+            );
+    }
+    
     public Completable removeProjectClickhouseUser(String projectId) {
         String username = generateUsername(projectId);
         
@@ -125,14 +136,8 @@ public class ClickhouseProjectService {
             
             log.info("Removed ClickHouse user: {}", username);
         })
-        .andThen(
-            // Deactivate credentials in MySQL
-            credentialsDao.deactivateCredentials(projectId)
-        )
-        .andThen(
-            // Close connection pool
-            Completable.fromAction(() -> poolManager.closePoolForProject(projectId))
-        )
+        .andThen(credentialsDao.deactivateCredentials(projectId))
+        .andThen(Completable.fromAction(() -> poolManager.closePoolForProject(projectId)))
         .doOnComplete(() -> 
             log.info("Successfully removed ClickHouse access for project: {}", projectId)
         )
@@ -140,40 +145,15 @@ public class ClickhouseProjectService {
             log.error("Failed to remove ClickHouse user: projectId={}", projectId, error)
         );
     }
-    
-    /**
-     * Generate ClickHouse username from project ID.
-     * Format: project_{sanitized_project_id}
-     */
-    private String generateUsername(String projectId) {
-        // Remove hyphens and make safe for ClickHouse
-        String sanitized = projectId.replace("-", "_").replace("proj_", "");
-        return "project_" + sanitized;
-    }
-    
-    /**
-     * Generate row policy name.
-     * Format: proj_{id}_policy_{table}
-     */
+
+    // ==================== PRIVATE HELPERS ====================
+
     private String generatePolicyName(String projectId, String tableName) {
         String sanitized = projectId.replace("-", "_").replace("proj_", "");
         String tableShort = tableName.replace("otel.", "").replace("_", "");
         return String.format("proj_%s_policy_%s", sanitized, tableShort);
     }
-    
-    /**
-     * Generate cryptographically secure password.
-     */
-    private String generateSecurePassword() {
-        byte[] bytes = new byte[PASSWORD_LENGTH];
-        RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-    
-    /**
-     * Execute SQL statement using admin connection.
-     * This is a synchronous blocking call - use within Completable.fromAction().
-     */
+
     private void executeSQL(ConnectionPool adminPool, String sql) {
         Connection connection = null;
         try {
