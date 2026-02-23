@@ -117,34 +117,34 @@ public class AuthService {
 
     return verifySimpleFirebaseToken(firebaseIdToken)
         .flatMap(userInfo -> {
-          // Check if user exists by email
-          return userDao.getUserByEmail(userInfo.email)
-              .switchIfEmpty(Single.defer(() -> {
-                // New user - create and needs onboarding
-                return userService.getOrCreateUser(userInfo.email, userInfo.name);
-              }))
-              .flatMap(user -> {
-                // Check if user is pending (added by admin but never logged in)
-                if ("pending".equals(user.getStatus())) {
-                  log.info("Activating pending user on first login: userId={}, email={}",
-                      user.getUserId(), user.getEmail());
+            // Check if user exists by email
+            return userDao.getUserByEmail(userInfo.email)
+                .switchIfEmpty(Single.defer(() -> {
+                    // New user - create with Firebase UID and needs onboarding
+                    return userService.getOrCreateUser(userInfo.email, userInfo.name, userInfo.userId);
+                }))
+                .flatMap(user -> {
+                    // Check if user is pending (added by admin but never logged in)
+                    if ("pending".equals(user.getStatus())) {
+                        log.info("Activating pending user on first login: userId={}, email={}",
+                            user.getUserId(), user.getEmail());
 
-                  // Activate the user
-                  return userDao.activateUser(
-                      user.getUserId(),
-                      userInfo.userId,  // Firebase UID
-                      userInfo.name
-                  ).andThen(Single.just(user.toBuilder()
-                      .status("active")
-                      .firebaseUid(userInfo.userId)
-                      .name(userInfo.name)
-                      .build()));
-                } else {
-                  // Already active user - just update last login
-                  userDao.updateLastLogin(user.getUserId()).subscribe();
-                  return Single.just(user);
-                }
-              });
+                        // Activate the user and update Firebase UID
+                        return userDao.activateUser(
+                            user.getUserId(), 
+                            userInfo.userId,  // Firebase UID
+                            userInfo.name
+                        ).andThen(Single.just(user.toBuilder()
+                            .status("active")
+                            .firebaseUid(userInfo.userId)
+                            .name(userInfo.name)
+                            .build()));
+                    } else {
+                        // Already active user - just update last login
+                        userDao.updateLastLogin(user.getUserId()).subscribe();
+                        return Single.just(user);
+                    }
+                });
         })
         .flatMap(user ->
             // Query OpenFGA for user's projects
@@ -168,29 +168,37 @@ public class AuthService {
                       projectIds.size(), user.getUserId(), firstProjectId);
 
                   return projectService.getProjectById(firstProjectId)
-                      .map(project -> {
+                      .flatMap(project -> {
                         String tenantId = project.getTenantId();
+                        
+                        // Get user's tenant role
+                        return openFgaService.getUserTenantRole(user.getUserId(), tenantId)
+                            .map(roleOpt -> {
+                                String tenantRole = roleOpt.orElse("member");
 
-                        // Generate JWT tokens with tenantId
-                        String accessToken = jwtService.generateAccessToken(
-                            user.getUserId(), user.getEmail(), user.getName(), tenantId);
-                        String refreshToken = jwtService.generateRefreshToken(
-                            user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                                // Generate JWT tokens with tenantId
+                                String accessToken = jwtService.generateAccessToken(
+                                    user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                                String refreshToken = jwtService.generateRefreshToken(
+                                    user.getUserId(), user.getEmail(), user.getName(), tenantId);
 
-                        log.info("Login successful: userId={}, tenantId={}", user.getUserId(), tenantId);
+                                log.info("Login successful: userId={}, tenantId={}, tenantRole={}",
+                                    user.getUserId(), tenantId, tenantRole);
 
-                        return LoginResponse.builder()
-                            .status("authenticated")
-                            .accessToken(accessToken)
-                            .refreshToken(refreshToken)
-                            .userId(user.getUserId())
-                            .email(user.getEmail())
-                            .name(user.getName())
-                            .tenantId(tenantId)
-                            .needsOnboarding(false)
-                            .tokenType(TOKEN_TYPE_BEARER)
-                            .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-                            .build();
+                                return LoginResponse.builder()
+                                    .status("authenticated")
+                                    .accessToken(accessToken)
+                                    .refreshToken(refreshToken)
+                                    .userId(user.getUserId())
+                                    .email(user.getEmail())
+                                    .name(user.getName())
+                                    .tenantId(tenantId)
+                                    .tenantRole(tenantRole)
+                                    .needsOnboarding(false)
+                                    .tokenType(TOKEN_TYPE_BEARER)
+                                    .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                                    .build();
+                            });
                       });
                 })
         )
@@ -398,27 +406,35 @@ public class AuthService {
         projectIds.size(), userId, firstProjectId);
 
     return projectService.getProjectById(firstProjectId)
-        .map(project -> {
-          String tenantId = project.getTenantId();
+        .flatMap(project -> {
+            String tenantId = project.getTenantId();
 
-          // Generate JWT tokens with tenantId
-          String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
-          String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+            // Get user's tenant role
+            return openFgaService.getUserTenantRole(userId, tenantId)
+                .map(roleOpt -> {
+                    String tenantRole = roleOpt.orElse("member");
 
-          log.info("Dev login successful: userId={}, tenantId={}", userId, tenantId);
+                    // Generate JWT tokens with tenantId
+                    String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+                    String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
 
-          return LoginResponse.builder()
-              .status("authenticated")
-              .accessToken(accessToken)
-              .refreshToken(refreshToken)
-              .userId(userId)
-              .email(email)
-              .name(name)
-              .tenantId(tenantId)
-              .needsOnboarding(false)
-              .tokenType(TOKEN_TYPE_BEARER)
-              .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-              .build();
+                    log.info("Dev login successful: userId={}, tenantId={}, tenantRole={}",
+                        userId, tenantId, tenantRole);
+
+                    return LoginResponse.builder()
+                        .status("authenticated")
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken)
+                        .userId(userId)
+                        .email(email)
+                        .name(name)
+                        .tenantId(tenantId)
+                        .tenantRole(tenantRole)
+                        .needsOnboarding(false)
+                        .tokenType(TOKEN_TYPE_BEARER)
+                        .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                        .build();
+                });
         });
   }
 
@@ -524,21 +540,16 @@ public class AuthService {
               log.error("Tenant is not active: {}", tenant.getTenantId());
               return Single.error(new IllegalArgumentException("Tenant is not active. Please contact support."));
             }
-            String dbTenantId = tenant.getTenantId();
-
-            // If OpenFGA is enabled, also verify user belongs to this tenant in OpenFGA
-            if (openFgaConfig != null && openFgaConfig.isEnabled() && openFgaService != null) {
-              return lookupTenantFromOpenFga(finalEmail, dbTenantId)
-                  .flatMap(openFgaTenantId -> {
-                    // Use the tenant from OpenFGA if found, otherwise fall back to DB tenant
-                    String tenantId = openFgaTenantId != null && !openFgaTenantId.isEmpty()
-                        ? openFgaTenantId : dbTenantId;
-                    return buildAuthResponse(finalUserId, finalEmail, finalName, tenantId, idTokenString);
-                  });
-            }
-
-            // OpenFGA not enabled, use database tenant
-            return buildAuthResponse(finalUserId, finalEmail, finalName, dbTenantId, idTokenString);
+            String tenantId = tenant.getTenantId();
+            String accessToken = jwtService.generateAccessToken(userId, finalEmail, finalName, tenantId);
+            String refreshToken = jwtService.generateRefreshToken(userId, finalEmail, finalName, tenantId);
+            return Single.just(AuthenticateResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .idToken(idTokenString)
+                .tokenType(TOKEN_TYPE_BEARER)
+                .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                .build());
           })
           .doOnError(error -> log.error("Tenant not found in database for gcpTenantId: {}", tokenTenant));
     } catch (Exception e) {
@@ -659,56 +670,5 @@ public class AuthService {
     }
 
     return authorization.trim();
-  }
-
-  /**
-   * Look up tenant for user from OpenFGA.
-   * If the user has a tenant relation in OpenFGA, return that tenant ID.
-   * Otherwise, verify the user belongs to the provided fallback tenant.
-   *
-   * @param email            The user's email
-   * @param fallbackTenantId The tenant ID from database lookup (used as fallback)
-   * @return Single emitting the tenant ID
-   */
-  private Single<String> lookupTenantFromOpenFga(String email, String fallbackTenantId) {
-    return openFgaService.getTenantForUser(email)
-        .toSingle()
-        .onErrorResumeNext(error -> {
-          // If no tenant found in OpenFGA, check if user at least belongs to fallback tenant
-          log.debug("No direct tenant relation found for {} in OpenFGA, checking membership in {}",
-              email, fallbackTenantId);
-          return openFgaService.userBelongsToTenant(email, fallbackTenantId)
-              .flatMap(belongs -> {
-                if (Boolean.TRUE.equals(belongs)) {
-                  log.info("User {} verified as member of tenant {} via OpenFGA", email, fallbackTenantId);
-                  return Single.just(fallbackTenantId);
-                } else {
-                  log.warn("User {} is not a member of any tenant in OpenFGA", email);
-                  // Still allow login with fallback tenant but log warning
-                  // In strict mode, you could return an error here
-                  return Single.just(fallbackTenantId);
-                }
-              });
-        })
-        .doOnSuccess(tenantId -> log.info("Resolved tenant '{}' for user '{}' from OpenFGA", tenantId, email));
-  }
-
-  /**
-   * Build the authentication response with tokens.
-   */
-  private Single<AuthenticateResponseDto> buildAuthResponse(
-      String userId, String email, String name, String tenantId, String originalIdToken) {
-    String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
-    String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
-
-    log.info("Generated tokens for user {} with tenant {}", email, tenantId);
-
-    return Single.just(AuthenticateResponseDto.builder()
-        .accessToken(accessToken)
-        .refreshToken(refreshToken)
-        .idToken(originalIdToken)
-        .tokenType(TOKEN_TYPE_BEARER)
-        .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-        .build());
   }
 }

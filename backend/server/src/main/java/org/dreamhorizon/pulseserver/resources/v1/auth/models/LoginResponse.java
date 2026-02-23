@@ -33,6 +33,9 @@ public class LoginResponse {
     @JsonProperty("tenantId")
     private String tenantId;
     
+    @JsonProperty("tenantRole")
+    private String tenantRole;
+    
     @JsonProperty("needsOnboarding")
     private Boolean needsOnboarding;
     

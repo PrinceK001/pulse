@@ -1,5 +1,5 @@
 services:
-  # MySQL Database (shared by Pulse and OpenFGA)
+  # MySQL Database
   mysql:
     image: mysql:8.0
     container_name: pulse-mysql

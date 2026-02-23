@@ -22,142 +22,155 @@ import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class OnboardingService {
+    
+    private final TenantService tenantService;
+    private final ProjectService projectService;
+    private final OpenFgaService openFgaService;
+    private final JwtService jwtService;
+    private final UserService userService;
 
-  private final TenantService tenantService;
-  private final ProjectService projectService;
-  private final OpenFgaService openFgaService;
-  private final JwtService jwtService;
+    /**
+     * Complete onboarding for a new user.
+     * Creates a tenant and first project, sets up authorization.
+     *
+     * IMPORTANT: This method receives Firebase UID but must use database userId for role assignments.
+     * It looks up the user by email (created during login) to get the correct database userId.
+     *
+     * RESTRICTION: Users can only be part of ONE organization during onboarding.
+     * If user is already part of any tenant (as owner, admin, or member), onboarding will fail.
+     * Users must not have any existing tenant associations to onboard.
+     *
+     * @param firebaseUid Firebase User ID (from Firebase token)
+     * @param email User email
+     * @param name User display name
+     * @param organizationName Organization/tenant name
+     * @param projectName First project name
+     * @param projectDescription First project description
+     * @return OnboardingResult with tenant, project, and JWT tokens
+     */
+    public Single<OnboardingResult> completeOnboarding(
+            String firebaseUid,
+            String email,
+            String name,
+            String organizationName,
+            String projectName,
+            String projectDescription) {
 
-  /**
-   * Complete onboarding for a new user.
-   * Creates a tenant and first project, sets up authorization.
-   * <p>
-   * RESTRICTION: Users can only be part of ONE organization during onboarding.
-   * If user is already part of any tenant (as owner, admin, or member), onboarding will fail.
-   * Users must not have any existing tenant associations to onboard.
-   *
-   * @param userId             User ID (from Firebase)
-   * @param email              User email
-   * @param name               User display name
-   * @param organizationName   Organization/tenant name
-   * @param projectName        First project name
-   * @param projectDescription First project description
-   * @return OnboardingResult with tenant, project, and JWT tokens
-   */
-  public Single<OnboardingResult> completeOnboarding(
-      String userId,
-      String email,
-      String name,
-      String organizationName,
-      String projectName,
-      String projectDescription) {
+        log.info("Starting onboarding: firebaseUid={}, email={}, org={}, project={}",
+            firebaseUid, email, organizationName, projectName);
 
-    log.info("Starting onboarding: userId={}, org={}, project={}",
-        userId, organizationName, projectName);
+        // CRITICAL FIX: Look up the database user by email (created during login)
+        // This ensures we use the same database userId for OpenFGA role assignments
+        return userService.getOrCreateUser(email, name, firebaseUid)
+            .flatMap(user -> {
+                String dbUserId = user.getUserId();
+                log.info("Onboarding user lookup: firebaseUid={}, dbUserId={}, email={}",
+                    firebaseUid, dbUserId, email);
 
-    // Validate: User cannot be part of any tenant already
-    return openFgaService.getUserTenants(userId)
-        .flatMap(existingTenants -> {
-          if (existingTenants != null && !existingTenants.isEmpty()) {
-            // User is already part of one or more tenants - block onboarding
-            log.warn("Onboarding blocked: User is already part of {} organization(s): userId={}",
-                existingTenants.size(), userId);
-            return Single.error(new IllegalStateException(
-                "User is already part of an organization. You cannot onboard if you're already " +
-                    "associated with any organization. Please use an existing organization or contact support."));
-          }
-          // No existing tenants - proceed
-          return proceedWithOnboarding(userId, email, name, organizationName, projectName, projectDescription);
-        })
-        .doOnError(error ->
-            log.error("Onboarding failed: userId={}", userId, error)
-        );
-  }
-
-  /**
-   * Proceed with actual tenant and project creation.
-   */
-  private Single<OnboardingResult> proceedWithOnboarding(
-      String userId,
-      String email,
-      String name,
-      String organizationName,
-      String projectName,
-      String projectDescription) {
-
-    String tenantId = "tenant-" + UUID.randomUUID();
-
-    log.info("Creating new organization: userId={}, tenantId={}, name={}",
-        userId, tenantId, organizationName);
-
-    // Step 1: Create tenant
-    CreateTenantRequest tenantRequest = CreateTenantRequest.builder()
-        .tenantId(tenantId)
-        .name(organizationName)
-        .description("Organization created during onboarding")
-        .gcpTenantId(null)  // No Firebase tenant ID
-        .domainName(null)
-        .build();
-
-    return tenantService.createTenant(tenantRequest)
-        .flatMap(tenant ->
-            // Step 2: Create first project within tenant
-            projectService.createProject(tenantId, projectName, projectDescription, userId)
-                .flatMap(project ->
-                    // Step 3: Assign tenant owner role to user
-                    openFgaService.assignTenantRole(userId, tenantId, "owner")
-                        .andThen(Single.just(project))
-                )
-                .map(project -> {
-                  // Step 4: Generate JWT tokens with tenantId
-                  String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
-                  String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
-
-                  log.info("Onboarding completed: userId={}, tenantId={}, projectId={}",
-                      userId, tenantId, project.getProjectId());
-
-                  return OnboardingResult.builder()
-                      .userId(userId)
-                      .email(email)
-                      .name(name)
-                      .tenantId(tenantId)
-                      .tenantName(organizationName)
-                      .projectId(project.getProjectId())
-                      .projectName(project.getName())
-                      .projectApiKey(project.getApiKey())
-                      .accessToken(accessToken)
-                      .refreshToken(refreshToken)
-                      .tokenType("Bearer")
-                      .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-                      .redirectTo("/projects/" + project.getProjectId())
-                      .build();
-                })
-        )
-        .doOnError(error ->
-            log.error("Onboarding failed: userId={}, tenantId={}", userId, tenantId, error)
-        );
-  }
-
-  /**
-   * Result of onboarding operation.
-   */
-  @lombok.Data
-  @lombok.Builder
-  @lombok.NoArgsConstructor
-  @lombok.AllArgsConstructor
-  public static class OnboardingResult {
-    private String userId;
-    private String email;
-    private String name;
-    private String tenantId;
-    private String tenantName;
-    private String projectId;
-    private String projectName;
-    private String projectApiKey;
-    private String accessToken;
-    private String refreshToken;
-    private String tokenType;
-    private Integer expiresIn;
-    private String redirectTo;
-  }
+                // Validate: User cannot be part of any tenant already
+                return openFgaService.getUserTenants(dbUserId)
+                    .flatMap(existingTenants -> {
+                        if (existingTenants != null && !existingTenants.isEmpty()) {
+                            // User is already part of one or more tenants - block onboarding
+                            log.warn("Onboarding blocked: User is already part of {} organization(s): dbUserId={}",
+                                existingTenants.size(), dbUserId);
+                            return Single.error(new IllegalStateException(
+                                "User is already part of an organization. You cannot onboard if you're already " +
+                                "associated with any organization. Please use an existing organization or contact support."));
+                        }
+                        // No existing tenants - proceed with database userId
+                        return proceedWithOnboarding(dbUserId, email, name, organizationName, projectName, projectDescription);
+                    });
+            })
+            .doOnError(error ->
+                log.error("Onboarding failed: firebaseUid={}, email={}", firebaseUid, email, error)
+            );
+    }
+    
+    /**
+     * Proceed with actual tenant and project creation.
+     */
+    private Single<OnboardingResult> proceedWithOnboarding(
+            String userId,
+            String email,
+            String name,
+            String organizationName,
+            String projectName,
+            String projectDescription) {
+        
+        String tenantId = "tenant-" + UUID.randomUUID().toString();
+        
+        log.info("Creating new organization: userId={}, tenantId={}, name={}", 
+            userId, tenantId, organizationName);
+        
+        // Step 1: Create tenant
+        CreateTenantRequest tenantRequest = CreateTenantRequest.builder()
+            .tenantId(tenantId)
+            .name(organizationName)
+            .description("Organization created during onboarding")
+            .gcpTenantId(null)  // No Firebase tenant ID
+            .domainName(null)
+            .build();
+        
+        return tenantService.createTenant(tenantRequest)
+            .flatMap(tenant -> 
+                // Step 2: Create first project within tenant
+                projectService.createProject(tenantId, projectName, projectDescription, userId)
+                    .flatMap(project ->
+                        // Step 3: Assign tenant owner role to user
+                        openFgaService.assignTenantRole(userId, tenantId, "owner")
+                            .andThen(Single.just(project))
+                    )
+                    .map(project -> {
+                        // Step 4: Generate JWT tokens with tenantId
+                        String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+                        String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+                        
+                        log.info("Onboarding completed: userId={}, tenantId={}, projectId={}", 
+                            userId, tenantId, project.getProjectId());
+                        
+                        return OnboardingResult.builder()
+                            .userId(userId)
+                            .email(email)
+                            .name(name)
+                            .tenantId(tenantId)
+                            .tenantName(organizationName)
+                            .projectId(project.getProjectId())
+                            .projectName(project.getName())
+                            .projectApiKey(project.getApiKey())
+                            .accessToken(accessToken)
+                            .refreshToken(refreshToken)
+                            .tokenType("Bearer")
+                            .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                            .redirectTo("/projects/" + project.getProjectId())
+                            .build();
+                    })
+            )
+            .doOnError(error -> 
+                log.error("Onboarding failed: userId={}, tenantId={}", userId, tenantId, error)
+            );
+    }
+    
+    /**
+     * Result of onboarding operation.
+     */
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class OnboardingResult {
+        private String userId;
+        private String email;
+        private String name;
+        private String tenantId;
+        private String tenantName;
+        private String projectId;
+        private String projectName;
+        private String projectApiKey;
+        private String accessToken;
+        private String refreshToken;
+        private String tokenType;
+        private Integer expiresIn;
+        private String redirectTo;
+    }
 }

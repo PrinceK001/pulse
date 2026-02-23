@@ -6,8 +6,8 @@ package org.dreamhorizon.pulseserver.dao.userdao;
 public class UserQueries {
     
     public static final String INSERT_USER = 
-        "INSERT INTO users (user_id, email, name, status, is_active) " +
-        "VALUES (?, ?, ?, ?, ?)";
+        "INSERT INTO users (user_id, email, name, status, firebase_uid, is_active) " +
+        "VALUES (?, ?, ?, ?, ?, ?)";
     
     public static final String GET_USER_BY_EMAIL = 
         "SELECT id, user_id, email, name, status, firebase_uid, last_login_at, is_active, created_at, updated_at " +

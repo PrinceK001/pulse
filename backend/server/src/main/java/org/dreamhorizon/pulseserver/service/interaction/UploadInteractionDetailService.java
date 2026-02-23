@@ -48,7 +48,9 @@ public class UploadInteractionDetailService {
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
     String s3FilePath = getTenantAwarePath(projectId, applicationConfig.getInteractionDetailsS3BucketFilePath());
-    String cloudFrontAssetPath = getTenantAwarePath(projectId, applicationConfig.getInteractionDetailCloudFrontAssetPath());
+    String cloudFrontAssetPath = String.format("/%s",
+        getTenantAwarePath(projectId, applicationConfig.getInteractionDetailCloudFrontAssetPath()));
+    log.info("Uploading to S3 at path: {}", s3FilePath);
 
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
@@ -58,7 +60,7 @@ public class UploadInteractionDetailService {
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful for project: {}, invalidating CloudFront cache for distribution: {}",
+          log.info("S3 upload successful for projectId: {}, invalidating CloudFront cache for distribution: {}",
               projectId, distributionId);
           return cloudFrontClient
               .invalidateCache(

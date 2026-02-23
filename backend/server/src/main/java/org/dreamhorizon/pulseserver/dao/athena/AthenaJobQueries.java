@@ -30,7 +30,7 @@ public class AthenaJobQueries {
           "created_at, updated_at, completed_at " +
           "FROM athena_job WHERE job_id = ?";
 
-  public static final String GET_QUERY_HISTORY = 
+  public static final String GET_QUERY_HISTORY =
       "SELECT job_id, tenant_id, project_id, query_string, user_email, query_execution_id, " +
       "status, result_location, error_message, data_scanned_in_bytes, execution_time_millis, " +
       "engine_execution_time_millis, query_queue_time_millis, created_at, updated_at, completed_at " +
@@ -38,7 +38,7 @@ public class AthenaJobQueries {
       "ORDER BY created_at DESC " +
       "LIMIT ? OFFSET ?";
 
-  public static final String GET_QUERIES_FOR_STATISTICS = 
+  public static final String GET_QUERIES_FOR_STATISTICS =
       "SELECT job_id, tenant_id, project_id, query_string, user_email, query_execution_id, " +
       "status, result_location, error_message, data_scanned_in_bytes, execution_time_millis, " +
       "engine_execution_time_millis, query_queue_time_millis, created_at, updated_at, completed_at " +

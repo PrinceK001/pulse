@@ -89,10 +89,10 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     return normalizedPath.equals(HEALTHCHECK_PATH)
         || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
         || normalizedPath.startsWith(AUTH_PATH_PREFIX)
-        || normalizedPath.startsWith(LOGS_INGESTION_PATH)// Includes /v1/auth/login
         || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
         || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
-        || normalizedPath.startsWith(ALERTS_PATH_PREFIX);
+        || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+        || normalizedPath.startsWith(LOGS_INGESTION_PATH);
   }
 
   @Override
@@ -122,6 +122,13 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     if (headerTenantId != null && !headerTenantId.isBlank()) {
       log.debug("Tenant ID resolved from header: {}", headerTenantId);
       return headerTenantId.trim();
+    }
+
+    //This a Temporary fix for supporting the projectId.
+    //TODO: This will be replaced once we have the complete project Onboarding in place
+    String projectId = requestContext.getHeaderString(PROJECT_HEADER);
+    if (projectId != null && !projectId.isBlank()) {
+      return projectId.trim();
     }
 
     log.error("Missing tenant ID (not found in token or X-Tenant-ID header) for path: {}",

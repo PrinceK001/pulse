@@ -178,7 +178,7 @@ public class InteractionDao {
   }
 
   public Single<GetInteractionsResponse> getInteractions(@Valid GetInteractionsRequest request) {
-    return d11MysqlClient.getReaderPool()
+    return d11MysqlClient.getWriterPool()
         .preparedQuery(buildPaginatedGetInteractionsQuery(request))
         .rxExecute()
         .flatMap(rows -> {

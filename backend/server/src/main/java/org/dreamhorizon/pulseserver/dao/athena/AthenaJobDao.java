@@ -14,6 +14,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 /**
  * DAO for Athena job operations.
@@ -97,7 +98,7 @@ public class AthenaJobDao {
   }
 
   public Single<AthenaJob> getJobById(String jobId) {
-    return mysqlClient.getReaderPool()
+    return mysqlClient.getWriterPool()
         .preparedQuery(AthenaJobQueries.GET_JOB_BY_ID)
         .rxExecute(Tuple.of(jobId))
         .map(rowSet -> {
