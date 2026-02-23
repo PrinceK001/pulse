@@ -12,9 +12,10 @@ import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
-import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.client.redis.RedisClient;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
@@ -87,6 +88,13 @@ public class MainModule extends VertxAbstractModule {
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
     bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
+
+    // === Redis Client ===
+    bind(RedisClient.class).toProvider(() -> {
+      ApplicationConfig config = SharedDataUtils.get(vertx, ApplicationConfig.class);
+      io.vertx.rxjava3.core.Vertx rxVertx = io.vertx.rxjava3.core.Vertx.newInstance(vertx);
+      return new RedisClient(rxVertx, config);
+    }).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {

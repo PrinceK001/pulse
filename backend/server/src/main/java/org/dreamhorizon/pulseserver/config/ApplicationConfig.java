@@ -33,4 +33,8 @@ public class ApplicationConfig {
   public String interactionDetailsS3BucketFilePath;
   public String interactionDetailCloudFrontAssetPath;
   public String encryptionMasterKey;
+  public String redisHost;
+  public Integer redisPort;
+  public Integer redisMaxPoolSize;
+  public Integer redisMaxPoolWaiting;
 }
