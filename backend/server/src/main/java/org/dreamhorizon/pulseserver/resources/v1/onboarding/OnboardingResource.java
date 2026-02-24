@@ -107,6 +107,7 @@ public class OnboardingResource {
                     .name(result.getName())
                     .tenantId(result.getTenantId())
                     .tenantName(result.getTenantName())
+                    .tier(result.getTier())
                     .projectId(result.getProjectId())
                     .projectName(result.getProjectName())
                     .projectApiKey(result.getProjectApiKey())

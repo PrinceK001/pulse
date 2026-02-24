@@ -5,25 +5,34 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
+import org.dreamhorizon.pulseserver.dao.projectdao.ProjectDao;
+import org.dreamhorizon.pulseserver.model.Project;
 import org.dreamhorizon.pulseserver.model.User;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 /**
  * Service for managing project memberships.
  * Uses OpenFGA as the single source of truth for all member relationships.
+ * 
+ * <p>This service follows clean architecture principles:
+ * <ul>
+ *   <li>Service layer fetches all needed data (no reliance on caller to provide names/details)</li>
+ *   <li>Only IDs are passed as parameters (data is fetched internally)</li>
+ *   <li>Business logic and authorization checks are centralized here</li>
+ *   <li>Automatically ensures users are added to parent tenant when added to project</li>
+ * </ul>
  */
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ProjectMemberService {
     
-    private final UserDao userDao;
+    private final UserService userService;
+    private final ProjectDao projectDao;
     private final OpenFgaService openFgaService;
     private final EmailService emailService;
     private final TenantMemberService tenantMemberService;
@@ -32,19 +41,23 @@ public class ProjectMemberService {
      * Add a member to a project with the specified role.
      * Ensures user is also added to the parent tenant if not already a member.
      * 
+     * <p>This method handles:
+     * <ul>
+     *   <li>Authorization check (is addedBy a project admin?)</li>
+     *   <li>Fetching project and admin details from database</li>
+     *   <li>Creating or finding the user to be added</li>
+     *   <li>Ensuring user is in parent tenant</li>
+     *   <li>Assigning role in OpenFGA</li>
+     *   <li>Sending invite email notification</li>
+     * </ul>
+     * 
      * @param projectId Project ID
      * @param email User's email address
      * @param role Role to assign (admin, editor, viewer)
      * @param addedBy User ID of the person adding this user
-     * @param projectName Project name for email notification
-     * @param adminName Admin's name for email notification
-     * @param tenantId Parent tenant ID
-     * @param tenantName Tenant name for email notification
      * @return Single<User> The user that was added
      */
-    public Single<User> addMemberToProject(String projectId, String email, String role, 
-                                            String addedBy, String projectName, String adminName,
-                                            String tenantId, String tenantName) {
+    public Single<User> addMemberToProject(String projectId, String email, String role, String addedBy) {
         log.info("Adding member to project: email={}, project={}, role={}, addedBy={}", 
             email, projectId, role, addedBy);
         
@@ -54,28 +67,48 @@ public class ProjectMemberService {
                 "Invalid project role: " + role + ". Must be one of: admin, editor, viewer"));
         }
         
-        // Get or create user
-        return getOrCreateUserByEmail(email)
-            .flatMap(user -> {
-                // Ensure user is in tenant (add as member if not present)
-                return ensureUserInTenant(user, tenantId, tenantName, adminName)
-                    .andThen(Single.just(user));
-            })
-            .flatMap(user -> {
-                // Assign project role in OpenFGA
-                return openFgaService.assignProjectRole(user.getUserId(), projectId, role)
-                    .andThen(Single.just(user));
-            })
-            .doOnSuccess(user -> {
-                // Send notification email
+        // Fetch all needed data
+        return Single.zip(
+                projectDao.getProjectById(projectId)
+                    .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId))),
+                userService.getUserById(addedBy)
+                    .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + addedBy))),
+                (project, admin) -> new AddContext(project, admin)
+            )
+            // Authorization check
+            .flatMap(ctx -> openFgaService.isProjectAdmin(addedBy, projectId)
+                .flatMap(isAdmin -> {
+                    if (!isAdmin) {
+                        return Single.error(new IllegalArgumentException(
+                            "Only project admins can add members"));
+                    }
+                    return Single.just(ctx);
+                }))
+            // Get or create user being added
+            .flatMap(ctx -> userService.getOrCreateUser(email, email)
+                .map(user -> new AddCompleteContext(ctx.project, ctx.admin, user)))
+            // Ensure user is in parent tenant
+            .flatMap(ctx -> ensureUserInTenant(ctx.newUser, ctx.project.getTenantId(), addedBy)
+                .andThen(Single.just(ctx)))
+            // Assign project role in OpenFGA
+            .flatMap(ctx -> openFgaService.assignProjectRole(ctx.newUser.getUserId(), projectId, role)
+                .andThen(Single.just(ctx)))
+            // Send notification email
+            .doOnSuccess(ctx -> {
                 try {
-                    emailService.sendProjectAccessEmail(email, projectName, role, adminName, projectId);
+                    emailService.sendProjectAccessEmail(
+                        ctx.newUser.getEmail(),
+                        ctx.project.getName(),
+                        role,
+                        ctx.admin.getName(),
+                        projectId);
                 } catch (Exception e) {
-                    log.error("Failed to send project access email to {}", email, e);
+                    log.error("Failed to send project access email to {}", ctx.newUser.getEmail(), e);
                 }
                 log.info("Member added to project successfully: userId={}, project={}, role={}", 
-                    user.getUserId(), projectId, role);
+                    ctx.newUser.getUserId(), projectId, role);
             })
+            .map(ctx -> ctx.newUser)
             .doOnError(error -> 
                 log.error("Failed to add member to project: email={}, project={}", email, projectId, error)
             );
@@ -86,60 +119,71 @@ public class ProjectMemberService {
      * Validates that we're not removing the last admin.
      * 
      * @param projectId Project ID
-     * @param userId User ID to remove
+     * @param userIdToRemove User ID to remove
      * @param removedBy User ID of the person performing the removal
-     * @param projectName Project name for email notification
-     * @param adminName Admin's name for email notification
      * @return Completable Completes when member is removed
      */
-    public Completable removeMemberFromProject(String projectId, String userId, String removedBy, 
-                                                String projectName, String adminName) {
+    public Completable removeMemberFromProject(String projectId, String userIdToRemove, String removedBy) {
         log.info("Removing member from project: user={}, project={}, removedBy={}", 
-            userId, projectId, removedBy);
+            userIdToRemove, projectId, removedBy);
         
-        // Check if user is an admin
-        return openFgaService.isProjectAdmin(userId, projectId)
-            .flatMapCompletable(isAdmin -> {
-                if (isAdmin) {
-                    // Validate not removing last admin
+        // Fetch all needed data
+        return Single.zip(
+                projectDao.getProjectById(projectId)
+                    .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId))),
+                userService.getUserById(removedBy)
+                    .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + removedBy))),
+                userService.getUserById(userIdToRemove)
+                    .onErrorResumeNext(error -> Single.error(new RuntimeException("User to remove not found: " + userIdToRemove))),
+                (project, admin, userToRemove) -> new RemoveContext(project, admin, userToRemove)
+            )
+            // Authorization check
+            .flatMap(ctx -> openFgaService.isProjectAdmin(removedBy, projectId)
+                .flatMap(isAdmin -> {
+                    if (!isAdmin) {
+                        return Single.error(new IllegalArgumentException(
+                            "Only project admins can remove members"));
+                    }
+                    return Single.just(ctx);
+                }))
+            // Check if removing an admin (need to validate admin count)
+            .flatMap(ctx -> openFgaService.isProjectAdmin(userIdToRemove, projectId)
+                .map(isUserToRemoveAdmin -> new RemoveValidationContext(ctx, isUserToRemoveAdmin)))
+            // Validate not removing last admin
+            .flatMap(ctx -> {
+                if (ctx.isRemovingAdmin) {
                     return openFgaService.countProjectAdmins(projectId)
-                        .flatMapCompletable(adminCount -> {
+                        .flatMap(adminCount -> {
                             if (adminCount <= 1) {
-                                return Completable.error(new IllegalStateException(
+                                return Single.error(new IllegalStateException(
                                     "Cannot remove the last admin from project. " +
                                     "Assign another admin first or delete the project."));
                             }
-                            return removeMemberInternal(projectId, userId, projectName, adminName);
+                            return Single.just(ctx.removeContext);
                         });
                 } else {
-                    return removeMemberInternal(projectId, userId, projectName, adminName);
+                    return Single.just(ctx.removeContext);
                 }
             })
-            .doOnComplete(() -> 
-                log.info("Member removed from project successfully: user={}, project={}", userId, projectId)
-            )
+            // Remove from OpenFGA
+            .flatMap(ctx -> openFgaService.removeProjectMember(userIdToRemove, projectId)
+                .andThen(Single.just(ctx)))
+            // Send notification
+            .doOnSuccess(ctx -> {
+                try {
+                    emailService.sendAccessRemovedEmail(
+                        ctx.userToRemove.getEmail(),
+                        ctx.project.getName(),
+                        ctx.admin.getName());
+                } catch (Exception e) {
+                    log.error("Failed to send removal email to {}", ctx.userToRemove.getEmail(), e);
+                }
+                log.info("Member removed from project successfully: user={}, project={}", userIdToRemove, projectId);
+            })
+            .ignoreElement()
             .doOnError(error -> 
-                log.error("Failed to remove member from project: user={}, project={}", userId, projectId, error)
+                log.error("Failed to remove member from project: user={}, project={}", userIdToRemove, projectId, error)
             );
-    }
-    
-    private Completable removeMemberInternal(String projectId, String userId, 
-                                              String projectName, String adminName) {
-        return openFgaService.removeProjectMember(userId, projectId)
-            .doOnComplete(() -> {
-                // Get user email for notification
-                userDao.getUserById(userId)
-                    .subscribe(
-                        user -> {
-                            try {
-                                emailService.sendAccessRemovedEmail(user.getEmail(), projectName, adminName);
-                            } catch (Exception e) {
-                                log.error("Failed to send removal email to {}", user.getEmail(), e);
-                            }
-                        },
-                        error -> log.error("Failed to fetch user for email notification: {}", userId, error)
-                    );
-            });
     }
     
     /**
@@ -148,10 +192,9 @@ public class ProjectMemberService {
      * 
      * @param projectId Project ID
      * @param userId User ID
-     * @param projectName Project name for logging
      * @return Completable Completes when user leaves
      */
-    public Completable leaveProject(String projectId, String userId, String projectName) {
+    public Completable leaveProject(String projectId, String userId) {
         log.info("User leaving project: user={}, project={}", userId, projectId);
         
         return openFgaService.isProjectAdmin(userId, projectId)
@@ -180,19 +223,23 @@ public class ProjectMemberService {
     
     /**
      * Update a member's role in a project.
+     * Prevents self-role changes and validates admin count.
      * 
      * @param projectId Project ID
-     * @param userId User ID
+     * @param userId User ID whose role to update
      * @param newRole New role
-     * @param updatedBy User ID of the person updating
-     * @param projectName Project name for email
-     * @param adminName Admin's name for email
+     * @param updatedBy User ID of the person performing the update
      * @return Completable Completes when role is updated
      */
-    public Completable updateMemberRole(String projectId, String userId, String newRole, 
-                                         String updatedBy, String projectName, String adminName) {
+    public Completable updateMemberRole(String projectId, String userId, String newRole, String updatedBy) {
         log.info("Updating project role: user={}, project={}, newRole={}, updatedBy={}", 
             userId, projectId, newRole, updatedBy);
+        
+        // Prevent self-role changes
+        if (userId.equals(updatedBy)) {
+            return Completable.error(new IllegalArgumentException(
+                "You cannot change your own role"));
+        }
         
         // Validate role
         if (!isValidProjectRole(newRole)) {
@@ -200,49 +247,64 @@ public class ProjectMemberService {
                 "Invalid project role: " + newRole + ". Must be one of: admin, editor, viewer"));
         }
         
-        // Check if downgrading from admin
-        return openFgaService.isProjectAdmin(userId, projectId)
-            .flatMapCompletable(isCurrentlyAdmin -> {
-                if (isCurrentlyAdmin && !"admin".equals(newRole)) {
-                    // Downgrading from admin - check admin count
+        // Fetch all needed data
+        return Single.zip(
+                projectDao.getProjectById(projectId)
+                    .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId))),
+                userService.getUserById(updatedBy)
+                    .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + updatedBy))),
+                userService.getUserById(userId)
+                    .onErrorResumeNext(error -> Single.error(new RuntimeException("User to update not found: " + userId))),
+                (project, admin, userToUpdate) -> new UpdateContext(project, admin, userToUpdate)
+            )
+            // Authorization check
+            .flatMap(ctx -> openFgaService.isProjectAdmin(updatedBy, projectId)
+                .flatMap(isAdmin -> {
+                    if (!isAdmin) {
+                        return Single.error(new IllegalArgumentException(
+                            "Only project admins can update member roles"));
+                    }
+                    return Single.just(ctx);
+                }))
+            // Check if downgrading from admin
+            .flatMap(ctx -> openFgaService.isProjectAdmin(userId, projectId)
+                .map(isCurrentlyAdmin -> new UpdateValidationContext(ctx, isCurrentlyAdmin)))
+            // Validate admin count if downgrading
+            .flatMap(ctx -> {
+                if (ctx.isCurrentlyAdmin && !"admin".equals(newRole)) {
                     return openFgaService.countProjectAdmins(projectId)
-                        .flatMapCompletable(adminCount -> {
+                        .flatMap(adminCount -> {
                             if (adminCount <= 1) {
-                                return Completable.error(new IllegalStateException(
+                                return Single.error(new IllegalStateException(
                                     "Cannot downgrade the last admin. Assign another admin first."));
                             }
-                            return updateRoleInternal(projectId, userId, newRole, projectName, adminName);
+                            return Single.just(ctx.updateContext);
                         });
                 } else {
-                    return updateRoleInternal(projectId, userId, newRole, projectName, adminName);
+                    return Single.just(ctx.updateContext);
                 }
             })
-            .doOnComplete(() -> 
+            // Update role in OpenFGA
+            .flatMap(ctx -> openFgaService.updateProjectRole(userId, projectId, newRole)
+                .andThen(Single.just(ctx)))
+            // Send notification
+            .doOnSuccess(ctx -> {
+                try {
+                    emailService.sendRoleUpdatedEmail(
+                        ctx.userToUpdate.getEmail(),
+                        ctx.project.getName(),
+                        newRole,
+                        ctx.admin.getName());
+                } catch (Exception e) {
+                    log.error("Failed to send role update email to {}", ctx.userToUpdate.getEmail(), e);
+                }
                 log.info("Project role updated successfully: user={}, project={}, newRole={}", 
-                    userId, projectId, newRole)
-            )
+                    userId, projectId, newRole);
+            })
+            .ignoreElement()
             .doOnError(error -> 
                 log.error("Failed to update project role: user={}, project={}", userId, projectId, error)
             );
-    }
-    
-    private Completable updateRoleInternal(String projectId, String userId, String newRole, 
-                                            String projectName, String adminName) {
-        return openFgaService.updateProjectRole(userId, projectId, newRole)
-            .doOnComplete(() -> {
-                // Send notification
-                userDao.getUserById(userId)
-                    .subscribe(
-                        user -> {
-                            try {
-                                emailService.sendRoleUpdatedEmail(user.getEmail(), projectName, newRole, adminName);
-                            } catch (Exception e) {
-                                log.error("Failed to send role update email to {}", user.getEmail(), e);
-                            }
-                        },
-                        error -> log.error("Failed to fetch user for email notification: {}", userId, error)
-                    );
-            });
     }
     
     /**
@@ -262,8 +324,8 @@ public class ProjectMemberService {
                     return Single.just(new ArrayList<User>());
                 }
                 
-                // Fetch user details from database
-                return userDao.getUsersByIds(new ArrayList<>(userIds));
+                // Fetch user details from UserService
+                return userService.getUsersByIds(new ArrayList<>(userIds));
             })
             .doOnSuccess(members -> 
                 log.debug("Retrieved {} project members for project: {}", members.size(), projectId)
@@ -275,9 +337,9 @@ public class ProjectMemberService {
     
     /**
      * Ensure user is in the parent tenant.
-     * If not, add them as a member.
+     * If not, add them as a member automatically.
      */
-    private Completable ensureUserInTenant(User user, String tenantId, String tenantName, String adminName) {
+    private Completable ensureUserInTenant(User user, String tenantId, String addedBy) {
         return openFgaService.getUserTenantRole(user.getUserId(), tenantId)
             .flatMapCompletable(roleOpt -> {
                 if (roleOpt.isPresent()) {
@@ -290,34 +352,10 @@ public class ProjectMemberService {
                     log.info("Auto-adding user to tenant as member: user={}, tenant={}", 
                         user.getUserId(), tenantId);
                     return tenantMemberService.addUserToTenant(
-                        tenantId, user.getEmail(), "member", "system", tenantName, adminName
+                        tenantId, user.getEmail(), "member", addedBy
                     ).ignoreElement();
                 }
             });
-    }
-    
-    /**
-     * Get or create a user by email.
-     * If user doesn't exist, creates a pending user (to be activated on first login).
-     * 
-     * @param email User email
-     * @return Single<User> Existing or newly created user
-     */
-    private Single<User> getOrCreateUserByEmail(String email) {
-        return userDao.getUserByEmail(email)
-            .switchIfEmpty(Single.defer(() -> {
-                String userId = "user-" + UUID.randomUUID().toString();
-                User newUser = User.builder()
-                    .userId(userId)
-                    .email(email)
-                    .name(email) // Use email as temporary name
-                    .status("pending") // Will be activated on first login
-                    .isActive(true)
-                    .build();
-                
-                log.info("Creating pending user: email={}, userId={}", email, userId);
-                return userDao.createUser(newUser);
-            }));
     }
     
     /**
@@ -325,5 +363,45 @@ public class ProjectMemberService {
      */
     private boolean isValidProjectRole(String role) {
         return "admin".equals(role) || "editor".equals(role) || "viewer".equals(role);
+    }
+    
+    // Helper classes for cleaner code
+    @Value
+    private static class AddContext {
+        Project project;
+        User admin;
+    }
+    
+    @Value
+    private static class AddCompleteContext {
+        Project project;
+        User admin;
+        User newUser;
+    }
+    
+    @Value
+    private static class RemoveContext {
+        Project project;
+        User admin;
+        User userToRemove;
+    }
+    
+    @Value
+    private static class RemoveValidationContext {
+        RemoveContext removeContext;
+        boolean isRemovingAdmin;
+    }
+    
+    @Value
+    private static class UpdateContext {
+        Project project;
+        User admin;
+        User userToUpdate;
+    }
+    
+    @Value
+    private static class UpdateValidationContext {
+        UpdateContext updateContext;
+        boolean isCurrentlyAdmin;
     }
 }

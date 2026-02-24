@@ -14,5 +14,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AddMemberRequest {
     private String email;  // User's email address
-    private String role;   // Role: tenant (owner/admin/member), project (admin/editor/viewer)
+    private String role;   // Role: tenant (admin/member), project (admin/editor/viewer)
 }

@@ -15,7 +15,7 @@ import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
  * 1. Create organization (tenant)
  * 2. Create first project within tenant
  * 3. Setup ClickHouse per-project user and row policies
- * 4. Assign roles in OpenFGA (user as tenant owner, user as project admin)
+ * 4. Assign roles in OpenFGA (user as tenant admin, user as project admin)
  * 5. Generate JWT tokens with tenantId
  */
 @Slf4j
@@ -37,7 +37,7 @@ public class OnboardingService {
      * It looks up the user by email (created during login) to get the correct database userId.
      *
      * RESTRICTION: Users can only be part of ONE organization during onboarding.
-     * If user is already part of any tenant (as owner, admin, or member), onboarding will fail.
+     * If user is already part of any tenant (as admin or member), onboarding will fail.
      * Users must not have any existing tenant associations to onboard.
      *
      * @param firebaseUid Firebase User ID (from Firebase token)
@@ -117,8 +117,8 @@ public class OnboardingService {
                 // Step 2: Create first project within tenant
                 projectService.createProject(tenantId, projectName, projectDescription, userId)
                     .flatMap(project ->
-                        // Step 3: Assign tenant owner role to user
-                        openFgaService.assignTenantRole(userId, tenantId, "owner")
+                        // Step 3: Assign tenant admin role to user
+                        openFgaService.assignTenantRole(userId, tenantId, "admin")
                             .andThen(Single.just(project))
                     )
                     .map(project -> {
@@ -135,6 +135,7 @@ public class OnboardingService {
                             .name(name)
                             .tenantId(tenantId)
                             .tenantName(organizationName)
+                            .tier("free")  // New tenants always start with free tier
                             .projectId(project.getProjectId())
                             .projectName(project.getName())
                             .projectApiKey(project.getApiKey())
@@ -164,6 +165,7 @@ public class OnboardingService {
         private String name;
         private String tenantId;
         private String tenantName;
+        private String tier;  // Tenant tier: "free" or "enterprise"
         private String projectId;
         private String projectName;
         private String projectApiKey;

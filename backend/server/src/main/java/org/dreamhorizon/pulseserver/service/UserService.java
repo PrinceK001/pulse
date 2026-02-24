@@ -2,6 +2,9 @@ package org.dreamhorizon.pulseserver.service;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +12,8 @@ import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
 import org.dreamhorizon.pulseserver.dto.UserProfileDto;
 import org.dreamhorizon.pulseserver.model.User;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -152,12 +157,73 @@ public class UserService {
     
     /**
      * Get user by email.
+     * Returns Maybe instead of throwing error to allow empty handling.
      * 
      * @param email User email
-     * @return Single<User> The user
+     * @return Maybe<User> The user if found
      */
-    public Single<User> getUserByEmail(String email) {
-        return userDao.getUserByEmail(email)
-            .switchIfEmpty(Single.error(new RuntimeException("User not found: " + email)));
+    public Maybe<User> getUserByEmail(String email) {
+        return userDao.getUserByEmail(email);
+    }
+    
+    /**
+     * Activate a pending user on first login.
+     * Updates status, firebase UID, name, and last login timestamp.
+     * 
+     * @param userId User ID
+     * @param firebaseUid Firebase UID from authentication
+     * @param name User's full name
+     * @return Completable that completes when activation is successful
+     */
+    public Completable activateUser(String userId, String firebaseUid, String name) {
+        return userDao.activateUser(userId, firebaseUid, name)
+            .doOnComplete(() -> 
+                log.info("User activated successfully: userId={}, firebaseUid={}", userId, firebaseUid)
+            )
+            .doOnError(error -> 
+                log.error("Failed to activate user: userId={}", userId, error)
+            );
+    }
+    
+    /**
+     * Update last login timestamp for a user.
+     * Called after successful authentication.
+     * 
+     * @param userId User ID
+     * @return Completable that completes when update is successful
+     */
+    public Completable updateLastLogin(String userId) {
+        return userDao.updateLastLogin(userId)
+            .doOnComplete(() -> 
+                log.debug("Last login updated: userId={}", userId)
+            )
+            .doOnError(error -> 
+                log.error("Failed to update last login: userId={}", userId, error)
+            );
+    }
+    
+    /**
+     * Get multiple users by their IDs.
+     * Silently skips users that don't exist instead of failing.
+     * 
+     * @param userIds List of user IDs
+     * @return Single<List<User>> List of users (missing users are omitted)
+     */
+    public Single<List<User>> getUsersByIds(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Single.just(new ArrayList<>());
+        }
+        
+        return Flowable.fromIterable(userIds)
+            .flatMapMaybe(userId -> 
+                userDao.getUserById(userId)
+                    .doOnError(error -> log.warn("User not found: {}", userId))
+                    .onErrorResumeNext(error -> Maybe.empty())
+            )
+            .toList()
+            .map(users -> (List<User>) users)
+            .doOnSuccess(users -> 
+                log.debug("Retrieved {} users out of {} requested", users.size(), userIds.size())
+            );
     }
 }
