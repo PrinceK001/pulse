@@ -8,6 +8,7 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.dao.tier.TierDao;
 import org.dreamhorizon.pulseserver.dao.tier.models.Tier;
+import org.dreamhorizon.pulseserver.service.tier.TierService;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitPublicInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ResetLimitsRequest;
@@ -42,6 +44,7 @@ public class UsageLimitService {
   private final ProjectDao projectDao;
   private final TenantDao tenantDao;
   private final TierDao tierDao;
+  private final TierService tierService;
   private final ObjectMapper objectMapper;
 
   // ==================== PUBLIC API ====================
@@ -130,6 +133,34 @@ public class UsageLimitService {
         .map(this::mapToInfo)
         .doOnSuccess(info -> log.info("Set custom limits for project: {}", request.getProjectId()))
         .doOnError(error -> log.error("Failed to set custom limits for project: {}", request.getProjectId(), error));
+  }
+
+  // ==================== TRANSACTIONAL METHODS ====================
+
+  /**
+   * Creates initial usage limits for a new project within a transaction.
+   * Fetches free tier defaults internally and serializes them.
+   *
+   * @param conn      The SQL connection for the transaction
+   * @param projectId The project ID
+   * @param createdBy The user creating the project
+   * @return Single containing the created usage limit
+   */
+  public Single<ProjectUsageLimit> createInitialLimits(SqlConnection conn, String projectId, String createdBy) {
+    log.debug("Creating initial usage limits for project: {} within transaction", projectId);
+
+    return tierService.getFreeTierDefaults()
+        .flatMap(defaults -> {
+          String usageLimitsJson;
+          try {
+            usageLimitsJson = objectMapper.writeValueAsString(defaults);
+          } catch (JsonProcessingException e) {
+            return Single.error(new RuntimeException("Failed to serialize usage limits", e));
+          }
+          return usageLimitDao.createUsageLimit(conn, projectId, usageLimitsJson, createdBy);
+        })
+        .doOnSuccess(limit -> log.debug("Created initial usage limits for project: {} within transaction", projectId))
+        .doOnError(error -> log.error("Failed to create initial usage limits for project: {} within transaction", projectId, error));
   }
 
   /**

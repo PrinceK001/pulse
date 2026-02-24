@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.resources.v1.projects;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
@@ -42,7 +43,7 @@ public class ProjectResource {
     @POST
     public CompletionStage<Response<ProjectResponse>> createProject(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
-            CreateProjectRequest request) {
+            @Valid CreateProjectRequest request) {
         
         try {
             // Extract tenant ID from context (set by TenantFilter from JWT)

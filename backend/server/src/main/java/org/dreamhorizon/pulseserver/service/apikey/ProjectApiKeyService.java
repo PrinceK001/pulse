@@ -5,6 +5,7 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.apikey.ProjectApiKeyDao;
@@ -27,6 +28,7 @@ import java.util.List;
 public class ProjectApiKeyService {
 
   private static final int API_KEY_RANDOM_LENGTH = 24;
+  private static final String DEFAULT_API_KEY_DISPLAY_NAME = "Default";
   private static final String DEACTIVATION_REASON_REVOKED = "revoked";
 
   private final ProjectApiKeyDao apiKeyDao;
@@ -111,6 +113,39 @@ public class ProjectApiKeyService {
     return apiKeyDao.getAllValidApiKeys()
         .map(this::mapToInfoWithDecryptedKey)
         .doOnError(error -> log.error("Failed to get all valid API keys", error));
+  }
+
+  // ==================== TRANSACTIONAL METHODS ====================
+
+  /**
+   * Creates the default API key for a new project within a transaction.
+   * Used during project creation to include API key insertion in the main transaction.
+   *
+   * @param conn      The SQL connection for the transaction
+   * @param projectId The project ID (used in key generation)
+   * @param createdBy The user creating the project
+   * @return Single containing the created API key info
+   */
+  public Single<ApiKeyInfo> createDefaultApiKey(SqlConnection conn, String projectId, String createdBy) {
+    log.debug("Creating default API key for project: {} within transaction", projectId);
+
+    String rawApiKey = generateApiKey(projectId);
+    EncryptedData encrypted = encryptionUtil.encrypt(rawApiKey);
+    String digest = encryptionUtil.generateDigest(rawApiKey);
+
+    return apiKeyDao.createApiKey(
+        conn,
+        projectId,
+        DEFAULT_API_KEY_DISPLAY_NAME,
+        encrypted.getEncryptedValue(),
+        encrypted.getSalt(),
+        digest,
+        null, // expiresAt - default key never expires
+        createdBy
+    )
+        .map(apiKey -> mapToInfoWithRawKey(apiKey, rawApiKey))
+        .doOnSuccess(info -> log.debug("Created default API key for project: {} within transaction", projectId))
+        .doOnError(error -> log.error("Failed to create default API key for project: {} within transaction", projectId, error));
   }
 
   // ==================== HELPER METHODS ====================

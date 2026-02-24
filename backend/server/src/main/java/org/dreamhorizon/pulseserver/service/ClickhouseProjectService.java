@@ -5,6 +5,9 @@ import com.google.inject.Singleton;
 import io.r2dbc.pool.ConnectionPool;
 import io.r2dbc.spi.Connection;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
@@ -44,6 +47,28 @@ public class ClickhouseProjectService {
         byte[] bytes = new byte[PASSWORD_LENGTH];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    // ==================== TRANSACTIONAL METHODS ====================
+
+    /**
+     * Saves ClickHouse credentials to MySQL within a transaction.
+     * Used during project creation to include credentials insertion in the main transaction.
+     *
+     * @param conn      The SQL connection for the transaction
+     * @param projectId The project ID
+     * @return Single containing the credentials result with plain password for later CH user creation
+     */
+    public Single<CredentialsResult> saveCredentials(SqlConnection conn, String projectId) {
+        String username = generateUsername(projectId);
+        String plainPassword = generatePassword();
+
+        log.debug("Saving ClickHouse credentials for project: {} within transaction", projectId);
+
+        return credentialsDao.saveCredentials(conn, projectId, username, plainPassword)
+            .map(creds -> new CredentialsResult(projectId, username, plainPassword))
+            .doOnSuccess(result -> log.debug("Saved ClickHouse credentials for project: {} within transaction", projectId))
+            .doOnError(error -> log.error("Failed to save ClickHouse credentials for project: {} within transaction", projectId, error));
     }
 
     // ==================== CLICKHOUSE OPERATIONS (No MySQL) ====================
@@ -175,5 +200,19 @@ public class ClickhouseProjectService {
                 }
             }
         }
+    }
+
+    // ==================== NESTED CLASSES ====================
+
+    /**
+     * Result of saving ClickHouse credentials.
+     * Contains the plain password needed for async CH user creation.
+     */
+    @Getter
+    @RequiredArgsConstructor
+    public static class CredentialsResult {
+        private final String projectId;
+        private final String username;
+        private final String plainPassword;
     }
 }

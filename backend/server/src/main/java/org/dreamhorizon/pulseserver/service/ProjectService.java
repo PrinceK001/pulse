@@ -1,7 +1,5 @@
 package org.dreamhorizon.pulseserver.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
@@ -10,99 +8,67 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.apikey.ProjectApiKeyDao;
-import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
-import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
-import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
-import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
 import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
 import org.dreamhorizon.pulseserver.model.Project;
-import org.dreamhorizon.pulseserver.service.configs.DefaultSdkConfigTemplate;
+import org.dreamhorizon.pulseserver.service.apikey.ProjectApiKeyService;
+import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
-import org.dreamhorizon.pulseserver.service.tier.TierService;
-import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
+import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
 import org.dreamhorizon.pulseserver.util.SecureRandomUtil;
-import org.dreamhorizon.pulseserver.util.encryption.EncryptedData;
-import org.dreamhorizon.pulseserver.util.encryption.ProjectApiKeyEncryptionUtil;
 
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Singleton
 public class ProjectService {
 
-    private static final String DEFAULT_API_KEY_DISPLAY_NAME = "Default";
-    private static final int API_KEY_RANDOM_LENGTH = 24;
+    private static final int PROJECT_ID_RANDOM_LENGTH = 8;
 
     private final MysqlClient mysqlClient;
     private final ProjectDao projectDao;
-    private final ClickhouseProjectCredentialsDao credentialsDao;
-    private final ProjectApiKeyDao apiKeyDao;
-    private final ProjectUsageLimitDao usageLimitDao;
-    private final SdkConfigsDao sdkConfigsDao;
-    private final UserDao userDao;
     private final OpenFgaService openFgaService;
     private final ClickhouseProjectService clickhouseProjectService;
-    private final TierService tierService;
+    private final ProjectApiKeyService projectApiKeyService;
+    private final ConfigService configService;
+    private final UsageLimitService usageLimitService;
     private final UploadConfigDetailService uploadConfigDetailService;
-    private final EmailService emailService;
-    private final ProjectApiKeyEncryptionUtil apiKeyEncryptionUtil;
-    private final ObjectMapper objectMapper;
 
     @Inject
     public ProjectService(
             MysqlClient mysqlClient,
             ProjectDao projectDao,
-            ClickhouseProjectCredentialsDao credentialsDao,
-            ProjectApiKeyDao apiKeyDao,
-            ProjectUsageLimitDao usageLimitDao,
-            SdkConfigsDao sdkConfigsDao,
-            UserDao userDao,
             OpenFgaService openFgaService,
             ClickhouseProjectService clickhouseProjectService,
-            TierService tierService,
-            UploadConfigDetailService uploadConfigDetailService,
-            EmailService emailService,
-            ProjectApiKeyEncryptionUtil apiKeyEncryptionUtil,
-            ObjectMapper objectMapper) {
+            ProjectApiKeyService projectApiKeyService,
+            ConfigService configService,
+            UsageLimitService usageLimitService,
+            UploadConfigDetailService uploadConfigDetailService) {
         this.mysqlClient = mysqlClient;
         this.projectDao = projectDao;
-        this.credentialsDao = credentialsDao;
-        this.apiKeyDao = apiKeyDao;
-        this.usageLimitDao = usageLimitDao;
-        this.sdkConfigsDao = sdkConfigsDao;
-        this.userDao = userDao;
         this.openFgaService = openFgaService;
         this.clickhouseProjectService = clickhouseProjectService;
-        this.tierService = tierService;
+        this.projectApiKeyService = projectApiKeyService;
+        this.configService = configService;
+        this.usageLimitService = usageLimitService;
         this.uploadConfigDetailService = uploadConfigDetailService;
-        this.emailService = emailService;
-        this.apiKeyEncryptionUtil = apiKeyEncryptionUtil;
-        this.objectMapper = objectMapper;
     }
 
     /**
      * Create a new project within a tenant.
      * 
      * Flow:
-     * 1. Pre-transaction: Generate all values (projectId, API key, CH credentials)
-     * 2. Transaction: All DB inserts (project, credentials, API key, usage limits, SDK config)
+     * 1. Pre-transaction: Generate projectId
+     * 2. Transaction: All DB inserts via service methods (project, credentials, API key, usage limits, SDK config)
      * 3. Blocking: OpenFGA role assignment and tenant linking
-     * 4. Fire-and-forget: ClickHouse user, S3 upload, email notification
+     * 4. Fire-and-forget: ClickHouse user creation, S3 upload
      */
     public Single<Project> createProject(String tenantId, String name, String description, String createdBy) {
         log.info("Creating project: tenantId={}, name={}, createdBy={}", tenantId, name, createdBy);
 
-        // 1. Pre-transaction: Generate all values
-        String projectId = generateProjectId();
-        String rawApiKey = generateApiKey(projectId);
-        String chUsername = clickhouseProjectService.generateUsername(projectId);
-        String chPassword = clickhouseProjectService.generatePassword();
-        var defaultConfigData = DefaultSdkConfigTemplate.createDefaultConfig(createdBy);
+        // 1. Pre-transaction: Generate projectId
+        String projectId = generateProjectId(name);
 
         Project project = Project.builder()
             .projectId(projectId)
@@ -114,30 +80,18 @@ public class ProjectService {
             .createdBy(createdBy)
             .build();
 
-        // Encrypt API key
-        EncryptedData encryptedApiKey = apiKeyEncryptionUtil.encrypt(rawApiKey);
-        String apiKeyDigest = apiKeyEncryptionUtil.generateDigest(rawApiKey);
-
-        // 2. Get free tier defaults for usage limits
-        return tierService.getFreeTierDefaults()
-            .map(this::serializeUsageLimits)
-            .flatMap(usageLimitsJson ->
-                // 3. Execute transaction
-                executeTransaction(
-                    project, chUsername, chPassword, 
-                    encryptedApiKey, apiKeyDigest, 
-                    usageLimitsJson, defaultConfigData, createdBy
-                )
+        // 2. Execute transaction with service methods
+        return executeTransaction(project, createdBy)
+            // 3. Blocking: OpenFGA operations
+            .flatMap(result -> 
+                assignRolesAndLink(result.project, createdBy, tenantId)
+                    .andThen(Single.just(result))
             )
-            // 4. Blocking: OpenFGA operations
-            .flatMap(createdProject -> 
-                assignRolesAndLink(createdProject, createdBy, tenantId)
-                    .andThen(Single.just(createdProject))
-            )
-            // 5. Fire-and-forget: Async tasks
-            .doOnSuccess(createdProject -> {
-                executeAsyncTasks(createdProject, tenantId, chUsername, chPassword, createdBy, rawApiKey).subscribe();
+            // 4. Fire-and-forget: Async tasks
+            .doOnSuccess(result -> {
+                executeAsyncTasks(result, tenantId).subscribe();
             })
+            .map(result -> result.project)
             .doOnSuccess(createdProject -> 
                 log.info("Project created successfully: projectId={}", createdProject.getProjectId())
             )
@@ -146,16 +100,7 @@ public class ProjectService {
             );
     }
 
-    private Single<Project> executeTransaction(
-            Project project,
-            String chUsername,
-            String chPassword,
-            EncryptedData encryptedApiKey,
-            String apiKeyDigest,
-            String usageLimitsJson,
-            org.dreamhorizon.pulseserver.service.configs.models.ConfigData configData,
-            String createdBy) {
-
+    private Single<TransactionResult> executeTransaction(Project project, String createdBy) {
         return mysqlClient.getWriterPool().rxGetConnection()
             .flatMap(conn -> conn.rxBegin()
                 .flatMap(tx -> {
@@ -163,33 +108,25 @@ public class ProjectService {
 
                     return projectDao.createProject(conn, project)
                         .flatMap(createdProject -> 
-                            credentialsDao.saveCredentials(conn, project.getProjectId(), chUsername, chPassword)
-                                .map(creds -> createdProject)
+                            clickhouseProjectService.saveCredentials(conn, project.getProjectId())
+                                .map(chCreds -> new TransactionResult(createdProject, chCreds))
                         )
-                        .flatMap(createdProject ->
-                            apiKeyDao.createApiKey(
-                                conn,
-                                project.getProjectId(),
-                                DEFAULT_API_KEY_DISPLAY_NAME,
-                                encryptedApiKey.getEncryptedValue(),
-                                encryptedApiKey.getSalt(),
-                                apiKeyDigest,
-                                null, // expiresAt - default key never expires
-                                createdBy
-                            ).map(apiKey -> createdProject)
+                        .flatMap(result ->
+                            projectApiKeyService.createDefaultApiKey(conn, project.getProjectId(), createdBy)
+                                .map(apiKey -> result)
                         )
-                        .flatMap(createdProject ->
-                            usageLimitDao.createUsageLimit(conn, project.getProjectId(), usageLimitsJson, createdBy)
-                                .map(limit -> createdProject)
+                        .flatMap(result ->
+                            usageLimitService.createInitialLimits(conn, project.getProjectId(), createdBy)
+                                .map(limit -> result)
                         )
-                        .flatMap(createdProject ->
-                            sdkConfigsDao.createInitialConfig(conn, project.getProjectId(), configData)
-                                .map(sdkConfig -> createdProject)
+                        .flatMap(result ->
+                            configService.createInitialConfig(conn, project.getProjectId(), createdBy)
+                                .map(sdkConfig -> result)
                         )
-                        .flatMap(createdProject -> 
+                        .flatMap(result -> 
                             tx.rxCommit()
                                 .doOnComplete(() -> log.debug("Transaction committed for project: {}", project.getProjectId()))
-                                .toSingleDefault(createdProject)
+                                .toSingleDefault(result)
                         )
                         .onErrorResumeNext(err -> {
                             log.error("Transaction failed for project: {}, rolling back", project.getProjectId(), err);
@@ -209,20 +146,14 @@ public class ProjectService {
             .doOnError(err -> log.error("OpenFGA operations failed for project: {}", project.getProjectId(), err));
     }
 
-    private Completable executeAsyncTasks(
-            Project project, 
-            String tenantId, 
-            String chUsername, 
-            String chPassword,
-            String createdBy,
-            String rawApiKey) {
-
-        String projectId = project.getProjectId();
+    private Completable executeAsyncTasks(TransactionResult result, String tenantId) {
+        String projectId = result.project.getProjectId();
+        var chCreds = result.chCredentials;
         log.debug("Executing async tasks for project: {}", projectId);
 
         return Completable.mergeArrayDelayError(
             // ClickHouse user creation
-            clickhouseProjectService.createClickhouseUserAndPolicies(projectId, chUsername, chPassword)
+            clickhouseProjectService.createClickhouseUserAndPolicies(projectId, chCreds.getUsername(), chCreds.getPlainPassword())
                 .doOnComplete(() -> log.info("ClickHouse user created for project: {}", projectId))
                 .doOnError(err -> log.warn("ClickHouse user creation failed for project: {}, will retry on first query", projectId, err))
                 .onErrorComplete(),
@@ -232,47 +163,28 @@ public class ProjectService {
                 .ignoreElement()
                 .doOnComplete(() -> log.info("SDK config uploaded to S3 for project: {}", projectId))
                 .doOnError(err -> log.warn("S3 upload failed for project: {}, will serve from DB", projectId, err))
-                .onErrorComplete(),
-
-            // Email notification
-            sendProjectCreatedEmailAsync(createdBy, project, rawApiKey)
-                .doOnComplete(() -> log.info("Email notification sent for project: {}", projectId))
-                .doOnError(err -> log.warn("Email notification failed for project: {}", projectId, err))
                 .onErrorComplete()
         );
     }
 
-    private Completable sendProjectCreatedEmailAsync(String createdBy, Project project, String rawApiKey) {
-        return userDao.getUserById(createdBy)
-            .flatMapCompletable(user -> {
-                if (user.getEmail() != null) {
-                    emailService.sendProjectCreatedEmail(
-                        user.getEmail(),
-                        project.getName(),
-                        project.getProjectId(),
-                        rawApiKey
-                    );
-                }
-                return Completable.complete();
-            })
-            .onErrorComplete(); // Don't fail if user not found
-    }
-
     // ==================== HELPER METHODS ====================
 
-    private String generateProjectId() {
-        return "proj-" + UUID.randomUUID().toString();
+    private String generateProjectId(String projectName) {
+        return projectName + "-" + SecureRandomUtil.generateAlphanumeric(PROJECT_ID_RANDOM_LENGTH);
     }
 
-    private String generateApiKey(String projectId) {
-        return projectId + "_" + SecureRandomUtil.generateAlphanumeric(API_KEY_RANDOM_LENGTH);
-    }
+    // ==================== NESTED CLASSES ====================
 
-    private String serializeUsageLimits(Map<String, UsageLimitValue> limits) {
-        try {
-            return objectMapper.writeValueAsString(limits);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize usage limits", e);
+    /**
+     * Holds results from the transaction that are needed for async tasks.
+     */
+    private static class TransactionResult {
+        final Project project;
+        final ClickhouseProjectService.CredentialsResult chCredentials;
+
+        TransactionResult(Project project, ClickhouseProjectService.CredentialsResult chCredentials) {
+            this.project = project;
+            this.chCredentials = chCredentials;
         }
     }
 
