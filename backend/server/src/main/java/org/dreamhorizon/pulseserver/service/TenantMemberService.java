@@ -33,7 +33,7 @@ public class TenantMemberService {
      * 
      * @param tenantId Tenant ID
      * @param email User's email address
-     * @param role Role to assign (owner, admin, member)
+     * @param role Role to assign (admin, member)
      * @param addedBy User ID of the person adding this user
      * @param tenantName Tenant name for email notification
      * @param adminName Admin's name for email notification
@@ -47,7 +47,7 @@ public class TenantMemberService {
         // Validate role
         if (!isValidTenantRole(role)) {
             return Single.error(new IllegalArgumentException(
-                "Invalid tenant role: " + role + ". Must be one of: owner, admin, member"));
+                "Invalid tenant role: " + role + ". Must be one of: admin, member"));
         }
         
         // Get or create user
@@ -74,7 +74,6 @@ public class TenantMemberService {
     
     /**
      * Remove a user from a tenant (cascades to all projects in tenant).
-     * Validates that we're not removing the last owner.
      * 
      * @param tenantId Tenant ID
      * @param userId User ID to remove
@@ -88,34 +87,6 @@ public class TenantMemberService {
         log.info("Removing user from tenant: user={}, tenant={}, removedBy={}", 
             userId, tenantId, removedBy);
         
-        // Check if user is an owner
-        return openFgaService.isTenantOwner(userId, tenantId)
-            .flatMapCompletable(isOwner -> {
-                if (isOwner) {
-                    // Validate not removing last owner
-                    return openFgaService.countTenantOwners(tenantId)
-                        .flatMapCompletable(ownerCount -> {
-                            if (ownerCount <= 1) {
-                                return Completable.error(new IllegalStateException(
-                                    "Cannot remove the last owner from tenant. " +
-                                    "Assign another owner first or delete the tenant."));
-                            }
-                            return removeUserFromTenantInternal(tenantId, userId, tenantName, adminName);
-                        });
-                } else {
-                    return removeUserFromTenantInternal(tenantId, userId, tenantName, adminName);
-                }
-            })
-            .doOnComplete(() -> 
-                log.info("User removed from tenant successfully: user={}, tenant={}", userId, tenantId)
-            )
-            .doOnError(error -> 
-                log.error("Failed to remove user from tenant: user={}, tenant={}", userId, tenantId, error)
-            );
-    }
-    
-    private Completable removeUserFromTenantInternal(String tenantId, String userId, 
-                                                       String tenantName, String adminName) {
         return openFgaService.removeTenantMember(userId, tenantId)
             .doOnComplete(() -> {
                 // Get user email for notification
@@ -130,12 +101,15 @@ public class TenantMemberService {
                         },
                         error -> log.error("Failed to fetch user for email notification: {}", userId, error)
                     );
-            });
+                log.info("User removed from tenant successfully: user={}, tenant={}", userId, tenantId);
+            })
+            .doOnError(error -> 
+                log.error("Failed to remove user from tenant: user={}, tenant={}", userId, tenantId, error)
+            );
     }
     
     /**
      * User leaves a tenant (self-removal).
-     * Validates that they're not the last owner.
      * 
      * @param tenantId Tenant ID
      * @param userId User ID
@@ -145,22 +119,7 @@ public class TenantMemberService {
     public Completable leaveTenant(String tenantId, String userId, String tenantName) {
         log.info("User leaving tenant: user={}, tenant={}", userId, tenantId);
         
-        return openFgaService.isTenantOwner(userId, tenantId)
-            .flatMapCompletable(isOwner -> {
-                if (isOwner) {
-                    return openFgaService.countTenantOwners(tenantId)
-                        .flatMapCompletable(ownerCount -> {
-                            if (ownerCount <= 1) {
-                                return Completable.error(new IllegalStateException(
-                                    "Cannot leave tenant as the last owner. " +
-                                    "Transfer ownership first or delete the tenant."));
-                            }
-                            return openFgaService.removeTenantMember(userId, tenantId);
-                        });
-                } else {
-                    return openFgaService.removeTenantMember(userId, tenantId);
-                }
-            })
+        return openFgaService.removeTenantMember(userId, tenantId)
             .doOnComplete(() -> 
                 log.info("User left tenant successfully: user={}, tenant={}", userId, tenantId)
             )
@@ -171,6 +130,7 @@ public class TenantMemberService {
     
     /**
      * Update a user's role in a tenant.
+     * Prevents self-role changes.
      * 
      * @param tenantId Tenant ID
      * @param userId User ID
@@ -185,40 +145,18 @@ public class TenantMemberService {
         log.info("Updating tenant role: user={}, tenant={}, newRole={}, updatedBy={}", 
             userId, tenantId, newRole, updatedBy);
         
+        // Prevent self-role changes
+        if (userId.equals(updatedBy)) {
+            return Completable.error(new IllegalArgumentException(
+                "You cannot change your own role"));
+        }
+        
         // Validate role
         if (!isValidTenantRole(newRole)) {
             return Completable.error(new IllegalArgumentException(
-                "Invalid tenant role: " + newRole + ". Must be one of: owner, admin, member"));
+                "Invalid tenant role: " + newRole + ". Must be one of: admin, member"));
         }
         
-        // Check if downgrading from owner
-        return openFgaService.isTenantOwner(userId, tenantId)
-            .flatMapCompletable(isCurrentlyOwner -> {
-                if (isCurrentlyOwner && !"owner".equals(newRole)) {
-                    // Downgrading from owner - check owner count
-                    return openFgaService.countTenantOwners(tenantId)
-                        .flatMapCompletable(ownerCount -> {
-                            if (ownerCount <= 1) {
-                                return Completable.error(new IllegalStateException(
-                                    "Cannot downgrade the last owner. Assign another owner first."));
-                            }
-                            return updateRoleInternal(tenantId, userId, newRole, tenantName, adminName);
-                        });
-                } else {
-                    return updateRoleInternal(tenantId, userId, newRole, tenantName, adminName);
-                }
-            })
-            .doOnComplete(() -> 
-                log.info("Tenant role updated successfully: user={}, tenant={}, newRole={}", 
-                    userId, tenantId, newRole)
-            )
-            .doOnError(error -> 
-                log.error("Failed to update tenant role: user={}, tenant={}", userId, tenantId, error)
-            );
-    }
-    
-    private Completable updateRoleInternal(String tenantId, String userId, String newRole, 
-                                            String tenantName, String adminName) {
         return openFgaService.updateTenantRole(userId, tenantId, newRole)
             .doOnComplete(() -> {
                 // Send notification
@@ -233,7 +171,12 @@ public class TenantMemberService {
                         },
                         error -> log.error("Failed to fetch user for email notification: {}", userId, error)
                     );
-            });
+                log.info("Tenant role updated successfully: user={}, tenant={}, newRole={}", 
+                    userId, tenantId, newRole);
+            })
+            .doOnError(error -> 
+                log.error("Failed to update tenant role: user={}, tenant={}", userId, tenantId, error)
+            );
     }
     
     /**
@@ -292,6 +235,6 @@ public class TenantMemberService {
      * Validate tenant role
      */
     private boolean isValidTenantRole(String role) {
-        return "owner".equals(role) || "admin".equals(role) || "member".equals(role);
+        return "admin".equals(role) || "member".equals(role);
     }
 }

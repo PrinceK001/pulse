@@ -69,7 +69,7 @@ public class ProjectService {
             .flatMap(created -> 
                 // Setup ClickHouse user and row policies
                 clickhouseProjectService.setupProjectClickhouseUser(projectId)
-                    .andThen(createDefaultSdkConfig(projectId, createdBy))
+                    .andThen(createDefaultSdkConfig(projectId, tenantId, createdBy))
                     .andThen(assignRolesAndLink(created, createdBy, tenantId))
             )
             .doOnSuccess(created -> 
@@ -89,29 +89,32 @@ public class ProjectService {
     
     /**
      * Creates a default SDK configuration for a new project.
-     * Uses ProjectContext to ensure the config is associated with the correct project.
+     * Uses ProjectContext and TenantContext to ensure the config is associated with the correct project and tenant.
      * 
      * @param projectId Project ID
+     * @param tenantId Tenant ID
      * @param createdBy User who created the project
      * @return Completable that completes when default config is created
      */
-    private io.reactivex.rxjava3.core.Completable createDefaultSdkConfig(String projectId, String createdBy) {
-        // Set project context BEFORE creating the async chain to avoid race condition
+    private io.reactivex.rxjava3.core.Completable createDefaultSdkConfig(String projectId, String tenantId, String createdBy) {
+        // Set both project and tenant context BEFORE creating the async chain to avoid race condition
         ProjectContext.setProjectId(projectId);
+        org.dreamhorizon.pulseserver.tenant.TenantContext.setTenantId(tenantId);
         
         return configService.createSdkConfig(DefaultSdkConfigTemplate.createDefaultConfig(createdBy))
             .flatMapCompletable(config -> {
-                log.info("Created default SDK config for project: projectId={}, version={}", 
-                    projectId, config.getVersion());
+                log.info("Created default SDK config for project: projectId={}, tenantId={}, version={}", 
+                    projectId, tenantId, config.getVersion());
                 return io.reactivex.rxjava3.core.Completable.complete();
             })
             .doFinally(() -> {
-                // Clear context after config creation
+                // Clear both contexts after config creation
                 ProjectContext.clear();
+                org.dreamhorizon.pulseserver.tenant.TenantContext.clear();
             })
             .doOnError(error -> 
-                log.error("Failed to create default SDK config for project: projectId={}", 
-                    projectId, error)
+                log.error("Failed to create default SDK config for project: projectId={}, tenantId={}", 
+                    projectId, tenantId, error)
             );
     }
     

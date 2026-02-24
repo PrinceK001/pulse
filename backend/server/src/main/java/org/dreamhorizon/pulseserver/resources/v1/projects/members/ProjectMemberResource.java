@@ -6,6 +6,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
@@ -160,7 +161,7 @@ public class ProjectMemberResource {
      */
     @DELETE
     @Path("/{userId}")
-    public CompletionStage<Response<Void>> removeMember(
+    public CompletionStage<Response<Object>> removeMember(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId,
             @PathParam("userId") String targetUserId) {
@@ -202,7 +203,8 @@ public class ProjectMemberResource {
                             });
                     });
             })
-            .toSingleDefault((Void) null)
+            .toSingle(() -> Collections.emptyMap())  // Return empty map that Jackson can serialize
+            .map(obj -> (Object) obj)
             .onErrorResumeNext(error -> {
                 if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
                     return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
@@ -225,7 +227,7 @@ public class ProjectMemberResource {
      */
     @PATCH
     @Path("/{userId}")
-    public CompletionStage<Response<Void>> updateMemberRole(
+    public CompletionStage<Response<Object>> updateMemberRole(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId,
             @PathParam("userId") String targetUserId,
@@ -242,6 +244,13 @@ public class ProjectMemberResource {
         
         log.info("Updating project member role: user={}, project={}, newRole={}, updatedBy={}", 
             targetUserId, projectId, request.getNewRole(), updaterId);
+        
+        // Prevent self-role changes
+        if (updaterId.equals(targetUserId)) {
+            return Single.error(ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                .getCustomException("Unauthorized", "You cannot change your own role"))
+                .to(RestResponse.jaxrsRestHandler());
+        }
         
         // 2. Check if project exists FIRST
         return projectService.getProjectById(projectId)
@@ -273,7 +282,8 @@ public class ProjectMemberResource {
             .doOnComplete(() -> log.info("Successfully updated role for user {} in project {}", targetUserId, projectId))
             .doOnError(error -> log.error("Failed to update member role: user={}, project={}, error={}", 
                 targetUserId, projectId, error.getMessage(), error))
-            .toSingleDefault((Void) null)
+            .toSingle(() -> Collections.emptyMap())  // Return empty map that Jackson can serialize
+            .map(obj -> (Object) obj)
             .onErrorResumeNext(error -> {
                 if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
                     return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
@@ -296,7 +306,7 @@ public class ProjectMemberResource {
      */
     @POST
     @Path("/../leave")
-    public CompletionStage<Response<Void>> leaveProject(
+    public CompletionStage<Response<Object>> leaveProject(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {
         
@@ -316,7 +326,8 @@ public class ProjectMemberResource {
             .flatMapCompletable(project -> {
                 return projectMemberService.leaveProject(projectId, userId, project.getName());
             })
-            .toSingleDefault((Void) null)
+            .toSingle(() -> Collections.emptyMap())  // Return empty map that Jackson can serialize
+            .map(obj -> (Object) obj)
             .onErrorResumeNext(error -> {
                 if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
                     return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
@@ -327,9 +338,6 @@ public class ProjectMemberResource {
             .to(RestResponse.jaxrsRestHandler());
     }
     
-    /**
-     * Enrich members list with roles from OpenFGA
-     */
     private Single<List<MemberResponse>> enrichMembersWithRoles(List<User> members, String projectId) {
         if (members.isEmpty()) {
             return Single.just(new ArrayList<>());

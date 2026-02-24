@@ -36,6 +36,9 @@ public class LoginResponse {
     @JsonProperty("tenantRole")
     private String tenantRole;
     
+    @JsonProperty("tier")
+    private String tier;  // "free" or "enterprise"
+    
     @JsonProperty("needsOnboarding")
     private Boolean needsOnboarding;
     
