@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.resources.performance.models.PerformanceMetricDistributionRes;
 import org.dreamhorizon.pulseserver.resources.performance.models.QueryRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -26,7 +27,8 @@ public class PerformanceMetricDistribution {
   @Path("/distribution")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PerformanceMetricDistributionRes>> getMetricDistribution(QueryRequest request) {
-    request.setTenantId(TenantContext.requireTenantId());
+    request.setTenantId(TenantContext.getTenantId());
+    request.setProjectId(ProjectContext.getProjectId());
     return performanceMetricService.getMetricDistribution(request)
         .to(RestResponse.jaxrsRestHandler());
   }

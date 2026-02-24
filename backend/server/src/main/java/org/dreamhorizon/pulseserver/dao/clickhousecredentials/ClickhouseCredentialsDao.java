@@ -2,7 +2,7 @@ package org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao;
 
 import static org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.Queries.DEACTIVATE_CREDENTIALS;
 import static org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.Queries.GET_ALL_ACTIVE_CREDENTIALS;
-import static org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.Queries.GET_AUDIT_BY_TENANT;
+import static org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.Queries.GET_AUDIT_BY_PROJECT;
 import static org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.Queries.GET_CREDENTIALS_BY_TENANT;
 import static org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.Queries.GET_CREDENTIALS_BY_TENANT_INCLUDING_INACTIVE;
 import static org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.Queries.GET_RECENT_AUDITS;
@@ -40,7 +40,11 @@ public class ClickhouseCredentialsDao {
   public Single<ClickhouseCredentials> saveTenantCredentials(String tenantId, String plainPassword) {
     try {
       String clickhouseUsername = "tenant_" + tenantId;
-      PasswordEncryptionUtil.EncryptedPassword encrypted = encryptionUtil.encryptPassword(plainPassword);
+      
+      // Encrypt password and generate salt and digest separately
+      String encryptedPassword = encryptionUtil.encrypt(plainPassword);
+      String salt = encryptionUtil.generateSalt();
+      String digest = encryptionUtil.generateDigest(plainPassword);
 
       MySQLPool pool = mysqlClient.getWriterPool();
       return pool.preparedQuery(INSERT_CREDENTIALS)
@@ -48,9 +52,9 @@ public class ClickhouseCredentialsDao {
               Tuple.of(
                   tenantId,
                   clickhouseUsername,
-                  encrypted.getEncryptedPassword(),
-                  encrypted.getSalt(),
-                  encrypted.getDigest(),
+                  encryptedPassword,
+                  salt,
+                  digest,
                   true))
           .map(
               result -> {
@@ -114,15 +118,18 @@ public class ClickhouseCredentialsDao {
 
   public Single<ClickhouseCredentials> updateTenantCredentials(String tenantId, String newPlainPassword) {
     try {
-      PasswordEncryptionUtil.EncryptedPassword encrypted = encryptionUtil.encryptPassword(newPlainPassword);
+      // Encrypt password and generate salt and digest separately
+      String encryptedPassword = encryptionUtil.encrypt(newPlainPassword);
+      String salt = encryptionUtil.generateSalt();
+      String digest = encryptionUtil.generateDigest(newPlainPassword);
 
       MySQLPool pool = mysqlClient.getWriterPool();
       return pool.preparedQuery(UPDATE_CREDENTIALS)
           .rxExecute(
               Tuple.of(
-                  encrypted.getEncryptedPassword(),
-                  encrypted.getSalt(),
-                  encrypted.getDigest(),
+                  encryptedPassword,
+                  salt,
+                  digest,
                   tenantId))
           .flatMap(result -> {
             if (result.rowCount() == 0) {
@@ -167,26 +174,26 @@ public class ClickhouseCredentialsDao {
         .doOnError(error -> log.error("Failed to reactivate credentials for tenant: {}", tenantId, error));
   }
 
-  public Completable insertAuditLog(String tenantId, TenantAuditAction action, String performedBy, JsonObject details) {
+  public Completable insertAuditLog(String projectId, TenantAuditAction action, String performedBy, JsonObject details) {
     MySQLPool pool = mysqlClient.getWriterPool();
     String detailsJson = details != null ? details.encode() : null;
 
     return pool.preparedQuery(INSERT_AUDIT)
-        .rxExecute(Tuple.of(tenantId, action.getValue(), performedBy, detailsJson))
+        .rxExecute(Tuple.of(projectId, action.getValue(), performedBy, detailsJson))
         .flatMapCompletable(result -> {
-          log.debug("Inserted audit log for tenant: {}, action: {}", tenantId, action.getValue());
+          log.debug("Inserted audit log for project: {}, action: {}", projectId, action.getValue());
           return Completable.complete();
         })
-        .doOnError(error -> log.error("Failed to insert audit log for tenant: {}", tenantId, error));
+        .doOnError(error -> log.error("Failed to insert audit log for project: {}", projectId, error));
   }
 
-  public Flowable<ClickhouseTenantCredentialAudit> getAuditLogsByTenantId(String tenantId) {
+  public Flowable<ClickhouseTenantCredentialAudit> getAuditLogsByProjectId(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_AUDIT_BY_TENANT)
-        .rxExecute(Tuple.of(tenantId))
+    return pool.preparedQuery(GET_AUDIT_BY_PROJECT)
+        .rxExecute(Tuple.of(projectId))
         .toFlowable()
         .flatMap(rowSet -> Flowable.fromIterable(rowSet).map(row -> mapRowToAudit((Row) row)))
-        .doOnError(error -> log.error("Failed to fetch audit logs for tenant: {}", tenantId, error));
+        .doOnError(error -> log.error("Failed to fetch audit logs for project: {}", projectId, error));
   }
 
   public Flowable<ClickhouseTenantCredentialAudit> getRecentAuditLogs(int limit) {
@@ -201,7 +208,7 @@ public class ClickhouseCredentialsDao {
 
   private ClickhouseCredentials mapRowToTenantCredentials(Row row) {
     String encryptedPassword = row.getString("clickhouse_password_encrypted");
-    String decryptedPassword = encryptionUtil.decryptPassword(encryptedPassword);
+    String decryptedPassword = encryptionUtil.decrypt(encryptedPassword);
 
     return ClickhouseCredentials.builder()
         .id(row.getLong("id"))
@@ -219,7 +226,7 @@ public class ClickhouseCredentialsDao {
   private ClickhouseTenantCredentialAudit mapRowToAudit(Row row) {
     return ClickhouseTenantCredentialAudit.builder()
         .id(row.getLong("id"))
-        .tenantId(row.getString("tenant_id"))
+        .projectId(row.getString("project_id"))
         .action(row.getString("action"))
         .performedBy(row.getString("performed_by"))
         .details(row.getString("details"))
