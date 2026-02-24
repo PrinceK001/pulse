@@ -567,6 +567,78 @@ class SqlQueryValidatorTest {
       assertTrue(result.isValid() || result.getErrorMessage() != null);
     }
   }
+
+  @Nested
+  class TestValidateQueryWithProjectId {
+
+    @Test
+    void shouldAcceptQueryReferencingCorrectProjectTable() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data_42 WHERE date = '2025-12-23' AND hour = '11'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query, "42");
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldRejectQueryReferencingWrongProjectTable() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data_99 WHERE date = '2025-12-23' AND hour = '11'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query, "42");
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("otel_data_42");
+    }
+
+    @Test
+    void shouldRejectQueryReferencingUnprefixedTable() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query, "42");
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("otel_data_42");
+    }
+
+    @Test
+    void shouldRejectQueryWhenProjectIdIsNull() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data_42 WHERE date = '2025-12-23' AND hour = '11'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query, null);
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("Project ID");
+    }
+
+    @Test
+    void shouldRejectQueryWhenProjectIdIsBlank() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data_42 WHERE date = '2025-12-23' AND hour = '11'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query, "  ");
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("Project ID");
+    }
+
+    @Test
+    void shouldStillFailBaseValidationEvenWithCorrectTableName() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data_42";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query, "42");
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("timestamp filter");
+    }
+
+    @Test
+    void shouldBeCaseInsensitiveForTableName() {
+      String query = "SELECT * FROM pulse_athena_db.OTEL_DATA_42 WHERE date = '2025-12-23' AND hour = '11'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query, "42");
+
+      assertTrue(result.isValid());
+    }
+  }
 }
 
 
