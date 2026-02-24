@@ -149,10 +149,12 @@ public class ProjectApiKeyService {
   }
 
   private ApiKeyPublicInfo mapToPublicInfo(ProjectApiKey apiKey) {
+    String rawApiKey = encryptionUtil.decrypt(apiKey.getApiKeyEncrypted());
     return ApiKeyPublicInfo.builder()
         .apiKeyId(apiKey.getProjectApiKeyId())
         .projectId(apiKey.getProjectId())
         .displayName(apiKey.getDisplayName())
+        .rawApiKey(rawApiKey)
         .isActive(apiKey.getIsActive())
         .expiresAt(apiKey.getExpiresAt())
         .gracePeriodEndsAt(apiKey.getGracePeriodEndsAt())

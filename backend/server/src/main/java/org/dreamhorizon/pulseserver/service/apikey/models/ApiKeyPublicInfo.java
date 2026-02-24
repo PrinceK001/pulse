@@ -6,8 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Public API key information without sensitive data.
- * Never includes the raw key, encrypted key, salt, or digest.
+ * API key information including the raw key.
+ * Never includes encrypted key, salt, or digest.
  */
 @Data
 @Builder
@@ -17,6 +17,7 @@ public class ApiKeyPublicInfo {
   private Long apiKeyId;
   private String projectId;
   private String displayName;
+  private String rawApiKey;
   private Boolean isActive;
   private String expiresAt;
   private String gracePeriodEndsAt;

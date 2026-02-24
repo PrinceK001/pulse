@@ -70,7 +70,7 @@ public abstract class ApiKeyMapper {
   }
 
   /**
-   * Maps ApiKeyPublicInfo to ApiKeyRestResponse (no raw key).
+   * Maps ApiKeyPublicInfo to ApiKeyRestResponse.
    */
   public ApiKeyRestResponse toApiKeyRestResponse(ApiKeyPublicInfo info) {
     if (info == null) {
@@ -80,6 +80,7 @@ public abstract class ApiKeyMapper {
         .apiKeyId(info.getApiKeyId())
         .projectId(info.getProjectId())
         .displayName(info.getDisplayName())
+        .apiKey(info.getRawApiKey())
         .isActive(info.getIsActive())
         .expiresAt(info.getExpiresAt())
         .gracePeriodEndsAt(info.getGracePeriodEndsAt())

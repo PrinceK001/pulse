@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * REST response for API key metadata (no raw key).
+ * REST response for API key.
  */
 @Data
 @Builder
@@ -16,6 +16,7 @@ public class ApiKeyRestResponse {
   private Long apiKeyId;
   private String projectId;
   private String displayName;
+  private String apiKey;
   private Boolean isActive;
   private String expiresAt;
   private String gracePeriodEndsAt;
