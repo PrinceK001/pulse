@@ -210,6 +210,14 @@ public class UsageLimitService {
   // ==================== HELPER METHODS ====================
 
   /**
+   * Computes finalThreshold for all limits in the map.
+   * Used when preparing usage limits for Redis storage.
+   */
+  public void computeFinalThresholds(Map<String, UsageLimitValue> limits) {
+    limits.values().forEach(this::computeFinalThreshold);
+  }
+
+  /**
    * Merges new limits into current limits (partial update).
    */
   private Map<String, UsageLimitValue> mergeLimits(
