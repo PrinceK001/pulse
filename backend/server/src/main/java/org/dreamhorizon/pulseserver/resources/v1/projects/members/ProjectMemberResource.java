@@ -16,6 +16,7 @@ import org.dreamhorizon.pulseserver.resources.v1.members.models.AddMemberRequest
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberListResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.UpdateMemberRoleRequest;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
@@ -174,6 +175,7 @@ public class ProjectMemberResource {
      */
     @DELETE
     @Path("/leave")
+    @RequiresPermission("can_view")
     public CompletionStage<Response<Object>> leaveProject(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {

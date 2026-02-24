@@ -14,7 +14,6 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 /**
  * DAO for Athena job operations.
@@ -32,11 +31,11 @@ public class AthenaJobDao {
     return ProjectContext.getProjectId();
   }
 
-  public Single<String> createJob(String tenantId, String queryString, String userEmail) {
+  public Single<String> createJob(String projectId, String queryString, String userEmail) {
     String jobId = UUID.randomUUID().toString();
     return executeUpdate(
         AthenaJobQueries.CREATE_JOB,
-        Tuple.of(jobId, tenantId, getProjectId(), queryString, userEmail),
+        Tuple.of(jobId, projectId, queryString, userEmail),
         jobId,
         "Error creating Athena job"
     );

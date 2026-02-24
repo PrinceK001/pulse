@@ -78,9 +78,7 @@ class ClickhouseQueryServiceIntegrationTest {
     queryService = new ClickhouseQueryService(
         clickhouseReadClient,
         clickhouseWriteClient,
-        poolManager,
         projectPoolManager,
-        credentialsDao,
         projectCredentialsDao
     );
   }
@@ -144,7 +142,7 @@ class ClickhouseQueryServiceIntegrationTest {
         return Flux.just(mappedRow);
       });
 
-      GetQueryDataResponseDto<GetRawUserEventsResponseDto> response = 
+      GetQueryDataResponseDto<GetRawUserEventsResponseDto> response =
           queryService.executeQueryOrCreateJob(config).blockingGet();
 
       assertNotNull(response);
@@ -188,7 +186,7 @@ class ClickhouseQueryServiceIntegrationTest {
         return Flux.just(row1, row2);
       });
 
-      GetQueryDataResponseDto<GetRawUserEventsResponseDto> response = 
+      GetQueryDataResponseDto<GetRawUserEventsResponseDto> response =
           queryService.executeQueryOrCreateJob(config).blockingGet();
 
       assertNotNull(response);
@@ -219,7 +217,7 @@ class ClickhouseQueryServiceIntegrationTest {
 
       when(mockResult.map(any(BiFunction.class))).thenReturn(Flux.empty());
 
-      GetQueryDataResponseDto<GetRawUserEventsResponseDto> response = 
+      GetQueryDataResponseDto<GetRawUserEventsResponseDto> response =
           queryService.executeQueryOrCreateJob(config).blockingGet();
 
       assertNotNull(response);
@@ -261,7 +259,7 @@ class ClickhouseQueryServiceIntegrationTest {
         return Flux.just(mappedRow);
       });
 
-      QueryResultResponse<TestDto> response = 
+      QueryResultResponse<TestDto> response =
           queryService.executeQueryOrCreateJob(config, TestDto.class).blockingGet();
 
       assertNotNull(response);
@@ -303,7 +301,7 @@ class ClickhouseQueryServiceIntegrationTest {
         return Flux.just(mappedRow);
       });
 
-      QueryResultResponse<TestDto> response = 
+      QueryResultResponse<TestDto> response =
           queryService.executeQueryOrCreateJob(config, TestDto.class).blockingGet();
 
       assertNotNull(response);
@@ -333,7 +331,7 @@ class ClickhouseQueryServiceIntegrationTest {
 
       when(mockResult.map(any(BiFunction.class))).thenReturn(Flux.empty());
 
-      QueryResultResponse<TestDto> response = 
+      QueryResultResponse<TestDto> response =
           queryService.executeQueryOrCreateJob(config, TestDto.class).blockingGet();
 
       assertNotNull(response);
@@ -404,11 +402,28 @@ class ClickhouseQueryServiceIntegrationTest {
     private String name;
     private String value;
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getValue() { return value; }
-    public void setValue(String value) { this.value = value; }
+    public String getId() {
+      return id;
+    }
+
+    public void setId(String id) {
+      this.id = id;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public void setName(String name) {
+      this.name = name;
+    }
+
+    public String getValue() {
+      return value;
+    }
+
+    public void setValue(String value) {
+      this.value = value;
+    }
   }
 }
