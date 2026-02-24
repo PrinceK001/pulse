@@ -37,7 +37,7 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-      - ../backend/ingestion/clickhouse-otel-schema-PROJECT_BASED.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -55,7 +55,7 @@ services:
     command: /bin/bash /scripts/init-clickhouse.sh
     volumes:
       - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
-      - ../backend/ingestion/lickhouse-otel-schema-PROJECT_BASED.sql:/init/clickhouse-otel-schema.sql:ro
+      - ../backend/ingestion/lickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
@@ -121,6 +121,36 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  # Vector Service (Data Collector)
+  vector:
+    build:
+      context: ../vector
+      dockerfile: Dockerfile
+      args:
+        VECTOR_REPO: https://github.com/parth-modh/vector
+        VECTOR_REF: forked/multi-bucket
+        DEBIAN_VERSION: "12"
+    container_name: vector
+    command: [ ]
+    environment:
+      - VECTOR_LOG=debug
+    volumes:
+      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - vector-data:/var/lib/vector
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8686:8686"
+      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:
@@ -263,5 +293,7 @@ volumes:
   mysql-data:
     driver: local
   clickhouse-data:
+    driver: local
+  vector-data:
     driver: local
 
