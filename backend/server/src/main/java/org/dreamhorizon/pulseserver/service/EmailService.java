@@ -116,4 +116,39 @@ public class EmailService {
         log.info("📧   The Pulse Team");
         log.info("📧 ============================");
     }
+
+    /**
+     * Sends project creation notification email with API key
+     * 
+     * @param email User's email address
+     * @param projectName Name of the project
+     * @param projectId Project ID
+     * @param apiKey Raw API key (only visible in this email)
+     */
+    public void sendProjectCreatedEmail(String email, String projectName, String projectId, String apiKey) {
+        log.info("📧 ========== EMAIL ==========");
+        log.info("📧 To: {}", email);
+        log.info("📧 Subject: Your project \"{}\" has been created", projectName);
+        log.info("📧 Body:");
+        log.info("📧   Hi there!");
+        log.info("📧   ");
+        log.info("📧   Your project \"{}\" has been successfully created on Pulse.", projectName);
+        log.info("📧   ");
+        log.info("📧   Project ID: {}", projectId);
+        log.info("📧   ");
+        log.info("📧   Your API Key (save this - it won't be shown again):");
+        log.info("📧   {}", apiKey);
+        log.info("📧   ");
+        log.info("📧   Use this API key to integrate Pulse SDK into your application.");
+        log.info("📧   ");
+        log.info("📧   Get started:");
+        log.info("📧   https://pulse.example.com/projects/{}", projectId);
+        log.info("📧   ");
+        log.info("📧   Documentation:");
+        log.info("📧   https://docs.pulse.example.com/getting-started");
+        log.info("📧   ");
+        log.info("📧   Best regards,");
+        log.info("📧   The Pulse Team");
+        log.info("📧 ============================");
+    }
 }

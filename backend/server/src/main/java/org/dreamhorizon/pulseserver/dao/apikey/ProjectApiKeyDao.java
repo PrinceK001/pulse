@@ -17,6 +17,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -40,23 +41,59 @@ public class ProjectApiKeyDao {
       String createdBy) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(INSERT_API_KEY)
-        .rxExecute(Tuple.of(projectId, displayName, apiKeyEncrypted, encryptionSalt, apiKeyDigest, expiresAt, createdBy))
-        .map(result -> {
-          long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
-          log.info("Created API key {} for project: {}", generatedId, projectId);
-          return ProjectApiKey.builder()
-              .projectApiKeyId(generatedId)
-              .projectId(projectId)
-              .displayName(displayName)
-              .apiKeyEncrypted(apiKeyEncrypted)
-              .encryptionSalt(encryptionSalt)
-              .apiKeyDigest(apiKeyDigest)
-              .isActive(true)
-              .expiresAt(expiresAt != null ? expiresAt.toString() : null)
-              .createdBy(createdBy)
-              .build();
-        })
+        .rxExecute(buildApiKeyTuple(projectId, displayName, apiKeyEncrypted, encryptionSalt, apiKeyDigest, expiresAt, createdBy))
+        .map(result -> mapToCreatedApiKey(result, projectId, displayName, apiKeyEncrypted, encryptionSalt, apiKeyDigest, expiresAt, createdBy))
         .doOnError(error -> log.error("Failed to create API key for project: {}", projectId, error));
+  }
+
+  public Single<ProjectApiKey> createApiKey(
+      SqlConnection conn,
+      String projectId,
+      String displayName,
+      String apiKeyEncrypted,
+      String encryptionSalt,
+      String apiKeyDigest,
+      LocalDateTime expiresAt,
+      String createdBy) {
+    return conn.preparedQuery(INSERT_API_KEY)
+        .rxExecute(buildApiKeyTuple(projectId, displayName, apiKeyEncrypted, encryptionSalt, apiKeyDigest, expiresAt, createdBy))
+        .map(result -> mapToCreatedApiKey(result, projectId, displayName, apiKeyEncrypted, encryptionSalt, apiKeyDigest, expiresAt, createdBy))
+        .doOnError(error -> log.error("Failed to create API key for project: {}", projectId, error));
+  }
+
+  private Tuple buildApiKeyTuple(
+      String projectId,
+      String displayName,
+      String apiKeyEncrypted,
+      String encryptionSalt,
+      String apiKeyDigest,
+      LocalDateTime expiresAt,
+      String createdBy) {
+    return Tuple.of(projectId, displayName, apiKeyEncrypted, encryptionSalt, apiKeyDigest, expiresAt, createdBy);
+  }
+
+  private ProjectApiKey mapToCreatedApiKey(
+      io.vertx.rxjava3.sqlclient.RowSet<Row> result,
+      String projectId,
+      String displayName,
+      String apiKeyEncrypted,
+      String encryptionSalt,
+      String apiKeyDigest,
+      LocalDateTime expiresAt,
+      String createdBy) {
+    long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
+    log.info("Created API key {} for project: {}", generatedId, projectId);
+    return ProjectApiKey.builder()
+        .projectApiKeyId(generatedId)
+        .projectId(projectId)
+        .displayName(displayName)
+        .apiKeyEncrypted(apiKeyEncrypted)
+        .encryptionSalt(encryptionSalt)
+        .apiKeyDigest(apiKeyDigest)
+        .isActive(true)
+        .expiresAt(expiresAt != null ? expiresAt.toString() : null)
+        .createdBy(createdBy)
+        .build();
   }
 
   public Maybe<ProjectApiKey> getApiKeyById(long apiKeyId) {

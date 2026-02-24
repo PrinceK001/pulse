@@ -1,130 +1,284 @@
 package org.dreamhorizon.pulseserver.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
-import lombok.RequiredArgsConstructor;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dao.apikey.ProjectApiKeyDao;
+import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
+import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
 import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
 import org.dreamhorizon.pulseserver.model.Project;
 import org.dreamhorizon.pulseserver.service.configs.DefaultSdkConfigTemplate;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
+import org.dreamhorizon.pulseserver.service.tier.TierService;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
+import org.dreamhorizon.pulseserver.util.SecureRandomUtil;
+import org.dreamhorizon.pulseserver.util.encryption.EncryptedData;
+import org.dreamhorizon.pulseserver.util.encryption.ProjectApiKeyEncryptionUtil;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-/**
- * Service for project management operations.
- * Handles project creation, updates, and integrates with OpenFGA for permissions.
- * Includes ClickHouse per-project database isolation with dedicated users and row policies.
- */
 @Slf4j
 @Singleton
-@RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ProjectService {
-    
+
+    private static final String DEFAULT_API_KEY_DISPLAY_NAME = "Default";
+    private static final int API_KEY_RANDOM_LENGTH = 24;
+
+    private final MysqlClient mysqlClient;
     private final ProjectDao projectDao;
+    private final ClickhouseProjectCredentialsDao credentialsDao;
+    private final ProjectApiKeyDao apiKeyDao;
+    private final ProjectUsageLimitDao usageLimitDao;
+    private final SdkConfigsDao sdkConfigsDao;
+    private final UserDao userDao;
     private final OpenFgaService openFgaService;
     private final ClickhouseProjectService clickhouseProjectService;
-    private final org.dreamhorizon.pulseserver.service.configs.ConfigService configService;
-    
+    private final TierService tierService;
+    private final UploadConfigDetailService uploadConfigDetailService;
+    private final EmailService emailService;
+    private final ProjectApiKeyEncryptionUtil apiKeyEncryptionUtil;
+    private final ObjectMapper objectMapper;
+
+    @Inject
+    public ProjectService(
+            MysqlClient mysqlClient,
+            ProjectDao projectDao,
+            ClickhouseProjectCredentialsDao credentialsDao,
+            ProjectApiKeyDao apiKeyDao,
+            ProjectUsageLimitDao usageLimitDao,
+            SdkConfigsDao sdkConfigsDao,
+            UserDao userDao,
+            OpenFgaService openFgaService,
+            ClickhouseProjectService clickhouseProjectService,
+            TierService tierService,
+            UploadConfigDetailService uploadConfigDetailService,
+            EmailService emailService,
+            ProjectApiKeyEncryptionUtil apiKeyEncryptionUtil,
+            ObjectMapper objectMapper) {
+        this.mysqlClient = mysqlClient;
+        this.projectDao = projectDao;
+        this.credentialsDao = credentialsDao;
+        this.apiKeyDao = apiKeyDao;
+        this.usageLimitDao = usageLimitDao;
+        this.sdkConfigsDao = sdkConfigsDao;
+        this.userDao = userDao;
+        this.openFgaService = openFgaService;
+        this.clickhouseProjectService = clickhouseProjectService;
+        this.tierService = tierService;
+        this.uploadConfigDetailService = uploadConfigDetailService;
+        this.emailService = emailService;
+        this.apiKeyEncryptionUtil = apiKeyEncryptionUtil;
+        this.objectMapper = objectMapper;
+    }
+
     /**
      * Create a new project within a tenant.
-     * This method:
-     * 1. Generates project ID
-     * 2. Creates project in MySQL
-     * 3. Sets up dedicated ClickHouse user and row policies
-     * 4. Creates default SDK configuration
-     * 5. Assigns creator as project admin in OpenFGA
-     * 6. Links project to tenant in OpenFGA
      * 
-     * Note: API key generation and storage is handled separately via project_api_keys table
-     * 
-     * @param tenantId Parent tenant ID
-     * @param name Project name
-     * @param description Project description
-     * @param createdBy User ID of creator
-     * @return Single<Project> Created project
+     * Flow:
+     * 1. Pre-transaction: Generate all values (projectId, API key, CH credentials)
+     * 2. Transaction: All DB inserts (project, credentials, API key, usage limits, SDK config)
+     * 3. Blocking: OpenFGA role assignment and tenant linking
+     * 4. Fire-and-forget: ClickHouse user, S3 upload, email notification
      */
     public Single<Project> createProject(String tenantId, String name, String description, String createdBy) {
-        String projectId = "proj-" + UUID.randomUUID().toString();
-        
-        log.info("Creating project: projectId={}, tenantId={}, name={}, createdBy={}", 
-            projectId, tenantId, name, createdBy);
-        
+        log.info("Creating project: tenantId={}, name={}, createdBy={}", tenantId, name, createdBy);
+
+        // 1. Pre-transaction: Generate all values
+        String projectId = generateProjectId();
+        String rawApiKey = generateApiKey(projectId);
+        String chUsername = clickhouseProjectService.generateUsername(projectId);
+        String chPassword = clickhouseProjectService.generatePassword();
+        var defaultConfigData = DefaultSdkConfigTemplate.createDefaultConfig(createdBy);
+
         Project project = Project.builder()
             .projectId(projectId)
             .tenantId(tenantId)
             .name(name)
             .description(description)
-            .apiKey(null)  // Managed separately via project_api_keys table
+            .apiKey(null)
             .isActive(true)
             .createdBy(createdBy)
             .build();
-        
-        return projectDao.createProject(project)
-            .flatMap(created -> 
-                // Setup ClickHouse user and row policies
-                clickhouseProjectService.setupProjectClickhouseUser(projectId)
-                    .andThen(createDefaultSdkConfig(projectId, tenantId, createdBy))
-                    .andThen(assignRolesAndLink(created, createdBy, tenantId))
+
+        // Encrypt API key
+        EncryptedData encryptedApiKey = apiKeyEncryptionUtil.encrypt(rawApiKey);
+        String apiKeyDigest = apiKeyEncryptionUtil.generateDigest(rawApiKey);
+
+        // 2. Get free tier defaults for usage limits
+        return tierService.getFreeTierDefaults()
+            .map(this::serializeUsageLimits)
+            .flatMap(usageLimitsJson ->
+                // 3. Execute transaction
+                executeTransaction(
+                    project, chUsername, chPassword, 
+                    encryptedApiKey, apiKeyDigest, 
+                    usageLimitsJson, defaultConfigData, createdBy, rawApiKey
+                )
             )
-            .doOnSuccess(created -> 
-                log.info("Project created successfully: projectId={}", created.getProjectId())
+            // 4. Blocking: OpenFGA operations
+            .flatMap(createdProject -> 
+                assignRolesAndLink(createdProject, createdBy, tenantId)
+                    .andThen(Single.just(createdProject))
+            )
+            // 5. Fire-and-forget: Async tasks
+            .doOnSuccess(createdProject -> {
+                executeAsyncTasks(createdProject, tenantId, chUsername, chPassword, createdBy, rawApiKey).subscribe();
+            })
+            .doOnSuccess(createdProject -> 
+                log.info("Project created successfully: projectId={}", createdProject.getProjectId())
             )
             .doOnError(error -> 
-                log.error("Failed to create project: projectId={}, tenantId={}", 
-                    projectId, tenantId, error)
+                log.error("Failed to create project: tenantId={}, name={}", tenantId, name, error)
             );
     }
-    
-    private Single<Project> assignRolesAndLink(Project project, String createdBy, String tenantId) {
+
+    private Single<Project> executeTransaction(
+            Project project,
+            String chUsername,
+            String chPassword,
+            EncryptedData encryptedApiKey,
+            String apiKeyDigest,
+            String usageLimitsJson,
+            org.dreamhorizon.pulseserver.service.configs.models.ConfigData configData,
+            String createdBy,
+            String rawApiKey) {
+
+        return mysqlClient.getWriterPool().rxGetConnection()
+            .flatMap(conn -> conn.rxBegin()
+                .flatMap(tx -> {
+                    log.debug("Transaction started for project: {}", project.getProjectId());
+
+                    return projectDao.createProject(conn, project)
+                        .flatMap(createdProject -> 
+                            credentialsDao.saveCredentials(conn, project.getProjectId(), chUsername, chPassword)
+                                .map(creds -> createdProject)
+                        )
+                        .flatMap(createdProject ->
+                            apiKeyDao.createApiKey(
+                                conn,
+                                project.getProjectId(),
+                                DEFAULT_API_KEY_DISPLAY_NAME,
+                                encryptedApiKey.getEncryptedValue(),
+                                encryptedApiKey.getSalt(),
+                                apiKeyDigest,
+                                null, // expiresAt - default key never expires
+                                createdBy
+                            ).map(apiKey -> createdProject)
+                        )
+                        .flatMap(createdProject ->
+                            usageLimitDao.createUsageLimit(conn, project.getProjectId(), usageLimitsJson, createdBy)
+                                .map(limit -> createdProject)
+                        )
+                        .flatMap(createdProject ->
+                            sdkConfigsDao.createInitialConfig(conn, project.getProjectId(), configData)
+                                .map(sdkConfig -> createdProject)
+                        )
+                        .flatMap(createdProject -> 
+                            tx.rxCommit()
+                                .doOnComplete(() -> log.debug("Transaction committed for project: {}", project.getProjectId()))
+                                .toSingleDefault(createdProject)
+                        )
+                        .onErrorResumeNext(err -> {
+                            log.error("Transaction failed for project: {}, rolling back", project.getProjectId(), err);
+                            return tx.rxRollback()
+                                .andThen(Single.error(err));
+                        });
+                })
+                .doFinally(conn::close)
+            );
+    }
+
+    private Completable assignRolesAndLink(Project project, String createdBy, String tenantId) {
+        log.debug("Assigning roles and linking project: {} to tenant: {}", project.getProjectId(), tenantId);
         return openFgaService.assignProjectRole(createdBy, project.getProjectId(), "admin")
             .andThen(openFgaService.linkProjectToTenant(project.getProjectId(), tenantId))
-            .andThen(Single.just(project));
+            .doOnComplete(() -> log.debug("OpenFGA operations completed for project: {}", project.getProjectId()))
+            .doOnError(err -> log.error("OpenFGA operations failed for project: {}", project.getProjectId(), err));
     }
-    
-    /**
-     * Creates a default SDK configuration for a new project.
-     * Uses ProjectContext and TenantContext to ensure the config is associated with the correct project and tenant.
-     * 
-     * @param projectId Project ID
-     * @param tenantId Tenant ID
-     * @param createdBy User who created the project
-     * @return Completable that completes when default config is created
-     */
-    private io.reactivex.rxjava3.core.Completable createDefaultSdkConfig(String projectId, String tenantId, String createdBy) {
-        // Set both project and tenant context BEFORE creating the async chain to avoid race condition
-        ProjectContext.setProjectId(projectId);
-        org.dreamhorizon.pulseserver.tenant.TenantContext.setTenantId(tenantId);
-        
-        return configService.createSdkConfig(DefaultSdkConfigTemplate.createDefaultConfig(createdBy))
-            .flatMapCompletable(config -> {
-                log.info("Created default SDK config for project: projectId={}, tenantId={}, version={}", 
-                    projectId, tenantId, config.getVersion());
-                return io.reactivex.rxjava3.core.Completable.complete();
-            })
-            .doFinally(() -> {
-                // Clear both contexts after config creation
-                ProjectContext.clear();
-                org.dreamhorizon.pulseserver.tenant.TenantContext.clear();
-            })
-            .doOnError(error -> 
-                log.error("Failed to create default SDK config for project: projectId={}, tenantId={}", 
-                    projectId, tenantId, error)
-            );
+
+    private Completable executeAsyncTasks(
+            Project project, 
+            String tenantId, 
+            String chUsername, 
+            String chPassword,
+            String createdBy,
+            String rawApiKey) {
+
+        String projectId = project.getProjectId();
+        log.debug("Executing async tasks for project: {}", projectId);
+
+        return Completable.mergeArrayDelayError(
+            // ClickHouse user creation
+            clickhouseProjectService.createClickhouseUserAndPolicies(projectId, chUsername, chPassword)
+                .doOnComplete(() -> log.info("ClickHouse user created for project: {}", projectId))
+                .doOnError(err -> log.warn("ClickHouse user creation failed for project: {}, will retry on first query", projectId, err))
+                .onErrorComplete(),
+
+            // S3 upload of SDK config
+            uploadConfigDetailService.pushInteractionDetailsToObjectStore(tenantId, projectId)
+                .ignoreElement()
+                .doOnComplete(() -> log.info("SDK config uploaded to S3 for project: {}", projectId))
+                .doOnError(err -> log.warn("S3 upload failed for project: {}, will serve from DB", projectId, err))
+                .onErrorComplete(),
+
+            // Email notification
+            sendProjectCreatedEmailAsync(createdBy, project, rawApiKey)
+                .doOnComplete(() -> log.info("Email notification sent for project: {}", projectId))
+                .doOnError(err -> log.warn("Email notification failed for project: {}", projectId, err))
+                .onErrorComplete()
+        );
     }
-    
-    /**
-     * Get all projects for a user within a tenant, enriched with user's role in each project.
-     * 
-     * @param userId User ID
-     * @param tenantId Tenant ID
-     * @return Single<List<ProjectSummaryDto>> List of project summaries with roles
-     */
+
+    private Completable sendProjectCreatedEmailAsync(String createdBy, Project project, String rawApiKey) {
+        return userDao.getUserById(createdBy)
+            .flatMapCompletable(user -> {
+                if (user.getEmail() != null) {
+                    emailService.sendProjectCreatedEmail(
+                        user.getEmail(),
+                        project.getName(),
+                        project.getProjectId(),
+                        rawApiKey
+                    );
+                }
+                return Completable.complete();
+            })
+            .onErrorComplete(); // Don't fail if user not found
+    }
+
+    // ==================== HELPER METHODS ====================
+
+    private String generateProjectId() {
+        return "proj-" + UUID.randomUUID().toString();
+    }
+
+    private String generateApiKey(String projectId) {
+        return projectId + "_" + SecureRandomUtil.generateAlphanumeric(API_KEY_RANDOM_LENGTH);
+    }
+
+    private String serializeUsageLimits(Map<String, UsageLimitValue> limits) {
+        try {
+            return objectMapper.writeValueAsString(limits);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize usage limits", e);
+        }
+    }
+
+    // ==================== EXISTING METHODS (unchanged) ====================
+
     public Single<List<ProjectSummaryDto>> getProjectsForUser(String userId, String tenantId) {
         return projectDao.getProjectsByTenantId(tenantId)
             .flatMap(projects -> 
@@ -151,17 +305,9 @@ public class ProjectService {
                     userId, tenantId, error)
             );
     }
-    
-    /**
-     * Get detailed project information with permission check.
-     * API key is only included if user is a project admin.
-     * 
-     * @param userId User ID
-     * @param projectId Project ID
-     * @return Single<ProjectDetailsDto> Detailed project information
-     */
+
     public Single<ProjectDetailsDto> getProjectDetails(String userId, String projectId) {
-        return projectDao.getProjectById(projectId)
+        return projectDao.getProjectByProjectId(projectId)
             .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId)))
             .flatMap(project -> 
                 openFgaService.getUserRoleInProject(userId, projectId)
@@ -179,7 +325,7 @@ public class ProjectService {
                             .tenantId(project.getTenantId())
                             .name(project.getName())
                             .description(project.getDescription())
-                            .apiKey(isAdmin ? project.getApiKey() : null)  // Only admins see API key
+                            .apiKey(isAdmin ? project.getApiKey() : null)
                             .isActive(project.getIsActive())
                             .createdBy(project.getCreatedBy())
                             .createdAt(project.getCreatedAt())
@@ -197,56 +343,33 @@ public class ProjectService {
                     projectId, userId, error)
             );
     }
-    
-    /**
-     * Get project by ID (internal use, no permission check).
-     * 
-     * @param projectId Project ID
-     * @return Single<Project> The project
-     */
+
     public Single<Project> getProjectById(String projectId) {
-        return projectDao.getProjectById(projectId)
+        return projectDao.getProjectByProjectId(projectId)
             .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId)));
     }
-    
-    /**
-     * Get project by API key (used by SDK authentication).
-     * 
-     * Note: This method is deprecated - API key lookups will be handled via project_api_keys table
-     * @param apiKey API key
-     * @return Single<Project> error (API keys not in projects table)
-     * @deprecated Use ProjectApiKeyService for API key lookups
-     */
+
     @Deprecated
     public Single<Project> getProjectByApiKey(String apiKey) {
         return Single.error(new RuntimeException("API key lookup not implemented - use ProjectApiKeyService instead"));
     }
-    
-    /**
-     * Update project information.
-     * Requires project admin permission (checked by caller).
-     * 
-     * @param projectId Project ID
-     * @param name Updated name
-     * @param description Updated description
-     * @return Single<Project> Updated project
-     */
+
     public Single<Project> updateProject(String projectId, String name, String description) {
-        return projectDao.updateProject(projectId, name, description)
-            .andThen(projectDao.getProjectById(projectId))
-            .switchIfEmpty(Single.error(new RuntimeException("Project not found after update")))
+        return projectDao.getProjectByProjectId(projectId)
+            .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId)))
+            .flatMap(existing -> {
+                Project updated = Project.builder()
+                    .projectId(projectId)
+                    .name(name)
+                    .description(description)
+                    .build();
+                return projectDao.updateProject(updated);
+            })
             .doOnSuccess(project -> 
                 log.info("Project updated: projectId={}", projectId)
             );
     }
-    
-    /**
-     * Deactivate a project.
-     * Requires project admin permission (checked by caller).
-     * 
-     * @param projectId Project ID
-     * @return Single<Void>
-     */
+
     public Single<Void> deactivateProject(String projectId) {
         return projectDao.deactivateProject(projectId)
             .andThen(Single.just((Void) null))
@@ -254,14 +377,9 @@ public class ProjectService {
                 log.info("Project deactivated: projectId={}", projectId)
             );
     }
-    
-    /**
-     * Get count of active projects for a tenant (for quota checking).
-     * 
-     * @param tenantId Tenant ID
-     * @return Single<Integer> Active project count
-     */
+
     public Single<Integer> getActiveProjectCount(String tenantId) {
-        return projectDao.getActiveProjectCount(tenantId);
+        return projectDao.getActiveProjectCount(tenantId)
+            .map(Long::intValue);
     }
 }
