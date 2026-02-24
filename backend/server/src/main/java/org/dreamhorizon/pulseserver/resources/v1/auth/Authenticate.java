@@ -32,6 +32,18 @@ import org.dreamhorizon.pulseserver.service.AuthService;
 public class Authenticate {
   final AuthService authService;
 
+  /**
+   * Legacy authentication endpoint with tenant-id header.
+   * Used by older clients that provide tenant context upfront during authentication.
+   * 
+   * <p>This endpoint is maintained for backward compatibility with existing integrations.
+   * It expects the client to already know and provide the tenant ID during login.
+   * 
+   * @param authenticateRequestDto Request containing Firebase ID token
+   * @param tenantId Tenant ID provided by client (optional in newer flows)
+   * @return AuthenticateResponseDto with tokens and user information
+   * @deprecated Consider migrating to /login endpoint which handles tenant lookup automatically
+   */
   @POST
   @Path("/social/authenticate")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -51,6 +63,26 @@ public class Authenticate {
     }
   }
 
+  /**
+   * Simplified login endpoint for Firebase authentication.
+   * This is the preferred authentication method for new implementations.
+   * 
+   * <p>This endpoint automatically:
+   * <ul>
+   *   <li>Determines user's tenant from OpenFGA relationships</li>
+   *   <li>Detects if user needs onboarding (no tenant assigned)</li>
+   *   <li>Returns complete user context including projects and roles</li>
+   * </ul>
+   * 
+   * <p>The client should check the 'needsOnboarding' flag in the response:
+   * <ul>
+   *   <li>If true: Redirect to onboarding flow</li>
+   *   <li>If false: User is authenticated and can access their tenant/projects</li>
+   * </ul>
+   * 
+   * @param loginRequest Request containing Firebase ID token
+   * @return LoginResponse with authentication status, tokens, and user context
+   */
   @POST
   @Path("/login")
   @Consumes(MediaType.APPLICATION_JSON)

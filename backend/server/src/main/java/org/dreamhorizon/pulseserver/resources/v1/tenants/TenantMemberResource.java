@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.AddMemberRequest;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberListResponse;
@@ -19,14 +18,21 @@ import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.UpdateMemberRoleRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
-import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.TenantMemberService;
-import org.dreamhorizon.pulseserver.service.tenant.TenantService;
+
+import static org.dreamhorizon.pulseserver.util.AuthenticationUtil.extractUserId;
 
 /**
  * REST resource for tenant member management.
- * Manages adding, removing, and listing members of a tenant.
+ * 
+ * <p>This resource layer follows clean architecture principles:
+ * <ul>
+ *   <li>No business logic - delegates everything to service layer</li>
+ *   <li>Only handles: request/response transformation, parameter extraction</li>
+ *   <li>Uses AuthenticationUtil for consistent token handling</li>
+ *   <li>Authorization checks are in service layer</li>
+ * </ul>
  */
 @Slf4j
 @Path("/v1/tenants/{tenantId}/members")
@@ -36,13 +42,11 @@ import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 public class TenantMemberResource {
     
     private final TenantMemberService tenantMemberService;
-    private final TenantService tenantService;
     private final OpenFgaService openFgaService;
-    private final JwtService jwtService;
     
     /**
      * Add a user to a tenant.
-     * Requires tenant admin role.
+     * Authorization and business logic handled in TenantMemberService.
      * 
      * @param authorization JWT token
      * @param tenantId Tenant ID
@@ -55,33 +59,20 @@ public class TenantMemberResource {
             @PathParam("tenantId") String tenantId,
             AddMemberRequest request) {
         
-        String token = extractToken(authorization);
-        String userId = extractUserId(token);
+        String userId = extractUserId(authorization);
         
         log.info("Adding member to tenant: email={}, tenant={}, role={}, addedBy={}", 
             request.getEmail(), tenantId, request.getRole(), userId);
         
-        // Check if user is tenant admin
-        return openFgaService.isTenantAdmin(userId, tenantId)
-            .flatMap(isAdmin -> {
-                if (!isAdmin) {
-                    return Single.error(ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                        .getCustomException("Unauthorized", "Only tenant admins can add members"));
-                }
-                
-                // Add user to tenant
-                return tenantMemberService.addUserToTenant(
-                    tenantId, 
-                    request.getEmail(), 
-                    request.getRole(), 
-                    userId, 
-                    "Tenant",  // We don't need tenant name for emails in this flow
-                    "Admin"    // Admin name placeholder
-                );
-            })
-            .flatMap(user -> {
+        return tenantMemberService.addUserToTenant(
+                tenantId, 
+                request.getEmail(), 
+                request.getRole(), 
+                userId
+            )
+            .flatMap(user -> 
                 // Get role from OpenFGA for response
-                return openFgaService.getUserTenantRole(user.getUserId(), tenantId)
+                openFgaService.getUserTenantRole(user.getUserId(), tenantId)
                     .map(roleOpt -> MemberResponse.builder()
                         .userId(user.getUserId())
                         .email(user.getEmail())
@@ -89,26 +80,23 @@ public class TenantMemberResource {
                         .role(roleOpt.orElse(request.getRole()))
                         .status(user.getStatus())
                         .lastLoginAt(user.getLastLoginAt())
-                        .build());
-            })
+                        .build()))
             .to(RestResponse.jaxrsRestHandler());
     }
     
     /**
      * List all members of a tenant.
-     * Requires tenant member role.
      * 
      * @param authorization JWT token
      * @param tenantId Tenant ID
-     * @return List of tenant members
+     * @return List of tenant members with roles
      */
     @GET
     public CompletionStage<Response<MemberListResponse>> listMembers(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("tenantId") String tenantId) {
         
-        String token = extractToken(authorization);
-        String userId = extractUserId(token);
+        String userId = extractUserId(authorization);
         
         log.debug("Listing tenant members: tenant={}, requestedBy={}", tenantId, userId);
         
@@ -123,7 +111,7 @@ public class TenantMemberResource {
     
     /**
      * Remove a user from a tenant (cascades to all projects).
-     * Requires tenant admin role.
+     * Authorization checked in service layer.
      * 
      * @param authorization JWT token
      * @param tenantId Tenant ID
@@ -137,25 +125,12 @@ public class TenantMemberResource {
             @PathParam("tenantId") String tenantId,
             @PathParam("userId") String targetUserId) {
         
-        String token = extractToken(authorization);
-        String removerId = extractUserId(token);
+        String removerId = extractUserId(authorization);
         
         log.info("Removing member from tenant: user={}, tenant={}, removedBy={}", 
             targetUserId, tenantId, removerId);
         
-        // Check if remover is tenant admin
-        return openFgaService.isTenantAdmin(removerId, tenantId)
-            .flatMapCompletable(isAdmin -> {
-                if (!isAdmin) {
-                    return io.reactivex.rxjava3.core.Completable.error(
-                        ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                            .getCustomException("Unauthorized", "Only tenant admins can remove members"));
-                }
-                
-                return tenantMemberService.removeUserFromTenant(
-                    tenantId, targetUserId, removerId, "Tenant", "Admin"
-                );
-            })
+        return tenantMemberService.removeUserFromTenant(tenantId, targetUserId, removerId)
             .toSingle(() -> Collections.emptyMap())
             .map(obj -> (Object) obj)
             .to(RestResponse.jaxrsRestHandler());
@@ -163,7 +138,7 @@ public class TenantMemberResource {
     
     /**
      * Update a member's role in a tenant.
-     * Requires tenant admin role.
+     * Authorization and self-role-change prevention in service layer.
      * 
      * @param authorization JWT token
      * @param tenantId Tenant ID
@@ -179,33 +154,16 @@ public class TenantMemberResource {
             @PathParam("userId") String targetUserId,
             UpdateMemberRoleRequest request) {
         
-        String token = extractToken(authorization);
-        String updaterId = extractUserId(token);
+        String updaterId = extractUserId(authorization);
         
         log.info("Updating tenant member role: user={}, tenant={}, newRole={}, updatedBy={}", 
             targetUserId, tenantId, request.getNewRole(), updaterId);
         
-        // Prevent self-role changes
-        if (updaterId.equals(targetUserId)) {
-            return Single.error(ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                .getCustomException("Unauthorized", "You cannot change your own role"))
-                .to(RestResponse.jaxrsRestHandler());
-        }
-        
-        // Check if updater is tenant admin
-        return openFgaService.isTenantAdmin(updaterId, tenantId)
-            .flatMapCompletable(isAdmin -> {
-                if (!isAdmin) {
-                    return io.reactivex.rxjava3.core.Completable.error(
-                        ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                            .getCustomException("Unauthorized", "Only tenant admins can update member roles"));
-                }
-                
-                return tenantMemberService.updateTenantRole(
-                    tenantId, targetUserId, request.getNewRole(), 
-                    updaterId, "Tenant", "Admin"
-                );
-            })
+        return tenantMemberService.updateTenantRole(
+                tenantId, 
+                targetUserId, 
+                request.getNewRole(), 
+                updaterId)
             .toSingle(() -> Collections.emptyMap())
             .map(obj -> (Object) obj)
             .to(RestResponse.jaxrsRestHandler());
@@ -219,25 +177,25 @@ public class TenantMemberResource {
      * @param tenantId Tenant ID
      * @return Success response
      */
-    @POST
-    @Path("/../leave")
+    @DELETE
+    @Path("/leave")
     public CompletionStage<Response<Object>> leaveTenant(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("tenantId") String tenantId) {
         
-        String token = extractToken(authorization);
-        String userId = extractUserId(token);
+        String userId = extractUserId(authorization);
         
         log.info("User leaving tenant: user={}, tenant={}", userId, tenantId);
         
-        return tenantMemberService.leaveTenant(tenantId, userId, "Tenant")
+        return tenantMemberService.leaveTenant(tenantId, userId)
             .toSingle(() -> Collections.emptyMap())
             .map(obj -> (Object) obj)
             .to(RestResponse.jaxrsRestHandler());
     }
     
     /**
-     * Enrich members list with roles from OpenFGA
+     * Enrich members list with roles from OpenFGA.
+     * Helper method to add role information to member responses.
      */
     private Single<List<MemberResponse>> enrichMembersWithRoles(List<User> members, String tenantId) {
         if (members.isEmpty()) {
@@ -265,34 +223,5 @@ public class TenantMemberResource {
             }
             return responses;
         });
-    }
-    
-    /**
-     * Extract JWT token from Authorization header
-     */
-    private String extractToken(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                .getCustomException("Missing authorization", "Authorization header required");
-        }
-        return authorization.substring(7);
-    }
-    
-    /**
-     * Extract user ID from JWT token
-     */
-    private String extractUserId(String token) {
-        try {
-            var claims = jwtService.verifyToken(token);
-            String userId = claims.getSubject();
-            if (userId == null || userId.isBlank()) {
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                    .getCustomException("Invalid token", "User ID not found in token");
-            }
-            return userId;
-        } catch (Exception e) {
-            throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                .getCustomException("Invalid token", e.getMessage());
-        }
     }
 }

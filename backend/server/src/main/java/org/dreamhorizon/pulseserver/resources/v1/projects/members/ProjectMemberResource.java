@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.AddMemberRequest;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberListResponse;
@@ -19,15 +18,21 @@ import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.UpdateMemberRoleRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
-import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.ProjectMemberService;
-import org.dreamhorizon.pulseserver.service.ProjectService;
-import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
+
+import static org.dreamhorizon.pulseserver.util.AuthenticationUtil.extractUserId;
 
 /**
  * REST resource for project member management.
- * Manages adding, removing, and listing members of a project.
+ * 
+ * <p>This resource layer follows clean architecture principles:
+ * <ul>
+ *   <li>No business logic - delegates everything to service layer</li>
+ *   <li>Only handles: request/response transformation, parameter extraction</li>
+ *   <li>Uses AuthenticationUtil for consistent token handling</li>
+ *   <li>Authorization checks are in service layer</li>
+ * </ul>
  */
 @Slf4j
 @Path("/v1/projects/{projectId}/members")
@@ -37,14 +42,11 @@ import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
 public class ProjectMemberResource {
     
     private final ProjectMemberService projectMemberService;
-    private final ProjectService projectService;
     private final OpenFgaService openFgaService;
-    private final JwtService jwtService;
-    private final UserDao userDao;
     
     /**
      * Add a member to a project.
-     * Requires project admin role.
+     * Authorization and business logic handled in ProjectMemberService.
      * 
      * @param authorization JWT token
      * @param projectId Project ID
@@ -57,69 +59,26 @@ public class ProjectMemberResource {
             @PathParam("projectId") String projectId,
             AddMemberRequest request) {
         
-        // 1. Validate projectId
-        if (projectId == null || projectId.isBlank()) {
-            throw ServiceError.INVALID_REQUEST_PARAM
-                .getCustomException("Invalid project ID", "Project ID is required");
-        }
-        
-        String token = extractToken(authorization);
-        String userId = extractUserId(token);
+        String userId = extractUserId(authorization);
         
         log.info("Adding member to project: email={}, project={}, role={}, addedBy={}", 
             request.getEmail(), projectId, request.getRole(), userId);
         
-        // 2. Check if project exists FIRST
-        return projectService.getProjectById(projectId)
-            .flatMap(project -> {
-                // 3. THEN check if user is project admin
-                return openFgaService.isProjectAdmin(userId, projectId)
-                    .flatMap(isAdmin -> {
-                        if (!isAdmin) {
-                            return Single.error(ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                                .getCustomException("Unauthorized", "Only project admins can add members"));
-                        }
-                        
-                        // Get admin name from user table (default if not found)
-                        return userDao.getUserById(userId)
-                            .defaultIfEmpty(User.builder()
-                                .userId(userId)
-                                .name("Admin")
-                                .email("admin@example.com")
-                                .build())
-                            .flatMap(adminUser -> {
-                                return projectMemberService.addMemberToProject(
-                                    projectId, 
-                                    request.getEmail(), 
-                                    request.getRole(), 
-                                    userId, 
-                                    project.getName(), 
-                                    adminUser.getName(),
-                                    project.getTenantId(),
-                                    "Tenant" // Placeholder for tenant name
-                                );
-                            });
-                    });
-            })
-            .flatMap(user -> {
-                // Get role from OpenFGA for response
-                return openFgaService.getUserRoleInProject(user.getUserId(), projectId)
-                    .map(roleOpt -> MemberResponse.builder()
-                        .userId(user.getUserId())
-                        .email(user.getEmail())
-                        .name(user.getName())
-                        .role(roleOpt.orElse(request.getRole()))
-                        .status(user.getStatus())
-                        .lastLoginAt(user.getLastLoginAt())
-                        .build());
-            })
-            .onErrorResumeNext(error -> {
-                if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
-                    return Single.error(ServiceError.NOT_FOUND
-                        .getCustomException("Project not found", "The specified project does not exist"));
-                }
-                return Single.error(error);
-            })
+        return projectMemberService.addMemberToProject(
+                projectId, 
+                request.getEmail(), 
+                request.getRole(), 
+                userId
+            )
+            .flatMap(user -> openFgaService.getUserRoleInProject(user.getUserId(), projectId)
+                .map(roleOpt -> MemberResponse.builder()
+                    .userId(user.getUserId())
+                    .email(user.getEmail())
+                    .name(user.getName())
+                    .role(roleOpt.orElse(request.getRole()))
+                    .status(user.getStatus())
+                    .lastLoginAt(user.getLastLoginAt())
+                    .build()))
             .to(RestResponse.jaxrsRestHandler());
     }
     
@@ -136,8 +95,7 @@ public class ProjectMemberResource {
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {
         
-        String token = extractToken(authorization);
-        String userId = extractUserId(token);
+        String userId = extractUserId(authorization);
         
         log.debug("Listing project members: project={}, requestedBy={}", projectId, userId);
         
@@ -166,52 +124,14 @@ public class ProjectMemberResource {
             @PathParam("projectId") String projectId,
             @PathParam("userId") String targetUserId) {
         
-        // 1. Validate projectId
-        if (projectId == null || projectId.isBlank()) {
-            throw ServiceError.INVALID_REQUEST_PARAM
-                .getCustomException("Invalid project ID", "Project ID is required");
-        }
-        
-        String token = extractToken(authorization);
-        String removerId = extractUserId(token);
+        String removerId = extractUserId(authorization);
         
         log.info("Removing member from project: user={}, project={}, removedBy={}", 
             targetUserId, projectId, removerId);
         
-        // 2. Check if project exists FIRST
-        return projectService.getProjectById(projectId)
-            .flatMapCompletable(project -> {
-                // 3. THEN check if remover is project admin
-                return openFgaService.isProjectAdmin(removerId, projectId)
-                    .flatMapCompletable(isAdmin -> {
-                        if (!isAdmin) {
-                            return io.reactivex.rxjava3.core.Completable.error(
-                                ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                                    .getCustomException("Unauthorized", "Only project admins can remove members"));
-                        }
-                        
-                        return userDao.getUserById(removerId)
-                            .defaultIfEmpty(User.builder()
-                                .userId(removerId)
-                                .name("Admin")
-                                .email("admin@example.com")
-                                .build())
-                            .flatMapCompletable(adminUser -> {
-                                return projectMemberService.removeMemberFromProject(
-                                    projectId, targetUserId, removerId, project.getName(), adminUser.getName()
-                                );
-                            });
-                    });
-            })
-            .toSingle(() -> Collections.emptyMap())  // Return empty map that Jackson can serialize
+        return projectMemberService.removeMemberFromProject(projectId, targetUserId, removerId)
+            .toSingle(() -> Collections.emptyMap())
             .map(obj -> (Object) obj)
-            .onErrorResumeNext(error -> {
-                if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
-                    return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
-                        .getCustomException("Project not found", "The specified project does not exist"));
-                }
-                return io.reactivex.rxjava3.core.Single.error(error);
-            })
             .to(RestResponse.jaxrsRestHandler());
     }
     
@@ -233,66 +153,14 @@ public class ProjectMemberResource {
             @PathParam("userId") String targetUserId,
             UpdateMemberRoleRequest request) {
         
-        // 1. Validate projectId
-        if (projectId == null || projectId.isBlank()) {
-            throw ServiceError.INVALID_REQUEST_PARAM
-                .getCustomException("Invalid project ID", "Project ID is required");
-        }
-        
-        String token = extractToken(authorization);
-        String updaterId = extractUserId(token);
+        String updaterId = extractUserId(authorization);
         
         log.info("Updating project member role: user={}, project={}, newRole={}, updatedBy={}", 
             targetUserId, projectId, request.getNewRole(), updaterId);
         
-        // Prevent self-role changes
-        if (updaterId.equals(targetUserId)) {
-            return Single.error(ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                .getCustomException("Unauthorized", "You cannot change your own role"))
-                .to(RestResponse.jaxrsRestHandler());
-        }
-        
-        // 2. Check if project exists FIRST
-        return projectService.getProjectById(projectId)
-            .doOnSuccess(project -> log.debug("Found project for role update: {}", project.getName()))
-            .flatMapCompletable(project -> {
-                // 3. THEN check if updater is project admin
-                return openFgaService.isProjectAdmin(updaterId, projectId)
-                    .flatMapCompletable(isAdmin -> {
-                        if (!isAdmin) {
-                            return io.reactivex.rxjava3.core.Completable.error(
-                                ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                                    .getCustomException("Unauthorized", "Only project admins can update member roles"));
-                        }
-                        
-                        return userDao.getUserById(updaterId)
-                            .defaultIfEmpty(User.builder()
-                                .userId(updaterId)
-                                .name("Admin")
-                                .email("admin@example.com")
-                                .build())
-                            .flatMapCompletable(adminUser -> {
-                                return projectMemberService.updateMemberRole(
-                                    projectId, targetUserId, request.getNewRole(), 
-                                    updaterId, project.getName(), adminUser.getName()
-                                );
-                            });
-                    });
-            })
-            .doOnComplete(() -> log.info("Successfully updated role for user {} in project {}", targetUserId, projectId))
-            .doOnError(error -> log.error("Failed to update member role: user={}, project={}, error={}", 
-                targetUserId, projectId, error.getMessage(), error))
-            .toSingle(() -> Collections.emptyMap())  // Return empty map that Jackson can serialize
+        return projectMemberService.updateMemberRole(projectId, targetUserId, request.getNewRole(), updaterId)
+            .toSingle(() -> Collections.emptyMap())
             .map(obj -> (Object) obj)
-            .onErrorResumeNext(error -> {
-                if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
-                    return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
-                        .getCustomException("Project not found", "The specified project does not exist"));
-                }
-                String errorMsg = error.getMessage() != null ? error.getMessage() : "Failed to update member role";
-                log.error("Role update error being returned to client: {}", errorMsg);
-                return io.reactivex.rxjava3.core.Single.error(error);
-            })
             .to(RestResponse.jaxrsRestHandler());
     }
     
@@ -304,40 +172,26 @@ public class ProjectMemberResource {
      * @param projectId Project ID
      * @return Success response
      */
-    @POST
-    @Path("/../leave")
+    @DELETE
+    @Path("/leave")
     public CompletionStage<Response<Object>> leaveProject(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {
         
-        // 1. Validate projectId
-        if (projectId == null || projectId.isBlank()) {
-            throw ServiceError.INVALID_REQUEST_PARAM
-                .getCustomException("Invalid project ID", "Project ID is required");
-        }
-        
-        String token = extractToken(authorization);
-        String userId = extractUserId(token);
+        String userId = extractUserId(authorization);
         
         log.info("User leaving project: user={}, project={}", userId, projectId);
         
-        // 2. Check if project exists
-        return projectService.getProjectById(projectId)
-            .flatMapCompletable(project -> {
-                return projectMemberService.leaveProject(projectId, userId, project.getName());
-            })
-            .toSingle(() -> Collections.emptyMap())  // Return empty map that Jackson can serialize
+        return projectMemberService.leaveProject(projectId, userId)
+            .toSingle(() -> Collections.emptyMap())
             .map(obj -> (Object) obj)
-            .onErrorResumeNext(error -> {
-                if (error.getMessage() != null && error.getMessage().contains("Project not found")) {
-                    return io.reactivex.rxjava3.core.Single.error(ServiceError.NOT_FOUND
-                        .getCustomException("Project not found", "The specified project does not exist"));
-                }
-                return io.reactivex.rxjava3.core.Single.error(error);
-            })
             .to(RestResponse.jaxrsRestHandler());
     }
     
+    /**
+     * Enrich members list with roles from OpenFGA.
+     * Helper method to add role information to member responses.
+     */
     private Single<List<MemberResponse>> enrichMembersWithRoles(List<User> members, String projectId) {
         if (members.isEmpty()) {
             return Single.just(new ArrayList<>());
@@ -364,34 +218,5 @@ public class ProjectMemberResource {
             }
             return responses;
         });
-    }
-    
-    /**
-     * Extract JWT token from Authorization header
-     */
-    private String extractToken(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                .getCustomException("Missing authorization", "Authorization header required");
-        }
-        return authorization.substring(7);
-    }
-    
-    /**
-     * Extract user ID from JWT token
-     */
-    private String extractUserId(String token) {
-        try {
-            var claims = jwtService.verifyToken(token);
-            String userId = claims.getSubject();
-            if (userId == null || userId.isBlank()) {
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                    .getCustomException("Invalid token", "User ID not found in token");
-            }
-            return userId;
-        } catch (Exception e) {
-            throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                .getCustomException("Invalid token", e.getMessage());
-        }
     }
 }

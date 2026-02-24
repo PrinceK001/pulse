@@ -18,8 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
-import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
+import org.dreamhorizon.pulseserver.model.LoginStatus;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.LoginResponse;
@@ -38,7 +38,6 @@ public class AuthService {
   private final JwtService jwtService;
   private final TenantDao tenantDao;
   private final UserService userService;
-  private final UserDao userDao;
   private final OpenFgaService openFgaService;
   private final ProjectService projectService;
   private volatile String firebaseJwksCache;
@@ -117,7 +116,7 @@ public class AuthService {
     return verifySimpleFirebaseToken(firebaseIdToken)
         .flatMap(userInfo -> {
             // Check if user exists by email
-            return userDao.getUserByEmail(userInfo.email)
+            return userService.getUserByEmail(userInfo.email)
                 .switchIfEmpty(Single.defer(() -> {
                     // New user - create with Firebase UID and needs onboarding
                     return userService.getOrCreateUser(userInfo.email, userInfo.name, userInfo.userId);
@@ -129,7 +128,7 @@ public class AuthService {
                             user.getUserId(), user.getEmail());
                         
                         // Activate the user and update Firebase UID
-                        return userDao.activateUser(
+                        return userService.activateUser(
                             user.getUserId(), 
                             userInfo.userId,  // Firebase UID
                             userInfo.name
@@ -140,7 +139,7 @@ public class AuthService {
                             .build()));
                     } else {
                         // Already active user - just update last login
-                        userDao.updateLastLogin(user.getUserId()).subscribe();
+                        userService.updateLastLogin(user.getUserId()).subscribe();
                         return Single.just(user);
                     }
                 });
@@ -153,7 +152,7 @@ public class AuthService {
                     // No projects - user needs onboarding
                     log.info("User has no projects, requires onboarding: userId={}", user.getUserId());
                     return Single.just(LoginResponse.builder()
-                        .status("needs_onboarding")
+                        .status(LoginStatus.NEEDS_ONBOARDING)
                         .userId(user.getUserId())
                         .email(user.getEmail())
                         .name(user.getName())
@@ -185,7 +184,7 @@ public class AuthService {
                                     user.getUserId(), tenantId, tenantRole);
 
                                 return LoginResponse.builder()
-                                    .status("authenticated")
+                                    .status(LoginStatus.SUCCESS)
                                     .accessToken(accessToken)
                                     .refreshToken(refreshToken)
                                     .userId(user.getUserId())
@@ -349,18 +348,18 @@ public class AuthService {
     log.info("Development mode login: userId={}, email={}", userId, email);
     
     // Check if user exists in database
-    return userDao.getUserByEmail(email)
+    return userService.getUserByEmail(email)
         .flatMapSingle(user -> {
             // User exists in DB
             // Check if pending
             if ("pending".equals(user.getStatus())) {
                 log.info("Activating pending dev user on first login: userId={}", user.getUserId());
-                return userDao.activateUser(user.getUserId(), user.getUserId() + "-firebase-uid", name)
+                return userService.activateUser(user.getUserId(), user.getUserId() + "-firebase-uid", name)
                     .andThen(openFgaService.getUserProjects(user.getUserId()))
                     .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
             } else {
                 // Active user - normal flow
-                userDao.updateLastLogin(user.getUserId()).subscribe();
+                userService.updateLastLogin(user.getUserId()).subscribe();
                 return openFgaService.getUserProjects(user.getUserId())
                     .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
             }
@@ -373,7 +372,7 @@ public class AuthService {
                     if (projectIds == null || projectIds.isEmpty()) {
                         // No projects - needs onboarding
                         return Single.just(LoginResponse.builder()
-                            .status("needs_onboarding")
+                            .status(LoginStatus.NEEDS_ONBOARDING)
                             .userId(userId)
                             .email(email)
                             .name(name)
@@ -400,7 +399,7 @@ public class AuthService {
     if (projectIds == null || projectIds.isEmpty()) {
         log.info("Dev user has no projects, requires onboarding: userId={}", userId);
         return Single.just(LoginResponse.builder()
-            .status("needs_onboarding")
+            .status(LoginStatus.NEEDS_ONBOARDING)
             .userId(userId)
             .email(email)
             .name(name)
@@ -430,7 +429,7 @@ public class AuthService {
                         userId, tenantId, tenantRole);
 
                     return LoginResponse.builder()
-                        .status("authenticated")
+                        .status(LoginStatus.SUCCESS)
                         .accessToken(accessToken)
                         .refreshToken(refreshToken)
                         .userId(userId)

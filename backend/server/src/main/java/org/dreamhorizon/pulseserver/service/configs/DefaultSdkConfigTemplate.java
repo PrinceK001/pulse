@@ -47,17 +47,17 @@ public class DefaultSdkConfigTemplate {
                 .values(new ArrayList<>())
                 .build())
             .scheduleDurationMs(5000)
-            .logsCollectorUrl("http://10.0.2.2:4318/v1/logs")
-            .metricCollectorUrl("http://10.0.2.2:4318/v1/metrics")
-            .spanCollectorUrl("http://10.0.2.2:4318/v1/traces")
+            .logsCollectorUrl(System.getenv().getOrDefault("LOGS_COLLECTOR_URL", "http://localhost:4318/v1/logs"))
+            .metricCollectorUrl(System.getenv().getOrDefault("METRIC_COLLECTOR_URL", "http://localhost:4318/v1/metrics"))
+            .spanCollectorUrl(System.getenv().getOrDefault("SPAN_COLLECTOR_URL", "http://localhost:4318/v1/traces"))
             .attributesToDrop(new ArrayList<>())
             .attributesToAdd(new ArrayList<>())
             .build();
         
         // Interaction configuration
         InteractionConfig interaction = InteractionConfig.builder()
-            .collectorUrl("http://10.0.2.2:4318/v1/traces/v1/interactions")
-            .configUrl("http://10.0.2.2:8080/v1/interaction-configs/")
+            .collectorUrl(System.getenv().getOrDefault("INTERACTION_COLLECTOR_URL", "http://localhost:4318/v1/traces/v1/interactions"))
+            .configUrl(System.getenv().getOrDefault("INTERACTION_CONFIG_URL", "http://localhost:8080/v1/interaction-configs/"))
             .beforeInitQueueSize(100)
             .build();
         
