@@ -37,7 +37,7 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-      - ../backend/ingestion/clickhouse-otel-schema-PROJECT_BASED.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -55,7 +55,7 @@ services:
     command: /bin/bash /scripts/init-clickhouse.sh
     volumes:
       - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
-      - ../backend/ingestion/lickhouse-otel-schema-PROJECT_BASED.sql:/init/clickhouse-otel-schema.sql:ro
+      - ../backend/ingestion/lickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
