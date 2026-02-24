@@ -22,8 +22,6 @@ import org.dreamhorizon.pulseserver.model.Project;
 import org.dreamhorizon.pulseserver.service.configs.DefaultSdkConfigTemplate;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.tier.TierService;
-import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
-import org.dreamhorizon.pulseserver.service.usagelimit.models.RedisUsageLimitCredits;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
 import org.dreamhorizon.pulseserver.util.SecureRandomUtil;
 import org.dreamhorizon.pulseserver.util.encryption.EncryptedData;
@@ -50,10 +48,8 @@ public class ProjectService {
     private final OpenFgaService openFgaService;
     private final ClickhouseProjectService clickhouseProjectService;
     private final TierService tierService;
-    private final UsageLimitService usageLimitService;
     private final UploadConfigDetailService uploadConfigDetailService;
     private final EmailService emailService;
-    private final RedisService redisService;
     private final ProjectApiKeyEncryptionUtil apiKeyEncryptionUtil;
     private final ObjectMapper objectMapper;
 
@@ -69,10 +65,8 @@ public class ProjectService {
             OpenFgaService openFgaService,
             ClickhouseProjectService clickhouseProjectService,
             TierService tierService,
-            UsageLimitService usageLimitService,
             UploadConfigDetailService uploadConfigDetailService,
             EmailService emailService,
-            RedisService redisService,
             ProjectApiKeyEncryptionUtil apiKeyEncryptionUtil,
             ObjectMapper objectMapper) {
         this.mysqlClient = mysqlClient;
@@ -85,10 +79,8 @@ public class ProjectService {
         this.openFgaService = openFgaService;
         this.clickhouseProjectService = clickhouseProjectService;
         this.tierService = tierService;
-        this.usageLimitService = usageLimitService;
         this.uploadConfigDetailService = uploadConfigDetailService;
         this.emailService = emailService;
-        this.redisService = redisService;
         this.apiKeyEncryptionUtil = apiKeyEncryptionUtil;
         this.objectMapper = objectMapper;
     }
@@ -128,31 +120,24 @@ public class ProjectService {
 
         // 2. Get free tier defaults for usage limits
         return tierService.getFreeTierDefaults()
-            .flatMap(usageLimits -> {
-                // Compute finalThreshold for Redis storage
-                usageLimitService.computeFinalThresholds(usageLimits);
-                String usageLimitsJson = serializeUsageLimits(usageLimits);
-                return Single.just(new UsageLimitsContext(usageLimits, usageLimitsJson));
-            })
-            .flatMap(usageLimitsCtx ->
+            .map(this::serializeUsageLimits)
+            .flatMap(usageLimitsJson ->
                 // 3. Execute transaction
                 executeTransaction(
                     project, chUsername, chPassword, 
                     encryptedApiKey, apiKeyDigest, 
-                    usageLimitsCtx.getJson(), defaultConfigData, createdBy
+                    usageLimitsJson, defaultConfigData, createdBy
                 )
-                .map(createdProject -> new ProjectWithContext(createdProject, usageLimitsCtx.getLimits(), rawApiKey))
             )
             // 4. Blocking: OpenFGA operations
-            .flatMap(ctx -> 
-                assignRolesAndLink(ctx.getProject(), createdBy, tenantId)
-                    .andThen(Single.just(ctx))
+            .flatMap(createdProject -> 
+                assignRolesAndLink(createdProject, createdBy, tenantId)
+                    .andThen(Single.just(createdProject))
             )
             // 5. Fire-and-forget: Async tasks
-            .doOnSuccess(ctx -> {
-                executeAsyncTasks(ctx.getProject(), tenantId, chUsername, chPassword, createdBy, ctx.getRawApiKey(), ctx.getUsageLimits()).subscribe();
+            .doOnSuccess(createdProject -> {
+                executeAsyncTasks(createdProject, tenantId, chUsername, chPassword, createdBy, rawApiKey).subscribe();
             })
-            .map(ProjectWithContext::getProject)
             .doOnSuccess(createdProject -> 
                 log.info("Project created successfully: projectId={}", createdProject.getProjectId())
             )
@@ -230,8 +215,7 @@ public class ProjectService {
             String chUsername, 
             String chPassword,
             String createdBy,
-            String rawApiKey,
-            Map<String, UsageLimitValue> usageLimits) {
+            String rawApiKey) {
 
         String projectId = project.getProjectId();
         log.debug("Executing async tasks for project: {}", projectId);
@@ -254,12 +238,6 @@ public class ProjectService {
             sendProjectCreatedEmailAsync(createdBy, project, rawApiKey)
                 .doOnComplete(() -> log.info("Email notification sent for project: {}", projectId))
                 .doOnError(err -> log.warn("Email notification failed for project: {}", projectId, err))
-                .onErrorComplete(),
-
-            // Redis sync (API key mapping + usage limit credits)
-            syncProjectToRedis(projectId, rawApiKey, usageLimits)
-                .doOnComplete(() -> log.info("Redis sync completed for project: {}", projectId))
-                .doOnError(err -> log.warn("Redis sync failed for project: {}, cron will retry", projectId, err))
                 .onErrorComplete()
         );
     }
@@ -278,22 +256,6 @@ public class ProjectService {
                 return Completable.complete();
             })
             .onErrorComplete(); // Don't fail if user not found
-    }
-
-    /**
-     * Syncs project data to Redis (API key mapping + usage limit credits).
-     * Fire-and-forget - failures are logged but don't fail project creation.
-     * A cron job will retry failed syncs.
-     */
-    private Completable syncProjectToRedis(String projectId, String rawApiKey, Map<String, UsageLimitValue> usageLimits) {
-        log.debug("Syncing project to Redis: {}", projectId);
-
-        RedisUsageLimitCredits credits = RedisUsageLimitCredits.fromUsageLimits(projectId, usageLimits);
-
-        return Completable.mergeArrayDelayError(
-            redisService.saveApiKeyMapping(rawApiKey, projectId),
-            redisService.saveUsageLimitCredits(credits)
-        );
     }
 
     // ==================== HELPER METHODS ====================
@@ -418,22 +380,5 @@ public class ProjectService {
     public Single<Integer> getActiveProjectCount(String tenantId) {
         return projectDao.getActiveProjectCount(tenantId)
             .map(Long::intValue);
-    }
-
-    // ==================== CONTEXT CLASSES ====================
-
-    @lombok.RequiredArgsConstructor
-    @lombok.Getter
-    private static class UsageLimitsContext {
-        private final Map<String, UsageLimitValue> limits;
-        private final String json;
-    }
-
-    @lombok.RequiredArgsConstructor
-    @lombok.Getter
-    private static class ProjectWithContext {
-        private final Project project;
-        private final Map<String, UsageLimitValue> usageLimits;
-        private final String rawApiKey;
     }
 }
