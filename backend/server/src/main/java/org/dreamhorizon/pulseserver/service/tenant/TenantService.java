@@ -226,9 +226,16 @@ public class TenantService {
         .doOnError(error -> log.error("Failed to reactivate ClickHouse credentials for tenant: {}", tenantId, error));
   }
 
-  public Flowable<ClickhouseTenantCredentialAudit> getCredentialsAuditHistory(String tenantId) {
-    return credentialsDao.getAuditLogsByProjectId(tenantId)
-        .doOnError(error -> log.error("Failed to get audit history for tenant: {}", tenantId, error));
+  /**
+   * Get audit history for ClickHouse credentials.
+   * Note: Despite the method accepting projectId, the audit table tracks project-level credentials.
+   * 
+   * @param projectId Project ID to get audit history for
+   * @return Flowable of audit log entries
+   */
+  public Flowable<ClickhouseTenantCredentialAudit> getCredentialsAuditHistory(String projectId) {
+    return credentialsDao.getAuditLogsByProjectId(projectId)
+        .doOnError(error -> log.error("Failed to get audit history for project: {}", projectId, error));
   }
 
   public Flowable<ClickhouseTenantCredentialAudit> getRecentCredentialsAuditLogs(int limit) {
@@ -270,7 +277,7 @@ public class TenantService {
    * @return Single with created Tenant
    */
   public Single<Tenant> createTenantForUser(String name, String description, String userId) {
-    String tenantId = "tenant-" + java.util.UUID.randomUUID().toString();
+    String tenantId = "tenant-" + java.util.UUID.randomUUID();
     
     log.info("Creating tenant: tenantId={}, name={}, userId={}", tenantId, name, userId);
     

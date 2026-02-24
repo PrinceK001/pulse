@@ -34,7 +34,7 @@ public class ProjectService {
     /**
      * Create a new project within a tenant.
      * This method:
-     * 1. Generates project ID
+     * 1. Generates project ID from sanitized name + UUID
      * 2. Creates project in MySQL
      * 3. Sets up dedicated ClickHouse user and row policies
      * 4. Creates default SDK configuration
@@ -50,7 +50,19 @@ public class ProjectService {
      * @return Single<Project> Created project
      */
     public Single<Project> createProject(String tenantId, String name, String description, String createdBy) {
-        String projectId = "proj-" + UUID.randomUUID().toString();
+        // Sanitize name: remove special chars, convert to lowercase, limit length
+        // This ensures project IDs are URL-safe and human-readable
+        String sanitizedName = name.toLowerCase()
+            .replaceAll("[^a-z0-9]", "-")      // Replace non-alphanumeric with dash
+            .replaceAll("-+", "-")              // Collapse multiple dashes
+            .replaceAll("^-|-$", "");           // Remove leading/trailing dashes
+        
+        // Limit sanitized name to 30 chars and append short UUID
+        if (sanitizedName.length() > 30) {
+            sanitizedName = sanitizedName.substring(0, 30);
+        }
+        
+        String projectId = sanitizedName + "-" + UUID.randomUUID().toString().substring(0, 8);
         
         log.info("Creating project: projectId={}, tenantId={}, name={}, createdBy={}", 
             projectId, tenantId, name, createdBy);
@@ -115,86 +127,6 @@ public class ProjectService {
             .doOnError(error -> 
                 log.error("Failed to create default SDK config for project: projectId={}, tenantId={}", 
                     projectId, tenantId, error)
-            );
-    }
-    
-    /**
-     * Get all projects for a user within a tenant, enriched with user's role in each project.
-     * 
-     * @param userId User ID
-     * @param tenantId Tenant ID
-     * @return Single<List<ProjectSummaryDto>> List of project summaries with roles
-     */
-    public Single<List<ProjectSummaryDto>> getProjectsForUser(String userId, String tenantId) {
-        return projectDao.getProjectsByTenantId(tenantId)
-            .flatMap(projects -> 
-                Flowable.fromIterable(projects)
-                    .flatMapSingle(project -> 
-                        openFgaService.getUserRoleInProject(userId, project.getProjectId())
-                            .map(roleOpt -> ProjectSummaryDto.builder()
-                                .projectId(project.getProjectId())
-                                .name(project.getName())
-                                .description(project.getDescription())
-                                .role(roleOpt.orElse("none"))
-                                .isActive(project.getIsActive())
-                                .createdAt(project.getCreatedAt())
-                                .build())
-                    )
-                    .toList()
-            )
-            .doOnSuccess(projects -> 
-                log.debug("Retrieved {} projects for user {} in tenant {}", 
-                    projects.size(), userId, tenantId)
-            )
-            .doOnError(error -> 
-                log.error("Failed to get projects for user: userId={}, tenantId={}", 
-                    userId, tenantId, error)
-            );
-    }
-    
-    /**
-     * Get detailed project information with permission check.
-     * API key is only included if user is a project admin.
-     * 
-     * @param userId User ID
-     * @param projectId Project ID
-     * @return Single<ProjectDetailsDto> Detailed project information
-     */
-    public Single<ProjectDetailsDto> getProjectDetails(String userId, String projectId) {
-        return projectDao.getProjectById(projectId)
-            .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId)))
-            .flatMap(project -> 
-                openFgaService.getUserRoleInProject(userId, projectId)
-                    .flatMap(roleOpt -> {
-                        if (roleOpt.isEmpty()) {
-                            return Single.error(new RuntimeException(
-                                "Access denied: User has no access to project " + projectId));
-                        }
-                        
-                        String role = roleOpt.get();
-                        boolean isAdmin = "admin".equals(role);
-                        
-                        return Single.just(ProjectDetailsDto.builder()
-                            .projectId(project.getProjectId())
-                            .tenantId(project.getTenantId())
-                            .name(project.getName())
-                            .description(project.getDescription())
-                            .apiKey(isAdmin ? project.getApiKey() : null)  // Only admins see API key
-                            .isActive(project.getIsActive())
-                            .createdBy(project.getCreatedBy())
-                            .createdAt(project.getCreatedAt())
-                            .updatedAt(project.getUpdatedAt())
-                            .userRole(role)
-                            .build());
-                    })
-            )
-            .doOnSuccess(details -> 
-                log.debug("Retrieved project details: projectId={}, userRole={}", 
-                    projectId, details.getUserRole())
-            )
-            .doOnError(error -> 
-                log.error("Failed to get project details: projectId={}, userId={}", 
-                    projectId, userId, error)
             );
     }
     

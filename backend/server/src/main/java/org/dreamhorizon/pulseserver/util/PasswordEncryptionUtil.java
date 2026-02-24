@@ -21,9 +21,11 @@ import java.util.Base64;
 public class PasswordEncryptionUtil {
     
     private static final String ALGORITHM = "AES";
-    private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
+    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
     private static final int KEY_SIZE = 256;
     private static final int SALT_LENGTH = 16;
+    private static final int GCM_IV_LENGTH = 12; // 12 bytes recommended for GCM
+    private static final int GCM_TAG_LENGTH = 128; // 128-bit authentication tag
     
     private final SecretKey secretKey;
     private final SecureRandom secureRandom;
@@ -50,18 +52,31 @@ public class PasswordEncryptionUtil {
     }
     
     /**
-     * Encrypt plaintext password.
+     * Encrypt plaintext password using AES-GCM mode.
+     * GCM provides both encryption and authentication, preventing tampering.
+     * The IV is prepended to the ciphertext for storage.
      * 
      * @param plaintext Plain text password
-     * @return Base64 encoded encrypted password
+     * @return Base64 encoded encrypted password with IV prepended
      */
     public String encrypt(String plaintext) {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
             
+            // Generate random IV for GCM mode
+            byte[] iv = new byte[GCM_IV_LENGTH];
+            secureRandom.nextBytes(iv);
+            javax.crypto.spec.GCMParameterSpec gcmSpec = new javax.crypto.spec.GCMParameterSpec(GCM_TAG_LENGTH, iv);
+            
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec);
             byte[] encryptedBytes = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(encryptedBytes);
+            
+            // Prepend IV to encrypted data for storage
+            byte[] combined = new byte[iv.length + encryptedBytes.length];
+            System.arraycopy(iv, 0, combined, 0, iv.length);
+            System.arraycopy(encryptedBytes, 0, combined, iv.length, encryptedBytes.length);
+            
+            return Base64.getEncoder().encodeToString(combined);
             
         } catch (Exception e) {
             log.error("Encryption failed", e);
@@ -70,19 +85,27 @@ public class PasswordEncryptionUtil {
     }
     
     /**
-     * Decrypt encrypted password.
+     * Decrypt encrypted password using AES-GCM mode.
+     * Extracts the IV from the beginning of the ciphertext.
      * 
-     * @param ciphertext Base64 encoded encrypted password
+     * @param ciphertext Base64 encoded encrypted password with IV prepended
      * @return Decrypted plain text password
      */
     public String decrypt(String ciphertext) {
         try {
+            byte[] decoded = Base64.getDecoder().decode(ciphertext);
+            
+            // Extract IV from beginning
+            byte[] iv = new byte[GCM_IV_LENGTH];
+            byte[] encryptedBytes = new byte[decoded.length - GCM_IV_LENGTH];
+            System.arraycopy(decoded, 0, iv, 0, GCM_IV_LENGTH);
+            System.arraycopy(decoded, GCM_IV_LENGTH, encryptedBytes, 0, encryptedBytes.length);
+            
+            javax.crypto.spec.GCMParameterSpec gcmSpec = new javax.crypto.spec.GCMParameterSpec(GCM_TAG_LENGTH, iv);
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.DECRYPT_MODE, secretKey);
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
             
-            byte[] decodedBytes = Base64.getDecoder().decode(ciphertext);
-            byte[] decryptedBytes = cipher.doFinal(decodedBytes);
-            
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
             return new String(decryptedBytes, StandardCharsets.UTF_8);
             
         } catch (Exception e) {
