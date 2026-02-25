@@ -164,7 +164,7 @@ public class ProjectService {
                 .onErrorComplete(),
 
             // S3 upload of SDK config
-            uploadConfigDetailService.pushInteractionDetailsToObjectStore(tenantId, projectId)
+            uploadConfigDetailService.pushInteractionDetailsToObjectStore(projectId)
                 .ignoreElement()
                 .doOnComplete(() -> log.info("SDK config uploaded to S3 for project: {}", projectId))
                 .doOnError(err -> log.warn("S3 upload failed for project: {}, will serve from DB", projectId, err))
