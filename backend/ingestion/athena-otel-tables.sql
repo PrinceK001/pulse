@@ -30,8 +30,6 @@ CREATE EXTERNAL TABLE IF NOT EXISTS pulse_athena_db.otel_data_{PROJECT_ID} (
   project_id              STRING,
   user_id                 STRING,
   installation_id         STRING,
-
-  -- Promoted schema columns (indexed in Vector schema)
   android_os_api_level    STRING,
   os_version              STRING,
   app_build_id            STRING,
@@ -46,32 +44,24 @@ CREATE EXTERNAL TABLE IF NOT EXISTS pulse_athena_db.otel_data_{PROJECT_ID} (
   network_carrier_mnc     STRING,
   network_carrier_icc     STRING,
   pulse_app_state         STRING,
-
-  -- Telemetry identifiers
   span_id                 STRING,
   trace_id                STRING,
-
-  -- Timestamps
   `timestamp`             TIMESTAMP,
   vector_observed_timestamp TIMESTAMP,
-
-  -- OpenTelemetry metadata
   scope_name              STRING,
   flags                   INT,
-
-  -- Catch-all JSON blob for all other properties
   props                   STRING
 )
 PARTITIONED BY (
-  date  STRING,  -- partition date  e.g. '2026-02-23'
-  hour  STRING   -- partition hour  e.g. '08'
+  date  STRING,
+  hour  STRING
 )
-ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
-WITH SERDEPROPERTIES (
-  'ignore.malformed.json' = 'true'
-)
-STORED AS INPUTFORMAT  'org.apache.hadoop.mapred.TextInputFormat'
-           OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextFileFormat'
+ROW FORMAT SERDE
+  'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+STORED AS INPUTFORMAT
+  'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat'
+OUTPUTFORMAT
+  'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
 LOCATION 's3://pulse-otel-{PROJECT_ID}/vector-logs/'
 TBLPROPERTIES (
   -- Partition projection: auto-discovers date/hour partitions without MSCK REPAIR
@@ -83,9 +73,11 @@ TBLPROPERTIES (
   'projection.date.interval'      = '1',
   'projection.date.interval.unit' = 'DAYS',
 
-  'projection.hour.type'          = 'injected',
-
+  'projection.hour.type'          = 'integer',
+  'projection.hour.digits'        = '2',
+  'projection.hour.interval'      = '1',
+  'projection.hour.range'         = '0,23',
   'storage.location.template'     = 's3://pulse-otel-{PROJECT_ID}/vector-logs/${date}/${hour}/',
 
-  'classification'                = 'json'
+  'classification'                = 'parquet'
 );
