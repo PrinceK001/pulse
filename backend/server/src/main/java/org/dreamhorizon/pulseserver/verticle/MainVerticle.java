@@ -26,6 +26,7 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
+import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 @Slf4j
@@ -36,38 +37,46 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public Completable rxStart() {
-    Completable completable = ConfigUtils.getConfigRetriever(vertx)
-        .rxGetConfig()
-        .map(config -> {
-          JsonObject appConfig = config.getJsonObject("app", new JsonObject());
+    Completable completable =
+        ConfigUtils.getConfigRetriever(vertx)
+            .rxGetConfig()
+            .map(
+                config -> {
+                  JsonObject appConfig = config.getJsonObject("app", new JsonObject());
 
-          JsonObject mysqlConfig = config.getJsonObject("mysql", new JsonObject());
-          JsonObject webClientConfig = config.getJsonObject("webclient", new JsonObject());
+                  JsonObject mysqlConfig = config.getJsonObject("mysql", new JsonObject());
+                  JsonObject webClientConfig = config.getJsonObject("webclient", new JsonObject());
 
-
-          this.mysqlClient = new MysqlClientImpl(this.vertx, mysqlConfig);
-          this.webClient = WebClient.create(vertx, getWebClientOptions(webClientConfig));
-          SharedDataUtils.put(vertx.getDelegate(), appConfig.mapTo(ApplicationConfig.class));
-          JsonObject chConfig = config.getJsonObject("clickhouse", new JsonObject());
-          SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
-          JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
-          SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
-          SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
-          SharedDataUtils.put(vertx.getDelegate(), webClient);
-          return config;
-        })
-        .ignoreElement()
-        .andThen(
-            vertx.rxDeployVerticle(
-                () ->
-                    new RestVerticle(
-                        new HttpServerOptions().setPort(8080)),
-                new DeploymentOptions().setInstances(getNumOfCores()))
-        ).ignoreElement();
+                  this.mysqlClient = new MysqlClientImpl(this.vertx, mysqlConfig);
+                  this.webClient = WebClient.create(vertx, getWebClientOptions(webClientConfig));
+                  SharedDataUtils.put(
+                      vertx.getDelegate(), appConfig.mapTo(ApplicationConfig.class));
+                  JsonObject chConfig = config.getJsonObject("clickhouse", new JsonObject());
+                  SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
+                  JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
+                  SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
+                  JsonObject notificationConfig =
+                      config.getJsonObject("notification", new JsonObject());
+                  SharedDataUtils.put(
+                      vertx.getDelegate(), notificationConfig.mapTo(NotificationConfig.class));
+                  SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
+                  SharedDataUtils.put(vertx.getDelegate(), webClient);
+                  return config;
+                })
+            .ignoreElement()
+            .andThen(
+                vertx.rxDeployVerticle(
+                    () -> new RestVerticle(new HttpServerOptions().setPort(8080)),
+                    new DeploymentOptions().setInstances(getNumOfCores())))
+            .ignoreElement();
 
     if (Objects.equals(System.getenv("KAFKA_ENABLED"), "true")) {
-      return completable.andThen((vertx.rxDeployVerticle(AnrCrashLogConsumerVerticle::new,
-          new DeploymentOptions().setInstances(getNumOfCores())))).ignoreElement();
+      return completable
+          .andThen(
+              (vertx.rxDeployVerticle(
+                  AnrCrashLogConsumerVerticle::new,
+                  new DeploymentOptions().setInstances(getNumOfCores()))))
+          .ignoreElement();
     }
     return completable;
   }
@@ -84,8 +93,7 @@ public class MainVerticle extends AbstractVerticle {
         .setKeepAliveTimeout(
             Integer.parseInt(config.getString(HTTP_CLIENT_KEEP_ALIVE_TIMEOUT)) / 1000)
         .setIdleTimeout(Integer.parseInt(config.getString(HTTP_CLIENT_IDLE_TIMEOUT)))
-        .setMaxPoolSize(
-            Integer.parseInt(config.getString(HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE)))
+        .setMaxPoolSize(Integer.parseInt(config.getString(HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE)))
         .setReadIdleTimeout(Integer.parseInt(config.getString(HTTP_READ_TIMEOUT)))
         .setWriteIdleTimeout(Integer.parseInt(config.getString(HTTP_WRITE_TIMEOUT)));
   }
@@ -93,14 +101,14 @@ public class MainVerticle extends AbstractVerticle {
   @Override
   public Completable rxStop() {
     try {
-      ClickhouseTenantConnectionPoolManager poolManager = 
+      ClickhouseTenantConnectionPoolManager poolManager =
           SharedDataUtils.get(vertx.getDelegate(), ClickhouseTenantConnectionPoolManager.class);
       poolManager.closeAllPools();
       log.info("Closed all tenant connection pools");
     } catch (Exception e) {
       log.warn("Error closing tenant pools", e);
     }
-    
+
     this.webClient.close();
     return mysqlClient.rxClose();
   }

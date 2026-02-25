@@ -6,15 +6,17 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.Multibinder;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
-import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService;
@@ -23,6 +25,10 @@ import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import org.dreamhorizon.pulseserver.service.notification.*;
+import org.dreamhorizon.pulseserver.service.notification.provider.*;
+import org.dreamhorizon.pulseserver.service.notification.queue.*;
+import org.dreamhorizon.pulseserver.service.notification.webhook.*;
 import org.dreamhorizon.pulseserver.util.PasswordEncryptionUtil;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -50,17 +56,24 @@ public class MainModule extends VertxAbstractModule {
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
     bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
 
-    bind(PasswordEncryptionUtil.class).toProvider(() -> {
-      ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
-      return new PasswordEncryptionUtil(config);
-    }).in(Singleton.class);
+    bind(PasswordEncryptionUtil.class)
+        .toProvider(
+            () -> {
+              ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
+              return new PasswordEncryptionUtil(config);
+            })
+        .in(Singleton.class);
 
-    bind(ClickhouseTenantConnectionPoolManager.class).toProvider(() -> {
-      ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
-      ClickhouseTenantConnectionPoolManager manager = new ClickhouseTenantConnectionPoolManager(config);
-      SharedDataUtils.put(vertx, manager);
-      return manager;
-    }).in(Singleton.class);
+    bind(ClickhouseTenantConnectionPoolManager.class)
+        .toProvider(
+            () -> {
+              ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
+              ClickhouseTenantConnectionPoolManager manager =
+                  new ClickhouseTenantConnectionPoolManager(config);
+              SharedDataUtils.put(vertx, manager);
+              return manager;
+            })
+        .in(Singleton.class);
 
     bind(ClickhouseCredentialsDao.class).in(Singleton.class);
     bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
@@ -71,6 +84,31 @@ public class MainModule extends VertxAbstractModule {
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
     bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
+    bindNotificationFeature();
+  }
+
+  private void bindNotificationFeature() {
+    bind(NotificationChannelDao.class).in(Singleton.class);
+    bind(NotificationTemplateDao.class).in(Singleton.class);
+    bind(NotificationLogDao.class).in(Singleton.class);
+    bind(EmailSuppressionDao.class).in(Singleton.class);
+
+    bind(TemplateService.class).in(Singleton.class);
+    bind(NotificationService.class).to(NotificationServiceImpl.class).in(Singleton.class);
+
+    bind(SqsNotificationQueue.class).in(Singleton.class);
+    bind(NotificationRetryPolicy.class).in(Singleton.class);
+    bind(NotificationWorker.class).in(Singleton.class);
+    bind(DlqHandler.class).in(Singleton.class);
+
+    bind(NotificationProviderFactory.class).in(Singleton.class);
+    Multibinder<NotificationProvider> providerBinder =
+        Multibinder.newSetBinder(binder(), NotificationProvider.class);
+    providerBinder.addBinding().to(EmailNotificationProvider.class).in(Singleton.class);
+    providerBinder.addBinding().to(SlackNotificationProvider.class).in(Singleton.class);
+    providerBinder.addBinding().to(TeamsNotificationProvider.class).in(Singleton.class);
+
+    bind(SesWebhookHandler.class).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {
@@ -95,10 +133,9 @@ public class MainModule extends VertxAbstractModule {
   }
 
   private CloudFrontAsyncClient loadCloudFrontClient() {
-    return CloudFrontAsyncClient
-        .builder()
+    return CloudFrontAsyncClient.builder()
         .httpClientBuilder(NettyNioAsyncHttpClient.builder())
-        .region(Region.US_EAST_1)  // CloudFront API is always in us-east-1
+        .region(Region.US_EAST_1) // CloudFront API is always in us-east-1
         .credentialsProvider(DefaultCredentialsProvider.create())
         .build();
   }
