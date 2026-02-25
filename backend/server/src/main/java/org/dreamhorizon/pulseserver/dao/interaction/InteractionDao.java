@@ -283,7 +283,6 @@ public class InteractionDao {
 
   public Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions() {
     QueryConfiguration configuration = QueryConfiguration.newQuery(GET_TELEMETRY_FILTER_VALUES)
-        .tenantId(TenantContext.requireTenantId())
         .projectId(getProjectId())
         .build();
 

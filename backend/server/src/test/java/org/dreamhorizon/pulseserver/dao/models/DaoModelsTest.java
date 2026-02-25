@@ -296,7 +296,6 @@ class DaoModelsTest {
     void shouldHandleEqualsWithNullVsNonNull() {
       ClickhouseTenantCredentialAudit a1 = ClickhouseTenantCredentialAudit.builder()
           .projectId(null).build();
-          .projectId(null).build();
       ClickhouseTenantCredentialAudit a2 = ClickhouseTenantCredentialAudit.builder()
           .projectId("p1").build();
       assertNotEquals(a1, a2);

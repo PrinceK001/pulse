@@ -13,7 +13,6 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -52,8 +51,7 @@ class UploadConfigDetailServiceTest {
   @BeforeEach
   void setUp() {
     // Setup project context
-    org.dreamhorizon.pulseserver.context.ProjectContext.setProjectId(TEST_PROJECT_ID);
-    TenantContext.setTenantId("test-tenant");
+    ProjectContext.setProjectId(TEST_PROJECT_ID);
 
     uploadConfigDetailService = new UploadConfigDetailService(
         s3BucketClient,
@@ -71,8 +69,7 @@ class UploadConfigDetailServiceTest {
 
   @AfterEach
   void tearDown() {
-    org.dreamhorizon.pulseserver.context.ProjectContext.clear();
-    TenantContext.clear();
+    ProjectContext.clear();
   }
 
   @Nested
@@ -88,7 +85,7 @@ class UploadConfigDetailServiceTest {
           .description("Active Test Config")
           .build();
 
-      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig(TEST_PROJECT_ID)).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_PROJECT_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_PROJECT_ASSET_PATH)))
@@ -101,7 +98,7 @@ class UploadConfigDetailServiceTest {
       // Then
       assertThat(result).isEqualTo(EmptyResponse.emptyResponse);
 
-      verify(configService).getActiveSdkConfig(TenantContext.requireTenantId());
+      verify(configService).getActiveSdkConfig(TEST_PROJECT_ID);
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_PROJECT_FILE_PATH, activeConfig);
       verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_PROJECT_ASSET_PATH);
       verifyNoMoreInteractions(configService, s3BucketClient, cloudFrontClient);
@@ -135,7 +132,7 @@ class UploadConfigDetailServiceTest {
 
       RuntimeException s3Error = new RuntimeException("S3 upload failed");
 
-      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig(TEST_PROJECT_ID)).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_PROJECT_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.error(s3Error));
 
@@ -146,7 +143,7 @@ class UploadConfigDetailServiceTest {
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("S3 upload failed"));
 
-      verify(configService).getActiveSdkConfig(TenantContext.requireTenantId());
+      verify(configService).getActiveSdkConfig(TEST_PROJECT_ID);
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_PROJECT_FILE_PATH, activeConfig);
       verify(cloudFrontClient, never()).invalidateCache(any(), any());
     }
@@ -161,7 +158,7 @@ class UploadConfigDetailServiceTest {
 
       RuntimeException cloudFrontError = new RuntimeException("CloudFront invalidation failed");
 
-      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig(TEST_PROJECT_ID)).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_PROJECT_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_PROJECT_ASSET_PATH)))
@@ -174,7 +171,7 @@ class UploadConfigDetailServiceTest {
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("CloudFront invalidation failed"));
 
-      verify(configService).getActiveSdkConfig(TenantContext.requireTenantId());
+      verify(configService).getActiveSdkConfig(TEST_PROJECT_ID);
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_PROJECT_FILE_PATH, activeConfig);
       verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_PROJECT_ASSET_PATH);
     }

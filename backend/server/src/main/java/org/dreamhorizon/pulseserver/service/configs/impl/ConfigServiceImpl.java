@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
@@ -80,9 +81,7 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
-    String projectId = ProjectContext.getProjectId();
-    
+  public Single<PulseConfig> createSdkConfig(String projectId, ConfigData createConfigRequest) {
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(projectId);

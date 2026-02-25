@@ -668,7 +668,6 @@ class TenantServiceTest {
     @Test
     void shouldThrowExceptionOnDaoError() {
       when(credentialsDao.getAuditLogsByProjectId(anyString()))
-      when(credentialsDao.getAuditLogsByProjectId(anyString()))
           .thenReturn(Flowable.error(new RuntimeException("Database error")));
 
       Exception ex = assertThrows(RuntimeException.class,
