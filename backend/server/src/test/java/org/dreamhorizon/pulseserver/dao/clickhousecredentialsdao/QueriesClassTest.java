@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Constructor;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.Queries;
 import org.junit.jupiter.api.Test;
 
 /**

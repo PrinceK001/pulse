@@ -24,10 +24,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
 import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
 import org.dreamhorizon.pulseserver.service.tenant.TenantAuditAction;
-import org.dreamhorizon.pulseserver.util.PasswordEncryptionUtil;
+import org.dreamhorizon.pulseserver.util.encryption.ClickhousePasswordEncryptionUtil;
+import org.dreamhorizon.pulseserver.util.encryption.EncryptedData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -45,7 +47,7 @@ class ClickhouseCredentialsDaoTest {
   MysqlClient mysqlClient;
 
   @Mock
-  PasswordEncryptionUtil encryptionUtil;
+  ClickhousePasswordEncryptionUtil encryptionUtil;
 
   @Mock
   MySQLPool writerPool;
@@ -136,8 +138,10 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldSaveCredentialsSuccessfully() {
-      when(encryptionUtil.encrypt(anyString())).thenReturn("encrypted_pass");
-      when(encryptionUtil.generateSalt()).thenReturn("salt123");
+      when(encryptionUtil.encrypt(anyString())).thenReturn(EncryptedData.builder()
+          .encryptedValue("encrypted_pass")
+          .salt("salt123")
+          .build());
       when(encryptionUtil.generateDigest(anyString())).thenReturn("digest123");
       setupWriterPreparedQuery();
       when(rowSet.rowCount()).thenReturn(1);
@@ -163,8 +167,10 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldThrowExceptionOnDatabaseError() {
-      when(encryptionUtil.encrypt(anyString())).thenReturn("encrypted_pass");
-      when(encryptionUtil.generateSalt()).thenReturn("salt123");
+      when(encryptionUtil.encrypt(anyString())).thenReturn(EncryptedData.builder()
+          .encryptedValue("encrypted_pass")
+          .salt("salt123")
+          .build());
       when(encryptionUtil.generateDigest(anyString())).thenReturn("digest123");
       setupWriterPreparedQuery();
       when(preparedQuery.rxExecute(any(Tuple.class)))
@@ -312,8 +318,10 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldUpdateCredentialsSuccessfully() {
-      when(encryptionUtil.encrypt(anyString())).thenReturn("new_encrypted_pass");
-      when(encryptionUtil.generateSalt()).thenReturn("new_salt");
+      when(encryptionUtil.encrypt(anyString())).thenReturn(EncryptedData.builder()
+          .encryptedValue("encrypted_pass")
+          .salt("salt123")
+          .build());
       when(encryptionUtil.generateDigest(anyString())).thenReturn("new_digest");
       when(encryptionUtil.decrypt(anyString())).thenReturn("new_password");
 
@@ -344,8 +352,10 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldThrowExceptionWhenCredentialsNotFound() {
-      when(encryptionUtil.encrypt(anyString())).thenReturn("encrypted");
-      when(encryptionUtil.generateSalt()).thenReturn("salt");
+      when(encryptionUtil.encrypt(anyString())).thenReturn(EncryptedData.builder()
+          .encryptedValue("encrypted_pass")
+          .salt("salt123")
+          .build());
       when(encryptionUtil.generateDigest(anyString())).thenReturn("digest");
       setupWriterPreparedQuery();
       when(rowSet.rowCount()).thenReturn(0);

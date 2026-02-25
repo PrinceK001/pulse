@@ -362,7 +362,7 @@ class DaoModelsTest {
     @Test
     void shouldCreateWithAllArgsConstructor() {
       Tenant tenant = new Tenant(
-          "t1", "name", "desc", true, "created", "updated", "gcp", "domain"
+          "t1", "name", "desc", 1, true, "created", "updated", "gcp", "domain"
       );
       assertEquals("t1", tenant.getTenantId());
       assertEquals("name", tenant.getName());
