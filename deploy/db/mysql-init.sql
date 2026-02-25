@@ -395,6 +395,76 @@ CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Notification Service Tables
+CREATE TABLE IF NOT EXISTS project_notification_channels (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    config JSON NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_project_channel_name (project_id, name),
+    INDEX idx_channel_project_type (project_id, channel_type)
+);
+
+CREATE TABLE IF NOT EXISTS project_notification_templates (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    event_name VARCHAR(255) NOT NULL,
+    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NULL,
+    version INT NOT NULL DEFAULT 1,
+    body JSON NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notification_template_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_template_version (project_id, event_name, channel_type, version),
+    INDEX idx_template_event (project_id, event_name, is_active)
+);
+
+CREATE TABLE IF NOT EXISTS notification_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    batch_id VARCHAR(64) NOT NULL,
+    idempotency_key VARCHAR(255) NOT NULL,
+    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NOT NULL,
+    channel_id BIGINT NOT NULL,
+    template_id BIGINT NOT NULL,
+    recipient VARCHAR(512) NOT NULL,
+    subject VARCHAR(500) NULL,
+    status ENUM('PENDING', 'QUEUED', 'PROCESSING', 'SENT', 'DELIVERED', 'FAILED', 'RETRYING', 'SKIPPED', 'PERMANENT_FAILURE', 'BOUNCED', 'COMPLAINED') NOT NULL DEFAULT 'PENDING',
+    attempt_count INT NOT NULL DEFAULT 0,
+    last_attempt_at TIMESTAMP NULL,
+    error_message TEXT NULL,
+    error_code VARCHAR(100) NULL,
+    external_id VARCHAR(255) NULL,
+    provider_response TEXT NULL,
+    latency_ms INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_at TIMESTAMP NULL,
+    CONSTRAINT fk_notification_log_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    INDEX idx_log_batch (batch_id),
+    INDEX idx_log_project_status (project_id, status),
+    INDEX idx_log_idempotency (project_id, idempotency_key, channel_type, recipient),
+    INDEX idx_log_external_id (external_id)
+);
+
+CREATE TABLE IF NOT EXISTS email_suppression_list (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id BIGINT NULL,
+    email VARCHAR(320) NOT NULL,
+    reason ENUM('BOUNCE', 'COMPLAINT', 'MANUAL') NOT NULL,
+    bounce_type VARCHAR(50) NULL,
+    source_message_id VARCHAR(255) NULL,
+    suppressed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_suppression_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_project_email_suppression (project_id, email),
+    INDEX idx_suppression_email (email)
+);
+
 -- Display summary
 SELECT 'Database initialization completed successfully!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';
