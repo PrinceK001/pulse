@@ -23,6 +23,7 @@ import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseC
 import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateCredentialsRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.TenantInfo;
@@ -48,11 +49,14 @@ class TenantServiceTest {
   @Mock
   ClickhouseTenantConnectionPoolManager poolManager;
 
+  @Mock
+  OpenFgaService openFgaService;
+
   TenantService tenantService;
 
   @BeforeEach
   void setup() {
-    tenantService = new TenantService(tenantDao, credentialsDao, poolManager);
+    tenantService = new TenantService(tenantDao, credentialsDao, poolManager, openFgaService);
   }
 
   private Tenant createMockTenant() {
@@ -83,7 +87,7 @@ class TenantServiceTest {
   private ClickhouseTenantCredentialAudit createMockAudit() {
     return ClickhouseTenantCredentialAudit.builder()
         .id(1L)
-        .tenantId("test_tenant")
+        .projectId("test_tenant")
         .action("CREDENTIALS_CREATED")
         .performedBy("admin@example.com")
         .details("{\"action\":\"test\"}")
@@ -650,7 +654,7 @@ class TenantServiceTest {
     @Test
     void shouldGetAuditHistorySuccessfully() {
       ClickhouseTenantCredentialAudit mockAudit = createMockAudit();
-      when(credentialsDao.getAuditLogsByTenantId("test_tenant"))
+      when(credentialsDao.getAuditLogsByProjectId("test_tenant"))
           .thenReturn(Flowable.just(mockAudit));
 
       List<ClickhouseTenantCredentialAudit> result = tenantService.getCredentialsAuditHistory("test_tenant").toList().blockingGet();
@@ -662,7 +666,7 @@ class TenantServiceTest {
 
     @Test
     void shouldThrowExceptionOnDaoError() {
-      when(credentialsDao.getAuditLogsByTenantId(anyString()))
+      when(credentialsDao.getAuditLogsByProjectId(anyString()))
           .thenReturn(Flowable.error(new RuntimeException("Database error")));
 
       Exception ex = assertThrows(RuntimeException.class,

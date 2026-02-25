@@ -218,7 +218,7 @@ class TenantMapperTest {
     void shouldMapClickhouseTenantCredentialAuditToAuditLogRestResponse() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .id(1L)
-          .tenantId("test_tenant")
+          .projectId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
           .details("{\"action\":\"test\"}")
@@ -240,7 +240,7 @@ class TenantMapperTest {
     void shouldMapAuditListToAuditListRestResponse() {
       ClickhouseTenantCredentialAudit audit1 = ClickhouseTenantCredentialAudit.builder()
           .id(1L)
-          .tenantId("test_tenant")
+          .projectId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
           .createdAt("2026-01-01T00:00:00")
@@ -248,7 +248,7 @@ class TenantMapperTest {
 
       ClickhouseTenantCredentialAudit audit2 = ClickhouseTenantCredentialAudit.builder()
           .id(2L)
-          .tenantId("test_tenant")
+          .projectId("test_tenant")
           .action("CREDENTIALS_UPDATED")
           .performedBy("admin@example.com")
           .createdAt("2026-01-01T01:00:00")
@@ -300,7 +300,7 @@ class TenantMapperTest {
     void shouldHandleNullAuditFields() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .id(1L)
-          .tenantId("test_tenant")
+          .projectId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
           .details(null)

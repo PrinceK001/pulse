@@ -26,7 +26,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 @Slf4j
 public class ConfigServiceImpl implements ConfigService {
@@ -60,8 +59,8 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> getSdkConfig(String tenantId, long version) {
-    return sdkConfigsDao.getConfig(tenantId, version);
+  public Single<PulseConfig> getSdkConfig(String projectId, long version) {
+    return sdkConfigsDao.getConfig(projectId, version);
   }
 
   @Override
@@ -81,16 +80,13 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
-    String projectId = ProjectContext.getProjectId();
-    String tenantId = org.dreamhorizon.pulseserver.tenant.TenantContext.requireTenantId();
-    
+  public Single<PulseConfig> createSdkConfig(String projectId, ConfigData createConfigRequest) {
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(projectId);
           log.info("Invalidated config cache for project: {}", projectId);
           uploadConfigDetailService
-              .pushInteractionDetailsToObjectStore(tenantId, projectId)
+              .pushInteractionDetailsToObjectStore(projectId)
               .subscribe();
         })
         .doOnError(err -> log.error("error while creating config for project: {}", projectId, err));

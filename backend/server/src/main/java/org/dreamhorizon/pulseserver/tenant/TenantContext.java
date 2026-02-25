@@ -98,22 +98,6 @@ public final class TenantContext {
     return Optional.ofNullable(tenantId);
   }
 
-  /**
-   * Gets the current tenant.
-   *
-   * @return Optional containing the tenant, or empty if not set
-   */
-  public static Optional<Tenant> getCurrentTenant() {
-    Context context = Vertx.currentContext();
-    Tenant tenant;
-    if (context != null) {
-      tenant = context.getLocal(TENANT_KEY);
-    } else {
-      tenant = TENANT_HOLDER.get();
-    }
-    return Optional.ofNullable(tenant);
-  }
-
 
   /**
    * Sets the current user ID for the request.
@@ -162,15 +146,6 @@ public final class TenantContext {
       USER_ID_HOLDER.remove();
     }
     log.debug("Tenant context cleared");
-  }
-
-  /**
-   * Checks if a tenant context is currently set.
-   *
-   * @return true if a tenant context is set, false otherwise
-   */
-  public static boolean isSet() {
-    return getCurrentTenantId().isPresent();
   }
 
   /**

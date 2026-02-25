@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.interaction.models.InteractionDetailRow;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
@@ -45,7 +46,6 @@ import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetail
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 @Slf4j
@@ -160,7 +160,7 @@ public class InteractionDao {
     return InteractionDetails
         .builder()
         .id(row.getLong("interaction_id"))
-        .tenantId(null)  // Interactions are project-scoped only, not tenant-scoped
+        .projectId(row.getString("project_id"))
         .name(row.getString("name"))
         .description(details.getDescription())
         .status(InteractionStatus.fromString(row.getString("status")))
@@ -201,10 +201,10 @@ public class InteractionDao {
         }).doOnError(error -> log.error("error in querying jobs : ", error));
   }
 
-  public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions(String tenant) {
+  public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions(String projectId) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_ALL_ACTIVE_AND_RUNNING_INTERACTIONS)
-        .rxExecute(Tuple.of(getProjectId()))
+        .rxExecute(Tuple.of(projectId))
         .flatMap(rows -> {
           List<InteractionDetails> interactionDetails = new ArrayList<>();
           rows.forEach(row -> interactionDetails.add(mapInteractionRowToInteractionDetails(row)));
@@ -276,7 +276,8 @@ public class InteractionDao {
 
   public Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions() {
     QueryConfiguration configuration = QueryConfiguration.newQuery(GET_TELEMETRY_FILTER_VALUES)
-        .projectId(ProjectContext.getProjectId())
+        .tenantId(TenantContext.requireTenantId())
+        .projectId(getProjectId())
         .build();
 
     return clickhouseQueryService.executeQueryOrCreateJob(configuration)

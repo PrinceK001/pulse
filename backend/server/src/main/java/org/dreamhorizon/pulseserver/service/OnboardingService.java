@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Single;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
@@ -10,8 +11,6 @@ import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
-
-import java.util.UUID;
 
 /**
  * Service for onboarding new users.
@@ -32,18 +31,18 @@ public class OnboardingService {
     private final OpenFgaService openFgaService;
     private final JwtService jwtService;
     private final UserService userService;
-    
+
     /**
      * Complete onboarding for a new user.
      * Creates a tenant and first project, sets up authorization.
-     * 
+     *
      * IMPORTANT: This method receives Firebase UID but must use database userId for role assignments.
      * It looks up the user by email (created during login) to get the correct database userId.
-     * 
+     *
      * RESTRICTION: Users can only be part of ONE organization during onboarding.
      * If user is already part of any tenant (as admin or member), onboarding will fail.
      * Users must not have any existing tenant associations to onboard.
-     * 
+     *
      * @param firebaseUid Firebase User ID (from Firebase token)
      * @param email User email
      * @param name User display name
@@ -59,24 +58,24 @@ public class OnboardingService {
             String organizationName,
             String projectName,
             String projectDescription) {
-        
-        log.info("Starting onboarding: firebaseUid={}, email={}, org={}, project={}", 
+
+        log.info("Starting onboarding: firebaseUid={}, email={}, org={}, project={}",
             firebaseUid, email, organizationName, projectName);
-        
+
         // CRITICAL FIX: Look up the database user by email (created during login)
         // This ensures we use the same database userId for OpenFGA role assignments
         return userService.getOrCreateUser(email, name, firebaseUid)
             .flatMap(user -> {
                 String dbUserId = user.getUserId();
-                log.info("Onboarding user lookup: firebaseUid={}, dbUserId={}, email={}", 
+                log.info("Onboarding user lookup: firebaseUid={}, dbUserId={}, email={}",
                     firebaseUid, dbUserId, email);
-                
+
                 // Validate: User cannot be part of any tenant already
                 return openFgaService.getUserTenants(dbUserId)
                     .flatMap(existingTenants -> {
                         if (existingTenants != null && !existingTenants.isEmpty()) {
                             // User is already part of one or more tenants - block onboarding
-                            log.warn("Onboarding blocked: User is already part of {} organization(s): dbUserId={}", 
+                            log.warn("Onboarding blocked: User is already part of {} organization(s): dbUserId={}",
                                 existingTenants.size(), dbUserId);
                             return Single.error(new IllegalStateException(
                                 "User is already part of an organization. You cannot onboard if you're already " +
@@ -86,7 +85,7 @@ public class OnboardingService {
                         return proceedWithOnboarding(dbUserId, email, name, organizationName, projectName, projectDescription);
                     });
             })
-            .doOnError(error -> 
+            .doOnError(error ->
                 log.error("Onboarding failed: firebaseUid={}, email={}", firebaseUid, email, error)
             );
     }
