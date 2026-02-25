@@ -169,22 +169,6 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_user_firebase_uid (firebase_uid)
 );
 
--- Projects table (hierarchy: tenant -> projects)
-CREATE TABLE IF NOT EXISTS projects (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project identifier (proj-{uuid})',
-    tenant_id VARCHAR(64) NOT NULL COMMENT 'Parent tenant ID',
-    name VARCHAR(255) NOT NULL COMMENT 'Project name',
-    description TEXT COMMENT 'Project description',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Project status',
-    created_by VARCHAR(255) NOT NULL COMMENT 'User who created the project',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-    INDEX idx_project_tenant (tenant_id, is_active)
-);
-
 -- ============================================================
 -- Tables that reference projects
 -- ============================================================
@@ -570,24 +554,6 @@ CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
 );
 
 -- ============================================================================
--- PROJECTS TABLE
--- Projects within a tenant
--- ============================================================================
-CREATE TABLE IF NOT EXISTS projects (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project identifier (projectName-{uuid})',
-    tenant_id VARCHAR(64) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
-    INDEX idx_project_tenant (tenant_id, is_active)
-);
-
--- ============================================================================
 -- PROJECT USAGE LIMITS TABLE
 -- Single source of truth for project limits. One active record per project.
 -- ============================================================================
@@ -636,10 +602,10 @@ CREATE TABLE IF NOT EXISTS project_api_keys (
 -- Stores ClickHouse user credentials for each project
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
-    clickhouse_project_credential_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project ID (projectName-{uuid})',
-    ch_username VARCHAR(255) NOT NULL UNIQUE,
-    ch_password_encrypted TEXT NOT NULL,
+    clickhouse_username VARCHAR(255) NOT NULL UNIQUE,
+    clickhouse_password_encrypted TEXT NOT NULL,
     encryption_salt VARCHAR(100) NOT NULL,
     password_digest VARCHAR(100) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
