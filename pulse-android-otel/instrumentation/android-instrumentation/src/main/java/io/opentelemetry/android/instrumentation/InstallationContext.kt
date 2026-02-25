@@ -13,5 +13,4 @@ data class InstallationContext(
     val application: Application,
     val openTelemetry: OpenTelemetry,
     val sessionProvider: SessionProvider,
-    val meteredSessionProvider: SessionProvider? = null,
 )

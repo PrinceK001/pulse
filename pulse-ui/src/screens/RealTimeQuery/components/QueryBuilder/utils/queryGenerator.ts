@@ -13,9 +13,11 @@ import {
   TimeRangePreset,
 } from "../QueryBuilder.interface";
 
-// Partition column names (simplified date/hour structure)
+// Partition column names
 const PARTITION_COLUMNS = {
-  date: "date",
+  year: "year",
+  month: "month",
+  day: "day",
   hour: "hour",
 };
 
@@ -67,29 +69,30 @@ function formatDateForSql(date: Date): string {
 
 /**
  * Generate partition-efficient time filter for Athena
- * Uses date/hour partition columns + precise timestamp filter
+ * Uses tuple comparison for partition pruning + precise timestamp filter
  */
 function generatePartitionTimeFilter(startDate: Date, endDate: Date): string {
   // Use UTC values to match S3 data storage format
   const startYear = startDate.getUTCFullYear();
-  const startMonth = String(startDate.getUTCMonth() + 1).padStart(2, "0");
-  const startDay = String(startDate.getUTCDate()).padStart(2, "0");
-  const startHour = String(startDate.getUTCHours()).padStart(2, "0");
-  const startDateStr = `${startYear}-${startMonth}-${startDay}`;
+  const startMonth = startDate.getUTCMonth() + 1;
+  const startDay = startDate.getUTCDate();
+  const startHour = startDate.getUTCHours();
 
   const endYear = endDate.getUTCFullYear();
-  const endMonth = String(endDate.getUTCMonth() + 1).padStart(2, "0");
-  const endDay = String(endDate.getUTCDate()).padStart(2, "0");
-  const endHour = String(endDate.getUTCHours()).padStart(2, "0");
-  const endDateStr = `${endYear}-${endMonth}-${endDay}`;
+  const endMonth = endDate.getUTCMonth() + 1;
+  const endDay = endDate.getUTCDate();
+  const endHour = endDate.getUTCHours();
+
+  // Tuple comparison for partition columns
+  const partitionTuple = `(${PARTITION_COLUMNS.year}, ${PARTITION_COLUMNS.month}, ${PARTITION_COLUMNS.day}, ${PARTITION_COLUMNS.hour})`;
+  const startTuple = `(${startYear}, ${startMonth}, ${startDay}, ${startHour})`;
+  const endTuple = `(${endYear}, ${endMonth}, ${endDay}, ${endHour})`;
 
   const conditions: string[] = [];
 
-  // Partition filters for date and hour
-  conditions.push(`${PARTITION_COLUMNS.date} >= '${startDateStr}'`);
-  conditions.push(`${PARTITION_COLUMNS.date} <= '${endDateStr}'`);
-  conditions.push(`${PARTITION_COLUMNS.hour} >= '${startHour}'`);
-  conditions.push(`${PARTITION_COLUMNS.hour} <= '${endHour}'`);
+  // Partition tuple comparison
+  conditions.push(`${partitionTuple} >= ${startTuple}`);
+  conditions.push(`${partitionTuple} <= ${endTuple}`);
 
   // Precise timestamp filters
   conditions.push(`${TIMESTAMP_COLUMN} >= TIMESTAMP '${formatDateForSql(startDate)}'`);

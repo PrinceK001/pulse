@@ -36,21 +36,14 @@ internal class SessionIdEventSender(
         eventBuilder.emit()
     }
 
-    override fun onSessionEnded(
-        session: Session,
-        expirationTimestampNanos: Long?,
-    ) {
+    override fun onSessionEnded(session: Session) {
         if (session.getId().isBlank()) {
             return
         }
-        val eventBuilder =
-            eventLogger
-                .logRecordBuilder()
-                .setEventName(EVENT_SESSION_END)
-                .setAttribute(SESSION_ID, session.getId())
-        expirationTimestampNanos?.let {
-            eventBuilder.setTimestamp(it, java.util.concurrent.TimeUnit.NANOSECONDS)
-        }
-        eventBuilder.emit()
+        eventLogger
+            .logRecordBuilder()
+            .setEventName(EVENT_SESSION_END)
+            .setAttribute(SESSION_ID, session.getId())
+            .emit()
     }
 }

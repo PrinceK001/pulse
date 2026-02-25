@@ -2,11 +2,12 @@
  * Attributes to Drop Configuration Component
  * Manages rules for dropping/removing attributes from events
  * 
- * Each rule has:
- * - values: string[] — list of attribute names to drop
- * - condition: EventFilter — when to drop them (event name, props, scopes, SDKs)
+ * Flow:
+ * 1. User specifies which attributes to drop (can be multiple)
+ * 2. User defines conditions for when to drop them (scopes, SDKs, optional property conditions)
  * 
- * Structure mirrors AttributesToAddConfig but with plain string names instead of key-value pairs.
+ * Each attribute creates a separate rule entry in the config, but the UI groups them
+ * by conditions for easier management.
  */
 
 import { useState, useMemo } from 'react';
@@ -28,6 +29,7 @@ import {
   Alert,
   Loader,
 } from '@mantine/core';
+import { showNotification } from '@mantine/notifications';
 import {
   IconTrashX,
   IconPlus,
@@ -37,9 +39,10 @@ import {
   IconChevronRight,
   IconX,
   IconInfoCircle,
+  IconCheck,
 } from '@tabler/icons-react';
 import {
-  AttributeToDrop,
+  EventFilter,
   EventPropMatch,
   ScopeEnum,
   SdkEnum,
@@ -60,8 +63,8 @@ import { useGetSdkScopesAndSdks } from '../../../../hooks/useSdkConfig';
 import classes from '../../SamplingConfig.module.css';
 
 interface AttributesToDropConfigProps {
-  attributes: AttributeToDrop[];
-  onChange: (attributes: AttributeToDrop[]) => void;
+  attributes: EventFilter[];
+  onChange: (attributes: EventFilter[]) => void;
   disabled?: boolean;
 }
 
@@ -71,25 +74,39 @@ interface PropMatchWithOperator extends EventPropMatch {
   rawValue: string;
 }
 
+// Grouped attributes by conditions for display
+interface GroupedAttributes {
+  key: string;
+  scopes: ScopeEnum[];
+  sdks: SdkEnum[];
+  props: EventPropMatch[];
+  attributeNames: { id: string; name: string }[];
+}
+
+// Attribute name entry with ID for tracking existing vs new
+interface AttributeNameEntry {
+  id?: string; // undefined for new entries
+  name: string;
+}
+
 export function AttributesToDropConfig({ attributes, onChange, disabled = false }: AttributesToDropConfigProps) {
   // Fetch dynamic options from backend
   const { data: scopesAndSdks, isLoading } = useGetSdkScopesAndSdks();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingAttribute, setEditingAttribute] = useState<AttributeToDrop | null>(null);
-  const [expandedAttributes, setExpandedAttributes] = useState<Set<string>>(new Set());
+  const [editingGroupKey, setEditingGroupKey] = useState<string | null>(null);
+  const [originalGroupIds, setOriginalGroupIds] = useState<string[]>([]); // Track IDs being edited
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
-  // Form state - Attribute names to drop (plain strings)
-  const [attributeNames, setAttributeNames] = useState<string[]>(['']);
+  // Form state - Attributes to drop (with optional ID for tracking edits)
+  const [attributeNames, setAttributeNames] = useState<AttributeNameEntry[]>([{ name: '' }]);
   
-  // Form state - Condition
-  const [conditionNameOperator, setConditionNameOperator] = useState<PropertyMatchOperator>('equals');
-  const [conditionNameRaw, setConditionNameRaw] = useState('');
-  const [conditionProps, setConditionProps] = useState<PropMatchWithOperator[]>([
+  // Form state - Conditions
+  const [attrScopes, setAttrScopes] = useState<ScopeEnum[]>([]);
+  const [attrSdks, setAttrSdks] = useState<SdkEnum[]>([]);
+  const [attrProps, setAttrProps] = useState<PropMatchWithOperator[]>([
     { name: '', value: '', operator: 'equals', rawValue: '' }
   ]);
-  const [conditionScopes, setConditionScopes] = useState<ScopeEnum[]>([]);
-  const [conditionSdks, setConditionSdks] = useState<SdkEnum[]>([]);
 
   // Convert backend data to select options
   const sdkOptions = useMemo(() => {
@@ -109,14 +126,50 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
   const allSdks = useMemo(() => sdkOptions.map(s => s.value), [sdkOptions]);
   const allScopes = useMemo(() => scopeOptions.map(s => s.value), [scopeOptions]);
 
+  // Group attributes by their conditions for display
+  const groupedAttributes = useMemo((): GroupedAttributes[] => {
+    const groups = new Map<string, GroupedAttributes>();
+    
+    attributes.forEach(attr => {
+      // Create a key based on conditions
+      const conditionKey = JSON.stringify({
+        scopes: [...attr.scopes].sort(),
+        sdks: [...attr.sdks].sort(),
+        props: attr.props.map(p => ({ name: p.name, value: p.value })).sort((a, b) => a.name.localeCompare(b.name)),
+      });
+      
+      if (groups.has(conditionKey)) {
+        groups.get(conditionKey)!.attributeNames.push({ id: attr.id || '', name: attr.name });
+      } else {
+        groups.set(conditionKey, {
+          key: conditionKey,
+          scopes: attr.scopes,
+          sdks: attr.sdks,
+          props: attr.props,
+          attributeNames: [{ id: attr.id || '', name: attr.name }],
+        });
+      }
+    });
+    
+    return Array.from(groups.values());
+  }, [attributes]);
+
+  // Helper to generate condition key for comparison
+  const generateConditionKey = (scopes: ScopeEnum[], sdks: SdkEnum[], props: EventPropMatch[]) => {
+    return JSON.stringify({
+      scopes: [...scopes].sort(),
+      sdks: [...sdks].sort(),
+      props: props.map(p => ({ name: p.name, value: p.value })).sort((a, b) => a.name.localeCompare(b.name)),
+    });
+  };
+
   const resetForm = () => {
-    setAttributeNames(['']);
-    setConditionNameOperator('equals');
-    setConditionNameRaw('');
-    setConditionProps([{ name: '', value: '', operator: 'equals', rawValue: '' }]);
-    setConditionScopes([]);
-    setConditionSdks([]);
-    setEditingAttribute(null);
+    setAttributeNames([{ name: '' }]);
+    setAttrScopes([]);
+    setAttrSdks([]);
+    setAttrProps([{ name: '', value: '', operator: 'equals', rawValue: '' }]);
+    setEditingGroupKey(null);
+    setOriginalGroupIds([]);
   };
 
   const openAddModal = () => {
@@ -125,20 +178,23 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
     setIsModalOpen(true);
   };
 
-  const openEditModal = (attr: AttributeToDrop) => {
+  const openEditGroupModal = (group: GroupedAttributes) => {
     if (disabled) return;
-    setEditingAttribute(attr);
     
-    // Load attribute names
-    setAttributeNames(attr.values.length > 0 ? [...attr.values] : ['']);
+    setEditingGroupKey(group.key);
+    // Store original IDs for tracking what to update/delete
+    setOriginalGroupIds(group.attributeNames.map(a => a.id));
     
-    // Load condition
-    const detectedName = detectOperatorFromRegex(attr.condition.name);
-    setConditionNameOperator(detectedName.operator);
-    setConditionNameRaw(detectedName.rawValue);
+    // Load all attribute names from the group
+    const names: AttributeNameEntry[] = group.attributeNames.map(attr => {
+      const detected = detectOperatorFromRegex(attr.name);
+      return { id: attr.id, name: detected.rawValue };
+    });
+    setAttributeNames(names);
     
-    const propsWithOperators: PropMatchWithOperator[] = attr.condition.props.length > 0 
-      ? attr.condition.props.map(p => {
+    // Load conditions
+    const propsWithOperators: PropMatchWithOperator[] = group.props.length > 0 
+      ? group.props.map(p => {
           const detected = detectOperatorFromRegex(p.value);
           return {
             name: p.name,
@@ -148,19 +204,19 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
           };
         })
       : [{ name: '', value: '', operator: 'equals', rawValue: '' }];
-    setConditionProps(propsWithOperators);
-    setConditionScopes([...attr.condition.scopes]);
-    setConditionSdks([...attr.condition.sdks]);
+    setAttrProps(propsWithOperators);
+    setAttrScopes([...group.scopes]);
+    setAttrSdks([...group.sdks]);
     setIsModalOpen(true);
   };
 
   const handleSave = () => {
     // Filter out empty attribute names
-    const validNames = attributeNames.filter(n => n.trim());
-    if (validNames.length === 0) return;
+    const validEntries = attributeNames.filter(a => a.name.trim());
+    if (validEntries.length === 0) return;
     
     // Convert props to proper format
-    const validProps: EventPropMatch[] = conditionProps
+    const validProps: EventPropMatch[] = attrProps
       .filter(p => p.name.trim() && p.rawValue.trim())
       .map(p => {
         const operator = PROPERTY_MATCH_OPERATORS.find(op => op.value === p.operator);
@@ -170,27 +226,94 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
         };
       });
     
-    // Convert condition name operator + raw value to regex pattern
-    const nameOperator = PROPERTY_MATCH_OPERATORS.find(op => op.value === conditionNameOperator);
-    const conditionNameRegex = conditionNameRaw.trim() 
-      ? (nameOperator ? nameOperator.toRegex(conditionNameRaw.trim()) : conditionNameRaw.trim())
-      : '';
-    
-    const newAttr: AttributeToDrop = {
-      id: editingAttribute?.id || generateId(),
-      values: validNames.map(n => n.trim()),
-      condition: {
-        name: conditionNameRegex,
-        props: validProps,
-        scopes: conditionScopes,
-        sdks: conditionSdks,
-      },
-    };
-
-    if (editingAttribute) {
-      onChange(attributes.map(a => a.id === editingAttribute.id ? newAttr : a));
+    if (editingGroupKey) {
+      // Editing a group - need to handle updates, additions, and deletions
+      const updatedAttributes: EventFilter[] = [];
+      const currentIds = new Set<string>();
+      
+      // Process each entry
+      validEntries.forEach(entry => {
+        const equalsOperator = PROPERTY_MATCH_OPERATORS.find(op => op.value === 'equals');
+        const attrNameRegex = equalsOperator ? equalsOperator.toRegex(entry.name.trim()) : entry.name.trim();
+        
+        if (entry.id) {
+          // Existing attribute - update it
+          currentIds.add(entry.id);
+          updatedAttributes.push({
+            id: entry.id,
+            name: attrNameRegex,
+            props: validProps,
+            scopes: attrScopes,
+            sdks: attrSdks,
+          });
+        } else {
+          // New attribute - create it
+          updatedAttributes.push({
+            id: generateId(),
+            name: attrNameRegex,
+            props: validProps,
+            scopes: attrScopes,
+            sdks: attrSdks,
+          });
+        }
+      });
+      
+      // Find IDs that were removed
+      const removedIds = new Set(originalGroupIds.filter(id => !currentIds.has(id)));
+      
+      // Build new attributes array: keep non-group items, remove deleted, update/add others
+      const newAttributes = attributes.filter(a => {
+        const attrId = a.id || '';
+        // Keep if not part of original group
+        if (!originalGroupIds.includes(attrId)) return true;
+        // Remove if deleted
+        if (removedIds.has(attrId)) return false;
+        // Will be replaced by updated version
+        return false;
+      });
+      
+      // Add all updated/new attributes
+      onChange([...newAttributes, ...updatedAttributes]);
     } else {
-      onChange([...attributes, newAttr]);
+      // Adding new attributes - check if conditions match an existing group
+      const newConditionKey = generateConditionKey(attrScopes, attrSdks, validProps);
+      const matchingGroup = groupedAttributes.find(g => g.key === newConditionKey);
+      
+      const newAttrs: EventFilter[] = validEntries.map(entry => {
+        const equalsOperator = PROPERTY_MATCH_OPERATORS.find(op => op.value === 'equals');
+        const attrNameRegex = equalsOperator ? equalsOperator.toRegex(entry.name.trim()) : entry.name.trim();
+        
+        return {
+          id: generateId(),
+          name: attrNameRegex,
+          props: validProps,
+          scopes: attrScopes,
+          sdks: attrSdks,
+        };
+      });
+      
+      onChange([...attributes, ...newAttrs]);
+      
+      // Show notification if added to existing group
+      if (matchingGroup) {
+        const existingCount = matchingGroup.attributeNames.length;
+        const newCount = validEntries.length;
+        showNotification({
+          title: 'Added to existing rule',
+          message: `${newCount} attribute${newCount > 1 ? 's' : ''} added to existing rule with ${existingCount} attribute${existingCount > 1 ? 's' : ''} (same conditions).`,
+          color: 'blue',
+          icon: <IconInfoCircle size={16} />,
+          autoClose: 5000,
+        });
+      } else {
+        showNotification({
+          title: 'Rule created',
+          message: `New drop rule created with ${validEntries.length} attribute${validEntries.length > 1 ? 's' : ''}.`,
+          color: 'green',
+          icon: <IconCheck size={16} />,
+          autoClose: 3000,
+        });
+      }
     }
 
     setIsModalOpen(false);
@@ -202,19 +325,25 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
     onChange(attributes.filter(a => a.id !== attrId));
   };
 
-  const toggleAttributeExpand = (attrId: string) => {
-    const newExpanded = new Set(expandedAttributes);
-    if (newExpanded.has(attrId)) {
-      newExpanded.delete(attrId);
+  const handleRemoveGroup = (group: GroupedAttributes) => {
+    if (disabled) return;
+    const idsToRemove = new Set(group.attributeNames.map(a => a.id));
+    onChange(attributes.filter(a => !idsToRemove.has(a.id || '')));
+  };
+
+  const toggleGroupExpand = (key: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
     } else {
-      newExpanded.add(attrId);
+      newExpanded.add(key);
     }
-    setExpandedAttributes(newExpanded);
+    setExpandedGroups(newExpanded);
   };
 
   // Attribute names handlers
   const addAttributeNameField = () => {
-    setAttributeNames([...attributeNames, '']);
+    setAttributeNames([...attributeNames, { name: '' }]);
   };
 
   const removeAttributeNameField = (index: number) => {
@@ -223,20 +352,20 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
   };
 
   const updateAttributeNameField = (index: number, value: string) => {
-    setAttributeNames(attributeNames.map((n, i) => i === index ? value : n));
+    setAttributeNames(attributeNames.map((a, i) => i === index ? { ...a, name: value } : a));
   };
 
   // Condition props handlers
-  const addConditionPropField = () => {
-    setConditionProps([...conditionProps, { name: '', value: '', operator: 'equals', rawValue: '' }]);
+  const addPropField = () => {
+    setAttrProps([...attrProps, { name: '', value: '', operator: 'equals', rawValue: '' }]);
   };
 
-  const removeConditionPropField = (index: number) => {
-    setConditionProps(conditionProps.filter((_, i) => i !== index));
+  const removePropField = (index: number) => {
+    setAttrProps(attrProps.filter((_, i) => i !== index));
   };
 
-  const updateConditionPropField = (index: number, field: 'name' | 'rawValue' | 'operator', val: string) => {
-    setConditionProps(conditionProps.map((p, i) => 
+  const updatePropField = (index: number, field: 'name' | 'rawValue' | 'operator', val: string) => {
+    setAttrProps(attrProps.map((p, i) => 
       i === index ? { ...p, [field]: val } : p
     ));
   };
@@ -245,7 +374,7 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
   const getScopeColor = (scope: ScopeEnum) => SCOPE_DISPLAY_INFO[scope]?.color || '#6B7280';
 
   // Check if form is valid for saving
-  const hasValidNames = attributeNames.some(n => n.trim());
+  const hasValidNames = attributeNames.some(a => a.name.trim());
 
   return (
     <>
@@ -287,7 +416,7 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
               (PII, tokens, etc.) or reduce payload size before export.
             </Text>
             <Text size="xs" mt="xs" c="dimmed">
-              💡 <strong>Tip:</strong> Each rule specifies attribute names to drop and a condition for when to apply it.
+              💡 <strong>Tip:</strong> Rules with matching conditions are grouped together automatically.
             </Text>
           </Alert>
 
@@ -299,36 +428,50 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
             </Box>
           ) : (
             <Stack gap="xs">
-              {attributes.map(attr => {
-                const isExpanded = expandedAttributes.has(attr.id || '');
+              {groupedAttributes.map(group => {
+                const isExpanded = expandedGroups.has(group.key);
                 
                 return (
-                  <Paper key={attr.id} withBorder p="sm">
+                  <Paper key={group.key} withBorder p="sm">
                     <Group 
                       justify="space-between" 
                       style={{ cursor: 'pointer' }} 
-                      onClick={() => toggleAttributeExpand(attr.id || '')}
+                      onClick={() => toggleGroupExpand(group.key)}
                     >
                       <Group gap="sm">
                         {isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                        <Text fw={600}>
-                          Drop {attr.values.length} attribute{attr.values.length > 1 ? 's' : ''}
-                        </Text>
-                        {attr.condition.name && (
-                          <Badge size="xs" color="orange" variant="light">
-                            When: {formatNameForDisplay(attr.condition.name)}
-                          </Badge>
-                        )}
+                        <Box>
+                          <Group gap="xs" wrap="wrap">
+                            {group.attributeNames.slice(0, 3).map(attr => (
+                              <Badge key={attr.id} size="sm" color="red" variant="light">
+                                {formatNameForDisplay(attr.name)}
+                              </Badge>
+                            ))}
+                            {group.attributeNames.length > 3 && (
+                              <Badge size="sm" variant="light" color="gray">
+                                +{group.attributeNames.length - 3} more
+                              </Badge>
+                            )}
+                          </Group>
+                          <Text size="xs" c="dimmed" mt={4}>
+                            {group.attributeNames.length} attribute{group.attributeNames.length !== 1 ? 's' : ''} will be dropped
+                          </Text>
+                        </Box>
                       </Group>
                       <Group gap="xs">
-                        {attr.values.slice(0, 3).map((v, idx) => (
-                          <Badge key={idx} size="xs" variant="outline" color="red">
-                            {v}
+                        {group.scopes.slice(0, 2).map(scope => (
+                          <Badge 
+                            key={scope} 
+                            size="xs" 
+                            color={getScopeColor(scope)}
+                            variant="light"
+                          >
+                            {scope}
                           </Badge>
                         ))}
-                        {attr.values.length > 3 && (
-                          <Badge size="xs" variant="outline" color="gray">
-                            +{attr.values.length - 3}
+                        {group.scopes.length > 2 && (
+                          <Badge size="xs" variant="light" color="gray">
+                            +{group.scopes.length - 2}
                           </Badge>
                         )}
                       </Group>
@@ -336,32 +479,42 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                     
                     <Collapse in={isExpanded}>
                       <Divider my="sm" />
-                      <Stack gap="xs">
+                      <Stack gap="sm">
+                        {/* Attributes being dropped */}
                         <Box>
-                          <Text size="xs" c="dimmed" mb="xs">Attributes to Drop:</Text>
+                          <Text size="xs" c="dimmed" fw={500} mb="xs">Attributes to Drop:</Text>
                           <Group gap="xs" wrap="wrap">
-                            {attr.values.map((v, idx) => (
-                              <Badge key={idx} size="sm" color="red" variant="light">
-                                {v}
+                            {group.attributeNames.map(attr => (
+                              <Badge 
+                                key={attr.id} 
+                                size="sm" 
+                                color="red" 
+                                variant="light"
+                                rightSection={!disabled ? (
+                                  <ActionIcon 
+                                    size="xs" 
+                                    color="red" 
+                                    variant="transparent"
+                                    onClick={(e) => { e.stopPropagation(); handleRemoveAttribute(attr.id); }}
+                                  >
+                                    <IconX size={12} />
+                                  </ActionIcon>
+                                ) : undefined}
+                              >
+                                {formatNameForDisplay(attr.name)}
                               </Badge>
                             ))}
                           </Group>
                         </Box>
 
                         <Divider variant="dashed" />
-                        
-                        <Text size="xs" fw={500} c="dimmed">Condition:</Text>
-                        
-                        {attr.condition.name && (
-                          <Group gap="xs">
-                            <Text size="xs" c="dimmed" w={80}>Event Name:</Text>
-                            <Badge size="xs" variant="outline">{formatNameForDisplay(attr.condition.name)}</Badge>
-                          </Group>
-                        )}
 
+                        {/* Conditions */}
+                        <Text size="xs" c="dimmed" fw={500}>Applies to events from:</Text>
+                        
                         <Group gap="xs">
                           <Text size="xs" c="dimmed" w={80}>Scopes:</Text>
-                          {attr.condition.scopes.map(scope => (
+                          {group.scopes.map(scope => (
                             <Badge 
                               key={scope} 
                               size="xs" 
@@ -375,32 +528,49 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
 
                         <Group gap="xs">
                           <Text size="xs" c="dimmed" w={80}>SDKs:</Text>
-                          {attr.condition.sdks.map(sdk => (
+                          {group.sdks.map(sdk => (
                             <Badge key={sdk} size="xs" variant="outline">
                               {getSdkLabel(sdk)}
                             </Badge>
                           ))}
                         </Group>
                         
-                        {attr.condition.props.length > 0 && (
+                        {group.props.length > 0 && (
                           <Box>
-                            <Text size="xs" c="dimmed" mb="xs">Property Matches:</Text>
-                            {attr.condition.props.map((prop, idx) => (
-                              <Text key={idx} size="xs" ff="monospace" ml="md">
-                                {prop.name} = /{prop.value}/
-                              </Text>
-                            ))}
+                            <Text size="xs" c="dimmed" fw={500} mb="xs">When Properties Match:</Text>
+                            {group.props.map((prop, idx) => {
+                              const detected = detectOperatorFromRegex(prop.value);
+                              return (
+                                <Text key={idx} size="xs" ff="monospace" ml="md">
+                                  {prop.name} {detected.operator === 'equals' ? '=' : `(${detected.operator})`} "{detected.rawValue}"
+                                </Text>
+                              );
+                            })}
                           </Box>
                         )}
                         
                         {!disabled && (
                           <Group justify="flex-end" mt="xs">
-                            <ActionIcon variant="subtle" onClick={(e) => { e.stopPropagation(); openEditModal(attr); }}>
-                              <IconEdit size={16} />
-                            </ActionIcon>
-                            <ActionIcon variant="subtle" color="red" onClick={(e) => { e.stopPropagation(); handleRemoveAttribute(attr.id || ''); }}>
-                              <IconTrash size={16} />
-                            </ActionIcon>
+                            <Button 
+                              size="xs" 
+                              variant="subtle" 
+                              leftSection={<IconEdit size={14} />}
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                openEditGroupModal(group);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              size="xs" 
+                              variant="subtle" 
+                              color="red"
+                              leftSection={<IconTrash size={14} />}
+                              onClick={(e) => { e.stopPropagation(); handleRemoveGroup(group); }}
+                            >
+                              Remove All
+                            </Button>
                           </Group>
                         )}
                       </Stack>
@@ -417,7 +587,7 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
       <Modal
         opened={isModalOpen}
         onClose={() => { setIsModalOpen(false); resetForm(); }}
-        title={editingAttribute ? 'Edit Attribute Drop Rule' : 'Add Attribute Drop Rule'}
+        title={editingGroupKey ? 'Edit Attribute Drop Rule' : 'Add Attribute Drop Rule'}
         size="lg"
         centered
       >
@@ -434,11 +604,11 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
               <Text size="xs" c="dimmed" mb="md">
                 These attribute keys will be removed from matching events
               </Text>
-              {attributeNames.map((name, index) => (
+              {attributeNames.map((entry, index) => (
                 <Group key={index} mb="xs" align="flex-end" wrap="nowrap">
                   <TextInput
                     placeholder="e.g., user.email, auth_token, credit_card"
-                    value={name}
+                    value={entry.name}
                     onChange={(e) => updateAttributeNameField(index, e.currentTarget.value)}
                     style={{ flex: 1 }}
                     size="sm"
@@ -468,51 +638,23 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
 
             {/* Condition Section */}
             <Box>
-              <Text size="sm" fw={500} mb="xs">Event Name (Optional)</Text>
-              <Text size="xs" c="dimmed" mb="sm">
-                Only drop attributes from events matching this name (leave empty for all events)
-              </Text>
-              <Group wrap="nowrap" align="flex-start">
-                <Select
-                  placeholder="Condition"
-                  value={conditionNameOperator}
-                  onChange={(v) => setConditionNameOperator(v as PropertyMatchOperator || 'equals')}
-                  data={PROPERTY_MATCH_OPERATORS.map(op => ({ value: op.value, label: op.label }))}
-                  style={{ width: 150 }}
-                />
-                <TextInput
-                  placeholder={conditionNameOperator === 'regex' ? 'Enter regex pattern (leave empty for all)' : 'e.g., http.request, screen_view (leave empty for all)'}
-                  value={conditionNameRaw}
-                  onChange={(e) => setConditionNameRaw(e.currentTarget.value)}
-                  style={{ flex: 1 }}
-                  error={conditionNameOperator === 'regex' && conditionNameRaw.trim() ? validateRegex(conditionNameRaw) : undefined}
-                />
-              </Group>
-              {conditionNameOperator === 'regex' && (
-                <Text size="xs" c="dimmed" mt="xs">
-                  💡 Enter a valid JavaScript regular expression pattern
-                </Text>
-              )}
-            </Box>
-
-            <Box>
               <Text size="sm" fw={500} mb="xs">Property Matches (Optional)</Text>
               <Text size="xs" c="dimmed" mb="sm">
                 Only drop attributes when these event properties match (leave empty for all events)
               </Text>
-              {conditionProps.map((prop, index) => (
+              {attrProps.map((prop, index) => (
                 <Group key={index} mb="xs" align="flex-end" wrap="nowrap">
                   <TextInput
                     placeholder="Property name"
                     value={prop.name}
-                    onChange={(e) => updateConditionPropField(index, 'name', e.currentTarget.value)}
+                    onChange={(e) => updatePropField(index, 'name', e.currentTarget.value)}
                     style={{ flex: 1 }}
                     size="sm"
                   />
                   <Select
                     placeholder="Operator"
                     value={prop.operator}
-                    onChange={(v) => updateConditionPropField(index, 'operator', v || 'equals')}
+                    onChange={(v) => updatePropField(index, 'operator', v || 'equals')}
                     data={PROPERTY_MATCH_OPERATORS.map(op => ({ value: op.value, label: op.label }))}
                     style={{ width: 130 }}
                     size="sm"
@@ -520,7 +662,7 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                   <TextInput
                     placeholder={prop.operator === 'regex' ? 'Regex pattern' : 'Value'}
                     value={prop.rawValue}
-                    onChange={(e) => updateConditionPropField(index, 'rawValue', e.currentTarget.value)}
+                    onChange={(e) => updatePropField(index, 'rawValue', e.currentTarget.value)}
                     style={{ flex: 1 }}
                     size="sm"
                     error={prop.operator === 'regex' && prop.rawValue.trim() ? validateRegex(prop.rawValue) : undefined}
@@ -528,8 +670,8 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                   <ActionIcon
                     color="red"
                     variant="subtle"
-                    onClick={() => removeConditionPropField(index)}
-                    disabled={conditionProps.length === 1}
+                    onClick={() => removePropField(index)}
+                    disabled={attrProps.length === 1}
                   >
                     <IconX size={16} />
                   </ActionIcon>
@@ -539,7 +681,7 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                 size="xs"
                 variant="subtle"
                 leftSection={<IconPlus size={14} />}
-                onClick={addConditionPropField}
+                onClick={addPropField}
               >
                 Add Condition
               </Button>
@@ -552,7 +694,7 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                 <Button 
                   size="compact-xs" 
                   variant="subtle" 
-                  onClick={() => setConditionScopes(allScopes)}
+                  onClick={() => setAttrScopes(allScopes)}
                   disabled={scopeOptions.length === 0}
                 >
                   Select All
@@ -562,8 +704,8 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                 description="Which telemetry types this rule applies to"
                 placeholder="Select scopes"
                 data={scopeOptions.map(s => ({ value: s.value, label: s.label }))}
-                value={conditionScopes}
-                onChange={(v) => setConditionScopes(v as ScopeEnum[])}
+                value={attrScopes}
+                onChange={(v) => setAttrScopes(v as ScopeEnum[])}
                 required
               />
             </Box>
@@ -575,7 +717,7 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                 <Button 
                   size="compact-xs" 
                   variant="subtle" 
-                  onClick={() => setConditionSdks(allSdks)}
+                  onClick={() => setAttrSdks(allSdks)}
                   disabled={sdkOptions.length === 0}
                 >
                   Select All
@@ -585,8 +727,8 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                 description="Which SDK platforms this rule applies to"
                 placeholder="Select SDKs"
                 data={sdkOptions.map(s => ({ value: s.value, label: s.label }))}
-                value={conditionSdks}
-                onChange={(v) => setConditionSdks(v as SdkEnum[])}
+                value={attrSdks}
+                onChange={(v) => setAttrSdks(v as SdkEnum[])}
                 required
               />
             </Box>
@@ -599,14 +741,13 @@ export function AttributesToDropConfig({ attributes, onChange, disabled = false 
                 onClick={handleSave}
                 disabled={
                   !hasValidNames || 
-                  conditionScopes.length === 0 || 
-                  conditionSdks.length === 0 ||
-                  (conditionNameOperator === 'regex' && conditionNameRaw.trim() && validateRegex(conditionNameRaw) !== null) ||
-                  conditionProps.some(p => p.operator === 'regex' && p.rawValue.trim() && validateRegex(p.rawValue) !== null)
+                  attrScopes.length === 0 || 
+                  attrSdks.length === 0 ||
+                  attrProps.some(p => p.operator === 'regex' && p.rawValue.trim() && validateRegex(p.rawValue) !== null)
                 }
                 color="red"
               >
-                {editingAttribute ? 'Update Rule' : 'Add Drop Rule'}
+                {editingGroupKey ? 'Update Rule' : 'Add Drop Rule'}
               </Button>
             </Group>
           </Stack>

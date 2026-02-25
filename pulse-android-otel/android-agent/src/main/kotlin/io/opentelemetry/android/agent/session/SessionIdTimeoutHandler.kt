@@ -5,6 +5,7 @@
 
 package io.opentelemetry.android.agent.session
 
+import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.internal.services.applifecycle.ApplicationStateListener
 import io.opentelemetry.sdk.common.Clock
 import kotlin.time.Duration
@@ -31,10 +32,14 @@ internal class SessionIdTimeoutHandler(
     private var timeoutStartNanos: Long = 0
 
     @Volatile
-    private var backgroundStartTimeNanos: Long = 0
-
-    @Volatile
     private var state = State.FOREGROUND
+
+    // for testing
+    @OptIn(Incubating::class)
+    internal constructor(sessionConfig: SessionConfig) : this(
+        Clock.getDefault(),
+        sessionConfig.backgroundInactivityTimeout,
+    )
 
     override fun onApplicationForegrounded() {
         state = State.TRANSITIONING_TO_FOREGROUND
@@ -42,7 +47,6 @@ internal class SessionIdTimeoutHandler(
 
     override fun onApplicationBackgrounded() {
         state = State.BACKGROUND
-        backgroundStartTimeNanos = clock.now()
     }
 
     fun hasTimedOut(): Boolean {
@@ -54,15 +58,12 @@ internal class SessionIdTimeoutHandler(
         return elapsedTime >= sessionBackgroundInactivityTimeout.inWholeNanoseconds
     }
 
-    fun getBackgroundStartTimeNanos(): Long? = if (backgroundStartTimeNanos == 0L) null else backgroundStartTimeNanos
-
     fun bump() {
         timeoutStartNanos = clock.nanoTime()
 
         // move from the temporary transition state to foreground after the first span
         if (state == State.TRANSITIONING_TO_FOREGROUND) {
             state = State.FOREGROUND
-            backgroundStartTimeNanos = 0L
         }
     }
 

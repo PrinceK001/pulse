@@ -17,7 +17,6 @@ class SdkPreconfiguredRumBuilder internal constructor(
     private val application: Application,
     private val sdk: OpenTelemetrySdk,
     private val sessionProvider: SessionProvider,
-    private val meteredSessionProvider: SessionProvider?,
     private val config: OtelRumConfig,
 ) {
     private var onShutdown: Runnable = Runnable {} // nop
@@ -52,7 +51,7 @@ class SdkPreconfiguredRumBuilder internal constructor(
      * @return A new [OpenTelemetryRum] instance.
      */
     fun build(): OpenTelemetryRum {
-        val ctx = InstallationContext(application, sdk, sessionProvider, meteredSessionProvider)
+        val ctx = InstallationContext(application, sdk, sessionProvider)
         val enabledInstrumentations = getEnabledInstrumentations()
         val onShutdown: () -> Unit = {
             for (instrumentation in enabledInstrumentations) {

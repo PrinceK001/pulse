@@ -16,11 +16,11 @@ interface Session {
 
     data class DefaultSession(
         private val id: String,
-        private val startTimestampNanos: Long,
+        private val timestamp: Long,
     ) : Session {
         override fun getId(): String = id
 
-        override fun getStartTimestamp(): Long = startTimestampNanos
+        override fun getStartTimestamp(): Long = timestamp
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true

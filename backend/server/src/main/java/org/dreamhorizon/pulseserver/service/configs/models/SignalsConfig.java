@@ -34,7 +34,7 @@ public class SignalsConfig {
   private String customEventCollectorUrl;
 
   @JsonProperty("attributesToDrop")
-  private List<AttributeToDrop> attributesToDrop;
+  private List<EventFilter> attributesToDrop;
 
   @JsonProperty("attributesToAdd")
   private List<AttributeToAdd> attributesToAdd;

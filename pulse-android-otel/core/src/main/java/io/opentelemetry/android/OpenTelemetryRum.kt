@@ -89,13 +89,11 @@ interface OpenTelemetryRum {
             openTelemetrySdk: OpenTelemetrySdk,
             config: OtelRumConfig,
             sessionProvider: SessionProvider,
-            meteredSessionProvider: SessionProvider? = null,
         ): SdkPreconfiguredRumBuilder =
             SdkPreconfiguredRumBuilder(
                 application,
                 openTelemetrySdk,
                 sessionProvider,
-                meteredSessionProvider,
                 config,
             )
 

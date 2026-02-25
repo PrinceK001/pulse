@@ -485,52 +485,46 @@ class PulseSdkConfigRetrofitClientTest {
                         "customEventCollectorUrl": "http://localhost:4318/v1/custom-event",
                         "attributesToDrop": [
                             {
-                                "condition": {
-                                    "name": "credit_card",
-                                    "props": [
-                                        {
-                                            "name": "severity",
-                                            "value": "critical"
-                                        }
-                                    ],
-                                    "scopes": [
-                                        "logs",
-                                        "traces",
-                                        "metrics",
-                                        "baggage"
-                                    ],
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ]
-                                },
-                                "values": ["credit_card", "card_number"]
+                                "name": "credit_card",
+                                "props": [
+                                    {
+                                        "name": "severity",
+                                        "value": "critical"
+                                    }
+                                ],
+                                "scopes": [
+                                    "logs",
+                                    "traces",
+                                    "metrics",
+                                    "baggage"
+                                ],
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ]
                             },
                             {
-                                "condition": {
-                                    "name": "password",
-                                    "props": [
-                                        {
-                                            "name": "severity",
-                                            "value": "critical"
-                                        }
-                                    ],
-                                    "scopes": [
-                                        "logs",
-                                        "traces",
-                                        "metrics",
-                                        "baggage"
-                                    ],
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ]
-                                },
-                                "values": ["password", "secret"]
+                                "name": "password",
+                                "props": [
+                                    {
+                                        "name": "severity",
+                                        "value": "critical"
+                                    }
+                                ],
+                                "scopes": [
+                                    "logs",
+                                    "traces",
+                                    "metrics",
+                                    "baggage"
+                                ],
+                                "sdks": [
+                                    "pulse_android_java",
+                                    "pulse_android_rn",
+                                    "pulse_ios_swift",
+                                    "pulse_ios_rn"
+                                ]
                             }
                         ],
                         "attributesToAdd": [

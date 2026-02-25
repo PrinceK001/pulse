@@ -509,6 +509,7 @@ class AthenaServiceTest {
       assertThat(result).isNotNull();
       assertThat(result.getStatus()).isEqualTo(AthenaJobStatus.FAILED);
     }
+
   }
 }
 
