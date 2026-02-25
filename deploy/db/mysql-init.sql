@@ -605,22 +605,6 @@ CREATE TABLE IF NOT EXISTS project_usage_limits (
     INDEX idx_pul_active (project_id, is_active)
 );
 
--- Trigger to ensure only one active record per project
-DELIMITER //
-CREATE TRIGGER trg_single_active_limit
-BEFORE INSERT ON project_usage_limits
-FOR EACH ROW
-BEGIN
-    IF NEW.is_active = TRUE THEN
-        UPDATE project_usage_limits 
-        SET is_active = FALSE, 
-            disabled_at = CURRENT_TIMESTAMP,
-            disabled_reason = COALESCE(disabled_reason, 'new_record')
-        WHERE project_id = NEW.project_id AND is_active = TRUE;
-    END IF;
-END //
-DELIMITER ;
-
 -- ============================================================================
 -- PROJECT API KEYS TABLE
 -- Stores API keys for project authentication at API Gateway
