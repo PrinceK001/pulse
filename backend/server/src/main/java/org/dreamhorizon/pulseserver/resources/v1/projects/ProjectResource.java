@@ -82,15 +82,18 @@ public class ProjectResource {
                     request.getName(),
                     request.getDescription(),
                     userId)
-                .map(project -> ProjectResponse.builder()
-                    .projectId(project.getProjectId())
-                    .name(project.getName())
-                    .description(project.getDescription())
-                    .tenantId(project.getTenantId())
-                    .apiKey(project.getApiKey())
-                    .createdAt(project.getCreatedAt())
-                    .createdBy(project.getCreatedBy())
-                    .build())
+                .map(creationResult -> {
+                    var project = creationResult.getProject();
+                    return ProjectResponse.builder()
+                        .projectId(project.getProjectId())
+                        .name(project.getName())
+                        .description(project.getDescription())
+                        .tenantId(project.getTenantId())
+                        .apiKey(creationResult.getRawApiKey())
+                        .createdAt(project.getCreatedAt())
+                        .createdBy(project.getCreatedBy())
+                        .build();
+                })
                 .to(RestResponse.jaxrsRestHandler());
                 
         } catch (Exception e) {
@@ -119,7 +122,7 @@ public class ProjectResource {
                 .name(project.getName())
                 .description(project.getDescription())
                 .tenantId(project.getTenantId())
-                .apiKey(project.getApiKey())
+                .apiKey(null) // API key is only returned at creation time
                 .createdAt(project.getCreatedAt())
                 .createdBy(project.getCreatedBy())
                 .build())

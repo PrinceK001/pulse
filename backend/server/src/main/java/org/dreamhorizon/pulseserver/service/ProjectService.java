@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
+import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
 import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
 import org.dreamhorizon.pulseserver.service.apikey.ProjectApiKeyService;
@@ -63,8 +64,10 @@ public class ProjectService {
      * 2. Transaction: All DB inserts via service methods (project, credentials, API key, usage limits, SDK config)
      * 3. Blocking: OpenFGA role assignment and tenant linking
      * 4. Fire-and-forget: ClickHouse user creation, S3 upload
+     * 
+     * @return ProjectCreationResult containing the created project and raw API key
      */
-    public Single<Project> createProject(String tenantId, String name, String description, String createdBy) {
+    public Single<ProjectCreationResult> createProject(String tenantId, String name, String description, String createdBy) {
         log.info("Creating project: tenantId={}, name={}, createdBy={}", tenantId, name, createdBy);
 
         // 1. Pre-transaction: Generate projectId
@@ -90,9 +93,12 @@ public class ProjectService {
             .doOnSuccess(result -> {
                 executeAsyncTasks(result, tenantId).subscribe();
             })
-            .map(result -> result.project)
-            .doOnSuccess(createdProject -> 
-                log.info("Project created successfully: projectId={}", createdProject.getProjectId())
+            .map(result -> ProjectCreationResult.builder()
+                .project(result.project)
+                .rawApiKey(result.rawApiKey)
+                .build())
+            .doOnSuccess(creationResult -> 
+                log.info("Project created successfully: projectId={}", creationResult.getProject().getProjectId())
             )
             .doOnError(error -> 
                 log.error("Failed to create project: tenantId={}, name={}", tenantId, name, error)
@@ -108,11 +114,11 @@ public class ProjectService {
                     return projectDao.createProject(conn, project)
                         .flatMap(createdProject -> 
                             clickhouseProjectService.saveCredentials(conn, project.getProjectId())
-                                .map(chCreds -> new TransactionResult(createdProject, chCreds))
+                                .map(chCreds -> new TransactionResult(createdProject, chCreds, null))
                         )
                         .flatMap(result ->
                             projectApiKeyService.createDefaultApiKey(conn, project.getProjectId(), createdBy)
-                                .map(apiKey -> result)
+                                .map(apiKeyInfo -> new TransactionResult(result.project, result.chCredentials, apiKeyInfo.getRawApiKey()))
                         )
                         .flatMap(result ->
                             usageLimitService.createInitialLimits(conn, project.getProjectId(), createdBy)
@@ -175,15 +181,17 @@ public class ProjectService {
     // ==================== NESTED CLASSES ====================
 
     /**
-     * Holds results from the transaction that are needed for async tasks.
+     * Holds results from the transaction that are needed for async tasks and response.
      */
     private static class TransactionResult {
         final Project project;
         final ClickhouseProjectService.CredentialsResult chCredentials;
+        final String rawApiKey;
 
-        TransactionResult(Project project, ClickhouseProjectService.CredentialsResult chCredentials) {
+        TransactionResult(Project project, ClickhouseProjectService.CredentialsResult chCredentials, String rawApiKey) {
             this.project = project;
             this.chCredentials = chCredentials;
+            this.rawApiKey = rawApiKey;
         }
     }
 
