@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.tenantdao.models;
+package org.dreamhorizon.pulseserver.dao.tenant.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,6 +13,7 @@ public class Tenant {
   private String tenantId;
   private String name;
   private String description;
+  private Integer tierId;
   private Boolean isActive;
   private String createdAt;
   private String updatedAt;

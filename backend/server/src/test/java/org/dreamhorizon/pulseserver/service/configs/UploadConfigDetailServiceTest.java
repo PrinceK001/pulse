@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
@@ -94,7 +95,7 @@ class UploadConfigDetailServiceTest {
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
+      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId())
           .blockingGet();
 
       // Then
@@ -110,16 +111,16 @@ class UploadConfigDetailServiceTest {
     void shouldPropagateErrorWhenConfigServiceFails() {
       // Given
       RuntimeException configError = new RuntimeException("Failed to get active config");
-      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.error(configError));
+      when(configService.getActiveSdkConfig(ProjectContext.getProjectId())).thenReturn(Single.error(configError));
 
       // When
-      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
+      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to get active config"));
 
-      verify(configService).getActiveSdkConfig(TenantContext.requireTenantId());
+      verify(configService).getActiveSdkConfig(ProjectContext.getProjectId());
       verify(s3BucketClient, never()).uploadObject(any(), any(), any());
       verify(cloudFrontClient, never()).invalidateCache(any(), any());
     }
@@ -139,7 +140,7 @@ class UploadConfigDetailServiceTest {
           .thenReturn(Single.error(s3Error));
 
       // When
-      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
+      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -167,7 +168,7 @@ class UploadConfigDetailServiceTest {
           .thenReturn(Single.error(cloudFrontError));
 
       // When
-      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
+      var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -198,14 +199,14 @@ class UploadConfigDetailServiceTest {
           .description("Custom Config")
           .build();
 
-      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig(ProjectContext.getProjectId())).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(customBucket), eq(customTenantFilePath), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(customDistributionId), eq(customTenantAssetPath)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
+      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId())
           .blockingGet();
 
       // Then
@@ -229,7 +230,7 @@ class UploadConfigDetailServiceTest {
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
+      EmptyResponse result = uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId())
           .blockingGet();
 
       // Then

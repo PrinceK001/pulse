@@ -109,6 +109,7 @@ class ClickhouseTenantCredentialAuditModelTest {
     void shouldBeEqualToItself() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .projectId("test")
+          .projectId("test")
           .build();
 
       assertEquals(audit, audit);
@@ -118,6 +119,7 @@ class ClickhouseTenantCredentialAuditModelTest {
     void shouldNotBeEqualToNull() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .projectId("test")
+          .projectId("test")
           .build();
 
       assertNotEquals(null, audit);
@@ -126,6 +128,7 @@ class ClickhouseTenantCredentialAuditModelTest {
     @Test
     void shouldNotBeEqualToDifferentType() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
+          .projectId("test")
           .projectId("test")
           .build();
 
@@ -179,6 +182,7 @@ class ClickhouseTenantCredentialAuditModelTest {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
 
       assertNull(audit.getId());
+      assertNull(audit.getProjectId());
       assertNull(audit.getProjectId());
       assertNull(audit.getAction());
     }

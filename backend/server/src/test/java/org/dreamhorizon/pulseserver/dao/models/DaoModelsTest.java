@@ -7,9 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
-import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -114,7 +114,7 @@ class DaoModelsTest {
     void shouldHandleEqualsWithDifferentFields() {
       ClickhouseCredentials base = ClickhouseCredentials.builder()
           .id(1L).tenantId("t1").isActive(true).build();
-      
+
       assertNotEquals(base, ClickhouseCredentials.builder()
           .id(2L).tenantId("t1").isActive(true).build());
       assertNotEquals(base, ClickhouseCredentials.builder()
@@ -216,6 +216,7 @@ class DaoModelsTest {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
       assertNull(audit.getId());
       assertNull(audit.getProjectId());
+      assertNull(audit.getProjectId());
     }
 
     @Test
@@ -294,6 +295,7 @@ class DaoModelsTest {
     @Test
     void shouldHandleEqualsWithNullVsNonNull() {
       ClickhouseTenantCredentialAudit a1 = ClickhouseTenantCredentialAudit.builder()
+          .projectId(null).build();
           .projectId(null).build();
       ClickhouseTenantCredentialAudit a2 = ClickhouseTenantCredentialAudit.builder()
           .projectId("p1").build();
@@ -430,7 +432,7 @@ class DaoModelsTest {
     void shouldHandleEqualsWithDifferentFields() {
       Tenant base = Tenant.builder()
           .tenantId("t1").name("n1").isActive(true).gcpTenantId("gcp1").domainName("d1").build();
-      
+
       assertNotEquals(base, Tenant.builder()
           .tenantId("t2").name("n1").isActive(true).gcpTenantId("gcp1").domainName("d1").build());
       assertNotEquals(base, Tenant.builder()

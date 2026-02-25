@@ -18,11 +18,12 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
-import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
-import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateCredentialsRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.TenantInfo;
@@ -55,6 +56,7 @@ class TenantServiceTest {
 
   @BeforeEach
   void setup() {
+    tenantService = new TenantService(tenantDao, credentialsDao, poolManager, openFgaService);
     tenantService = new TenantService(tenantDao, credentialsDao, poolManager, openFgaService);
   }
 
@@ -665,6 +667,7 @@ class TenantServiceTest {
 
     @Test
     void shouldThrowExceptionOnDaoError() {
+      when(credentialsDao.getAuditLogsByProjectId(anyString()))
       when(credentialsDao.getAuditLogsByProjectId(anyString()))
           .thenReturn(Flowable.error(new RuntimeException("Database error")));
 

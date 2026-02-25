@@ -110,9 +110,9 @@ class QueriesTest {
 
     @Test
     void shouldHaveGetAuditByTenantQuery() {
-      assertNotNull(Queries.GET_AUDIT_BY_TENANT);
-      assertTrue(Queries.GET_AUDIT_BY_TENANT.contains("clickhouse_credential_audit"));
-      assertTrue(Queries.GET_AUDIT_BY_TENANT.contains("ORDER BY created_at DESC"));
+      assertNotNull(Queries.GET_AUDIT_BY_PROJECT);
+      assertTrue(Queries.GET_AUDIT_BY_PROJECT.contains("clickhouse_credential_audit"));
+      assertTrue(Queries.GET_AUDIT_BY_PROJECT.contains("ORDER BY created_at DESC"));
     }
 
     @Test
@@ -130,10 +130,10 @@ class QueriesTest {
       // This test ensures the class can be instantiated (covers the implicit constructor)
       Constructor<Queries> constructor = Queries.class.getDeclaredConstructor();
       assertNotNull(constructor);
-      
+
       // The class should have a default constructor
       assertFalse(Modifier.isPrivate(constructor.getModifiers()));
-      
+
       // Create an instance to cover the constructor
       Queries instance = new Queries();
       assertNotNull(instance);

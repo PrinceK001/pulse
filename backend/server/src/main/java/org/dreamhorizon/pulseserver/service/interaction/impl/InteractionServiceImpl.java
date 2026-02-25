@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.interaction.InteractionDao;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
@@ -23,8 +24,6 @@ import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRe
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -37,7 +36,6 @@ public class InteractionServiceImpl implements InteractionService {
   @Override
   public Single<InteractionDetails> createInteraction(@Valid CreateInteractionRequest request) {
     String projectId = ProjectContext.getProjectId();
-    
     return validateInteractionAlreadyPresent(request)
         .flatMap(resp -> interactionDao.createInteractionAndUploadMetadata(mapper.toInteractionDetails(request)))
         .flatMap(resp -> Single.just(resp.getInteractionDetails()))
@@ -62,7 +60,6 @@ public class InteractionServiceImpl implements InteractionService {
   @Override
   public Single<EmptyResponse> updateInteraction(@Valid UpdateInteractionRequest request) {
     String projectId = ProjectContext.getProjectId();
-    
     return getInteractionDetails(request.getName())
         .flatMap(interaction -> this.patchInteraction(request, interaction))
         .flatMap(resp -> Single.just(EmptyResponse.emptyResponse))
@@ -133,7 +130,6 @@ public class InteractionServiceImpl implements InteractionService {
   @Override
   public Single<EmptyResponse> deleteInteraction(DeleteInteractionRequest deleteInteractionRequest) {
     String projectId = ProjectContext.getProjectId();
-    
     return interactionDao
         .deleteInteractionAndCreateUploadMetadata(deleteInteractionRequest)
         .map(res -> EmptyResponse.emptyResponse)

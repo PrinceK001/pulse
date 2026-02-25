@@ -11,10 +11,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 /**
  * DAO for Athena job operations.
@@ -26,24 +25,17 @@ public class AthenaJobDao {
   private final MysqlClient mysqlClient;
 
   /**
-   * Gets the current tenant ID from the TenantContext.
-   */
-  private String getTenantId() {
-    return TenantContext.requireTenantId();
-  }
-
-  /**
    * Gets the current project ID from the ProjectContext.
    */
   private String getProjectId() {
     return ProjectContext.getProjectId();
   }
 
-  public Single<String> createJob(String queryString, String userEmail) {
+  public Single<String> createJob(String projectId, String queryString, String userEmail) {
     String jobId = UUID.randomUUID().toString();
     return executeUpdate(
         AthenaJobQueries.CREATE_JOB,
-        Tuple.of(jobId, getTenantId(), getProjectId(), queryString, userEmail),
+        Tuple.of(jobId, projectId, queryString, userEmail),
         jobId,
         "Error creating Athena job"
     );
@@ -54,7 +46,7 @@ public class AthenaJobDao {
     Timestamp updatedAt = submissionDateTime != null ? submissionDateTime : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_WITH_EXECUTION_ID,
-        Tuple.of(queryExecutionId, status.name(), submissionDateTime, updatedAt, jobId, getProjectId()),
+        Tuple.of(queryExecutionId, status.name(), submissionDateTime, updatedAt, jobId),
         true,
         "Error updating job with execution ID: " + jobId
     );
@@ -64,7 +56,7 @@ public class AthenaJobDao {
     Timestamp finalUpdatedAt = updatedAt != null ? updatedAt : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_STATUS,
-        Tuple.of(status.name(), finalUpdatedAt, jobId, getProjectId()),
+        Tuple.of(status.name(), finalUpdatedAt, jobId),
         true,
         "Error updating job status: " + jobId
     );
@@ -75,7 +67,7 @@ public class AthenaJobDao {
     Timestamp updatedAt = completionDateTime != null ? completionDateTime : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_COMPLETED,
-        Tuple.of(resultLocation, completionDateTime, updatedAt, jobId, getProjectId()),
+        Tuple.of(resultLocation, completionDateTime, updatedAt, jobId),
         true,
         "Error updating job as completed: " + jobId
     );
@@ -88,7 +80,7 @@ public class AthenaJobDao {
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_STATISTICS,
         Tuple.wrap(Arrays.asList(dataScannedInBytes, executionTimeMillis, engineExecutionTimeMillis,
-            queryQueueTimeMillis, finalUpdatedAt, jobId, getProjectId())),
+            queryQueueTimeMillis, finalUpdatedAt, jobId)),
         true,
         "Error updating job statistics: " + jobId
     );
@@ -98,7 +90,7 @@ public class AthenaJobDao {
     Timestamp updatedAt = completionDateTime != null ? completionDateTime : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_FAILED,
-        Tuple.of(errorMessage, completionDateTime, updatedAt, jobId, getProjectId()),
+        Tuple.of(errorMessage, completionDateTime, updatedAt, jobId),
         true,
         "Error updating job as failed: " + jobId
     );
@@ -107,7 +99,7 @@ public class AthenaJobDao {
   public Single<AthenaJob> getJobById(String jobId) {
     return mysqlClient.getWriterPool()
         .preparedQuery(AthenaJobQueries.GET_JOB_BY_ID)
-        .rxExecute(Tuple.of(jobId, getProjectId()))
+        .rxExecute(Tuple.of(jobId))
         .map(rowSet -> {
           if (rowSet.size() == 0) {
             log.warn("Job not found: {}", jobId);

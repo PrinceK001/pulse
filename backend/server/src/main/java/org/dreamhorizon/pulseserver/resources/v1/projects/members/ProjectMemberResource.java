@@ -16,6 +16,7 @@ import org.dreamhorizon.pulseserver.resources.v1.members.models.AddMemberRequest
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberListResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.UpdateMemberRoleRequest;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
@@ -25,7 +26,7 @@ import static org.dreamhorizon.pulseserver.util.AuthenticationUtil.extractUserId
 
 /**
  * REST resource for project member management.
- * 
+ *
  * <p>This resource layer follows clean architecture principles:
  * <ul>
  *   <li>No business logic - delegates everything to service layer</li>
@@ -65,9 +66,9 @@ public class ProjectMemberResource {
             request.getEmail(), projectId, request.getRole(), userId);
         
         return projectMemberService.addMemberToProject(
-                projectId, 
-                request.getEmail(), 
-                request.getRole(), 
+                projectId,
+                request.getEmail(),
+                request.getRole(),
                 userId
             )
             .flatMap(user -> openFgaService.getUserRoleInProject(user.getUserId(), projectId)
@@ -174,6 +175,7 @@ public class ProjectMemberResource {
      */
     @DELETE
     @Path("/leave")
+    @RequiresPermission("can_view")
     public CompletionStage<Response<Object>> leaveProject(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {

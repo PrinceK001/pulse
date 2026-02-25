@@ -15,6 +15,7 @@ import io.vertx.core.Vertx;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
@@ -244,7 +245,7 @@ class ConfigServiceImplTest {
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      PulseConfig result = configService.createSdkConfig(configData).blockingGet();
+      PulseConfig result = configService.createSdkConfig(ProjectContext.getProjectId(), configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -282,7 +283,7 @@ class ConfigServiceImplTest {
       // First call populates cache
       configService.getActiveSdkConfig("test-project").blockingGet();
       // Create config should invalidate cache
-      configService.createSdkConfig(configData).blockingGet();
+      configService.createSdkConfig(ProjectContext.getProjectId(), configData).blockingGet();
       // This should reload from DAO, not cache
       PulseConfig result = configService.getActiveSdkConfig("test-project").blockingGet();
 
@@ -305,7 +306,7 @@ class ConfigServiceImplTest {
       when(sdkConfigsDao.createConfig(configData)).thenReturn(Single.error(createError));
 
       // When
-      var testObserver = configService.createSdkConfig(configData).test();
+      var testObserver = configService.createSdkConfig(ProjectContext.getProjectId(), configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);

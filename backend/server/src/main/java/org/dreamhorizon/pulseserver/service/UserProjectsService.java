@@ -6,8 +6,8 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.projectdao.ProjectDao;
-import org.dreamhorizon.pulseserver.model.Project;
+import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.project.models.Project;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,19 +41,15 @@ public class UserProjectsService {
         // TEMPORARY FIX: Return all projects in the tenant
         // Once OpenFGA is integrated, uncomment the OpenFGA code below and remove this section
         return projectDao.getProjectsByTenantId(tenantId)
-            .map(projects -> {
-                // Convert Project entities to ProjectSummary
-                List<ProjectSummary> projectList = new ArrayList<>();
-                for (Project project : projects) {
-                    projectList.add(ProjectSummary.builder()
-                        .projectId(project.getProjectId())
-                        .name(project.getName())
-                        .description(project.getDescription())
-                        .isActive(project.getIsActive())
-                        .role("admin") // Default role until OpenFGA is integrated
-                        .build());
-                }
-                
+            .map(project -> ProjectSummary.builder()
+                .projectId(project.getProjectId())
+                .name(project.getName())
+                .description(project.getDescription())
+                .isActive(project.getIsActive())
+                .role("admin") // Default role until OpenFGA is integrated
+                .build())
+            .toList()
+            .map(projectList -> {
                 // Calculate redirect hint
                 String redirectTo;
                 if (projectList.isEmpty()) {

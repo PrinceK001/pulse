@@ -22,10 +22,12 @@ import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.TenantMemberService;
 
 import static org.dreamhorizon.pulseserver.util.AuthenticationUtil.extractUserId;
+import org.dreamhorizon.pulseserver.service.tenant.TenantService;
+import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 /**
  * REST resource for tenant member management.
- * 
+ *
  * <p>This resource layer follows clean architecture principles:
  * <ul>
  *   <li>No business logic - delegates everything to service layer</li>
@@ -65,12 +67,12 @@ public class TenantMemberResource {
             request.getEmail(), tenantId, request.getRole(), userId);
         
         return tenantMemberService.addUserToTenant(
-                tenantId, 
-                request.getEmail(), 
-                request.getRole(), 
+                tenantId,
+                request.getEmail(),
+                request.getRole(),
                 userId
             )
-            .flatMap(user -> 
+            .flatMap(user ->
                 // Get role from OpenFGA for response
                 openFgaService.getUserTenantRole(user.getUserId(), tenantId)
                     .map(roleOpt -> MemberResponse.builder()
@@ -160,9 +162,9 @@ public class TenantMemberResource {
             targetUserId, tenantId, request.getNewRole(), updaterId);
         
         return tenantMemberService.updateTenantRole(
-                tenantId, 
-                targetUserId, 
-                request.getNewRole(), 
+                tenantId,
+                targetUserId,
+                request.getNewRole(),
                 updaterId)
             .toSingle(() -> Collections.emptyMap())
             .map(obj -> (Object) obj)
