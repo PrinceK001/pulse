@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.Queries;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
