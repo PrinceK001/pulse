@@ -654,8 +654,8 @@ CREATE TABLE IF NOT EXISTS project_api_keys (
 CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
     clickhouse_project_credential_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project ID (projectName-{uuid})',
-    ch_username VARCHAR(255) NOT NULL UNIQUE,
-    ch_password_encrypted TEXT NOT NULL,
+    clickhouse_username VARCHAR(255) NOT NULL UNIQUE,
+    clickhouse_password_encrypted TEXT NOT NULL,
     encryption_salt VARCHAR(100) NOT NULL,
     password_digest VARCHAR(100) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -672,7 +672,7 @@ CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
 CREATE TABLE IF NOT EXISTS clickhouse_project_credential_audit (
     clickhouse_project_credential_audit_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL COMMENT 'Project ID (projectName-{uuid})',
-    ch_username VARCHAR(255) NOT NULL,
+    clickhouse_username VARCHAR(255) NOT NULL,
     action ENUM('CREATE', 'ROTATE', 'REVOKE') NOT NULL,
     performed_by VARCHAR(255) NOT NULL,
     performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
