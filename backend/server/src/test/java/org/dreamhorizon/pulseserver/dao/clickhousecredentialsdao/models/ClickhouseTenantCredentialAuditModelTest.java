@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -52,7 +53,7 @@ class ClickhouseTenantCredentialAuditModelTest {
     @Test
     void shouldSetAndGetAllFields() {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
-      
+
       audit.setId(2L);
       audit.setProjectId("tenant_abc");
       audit.setAction("CREDENTIALS_UPDATED");

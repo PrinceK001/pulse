@@ -81,7 +81,7 @@ public class ConfigServiceImpl implements ConfigService {
 
   @Override
   public Single<PulseConfig> createSdkConfig(String projectId, ConfigData createConfigRequest) {
-    return sdkConfigsDao.createConfig(createConfigRequest)
+    return sdkConfigsDao.createConfig(projectId, createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(projectId);
           log.info("Invalidated config cache for project: {}", projectId);

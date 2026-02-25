@@ -245,7 +245,7 @@ class TenantServiceTest {
 
       Tenant updatedTenant = createMockTenant();
       updatedTenant.setName("Updated Name");
-      when(tenantDao.updateTenant(eq("test_tenant"), eq("Updated Name"), eq("Updated Description")))
+      when(tenantDao.updateTenant(any()))
           .thenReturn(Single.just(updatedTenant));
 
       Tenant result = tenantService.updateTenant(request).blockingGet();
@@ -261,7 +261,7 @@ class TenantServiceTest {
           .name("Updated Name")
           .build();
 
-      when(tenantDao.updateTenant(anyString(), anyString(), any()))
+      when(tenantDao.updateTenant(any()))
           .thenReturn(Single.error(new RuntimeException("Tenant not found")));
 
       Exception ex = assertThrows(RuntimeException.class,
@@ -376,7 +376,8 @@ class TenantServiceTest {
       ClickhouseCredentials mockCredentials = createMockCredentials();
       when(credentialsDao.saveTenantCredentials(eq("test_tenant"), eq("password123")))
           .thenReturn(Single.just(mockCredentials));
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_CREATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_CREATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
 
       TenantInfo result = tenantService.createClickhouseCredentials(request, "admin@example.com").blockingGet();
@@ -412,7 +413,8 @@ class TenantServiceTest {
       ClickhouseCredentials mockCredentials = createMockCredentials();
       when(credentialsDao.saveTenantCredentials(eq("test_tenant"), eq("password123")))
           .thenReturn(Single.just(mockCredentials));
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_CREATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_CREATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
       when(poolManager.getPoolForTenant(anyString(), anyString(), anyString()))
           .thenThrow(new RuntimeException("Pool creation failed"));
@@ -491,7 +493,8 @@ class TenantServiceTest {
       ClickhouseCredentials mockCredentials = createMockCredentials();
       when(credentialsDao.updateTenantCredentials(eq("test_tenant"), eq("new_password")))
           .thenReturn(Single.just(mockCredentials));
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_UPDATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_UPDATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
 
       TenantInfo result = tenantService.updateClickhouseCredentials(request, "admin@example.com").blockingGet();
@@ -511,7 +514,8 @@ class TenantServiceTest {
       ClickhouseCredentials mockCredentials = createMockCredentials();
       when(credentialsDao.updateTenantCredentials(eq("test_tenant"), eq("new_password")))
           .thenReturn(Single.just(mockCredentials));
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_UPDATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_UPDATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
 
       TenantInfo result = tenantService.updateClickhouseCredentials(request, "admin@example.com").blockingGet();
@@ -531,7 +535,8 @@ class TenantServiceTest {
       ClickhouseCredentials mockCredentials = createMockCredentials();
       when(credentialsDao.updateTenantCredentials(eq("test_tenant"), eq("new_password")))
           .thenReturn(Single.just(mockCredentials));
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_UPDATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_UPDATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
       when(poolManager.getPoolForTenant(anyString(), anyString(), anyString()))
           .thenThrow(new RuntimeException("Pool creation failed"));
@@ -565,7 +570,8 @@ class TenantServiceTest {
     void shouldDeactivateCredentialsSuccessfully() {
       when(credentialsDao.deactivateTenantCredentials("test_tenant"))
           .thenReturn(Completable.complete());
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_DEACTIVATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_DEACTIVATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
 
       tenantService.deactivateClickhouseCredentials("test_tenant", "admin@example.com").blockingAwait();
@@ -577,7 +583,8 @@ class TenantServiceTest {
     void shouldContinueWhenPoolCloseFailsDuringDeactivation() {
       when(credentialsDao.deactivateTenantCredentials("test_tenant"))
           .thenReturn(Completable.complete());
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_DEACTIVATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_DEACTIVATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
       org.mockito.Mockito.doThrow(new RuntimeException("Pool close failed"))
           .when(poolManager).closePoolForTenant("test_tenant");
@@ -608,7 +615,8 @@ class TenantServiceTest {
           .thenReturn(Completable.complete());
       when(credentialsDao.getCredentialsByTenantId("test_tenant"))
           .thenReturn(Single.just(mockCredentials));
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_REACTIVATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_REACTIVATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
 
       TenantInfo result = tenantService.reactivateClickhouseCredentials("test_tenant", "admin@example.com").blockingGet();
@@ -625,7 +633,8 @@ class TenantServiceTest {
           .thenReturn(Completable.complete());
       when(credentialsDao.getCredentialsByTenantId("test_tenant"))
           .thenReturn(Single.just(mockCredentials));
-      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_REACTIVATED), eq("admin@example.com"), any(JsonObject.class)))
+      when(credentialsDao.insertAuditLog(eq("test_tenant"), eq(TenantAuditAction.CREDENTIALS_REACTIVATED), eq("admin@example.com"),
+          any(JsonObject.class)))
           .thenReturn(Completable.complete());
       when(poolManager.getPoolForTenant(anyString(), anyString(), anyString()))
           .thenThrow(new RuntimeException("Pool creation failed"));
