@@ -60,7 +60,7 @@ class UploadInteractionDetailServiceTest {
   @BeforeEach
   void setUp() {
     // Setup tenant context for multi-tenancy
-    TenantContext.setTenantId(TEST_TENANT_ID);
+    ProjectContext.setProjectId(TEST_TENANT_ID);
 
     uploadInteractionDetailService = new UploadInteractionDetailService(
         s3BucketClient,
@@ -109,6 +109,7 @@ class UploadInteractionDetailServiceTest {
 
     @Test
     void shouldUploadInteractionDetailsAndInvalidateCacheSuccessfully() {
+      ProjectContext.setProjectId("test-tenant");
       // Given
       List<InteractionDetails> interactions = List.of(
           createTestInteractionDetails("Interaction1"),

@@ -52,7 +52,7 @@ class UploadConfigDetailServiceTest {
   @BeforeEach
   void setUp() {
     // Setup tenant context for multi-tenancy
-    TenantContext.setTenantId(TEST_TENANT_ID);
+    ProjectContext.setProjectId(TEST_TENANT_ID);
 
     uploadConfigDetailService = new UploadConfigDetailService(
         s3BucketClient,

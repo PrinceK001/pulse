@@ -160,7 +160,7 @@ public class InteractionDao {
     return InteractionDetails
         .builder()
         .id(row.getLong("interaction_id"))
-        .tenantId(null)  // Interactions are project-scoped only, not tenant-scoped
+        .projectId(row.getString("project_id"))
         .name(row.getString("name"))
         .description(details.getDescription())
         .status(InteractionStatus.fromString(row.getString("status")))

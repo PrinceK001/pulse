@@ -62,8 +62,8 @@ class AuthServiceTest {
 
   @BeforeEach
   void setUp() {
-    authService = new AuthService(applicationConfig, jwtService, tenantDao,
-        openFgaConfig, openFgaService, userService, userDao, projectService);
+    authService = new AuthService(applicationConfig, jwtService, tenantDao, userService,
+        openFgaService, projectService);
   }
 
   @Nested

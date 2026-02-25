@@ -34,6 +34,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -273,7 +274,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 11L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -305,7 +306,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 12L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -327,7 +328,7 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test");
         // Set tenant context inside Vert.x context
-        ProjectContext.setProjectId("test");
+        TenantContext.setTenantId("test");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
@@ -338,7 +339,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 13L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -361,9 +362,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        ProjectContext.setProjectId("test");
+        ProjectContext.setProjectId("default");
+        TenantContext.setTenantId("test");
         // Set tenant context inside Vert.x context
-        ProjectContext.setProjectId("test");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
@@ -374,7 +375,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 14L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -398,7 +399,7 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test");
         // Set tenant context inside Vert.x context
-        ProjectContext.setProjectId("test");
+        TenantContext.setTenantId("test");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
@@ -410,7 +411,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 15L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -433,13 +434,14 @@ class ConfigControllerTest {
     @Test
     void shouldNotApplyDefaultsWhenInteractionIsNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.setInteraction(null);
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 16L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -463,6 +465,8 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultLogsCollectorUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
+        TenantContext.setTenantId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getSignals().setLogsCollectorUrl(null);
@@ -471,7 +475,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 30L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -493,6 +497,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultLogsCollectorUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getSignals().setLogsCollectorUrl("   ");
@@ -501,7 +506,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 31L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -521,6 +526,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultMetricCollectorUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getSignals().setMetricCollectorUrl(null);
@@ -529,7 +535,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 32L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -551,6 +557,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultMetricCollectorUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getSignals().setMetricCollectorUrl("");
@@ -559,7 +566,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 33L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -579,6 +586,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultSpanCollectorUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getSignals().setSpanCollectorUrl(null);
@@ -587,7 +595,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 34L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -609,6 +617,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultSpanCollectorUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getSignals().setSpanCollectorUrl("  ");
@@ -617,7 +626,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 35L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -637,6 +646,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyAllSignalsDefaultsWhenAllNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getSignals().setLogsCollectorUrl(null);
@@ -649,7 +659,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 36L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -671,13 +681,14 @@ class ConfigControllerTest {
     @Test
     void shouldNotApplySignalsDefaultsWhenSignalsIsNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.setSignals(null);
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 37L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -702,12 +713,13 @@ class ConfigControllerTest {
     @Test
     void shouldHandleServiceErrorOnCreate(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("http://collector.example.com");
         pulseConfig.getInteraction().setConfigUrl("http://config.example.com");
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class)))
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class)))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Creation failed", "Creation failed", 500)));
 
@@ -916,6 +928,7 @@ class ConfigControllerTest {
     @Test
     void shouldCreateConfigWithNullNestedObjects(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given - Test with null nested objects to cover null-check branches in mapper
         PulseConfig pulseConfig = PulseConfig.builder()
             .description("Minimal Config")
@@ -927,7 +940,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 21L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -948,6 +961,7 @@ class ConfigControllerTest {
     @Test
     void shouldCreateConfigWithEmptyLists(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given - Test with empty lists to cover list handling branches
         PulseConfig pulseConfig = PulseConfig.builder()
             .description("Empty Lists Config")
@@ -978,7 +992,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 22L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -998,6 +1012,9 @@ class ConfigControllerTest {
     @Test
     void shouldCreateConfigWithPartiallyPopulatedFilterEvents(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
+        TenantContext.setTenantId("test");
+
         // Given - Test with filter events that have null props/scope/sdks
         PulseConfig pulseConfig = PulseConfig.builder()
             .description("Partial Filter Config")
@@ -1061,7 +1078,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 23L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -1081,6 +1098,7 @@ class ConfigControllerTest {
     @Test
     void shouldCreateConfigWithSamplingRulesHavingNullSdks(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given - Test sampling rules with null sdks
         PulseConfig pulseConfig = PulseConfig.builder()
             .description("Sampling Rules Config")
@@ -1118,7 +1136,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 24L);
 
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(anyString(), any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -1138,13 +1156,15 @@ class ConfigControllerTest {
     @Test
     void shouldCreateConfigWithFullyPopulatedData(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
+        TenantContext.setTenantId("test");
         // Given - Use fully populated config to exercise all mapper branches
         PulseConfig pulseConfig = createFullyPopulatedPulseConfig();
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 20L);
 
         ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
-        when(configService.createSdkConfig(ProjectContext.getProjectId(), configDataCaptor.capture())).thenReturn(
+        when(configService.createSdkConfig(anyString(), configDataCaptor.capture())).thenReturn(
             Single.just(createdConfig));
 
         // When
@@ -1184,6 +1204,7 @@ class ConfigControllerTest {
     @Test
     void shouldGetAllConfigDetails(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         AllConfigdetails mockDetails = AllConfigdetails.builder()
             .configDetails(Arrays.asList(
@@ -1227,6 +1248,7 @@ class ConfigControllerTest {
     @Test
     void shouldHandleEmptyConfigDetails(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
         // Given
         AllConfigdetails mockDetails = AllConfigdetails.builder()
             .configDetails(List.of())
