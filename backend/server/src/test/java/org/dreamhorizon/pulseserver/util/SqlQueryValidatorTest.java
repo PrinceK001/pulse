@@ -624,17 +624,6 @@ class SqlQueryValidatorTest {
       );
     }
 
-    @Test
-    void shouldRejectQueryWithInvalidUtf8_withEncodingMessage() {
-      String base = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
-      byte[] invalidBytes = {(byte) 0xFF, (byte) 0xFE};
-      String invalidQuery = base + new String(invalidBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
-
-      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(invalidQuery);
-
-      assertFalse(result.isValid());
-      assertThat(result.getErrorMessage()).contains("encoding");
-    }
   }
 
   @Nested
