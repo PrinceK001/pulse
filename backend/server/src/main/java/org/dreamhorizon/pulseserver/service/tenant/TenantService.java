@@ -10,11 +10,11 @@ import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
-import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
-import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateCredentialsRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.TenantInfo;
@@ -66,7 +66,13 @@ public class TenantService {
   public Single<Tenant> updateTenant(UpdateTenantRequest request) {
     log.info("Updating tenant: {}", request.getTenantId());
 
-    return tenantDao.updateTenant(request.getTenantId(), request.getName(), request.getDescription())
+    Tenant tenant = Tenant.builder()
+        .tenantId(request.getTenantId())
+        .name(request.getName())
+        .description(request.getDescription())
+        .build();
+
+    return tenantDao.updateTenant(tenant)
         .doOnSuccess(t -> log.info("Tenant updated: {}", t.getTenantId()))
         .doOnError(error -> log.error("Failed to update tenant: {}", request.getTenantId(), error));
   }

@@ -11,6 +11,7 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowSet;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.ArrayList;
 import java.util.List;
@@ -154,5 +155,54 @@ public class SdkConfigsDao {
               .configDetails(configDetails)
               .build();
         });
+  }
+
+  /**
+   * Creates the initial SDK config for a new project.
+   * Used during project creation to include config insertion in the main transaction.
+   * Does NOT deactivate existing configs (assumes none exist for new projects).
+   */
+  public Single<PulseConfig> createInitialConfig(
+      SqlConnection conn,
+      String projectId,
+      org.dreamhorizon.pulseserver.service.configs.models.ConfigData configData) {
+
+    SdkConfigData sdkConfigData = SdkConfigData.builder()
+        .features(configData.getFeatures())
+        .interaction(configData.getInteraction())
+        .sampling(configData.getSampling())
+        .signals(configData.getSignals())
+        .build();
+
+    String configJson = objectMapper.writeValueAsString(sdkConfigData);
+    Tuple tuple = buildConfigTuple(projectId, configJson, configData.getUser(), configData.getDescription());
+
+    return conn.preparedQuery(INSERT_CONFIG)
+        .rxExecute(tuple)
+        .flatMap(SdkConfigsDao::getLastInsertedId)
+        .map(configId -> mapToPulseConfig(configId, configData))
+        .doOnSuccess(config -> log.info("Created initial SDK config for project: {}, version: {}", projectId, config.getVersion()))
+        .doOnError(error -> log.error("Failed to create initial SDK config for project: {}", projectId, error));
+  }
+
+  private Tuple buildConfigTuple(String projectId, String configJson, String createdBy, String description) {
+    return Tuple.tuple()
+        .addString(projectId)
+        .addString(configJson)
+        .addBoolean(true)
+        .addString(createdBy)
+        .addString(description);
+  }
+
+  private PulseConfig mapToPulseConfig(Long configId, org.dreamhorizon.pulseserver.service.configs.models.ConfigData configData) {
+    return PulseConfig.builder()
+        .version(configId)
+        .description(configData.getDescription())
+        .sampling(objectMapper.convertValue(configData.getSampling(), PulseConfig.SamplingConfig.class))
+        .signals(objectMapper.convertValue(configData.getSignals(), PulseConfig.SignalsConfig.class))
+        .interaction(objectMapper.convertValue(configData.getInteraction(), PulseConfig.InteractionConfig.class))
+        .features(objectMapper.convertValue(configData.getFeatures(),
+            objectMapper.constructCollectionType(List.class, PulseConfig.FeatureConfig.class)))
+        .build();
   }
 }

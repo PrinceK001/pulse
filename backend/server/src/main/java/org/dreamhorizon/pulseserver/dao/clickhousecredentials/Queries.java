@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao;
+package org.dreamhorizon.pulseserver.dao.clickhousecredentials;
 
 public class Queries {
 

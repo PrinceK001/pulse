@@ -6,6 +6,9 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dao.project.models.Project;
+import org.dreamhorizon.pulseserver.model.User;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 
@@ -116,12 +119,13 @@ public class OnboardingService {
             .flatMap(tenant -> 
                 // Step 2: Create first project within tenant
                 projectService.createProject(tenantId, projectName, projectDescription, userId)
-                    .flatMap(project ->
+                    .flatMap(creationResult ->
                         // Step 3: Assign tenant admin role to user
                         openFgaService.assignTenantRole(userId, tenantId, "admin")
-                            .andThen(Single.just(project))
+                            .andThen(Single.just(creationResult))
                     )
-                    .map(project -> {
+                    .map(creationResult -> {
+                        Project project = creationResult.getProject();
                         // Step 4: Generate JWT tokens with tenantId
                         String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
                         String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
@@ -138,7 +142,7 @@ public class OnboardingService {
                             .tier("free")  // New tenants always start with free tier
                             .projectId(project.getProjectId())
                             .projectName(project.getName())
-                            .projectApiKey(project.getApiKey())
+                            .projectApiKey(creationResult.getRawApiKey())
                             .accessToken(accessToken)
                             .refreshToken(refreshToken)
                             .tokenType("Bearer")
