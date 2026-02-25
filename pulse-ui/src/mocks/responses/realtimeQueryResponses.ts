@@ -9,12 +9,15 @@
  */
 
 
-// Table metadata response
+// Table metadata response — matches the Athena DDL in athena-otel-tables.sql
 export const mockTableMetadata = {
   databaseName: "pulse_athena_db",
   tableName: "otel_data_1",
   columns: [
     { name: "event_name", type: "varchar" },
+    { name: "project_id", type: "varchar" },
+    { name: "user_id", type: "varchar" },
+    { name: "installation_id", type: "varchar" },
     { name: "android_os_api_level", type: "varchar" },
     { name: "os_version", type: "varchar" },
     { name: "app_build_id", type: "varchar" },
@@ -30,12 +33,14 @@ export const mockTableMetadata = {
     { name: "network_carrier_icc", type: "varchar" },
     { name: "pulse_app_state", type: "varchar" },
     { name: "span_id", type: "varchar" },
-    { name: "timestamp", type: "timestamp" },
     { name: "trace_id", type: "varchar" },
+    { name: "timestamp", type: "timestamp" },
+    { name: "vector_observed_timestamp", type: "timestamp" },
     { name: "scope_name", type: "varchar" },
-    { name: "flags", type: "bigint" },
-    { name: "observed_timestamp", type: "timestamp" },
-    { name: "props", type: "json" },
+    { name: "flags", type: "integer" },
+    { name: "props", type: "varchar" },
+    { name: "date", type: "varchar" },
+    { name: "hour", type: "varchar" },
   ],
 };
 
@@ -120,10 +125,15 @@ function generateMockProps(): Record<string, unknown> {
   };
 }
 
-// Generate a single mock row
+// Generate a single mock row matching the Athena DDL schema
 function generateMockRow(): Record<string, unknown> {
+  const ts = randomTimestamp();
+  const tsDate = new Date(ts);
   return {
     event_name: eventNames[Math.floor(Math.random() * eventNames.length)],
+    project_id: "1",
+    user_id: `user_${Math.random().toString(36).substr(2, 8)}`,
+    installation_id: `inst_${Math.random().toString(36).substr(2, 12)}`,
     android_os_api_level: String(Math.floor(Math.random() * 10) + 28),
     os_version: `${Math.floor(Math.random() * 5) + 10}.${Math.floor(Math.random() * 5)}.${Math.floor(Math.random() * 5)}`,
     app_build_id: String(Math.floor(Math.random() * 100) + 1),
@@ -143,12 +153,14 @@ function generateMockRow(): Record<string, unknown> {
       Math.floor(Math.random() * 2)
     ],
     span_id: Math.random().toString(16).substr(2, 16),
-    timestamp: randomTimestamp(),
     trace_id: Math.random().toString(16).substr(2, 32),
+    timestamp: ts,
+    vector_observed_timestamp: randomTimestamp(),
     scope_name: "pulse.events",
     flags: Math.floor(Math.random() * 256),
-    observed_timestamp: randomTimestamp(),
     props: JSON.stringify(generateMockProps()),
+    date: tsDate.toISOString().slice(0, 10),
+    hour: String(tsDate.getUTCHours()).padStart(2, "0"),
   };
 }
 
