@@ -12,7 +12,7 @@
 // Table metadata response
 export const mockTableMetadata = {
   databaseName: "pulse_athena_db",
-  tableName: "otel_data",
+  tableName: "otel_data_1",
   columns: [
     { name: "event_name", type: "varchar" },
     { name: "android_os_api_level", type: "varchar" },
@@ -396,7 +396,7 @@ export function getQueryJobStatus(jobId: string): {
   if (!job) {
     // Job not found - could be hot reload. Return completed with mock data
     console.log("[Mock] Job not found, returning mock completed results");
-    const mockSql = "SELECT * FROM otel_data LIMIT 100";
+    const mockSql = "SELECT * FROM otel_data_1 LIMIT 100";
     const results = generateMockQueryResults(mockSql);
     return {
       jobId,
@@ -482,14 +482,14 @@ export function generateMockQueryHistory(): {
   offset: number;
 } {
   const historyQueries = [
-    "SELECT * FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '2024-01-15 00:00:00' LIMIT 100",
-    "SELECT event_name, COUNT(*) as count FROM pulse_athena_db.otel_data GROUP BY event_name ORDER BY count DESC LIMIT 20",
-    "SELECT device_manufacturer, COUNT(DISTINCT session_id) as sessions FROM pulse_athena_db.otel_data GROUP BY device_manufacturer",
-    "SELECT screen_name, COUNT(*) as views FROM pulse_athena_db.otel_data WHERE event_name = 'screen_view' GROUP BY screen_name",
-    "SELECT os_name, COUNT(*) as events FROM pulse_athena_db.otel_data GROUP BY os_name ORDER BY events DESC",
-    "SELECT json_extract_scalar(props, '$.network.type') as network, COUNT(*) FROM pulse_athena_db.otel_data GROUP BY 1",
-    "SELECT * FROM pulse_athena_db.otel_data WHERE event_name = 'app_open' LIMIT 50",
-    "SELECT COUNT(*) as total_events FROM pulse_athena_db.otel_data",
+    "SELECT * FROM pulse_athena_db.otel_data_1 WHERE timestamp >= TIMESTAMP '2024-01-15 00:00:00' LIMIT 100",
+    "SELECT event_name, COUNT(*) as count FROM pulse_athena_db.otel_data_1 GROUP BY event_name ORDER BY count DESC LIMIT 20",
+    "SELECT device_manufacturer, COUNT(DISTINCT session_id) as sessions FROM pulse_athena_db.otel_data_1 GROUP BY device_manufacturer",
+    "SELECT screen_name, COUNT(*) as views FROM pulse_athena_db.otel_data_1 WHERE event_name = 'screen_view' GROUP BY screen_name",
+    "SELECT os_name, COUNT(*) as events FROM pulse_athena_db.otel_data_1 GROUP BY os_name ORDER BY events DESC",
+    "SELECT json_extract_scalar(props, '$.network.type') as network, COUNT(*) FROM pulse_athena_db.otel_data_1 GROUP BY 1",
+    "SELECT * FROM pulse_athena_db.otel_data_1 WHERE event_name = 'app_open' LIMIT 50",
+    "SELECT COUNT(*) as total_events FROM pulse_athena_db.otel_data_1",
   ];
 
   const statuses: Array<"COMPLETED" | "FAILED" | "CANCELLED"> = [
@@ -1200,7 +1200,7 @@ function generateMockInsights(
             evidence: [
               "Records searched: " + Math.floor(Math.random() * 500 + 800).toLocaleString(),
               "Time range: last 24 hours (24 hourly partitions)",
-              "Data source: pulse_athena_db.otel_data",
+              "Data source: pulse_athena_db.otel_data_1",
               "Suggestion: try expanding time range or verifying event name",
             ],
             // No chart
@@ -1352,32 +1352,32 @@ export function generateAiQueryResponse(
   // Simple pattern matching to generate SQL with timestamp filters
   if (nlLower.includes("count") && nlLower.includes("event")) {
     if (nlLower.includes("by") || nlLower.includes("group")) {
-      generatedSql = `SELECT event_name, COUNT(*) AS "event_count" FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY event_name ORDER BY "event_count" DESC LIMIT 20;`;
+      generatedSql = `SELECT event_name, COUNT(*) AS "event_count" FROM pulse_athena_db.otel_data_1 WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY event_name ORDER BY "event_count" DESC LIMIT 20;`;
     } else {
-      generatedSql = `SELECT COUNT(*) AS "total_events" FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}';`;
+      generatedSql = `SELECT COUNT(*) AS "total_events" FROM pulse_athena_db.otel_data_1 WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}';`;
     }
   } else if (nlLower.includes("top") && nlLower.includes("user")) {
     const limitMatch = nlLower.match(/top\s+(\d+)/);
     const limit = limitMatch ? parseInt(limitMatch[1], 10) : 10;
-    generatedSql = `SELECT session_id, COUNT(*) AS "event_count" FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY session_id ORDER BY "event_count" DESC LIMIT ${limit};`;
+    generatedSql = `SELECT session_id, COUNT(*) AS "event_count" FROM pulse_athena_db.otel_data_1 WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY session_id ORDER BY "event_count" DESC LIMIT ${limit};`;
   } else if (nlLower.includes("error")) {
-    generatedSql = `SELECT event_name, screen_name, timestamp, session_id FROM pulse_athena_db.otel_data WHERE event_name = 'error_occurred' AND timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' ORDER BY timestamp DESC LIMIT 50;`;
+    generatedSql = `SELECT event_name, screen_name, timestamp, session_id FROM pulse_athena_db.otel_data_1 WHERE event_name = 'error_occurred' AND timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' ORDER BY timestamp DESC LIMIT 50;`;
   } else if (nlLower.includes("screen") || nlLower.includes("page")) {
-    generatedSql = `SELECT screen_name, COUNT(*) AS "view_count" FROM pulse_athena_db.otel_data WHERE event_name = 'screen_view' AND timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY screen_name ORDER BY "view_count" DESC LIMIT 20;`;
+    generatedSql = `SELECT screen_name, COUNT(*) AS "view_count" FROM pulse_athena_db.otel_data_1 WHERE event_name = 'screen_view' AND timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY screen_name ORDER BY "view_count" DESC LIMIT 20;`;
   } else if (
     nlLower.includes("device") ||
     nlLower.includes("manufacturer")
   ) {
-    generatedSql = `SELECT device_manufacturer, device_model_identifier, COUNT(*) AS "event_count" FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY device_manufacturer, device_model_identifier ORDER BY "event_count" DESC LIMIT 20;`;
+    generatedSql = `SELECT device_manufacturer, device_model_identifier, COUNT(*) AS "event_count" FROM pulse_athena_db.otel_data_1 WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY device_manufacturer, device_model_identifier ORDER BY "event_count" DESC LIMIT 20;`;
   } else if (
     nlLower.includes("most common") ||
     nlLower.includes("popular")
   ) {
-    generatedSql = `SELECT event_name, COUNT(*) AS "event_count" FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY event_name ORDER BY "event_count" DESC LIMIT 10;`;
+    generatedSql = `SELECT event_name, COUNT(*) AS "event_count" FROM pulse_athena_db.otel_data_1 WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' GROUP BY event_name ORDER BY "event_count" DESC LIMIT 10;`;
   } else if (nlLower.includes("did") && nlLower.includes("user")) {
-    generatedSql = `SELECT * FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' LIMIT 100;`;
+    generatedSql = `SELECT * FROM pulse_athena_db.otel_data_1 WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' LIMIT 100;`;
   } else {
-    generatedSql = `SELECT * FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' ORDER BY timestamp DESC LIMIT 100;`;
+    generatedSql = `SELECT * FROM pulse_athena_db.otel_data_1 WHERE timestamp >= TIMESTAMP '${startTimestamp}' AND timestamp <= TIMESTAMP '${endTimestamp}' ORDER BY timestamp DESC LIMIT 100;`;
   }
 
   const results = generateMockQueryResults(generatedSql);
@@ -1393,7 +1393,7 @@ export function generateAiQueryResponse(
   const tableMatch = generatedSql.match(/FROM\s+([\w.]+)/i);
   const sourcesAnalyzed = tableMatch
     ? [tableMatch[1]]
-    : ["pulse_athena_db.otel_data"];
+    : ["pulse_athena_db.otel_data_1"];
 
   const timeRange = {
     start: startTime.toISOString(),
