@@ -443,46 +443,8 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 -- NEW TABLES FOR MULTI-TENANCY & RBAC (February 2026)
 -- ============================================================
 
--- Project API Keys table for rotatable, encrypted API keys
-CREATE TABLE IF NOT EXISTS project_api_keys (
-    id                          BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id                  VARCHAR(64) NOT NULL COMMENT 'Project identifier (proj-{uuid})',
-    api_key_encrypted           TEXT NOT NULL COMMENT 'AES-256 encrypted API key',
-    encryption_salt             VARCHAR(100) NOT NULL COMMENT 'Salt used for encryption',
-    api_key_digest              VARCHAR(100) NOT NULL COMMENT 'SHA-256 digest for fast lookup',
-    is_active                   BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Key active status',
-    grace_period_ends_at        TIMESTAMP NULL COMMENT 'For smooth key rotation',
-    created_by                  VARCHAR(255) NOT NULL COMMENT 'User who created the key',
-    created_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deactivated_at              TIMESTAMP NULL COMMENT 'When key was deactivated',
-    deactivated_by              VARCHAR(255) NULL COMMENT 'User who deactivated the key',
-    deactivation_reason         VARCHAR(255) NULL COMMENT 'Reason for deactivation',
-    
-    CONSTRAINT fk_pak_project FOREIGN KEY (project_id) 
-        REFERENCES projects(project_id) ON DELETE CASCADE,
-    INDEX idx_project_active (project_id, is_active),
-    INDEX idx_api_key_digest (api_key_digest),
-    INDEX idx_grace_period (grace_period_ends_at)
-) COMMENT='Rotatable encrypted API keys for SDK authentication';
-
--- ClickHouse Project Credentials (per-project ClickHouse users)
-CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(100) NOT NULL UNIQUE COMMENT 'Project ID (proj-{uuid})',
-    clickhouse_username VARCHAR(100) NOT NULL COMMENT 'ClickHouse username for this project',
-    clickhouse_password_encrypted TEXT NOT NULL COMMENT 'AES encrypted password',
-    encryption_salt VARCHAR(100) NOT NULL COMMENT 'Salt used for encryption',
-    password_digest VARCHAR(100) NOT NULL COMMENT 'SHA-256 digest for verification',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Credential active status',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    CONSTRAINT fk_ch_project_cred FOREIGN KEY (project_id) 
-        REFERENCES projects(project_id) ON DELETE CASCADE,
-    
-    INDEX idx_project_active (project_id, is_active),
-    INDEX idx_username (clickhouse_username)
-);
+-- NOTE: project_api_keys table is defined later in the file (after project_usage_limits)
+-- NOTE: clickhouse_project_credentials table is defined later in the file
 
 -- Athena job tracking table (depends on projects table)
 CREATE TABLE IF NOT EXISTS athena_job (
@@ -628,7 +590,7 @@ CREATE TABLE IF NOT EXISTS project_api_keys (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
     clickhouse_project_credential_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id INT NOT NULL UNIQUE,
+    project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project ID (projectName-{uuid})',
     ch_username VARCHAR(255) NOT NULL UNIQUE,
     ch_password_encrypted TEXT NOT NULL,
     encryption_salt VARCHAR(100) NOT NULL,
@@ -636,7 +598,7 @@ CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_chcred_project FOREIGN KEY (project_id) REFERENCES projects(project_id),
+    CONSTRAINT fk_chcred_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     INDEX idx_ch_project_active (project_id, is_active)
 );
 
@@ -646,12 +608,12 @@ CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clickhouse_project_credential_audit (
     clickhouse_project_credential_audit_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id INT NOT NULL,
+    project_id VARCHAR(64) NOT NULL COMMENT 'Project ID (projectName-{uuid})',
     ch_username VARCHAR(255) NOT NULL,
     action ENUM('CREATE', 'ROTATE', 'REVOKE') NOT NULL,
     performed_by VARCHAR(255) NOT NULL,
     performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_chaudit_project FOREIGN KEY (project_id) REFERENCES projects(project_id),
+    CONSTRAINT fk_chaudit_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     INDEX idx_chaudit_project (project_id)
 );
 
