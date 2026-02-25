@@ -513,7 +513,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxCommit()).thenReturn(Completable.complete());
 
       // When
-      PulseConfig result = sdkConfigsDao.createConfig(configData).blockingGet();
+      PulseConfig result = sdkConfigsDao.createConfig("test", configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -553,7 +553,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = sdkConfigsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig("test", configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -594,7 +594,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = sdkConfigsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig("test", configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -629,7 +629,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = sdkConfigsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig("test", configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -675,7 +675,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = sdkConfigsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig("test", configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -717,7 +717,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxCommit()).thenReturn(Completable.complete());
 
       // When
-      PulseConfig result = sdkConfigsDao.createConfig(configData).blockingGet();
+      PulseConfig result = sdkConfigsDao.createConfig("test", configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();

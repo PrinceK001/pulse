@@ -88,7 +88,7 @@ public class SdkConfigsDao {
     return Single.just(Long.parseLong(rowSet.property(MySQLClient.LAST_INSERTED_ID).toString()));
   }
 
-  public Single<PulseConfig> createConfig(org.dreamhorizon.pulseserver.service.configs.models.ConfigData createConfig) {
+  public Single<PulseConfig> createConfig(String projectId, org.dreamhorizon.pulseserver.service.configs.models.ConfigData createConfig) {
     SdkConfigData sdkConfigData = SdkConfigData.builder()
         .features(createConfig.getFeatures())
         .interaction(createConfig.getInteraction())
@@ -97,8 +97,6 @@ public class SdkConfigsDao {
         .build();
 
     String configDetailRowStr = objectMapper.writeValueAsString(sdkConfigData);
-
-    String projectId = getProjectId();
     Tuple tuple = Tuple.tuple()
         .addString(projectId)
         .addString(configDetailRowStr)

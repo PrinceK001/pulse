@@ -238,7 +238,7 @@ class ConfigServiceImplTest {
           .description("New Config")
           .build();
 
-      when(sdkConfigsDao.createConfig(configData)).thenReturn(Single.just(createdConfig));
+      when(sdkConfigsDao.createConfig(ProjectContext.getProjectId(), configData)).thenReturn(Single.just(createdConfig));
       when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
@@ -250,7 +250,7 @@ class ConfigServiceImplTest {
       assertThat(result.getVersion()).isEqualTo(10L);
       assertThat(result.getDescription()).isEqualTo("New Config");
 
-      verify(sdkConfigsDao, times(1)).createConfig(configData);
+      verify(sdkConfigsDao, times(1)).createConfig(ProjectContext.getProjectId(), configData);
     }
 
     @Test
@@ -273,7 +273,7 @@ class ConfigServiceImplTest {
 
       // First load to populate cache
       when(sdkConfigsDao.getConfig(ProjectContext.getProjectId())).thenReturn(Single.just(initialConfig), Single.just(newConfig));
-      when(sdkConfigsDao.createConfig(any())).thenReturn(Single.just(newConfig));
+      when(sdkConfigsDao.createConfig(any(), any())).thenReturn(Single.just(newConfig));
       when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
@@ -301,7 +301,7 @@ class ConfigServiceImplTest {
 
       RuntimeException createError = new RuntimeException("Failed to create config");
 
-      when(sdkConfigsDao.createConfig(configData)).thenReturn(Single.error(createError));
+      when(sdkConfigsDao.createConfig(ProjectContext.getProjectId(), configData)).thenReturn(Single.error(createError));
 
       // When
       var testObserver = configService.createSdkConfig(ProjectContext.getProjectId(), configData).test();
@@ -310,7 +310,7 @@ class ConfigServiceImplTest {
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to create config"));
 
-      verify(sdkConfigsDao, times(1)).createConfig(configData);
+      verify(sdkConfigsDao, times(1)).createConfig(ProjectContext.getProjectId(), configData);
       verifyNoMoreInteractions(sdkConfigsDao);
     }
   }
