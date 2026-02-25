@@ -35,7 +35,7 @@ import lombok.NoArgsConstructor;
 public class CreateProjectRequest {
     
     @NotBlank(message = "Project name is required")
-    @Size(min = 1, max = 255, message = "Project name must be between 1 and 255 characters")
+    @Size(min = 3, max = 30, message = "Project name must be between 1 and 30 characters")
     @Pattern(regexp = "^[a-zA-Z0-9-]+$", message = "Project name can only contain alphanumeric characters and hyphens")
     private String name;
     
