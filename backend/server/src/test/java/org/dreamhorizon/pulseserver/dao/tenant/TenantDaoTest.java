@@ -105,7 +105,7 @@ class TenantDaoTest {
     Row mockRow = mock(Row.class);
     LocalDateTime now = LocalDateTime.now();
     when(mockRow.getString("tenant_id")).thenReturn("test_tenant");
-    when(mockRow.getString("name")).thenReturn("Test Tenant");
+    when(mockRow.getString("name")).thenReturn("Updated Name");
     when(mockRow.getString("description")).thenReturn("Test Description");
     when(mockRow.getBoolean("is_active")).thenReturn(true);
     when(mockRow.getLocalDateTime("created_at")).thenReturn(now);
@@ -179,7 +179,7 @@ class TenantDaoTest {
 
       assertNotNull(result);
       assertEquals("test_tenant", result.getTenantId());
-      assertEquals("Test Tenant", result.getName());
+      assertEquals("Updated Name", result.getName());
     }
 
     @Test
@@ -306,13 +306,15 @@ class TenantDaoTest {
       when(getRowSet.size()).thenReturn(1);
       when(getRowSet.iterator()).thenReturn(iterator);
 
-      when(mysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
+      when(mysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(updateRowSet))
           .thenReturn(Single.just(getRowSet));
 
-      Tenant result = tenantDao.updateTenant("test_tenant", "Updated Name", "Updated Description").blockingGet();
+      Tenant result = tenantDao.updateTenant(Tenant.builder()
+          .name("Updated Name")
+          .build()).blockingGet();
 
       assertNotNull(result);
       assertEquals("Updated Name", result.getName());
@@ -325,7 +327,7 @@ class TenantDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> tenantDao.updateTenant("non_existent", "Name", "Desc").blockingGet());
+          () -> tenantDao.updateTenant(Tenant.builder().build()).blockingGet());
       assertTrue(ex.getMessage().contains("Tenant not found"));
     }
 
@@ -336,7 +338,7 @@ class TenantDaoTest {
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> tenantDao.updateTenant("test_tenant", "Name", "Desc").blockingGet());
+          () -> tenantDao.updateTenant(Tenant.builder().build()).blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
     }
   }

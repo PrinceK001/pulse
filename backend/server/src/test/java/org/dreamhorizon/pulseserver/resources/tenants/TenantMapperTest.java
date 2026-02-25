@@ -229,7 +229,7 @@ class TenantMapperTest {
 
       assertNotNull(result);
       assertEquals(1L, result.getId());
-      assertEquals("test_tenant", result.getTenantId());
+      assertEquals("test_tenant", result.getProjectId());
       assertEquals("CREDENTIALS_CREATED", result.getAction());
       assertEquals("admin@example.com", result.getPerformedBy());
       assertEquals("{\"action\":\"test\"}", result.getDetails());

@@ -101,7 +101,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
       ClickhouseTenantCredentialAudit audit2 = createFullAudit();
       audit2.setId(null);
       assertTrue(audit1.equals(audit2));
-      
+
       ClickhouseTenantCredentialAudit audit3 = createFullAudit();
       assertFalse(audit1.equals(audit3));
     }
@@ -113,7 +113,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
       ClickhouseTenantCredentialAudit audit2 = createFullAudit();
       audit2.setProjectId(null);
       assertTrue(audit1.equals(audit2));
-      
+
       ClickhouseTenantCredentialAudit audit3 = createFullAudit();
       assertFalse(audit1.equals(audit3));
     }
@@ -235,7 +235,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
           .details("test_details")
           .createdAt("2024-01-01")
           .build();
-      
+
       assertEquals(1L, audit.getId());
       assertEquals("tenant1", audit.getProjectId());
       assertEquals("CREATE", audit.getAction());
@@ -254,7 +254,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
           .details(null)
           .createdAt(null)
           .build();
-      
+
       assertNull(audit.getId());
       assertNull(audit.getProjectId());
     }
@@ -275,14 +275,14 @@ class ClickhouseTenantCredentialAuditBranchTest {
     void canEqualShouldReturnTrueForSameType() {
       ClickhouseTenantCredentialAudit audit1 = createFullAudit();
       ClickhouseTenantCredentialAudit audit2 = createFullAudit();
-      assertTrue(audit1.canEqual(audit2));
+      assertTrue(audit1.equals(audit2));
     }
 
     @Test
     void canEqualShouldReturnFalseForDifferentType() {
       ClickhouseTenantCredentialAudit audit = createFullAudit();
-      assertFalse(audit.canEqual("string"));
-      assertFalse(audit.canEqual(123));
+      assertFalse(audit.equals("string"));
+      assertFalse(audit.equals(123));
     }
   }
 
@@ -293,7 +293,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
     void shouldCreateWithAllArgs() {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit(
           1L, "tenant", "action", "performer", "details", "created");
-      
+
       assertEquals(1L, audit.getId());
       assertEquals("tenant", audit.getProjectId());
       assertEquals("action", audit.getAction());

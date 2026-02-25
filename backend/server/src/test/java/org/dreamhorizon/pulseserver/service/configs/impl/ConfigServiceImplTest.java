@@ -249,7 +249,7 @@ class ConfigServiceImplTest {
       assertThat(result.getVersion()).isEqualTo(10L);
       assertThat(result.getDescription()).isEqualTo("New Config");
 
-      verify(sdkConfigsDao, times(1)).createConfig(configData);
+      verify(sdkConfigsDao, times(1)).createConfig(ProjectContext.getProjectId(), configData);
     }
 
     @Test
@@ -300,7 +300,7 @@ class ConfigServiceImplTest {
 
       RuntimeException createError = new RuntimeException("Failed to create config");
 
-      when(sdkConfigsDao.createConfig(configData)).thenReturn(Single.error(createError));
+      when(sdkConfigsDao.createConfig(ProjectContext.getProjectId(), configData)).thenReturn(Single.error(createError));
 
       // When
       var testObserver = configService.createSdkConfig(ProjectContext.getProjectId(), configData).test();
@@ -309,7 +309,7 @@ class ConfigServiceImplTest {
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to create config"));
 
-      verify(sdkConfigsDao, times(1)).createConfig(configData);
+      verify(sdkConfigsDao, times(1)).createConfig(ProjectContext.getProjectId(), configData);
       verifyNoMoreInteractions(sdkConfigsDao);
     }
   }

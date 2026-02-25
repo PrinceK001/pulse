@@ -34,7 +34,7 @@ public class ProjectContext {
 
   public static String requireProjectId() {
     return Optional.ofNullable(projectIdContext.get())
-        .orElseThrow(() -> new IllegalStateException("No tenant context is set"));
+        .orElseThrow(() -> new IllegalStateException("No Project context is set"));
   }
 
   /**
