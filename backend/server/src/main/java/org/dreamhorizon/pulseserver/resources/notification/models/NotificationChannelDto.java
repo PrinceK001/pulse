@@ -13,7 +13,7 @@ import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 @AllArgsConstructor
 public class NotificationChannelDto {
   private Long id;
-  private Long projectId;
+  private String projectId;
   private ChannelType channelType;
   private String name;
   private Object config;

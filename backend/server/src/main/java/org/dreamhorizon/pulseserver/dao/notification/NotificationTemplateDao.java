@@ -40,7 +40,7 @@ public class NotificationTemplateDao {
             });
   }
 
-  public Single<List<NotificationTemplate>> getTemplatesByProject(Long projectId) {
+  public Single<List<NotificationTemplate>> getTemplatesByProject(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_TEMPLATES_BY_PROJECT)
         .rxExecute(Tuple.of(projectId))
@@ -53,7 +53,7 @@ public class NotificationTemplateDao {
   }
 
   public Maybe<NotificationTemplate> getTemplateByEventNameAndChannel(
-      Long projectId, String eventName, ChannelType channelType) {
+      String projectId, String eventName, ChannelType channelType) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_TEMPLATE_BY_EVENT_NAME_AND_CHANNEL)
         .rxExecute(Tuple.of(projectId, eventName, channelType != null ? channelType.name() : null))
@@ -68,7 +68,7 @@ public class NotificationTemplateDao {
   }
 
   public Single<Integer> getLatestVersion(
-      Long projectId, String eventName, ChannelType channelType) {
+      String projectId, String eventName, ChannelType channelType) {
     String channelTypeStr = channelType != null ? channelType.name() : null;
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_LATEST_TEMPLATE_VERSION)
@@ -125,7 +125,7 @@ public class NotificationTemplateDao {
 
     return NotificationTemplate.builder()
         .id(row.getLong("id"))
-        .projectId(row.getLong("project_id"))
+        .projectId(row.getString("project_id"))
         .eventName(row.getString("event_name"))
         .channelType(channelTypeStr != null ? ChannelType.valueOf(channelTypeStr) : null)
         .version(row.getInteger("version"))

@@ -36,7 +36,7 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public Single<NotificationBatchResponseDto> sendNotification(
-      Long projectId, SendNotificationRequestDto request) {
+      String projectId, SendNotificationRequestDto request) {
     String batchId = UUID.randomUUID().toString();
     String idempotencyKey =
         request.getIdempotencyKey() != null
@@ -48,7 +48,7 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public Single<NotificationBatchResponseDto> sendNotificationAsync(
-      Long projectId, SendNotificationRequestDto request) {
+      String projectId, SendNotificationRequestDto request) {
     String batchId = UUID.randomUUID().toString();
     String idempotencyKey =
         request.getIdempotencyKey() != null
@@ -59,7 +59,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private Single<NotificationBatchResponseDto> queueChannelNotifications(
-      Long projectId, SendNotificationRequestDto request, String batchId, String idempotencyKey) {
+      String projectId, SendNotificationRequestDto request, String batchId, String idempotencyKey) {
 
     return Observable.fromIterable(request.getChannelTypes())
         .flatMapSingle(
@@ -150,7 +150,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private Single<List<NotificationResultDto>> enqueueRecipients(
-      Long projectId,
+      String projectId,
       SendNotificationRequestDto request,
       NotificationChannel channel,
       NotificationTemplate template,
@@ -226,7 +226,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private Single<NotificationBatchResponseDto> processChannelNotifications(
-      Long projectId, SendNotificationRequestDto request, String batchId, String idempotencyKey) {
+      String projectId, SendNotificationRequestDto request, String batchId, String idempotencyKey) {
 
     return Observable.fromIterable(request.getChannelTypes())
         .flatMapSingle(
@@ -317,7 +317,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private Single<List<NotificationResultDto>> sendToRecipients(
-      Long projectId,
+      String projectId,
       SendNotificationRequestDto request,
       NotificationChannel channel,
       NotificationTemplate template,
@@ -390,7 +390,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private Single<NotificationResultDto> sendSingleNotification(
-      Long projectId,
+      String projectId,
       String recipient,
       String idempotencyKey,
       NotificationChannel channel,
@@ -518,7 +518,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<List<NotificationChannelDto>> getChannels(Long projectId) {
+  public Single<List<NotificationChannelDto>> getChannels(String projectId) {
     return channelDao
         .getChannelsByProject(projectId)
         .map(channels -> channels.stream().map(this::toChannelDto).toList());
@@ -531,7 +531,7 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public Single<NotificationChannelDto> createChannel(
-      Long projectId, CreateChannelRequestDto request) {
+      String projectId, CreateChannelRequestDto request) {
     String configJson = serializeBody(request.getConfig());
 
     NotificationChannel channel =
@@ -586,7 +586,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<List<NotificationTemplateDto>> getTemplates(Long projectId) {
+  public Single<List<NotificationTemplateDto>> getTemplates(String projectId) {
     return templateDao
         .getTemplatesByProject(projectId)
         .map(templates -> templates.stream().map(this::toTemplateDto).toList());
@@ -599,7 +599,7 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public Single<NotificationTemplateDto> createTemplate(
-      Long projectId, CreateTemplateRequestDto request) {
+      String projectId, CreateTemplateRequestDto request) {
     return templateDao
         .getLatestVersion(projectId, request.getEventName(), request.getChannelType())
         .flatMap(
@@ -665,7 +665,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<NotificationLogsResponseDto> getLogs(Long projectId, int limit, int offset) {
+  public Single<NotificationLogsResponseDto> getLogs(String projectId, int limit, int offset) {
     return logDao
         .getLogsByProject(projectId, limit, offset)
         .map(
@@ -676,7 +676,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<NotificationLogsResponseDto> getLogsByBatch(Long projectId, String batchId) {
+  public Single<NotificationLogsResponseDto> getLogsByBatch(String projectId, String batchId) {
     return logDao
         .getLogsByBatch(projectId, batchId)
         .map(

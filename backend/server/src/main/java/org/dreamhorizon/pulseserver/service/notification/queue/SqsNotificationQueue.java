@@ -182,8 +182,8 @@ public class SqsNotificationQueue {
     return Map.of(
         "projectId",
             MessageAttributeValue.builder()
-                .dataType("Number")
-                .stringValue(message.getProjectId().toString())
+                .dataType("String")
+                .stringValue(message.getProjectId())
                 .build(),
         "channelType",
             MessageAttributeValue.builder()
@@ -199,7 +199,7 @@ public class SqsNotificationQueue {
 
   private String buildDeduplicationId(NotificationMessage message) {
     return String.format(
-        "%d-%s-%s-%d",
+        "%s-%s-%s-%d",
         message.getProjectId(),
         message.getChannelType().name(),
         message.getRecipient(),

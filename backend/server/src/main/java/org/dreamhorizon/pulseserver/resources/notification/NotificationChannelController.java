@@ -24,7 +24,7 @@ public class NotificationChannelController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<List<NotificationChannelDto>>> getChannels(
-      @PathParam("projectId") Long projectId) {
+      @PathParam("projectId") String projectId) {
     return notificationService.getChannels(projectId).to(RestResponse.jaxrsRestHandler());
   }
 
@@ -32,7 +32,7 @@ public class NotificationChannelController {
   @Path("/{channelId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationChannelDto>> getChannel(
-      @PathParam("projectId") Long projectId, @PathParam("channelId") Long channelId) {
+      @PathParam("projectId") String projectId, @PathParam("channelId") Long channelId) {
     return notificationService.getChannel(channelId).toSingle().to(RestResponse.jaxrsRestHandler());
   }
 
@@ -40,7 +40,7 @@ public class NotificationChannelController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationChannelDto>> createChannel(
-      @PathParam("projectId") Long projectId, @NotNull @Valid CreateChannelRequestDto request) {
+      @PathParam("projectId") String projectId, @NotNull @Valid CreateChannelRequestDto request) {
     return notificationService
         .createChannel(projectId, request)
         .to(RestResponse.jaxrsRestHandler());
@@ -51,7 +51,7 @@ public class NotificationChannelController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationChannelDto>> updateChannel(
-      @PathParam("projectId") Long projectId,
+      @PathParam("projectId") String projectId,
       @PathParam("channelId") Long channelId,
       @NotNull @Valid UpdateChannelRequestDto request) {
     return notificationService
@@ -63,7 +63,7 @@ public class NotificationChannelController {
   @Path("/{channelId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<Boolean>> deleteChannel(
-      @PathParam("projectId") Long projectId, @PathParam("channelId") Long channelId) {
+      @PathParam("projectId") String projectId, @PathParam("channelId") Long channelId) {
     return notificationService.deleteChannel(channelId).to(RestResponse.jaxrsRestHandler());
   }
 }

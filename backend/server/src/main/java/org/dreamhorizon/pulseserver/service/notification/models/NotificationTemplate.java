@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NotificationTemplate {
   private Long id;
-  private Long projectId;
+  private String projectId;
   private String eventName;
   private ChannelType channelType;
   private Integer version;

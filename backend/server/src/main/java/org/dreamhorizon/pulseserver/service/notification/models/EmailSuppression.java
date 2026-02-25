@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class EmailSuppression {
   private Long id;
-  private Long projectId;
+  private String projectId;
   private String email;
   private SuppressionReason reason;
   private String bounceType;
