@@ -27,7 +27,7 @@ public class NotificationController {
   @POST
   @Path("/send")
   public CompletionStage<Response<NotificationBatchResponseDto>> sendNotification(
-      @PathParam("projectId") Long projectId, @NotNull @Valid SendNotificationRequestDto request) {
+      @PathParam("projectId") String projectId, @NotNull @Valid SendNotificationRequestDto request) {
 
     log.debug("Sending notification for project {}, event: {}", projectId, request.getEventName());
 
@@ -39,7 +39,7 @@ public class NotificationController {
   @POST
   @Path("/send/async")
   public CompletionStage<Response<NotificationBatchResponseDto>> sendNotificationAsync(
-      @PathParam("projectId") Long projectId, @NotNull @Valid SendNotificationRequestDto request) {
+      @PathParam("projectId") String projectId, @NotNull @Valid SendNotificationRequestDto request) {
 
     log.debug(
         "Queueing async notification for project {}, event: {}", projectId, request.getEventName());
@@ -52,7 +52,7 @@ public class NotificationController {
   @GET
   @Path("/logs")
   public CompletionStage<Response<NotificationLogsResponseDto>> getLogs(
-      @PathParam("projectId") Long projectId,
+      @PathParam("projectId") String projectId,
       @QueryParam("limit") @DefaultValue("50") int limit,
       @QueryParam("offset") @DefaultValue("0") int offset) {
 
@@ -64,7 +64,7 @@ public class NotificationController {
   @GET
   @Path("/logs/batch/{batchId}")
   public CompletionStage<Response<NotificationLogsResponseDto>> getLogsByBatch(
-      @PathParam("projectId") Long projectId, @PathParam("batchId") String batchId) {
+      @PathParam("projectId") String projectId, @PathParam("batchId") String batchId) {
 
     return notificationService
         .getLogsByBatch(projectId, batchId)

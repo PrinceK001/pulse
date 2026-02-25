@@ -398,7 +398,7 @@ CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
 -- Notification Service Tables
 CREATE TABLE IF NOT EXISTS project_notification_channels (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id BIGINT NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
     channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NOT NULL,
     name VARCHAR(255) NOT NULL,
     config JSON NOT NULL,
@@ -412,7 +412,7 @@ CREATE TABLE IF NOT EXISTS project_notification_channels (
 
 CREATE TABLE IF NOT EXISTS project_notification_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id BIGINT NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
     event_name VARCHAR(255) NOT NULL,
     channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NULL,
     version INT NOT NULL DEFAULT 1,
@@ -427,7 +427,7 @@ CREATE TABLE IF NOT EXISTS project_notification_templates (
 
 CREATE TABLE IF NOT EXISTS notification_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id BIGINT NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
     batch_id VARCHAR(64) NOT NULL,
     idempotency_key VARCHAR(255) NOT NULL,
     channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NOT NULL,
@@ -454,7 +454,7 @@ CREATE TABLE IF NOT EXISTS notification_logs (
 
 CREATE TABLE IF NOT EXISTS email_suppression_list (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id BIGINT NULL,
+    project_id VARCHAR(64) NULL,
     email VARCHAR(320) NOT NULL,
     reason ENUM('BOUNCE', 'COMPLAINT', 'MANUAL') NOT NULL,
     bounce_type VARCHAR(50) NULL,

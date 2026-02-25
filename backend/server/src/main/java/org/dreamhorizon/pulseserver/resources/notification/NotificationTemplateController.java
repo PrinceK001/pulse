@@ -24,7 +24,7 @@ public class NotificationTemplateController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<List<NotificationTemplateDto>>> getTemplates(
-      @PathParam("projectId") Long projectId) {
+      @PathParam("projectId") String projectId) {
     return notificationService.getTemplates(projectId).to(RestResponse.jaxrsRestHandler());
   }
 
@@ -32,7 +32,7 @@ public class NotificationTemplateController {
   @Path("/{templateId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationTemplateDto>> getTemplate(
-      @PathParam("projectId") Long projectId, @PathParam("templateId") Long templateId) {
+      @PathParam("projectId") String projectId, @PathParam("templateId") Long templateId) {
     return notificationService
         .getTemplate(templateId)
         .toSingle()
@@ -43,7 +43,7 @@ public class NotificationTemplateController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationTemplateDto>> createTemplate(
-      @PathParam("projectId") Long projectId, @NotNull @Valid CreateTemplateRequestDto request) {
+      @PathParam("projectId") String projectId, @NotNull @Valid CreateTemplateRequestDto request) {
     return notificationService
         .createTemplate(projectId, request)
         .to(RestResponse.jaxrsRestHandler());
@@ -54,7 +54,7 @@ public class NotificationTemplateController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationTemplateDto>> updateTemplate(
-      @PathParam("projectId") Long projectId,
+      @PathParam("projectId") String projectId,
       @PathParam("templateId") Long templateId,
       @NotNull @Valid UpdateTemplateRequestDto request) {
     return notificationService
@@ -66,7 +66,7 @@ public class NotificationTemplateController {
   @Path("/{templateId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<Boolean>> deleteTemplate(
-      @PathParam("projectId") Long projectId, @PathParam("templateId") Long templateId) {
+      @PathParam("projectId") String projectId, @PathParam("templateId") Long templateId) {
     return notificationService.deleteTemplate(templateId).to(RestResponse.jaxrsRestHandler());
   }
 }

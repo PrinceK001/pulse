@@ -24,7 +24,7 @@ public class EmailSuppressionDao {
 
   private final MysqlClient mysqlClient;
 
-  public Maybe<EmailSuppression> getSuppressionByEmail(Long projectId, String email) {
+  public Maybe<EmailSuppression> getSuppressionByEmail(String projectId, String email) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_SUPPRESSION_BY_EMAIL)
         .rxExecute(Tuple.of(projectId, email.toLowerCase()))
@@ -38,7 +38,7 @@ public class EmailSuppressionDao {
             });
   }
 
-  public Single<Boolean> isEmailSuppressed(Long projectId, String email) {
+  public Single<Boolean> isEmailSuppressed(String projectId, String email) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.IS_EMAIL_SUPPRESSED)
         .rxExecute(Tuple.of(projectId, email.toLowerCase()))
@@ -46,7 +46,7 @@ public class EmailSuppressionDao {
   }
 
   public Single<Long> addToSuppressionList(
-      Long projectId,
+      String projectId,
       String email,
       SuppressionReason reason,
       String bounceType,
@@ -66,7 +66,7 @@ public class EmailSuppressionDao {
         .map(rows -> rows.rowCount() > 0);
   }
 
-  public Single<Integer> removeFromSuppressionList(Long projectId, String email) {
+  public Single<Integer> removeFromSuppressionList(String projectId, String email) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(NotificationQueries.DELETE_SUPPRESSION)
         .rxExecute(Tuple.of(projectId, email.toLowerCase()))
@@ -74,7 +74,7 @@ public class EmailSuppressionDao {
   }
 
   public Single<List<EmailSuppression>> getSuppressionsByProject(
-      Long projectId, int limit, int offset) {
+      String projectId, int limit, int offset) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_SUPPRESSIONS_BY_PROJECT)
         .rxExecute(Tuple.of(projectId, limit, offset))
@@ -89,7 +89,7 @@ public class EmailSuppressionDao {
   private EmailSuppression mapRowToSuppression(Row row) {
     return EmailSuppression.builder()
         .id(row.getLong("id"))
-        .projectId(row.getLong("project_id"))
+        .projectId(row.getString("project_id"))
         .email(row.getString("email"))
         .reason(SuppressionReason.valueOf(row.getString("reason")))
         .bounceType(row.getString("bounce_type"))

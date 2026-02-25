@@ -40,7 +40,7 @@ public class NotificationChannelDao {
             });
   }
 
-  public Single<List<NotificationChannel>> getChannelsByProject(Long projectId) {
+  public Single<List<NotificationChannel>> getChannelsByProject(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_CHANNELS_BY_PROJECT)
         .rxExecute(Tuple.of(projectId))
@@ -53,7 +53,7 @@ public class NotificationChannelDao {
   }
 
   public Single<List<NotificationChannel>> getActiveChannelsByType(
-      Long projectId, ChannelType channelType) {
+      String projectId, ChannelType channelType) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_ACTIVE_CHANNELS_BY_TYPE)
         .rxExecute(Tuple.of(projectId, channelType.name()))
@@ -66,7 +66,7 @@ public class NotificationChannelDao {
   }
 
   public Maybe<NotificationChannel> getActiveChannelByType(
-      Long projectId, ChannelType channelType) {
+      String projectId, ChannelType channelType) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_ACTIVE_CHANNELS_BY_TYPE)
         .rxExecute(Tuple.of(projectId, channelType.name()))
@@ -111,7 +111,7 @@ public class NotificationChannelDao {
   private NotificationChannel mapRowToChannel(Row row) {
     return NotificationChannel.builder()
         .id(row.getLong("id"))
-        .projectId(row.getLong("project_id"))
+        .projectId(row.getString("project_id"))
         .channelType(ChannelType.valueOf(row.getString("channel_type")))
         .name(row.getString("name"))
         .config(row.getString("config"))

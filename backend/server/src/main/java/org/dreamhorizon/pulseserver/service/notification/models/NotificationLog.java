@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NotificationLog {
   private Long id;
-  private Long projectId;
+  private String projectId;
   private String batchId;
   private String idempotencyKey;
   private ChannelType channelType;
