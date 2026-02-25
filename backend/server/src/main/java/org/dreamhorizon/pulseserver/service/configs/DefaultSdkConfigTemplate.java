@@ -50,6 +50,7 @@ public class DefaultSdkConfigTemplate {
             .logsCollectorUrl(System.getenv().getOrDefault("LOGS_COLLECTOR_URL", "http://localhost:4318/v1/logs"))
             .metricCollectorUrl(System.getenv().getOrDefault("METRIC_COLLECTOR_URL", "http://localhost:4318/v1/metrics"))
             .spanCollectorUrl(System.getenv().getOrDefault("SPAN_COLLECTOR_URL", "http://localhost:4318/v1/traces"))
+            .customEventCollectorUrl(System.getenv().getOrDefault("CUSTOM_EVENT_COLLECTOR_URL", "http://localhost:4318/v1/events"))
             .attributesToDrop(new ArrayList<>())
             .attributesToAdd(new ArrayList<>())
             .build();
