@@ -16,10 +16,11 @@ import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPo
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
-import org.dreamhorizon.pulseserver.dao.projectdao.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
 import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
@@ -114,9 +115,6 @@ public class MainModule extends VertxAbstractModule {
       }
       return null;
     }).in(Singleton.class);
-
-    // Project DAO
-    bind(ProjectDao.class).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {

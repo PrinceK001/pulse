@@ -3,6 +3,9 @@ package org.dreamhorizon.pulseserver.resources.v1.projects.models;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,11 +35,10 @@ import lombok.NoArgsConstructor;
 public class CreateProjectRequest {
     
     @NotBlank(message = "Project name is required")
-    @Size(min = 3, max = 50, message = "Project name must be between 3 and 50 characters")
-    @Pattern(regexp = "^[a-zA-Z0-9][a-zA-Z0-9 -]*[a-zA-Z0-9]$", 
-             message = "Project name must start and end with alphanumeric characters and can only contain letters, numbers, spaces, and hyphens")
+    @Size(min = 3, max = 30, message = "Project name must be between 1 and 30 characters")
+    @Pattern(regexp = "^[a-zA-Z0-9-]+$", message = "Project name can only contain alphanumeric characters and hyphens")
     private String name;
     
-    @Size(max = 500, message = "Project description must not exceed 500 characters")
+    @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;
 }

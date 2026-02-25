@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.resources.v1.projects;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
@@ -42,7 +43,7 @@ public class ProjectResource {
     @POST
     public CompletionStage<Response<ProjectResponse>> createProject(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
-            CreateProjectRequest request) {
+            @Valid CreateProjectRequest request) {
         
         try {
             // Extract tenant ID from context (set by TenantFilter from JWT)
@@ -81,15 +82,18 @@ public class ProjectResource {
                     request.getName(),
                     request.getDescription(),
                     userId)
-                .map(project -> ProjectResponse.builder()
-                    .projectId(project.getProjectId())
-                    .name(project.getName())
-                    .description(project.getDescription())
-                    .tenantId(project.getTenantId())
-                    .apiKey(project.getApiKey())
-                    .createdAt(project.getCreatedAt())
-                    .createdBy(project.getCreatedBy())
-                    .build())
+                .map(creationResult -> {
+                    var project = creationResult.getProject();
+                    return ProjectResponse.builder()
+                        .projectId(project.getProjectId())
+                        .name(project.getName())
+                        .description(project.getDescription())
+                        .tenantId(project.getTenantId())
+                        .apiKey(creationResult.getRawApiKey())
+                        .createdAt(project.getCreatedAt())
+                        .createdBy(project.getCreatedBy())
+                        .build();
+                })
                 .to(RestResponse.jaxrsRestHandler());
                 
         } catch (Exception e) {
@@ -118,7 +122,7 @@ public class ProjectResource {
                 .name(project.getName())
                 .description(project.getDescription())
                 .tenantId(project.getTenantId())
-                .apiKey(project.getApiKey())
+                .apiKey(null) // API key is only returned at creation time
                 .createdAt(project.getCreatedAt())
                 .createdBy(project.getCreatedBy())
                 .build())

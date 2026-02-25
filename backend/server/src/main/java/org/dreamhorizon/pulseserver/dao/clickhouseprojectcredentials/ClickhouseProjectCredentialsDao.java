@@ -9,83 +9,81 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.model.ClickhouseProjectCredentials;
-import org.dreamhorizon.pulseserver.util.PasswordEncryptionUtil;
+import org.dreamhorizon.pulseserver.util.encryption.ClickhousePasswordEncryptionUtil;
+import org.dreamhorizon.pulseserver.util.encryption.EncryptedData;
 
-/**
- * DAO for ClickHouse project credentials.
- * Manages encrypted credentials for per-project ClickHouse users.
- */
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ClickhouseProjectCredentialsDao {
     
     private final MysqlClient mysqlClient;
-    private final PasswordEncryptionUtil encryptionUtil;
+    private final ClickhousePasswordEncryptionUtil encryptionUtil;
     
-    /**
-     * Save encrypted credentials for a project.
-     * 
-     * @param projectId Project ID
-     * @param clickhouseUsername ClickHouse username
-     * @param plainPassword Plain text password (will be encrypted)
-     * @return Single with saved credentials
-     */
     public Single<ClickhouseProjectCredentials> saveCredentials(
             String projectId, 
             String clickhouseUsername,
             String plainPassword) {
         
         MySQLPool pool = mysqlClient.getWriterPool();
+        EncryptedData encrypted = encryptionUtil.encrypt(plainPassword);
         
-        return Single.fromCallable(() -> {
-            // Encrypt password
-            String encryptedPassword = encryptionUtil.encrypt(plainPassword);
-            String salt = encryptionUtil.generateSalt();
-            String digest = encryptionUtil.generateDigest(plainPassword);
-            
-            return Tuple.of(
-                projectId,
-                clickhouseUsername,
-                encryptedPassword,
-                salt,
-                digest,
-                true
+        return pool.preparedQuery(INSERT_CREDENTIALS)
+            .rxExecute(buildCredentialsTuple(projectId, clickhouseUsername, encrypted))
+            .map(result -> mapToSavedCredentials(projectId, clickhouseUsername, encrypted))
+            .doOnError(error -> 
+                log.error("Failed to save credentials: projectId={}", projectId, error)
             );
-        })
-        .flatMap(tuple -> 
-            pool.preparedQuery(INSERT_CREDENTIALS)
-                .rxExecute(tuple)
-                .map(result -> {
-                    log.info("Saved ClickHouse credentials: projectId={}, username={}", 
-                        projectId, clickhouseUsername);
-                    
-                    return ClickhouseProjectCredentials.builder()
-                        .projectId(projectId)
-                        .clickhouseUsername(clickhouseUsername)
-                        .clickhousePasswordEncrypted((String) tuple.getValue(2))
-                        .encryptionSalt((String) tuple.getValue(3))
-                        .passwordDigest((String) tuple.getValue(4))
-                        .isActive(true)
-                        .build();
-                })
-        )
-        .doOnError(error -> 
-            log.error("Failed to save credentials: projectId={}", projectId, error)
+    }
+
+    public Single<ClickhouseProjectCredentials> saveCredentials(
+            SqlConnection conn,
+            String projectId, 
+            String clickhouseUsername,
+            String plainPassword) {
+        
+        EncryptedData encrypted = encryptionUtil.encrypt(plainPassword);
+        
+        return conn.preparedQuery(INSERT_CREDENTIALS)
+            .rxExecute(buildCredentialsTuple(projectId, clickhouseUsername, encrypted))
+            .map(result -> mapToSavedCredentials(projectId, clickhouseUsername, encrypted))
+            .doOnError(error -> 
+                log.error("Failed to save credentials: projectId={}", projectId, error)
+            );
+    }
+
+    private Tuple buildCredentialsTuple(String projectId, String clickhouseUsername, EncryptedData encrypted) {
+        return Tuple.of(
+            projectId,
+            clickhouseUsername,
+            encrypted.getEncryptedValue(),
+            encrypted.getSalt(),
+            encrypted.getDigest(),
+            true
         );
     }
+
+    private ClickhouseProjectCredentials mapToSavedCredentials(
+            String projectId, 
+            String clickhouseUsername, 
+            EncryptedData encrypted) {
+        log.info("Saved ClickHouse credentials: projectId={}, username={}", projectId, clickhouseUsername);
+        return ClickhouseProjectCredentials.builder()
+            .projectId(projectId)
+            .clickhouseUsername(clickhouseUsername)
+            .clickhousePasswordEncrypted(encrypted.getEncryptedValue())
+            .encryptionSalt(encrypted.getSalt())
+            .passwordDigest(encrypted.getDigest())
+            .isActive(true)
+            .build();
+    }
     
-    /**
-     * Get credentials for a project (with decrypted password).
-     * 
-     * @param projectId Project ID
-     * @return Maybe with credentials including decrypted password
-     */
     public Maybe<ClickhouseProjectCredentials> getCredentialsByProjectId(String projectId) {
         MySQLPool pool = mysqlClient.getReaderPool();
         
@@ -123,12 +121,6 @@ public class ClickhouseProjectCredentialsDao {
             );
     }
     
-    /**
-     * Deactivate credentials for a project.
-     * 
-     * @param projectId Project ID
-     * @return Completable
-     */
     public Completable deactivateCredentials(String projectId) {
         MySQLPool pool = mysqlClient.getWriterPool();
         
