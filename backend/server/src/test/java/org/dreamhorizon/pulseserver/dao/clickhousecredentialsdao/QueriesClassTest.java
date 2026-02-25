@@ -36,7 +36,6 @@ class QueriesClassTest {
     assertNotNull(Queries.UPDATE_TENANT);
     assertNotNull(Queries.DEACTIVATE_TENANT);
     assertNotNull(Queries.INSERT_AUDIT);
-    assertNotNull(Queries.GET_AUDIT_BY_TENANT);
     assertNotNull(Queries.GET_RECENT_AUDITS);
   }
 
@@ -51,7 +50,6 @@ class QueriesClassTest {
     assertTrue(Queries.REACTIVATE_CREDENTIALS.toUpperCase().contains("UPDATE"));
     assertTrue(Queries.DELETE_CREDENTIALS.toUpperCase().contains("DELETE"));
     assertTrue(Queries.INSERT_AUDIT.toUpperCase().contains("INSERT"));
-    assertTrue(Queries.GET_AUDIT_BY_TENANT.toUpperCase().contains("SELECT"));
     assertTrue(Queries.GET_RECENT_AUDITS.toUpperCase().contains("SELECT"));
   }
 
@@ -63,7 +61,6 @@ class QueriesClassTest {
     assertTrue(Queries.DEACTIVATE_CREDENTIALS.contains("clickhouse_tenant_credentials"));
     assertTrue(Queries.REACTIVATE_CREDENTIALS.contains("clickhouse_tenant_credentials"));
     assertTrue(Queries.INSERT_AUDIT.contains("clickhouse_credential_audit"));
-    assertTrue(Queries.GET_AUDIT_BY_TENANT.contains("clickhouse_credential_audit"));
     assertTrue(Queries.GET_RECENT_AUDITS.contains("clickhouse_credential_audit"));
   }
 

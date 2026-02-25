@@ -44,14 +44,13 @@ public class UploadInteractionDetailService {
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
       List<InteractionConfig> interactions,
-      String tenantId,
       String projectId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    String s3FilePath = getProjectAwarePath(tenantId, projectId, applicationConfig.getInteractionDetailsS3BucketFilePath());
+    String s3FilePath = getTenantAwarePath(projectId, applicationConfig.getInteractionDetailsS3BucketFilePath());
     String cloudFrontAssetPath = String.format("/%s",
-        getProjectAwarePath(tenantId, projectId, applicationConfig.getInteractionDetailCloudFrontAssetPath()));
-    log.info("Uploading to S3 at path: {} for tenant: {}, project: {}", s3FilePath, tenantId, projectId);
+        getTenantAwarePath(projectId, applicationConfig.getInteractionDetailCloudFrontAssetPath()));
+    log.info("Uploading to S3 at path: {}", s3FilePath);
 
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
@@ -61,8 +60,8 @@ public class UploadInteractionDetailService {
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful for tenant: {}, project: {}, invalidating CloudFront cache for distribution: {}",
-              tenantId, projectId, distributionId);
+          log.info("S3 upload successful for projectId: {}, invalidating CloudFront cache for distribution: {}",
+              projectId, distributionId);
           return cloudFrontClient
               .invalidateCache(
                   distributionId,
@@ -73,26 +72,16 @@ public class UploadInteractionDetailService {
   /**
    * Constructs a tenant-aware path by prefixing the base path with tenant directory.
    * Format: tenants/{tenantId}/{basePath}
-   * @deprecated Use getProjectAwarePath() instead for project-scoped interactions
    */
-  @Deprecated
   private String getTenantAwarePath(String tenantId, String basePath) {
     return String.format("config/tenants/%s/%s", tenantId, basePath);
   }
 
-  /**
-   * Constructs a project-aware path with tenant and project hierarchy.
-   * Format: config/tenants/{tenantId}/projects/{projectId}/{basePath}
-   */
-  private String getProjectAwarePath(String tenantId, String projectId, String basePath) {
-    return String.format("config/tenants/%s/projects/%s/%s", tenantId, projectId, basePath);
-  }
-
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenantId, String projectId) {
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String projectId) {
     return interactionDao
-        .getAllActiveAndRunningInteractions(tenantId)
+        .getAllActiveAndRunningInteractions(projectId)
         .map(this::toInteractionConfigs)
-        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, tenantId, projectId))
+        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, projectId))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }

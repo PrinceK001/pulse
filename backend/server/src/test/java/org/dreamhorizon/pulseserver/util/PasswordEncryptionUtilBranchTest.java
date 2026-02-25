@@ -7,22 +7,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 class PasswordEncryptionUtilBranchTest {
 
-  private static final String TEST_ENCRYPTION_KEY = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=";
-
   private PasswordEncryptionUtil util;
 
   @BeforeEach
   void setup() {
-    ClickhouseConfig config = new ClickhouseConfig();
-    config.setEncryptionMasterKey(TEST_ENCRYPTION_KEY);
-    util = new PasswordEncryptionUtil(config);
+    util = new PasswordEncryptionUtil();
   }
 
   @Nested
@@ -31,67 +26,63 @@ class PasswordEncryptionUtilBranchTest {
     @Test
     void shouldEncryptAndDecryptSuccessfully() {
       String password = "testPassword123!";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      String decrypted = util.decryptPassword(encrypted.getEncryptedPassword());
+      String encrypted = util.encrypt(password);
+      String decrypted = util.decrypt(encrypted);
       assertEquals(password, decrypted);
     }
 
     @Test
     void shouldHandleEmptyPassword() {
       String password = "";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      String decrypted = util.decryptPassword(encrypted.getEncryptedPassword());
+      String encrypted = util.encrypt(password);
+      String decrypted = util.decrypt(encrypted);
       assertEquals(password, decrypted);
     }
 
     @Test
     void shouldHandleSpecialCharacters() {
       String password = "p@$$w0rd!#$%^&*()_+{}|:<>?~`";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      String decrypted = util.decryptPassword(encrypted.getEncryptedPassword());
+      String encrypted = util.encrypt(password);
+      String decrypted = util.decrypt(encrypted);
       assertEquals(password, decrypted);
     }
 
     @Test
     void shouldHandleUnicodeCharacters() {
       String password = "密码тест";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      String decrypted = util.decryptPassword(encrypted.getEncryptedPassword());
+      String encrypted = util.encrypt(password);
+      String decrypted = util.decrypt(encrypted);
       assertEquals(password, decrypted);
     }
 
     @Test
     void shouldHandleLongPassword() {
       String password = "a".repeat(1000);
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      String decrypted = util.decryptPassword(encrypted.getEncryptedPassword());
+      String encrypted = util.encrypt(password);
+      String decrypted = util.decrypt(encrypted);
       assertEquals(password, decrypted);
     }
 
     @Test
-    void shouldProduceDifferentEncryptedPasswordsForSamePassword() {
+    void shouldProduceSameEncryptedOutputForSameInput() {
       String password = "testPassword";
-      PasswordEncryptionUtil.EncryptedPassword encrypted1 = util.encryptPassword(password);
-      PasswordEncryptionUtil.EncryptedPassword encrypted2 = util.encryptPassword(password);
-      // Encryption result may be same (AES ECB) but salt will differ
-      assertNotEquals(encrypted1.getSalt(), encrypted2.getSalt());
+      String encrypted1 = util.encrypt(password);
+      String encrypted2 = util.encrypt(password);
+      assertEquals(encrypted1, encrypted2);
     }
 
     @Test
-    void shouldProduceDifferentSaltsForSamePassword() {
-      String password = "testPassword";
-      PasswordEncryptionUtil.EncryptedPassword encrypted1 = util.encryptPassword(password);
-      PasswordEncryptionUtil.EncryptedPassword encrypted2 = util.encryptPassword(password);
-      assertNotEquals(encrypted1.getSalt(), encrypted2.getSalt());
+    void shouldProduceDifferentEncryptedOutputForDifferentInput() {
+      String encrypted1 = util.encrypt("password1");
+      String encrypted2 = util.encrypt("password2");
+      assertNotEquals(encrypted1, encrypted2);
     }
 
     @Test
-    void shouldProduceDifferentDigestsForSamePassword() {
-      String password = "testPassword";
-      PasswordEncryptionUtil.EncryptedPassword encrypted1 = util.encryptPassword(password);
-      PasswordEncryptionUtil.EncryptedPassword encrypted2 = util.encryptPassword(password);
-      // Digests will be different because salt is different
-      assertNotEquals(encrypted1.getDigest(), encrypted2.getDigest());
+    void shouldReturnNonNullEncryptedValue() {
+      String encrypted = util.encrypt("test");
+      assertNotNull(encrypted);
+      assertFalse(encrypted.isEmpty());
     }
   }
 
@@ -131,6 +122,14 @@ class PasswordEncryptionUtilBranchTest {
       String digest = util.generateDigest("密码тест");
       assertNotNull(digest);
     }
+
+    @Test
+    void shouldGenerateHexEncodedDigest() {
+      String digest = util.generateDigest("test");
+      assertNotNull(digest);
+      assertTrue(digest.matches("[0-9a-f]+"));
+      assertEquals(64, digest.length());
+    }
   }
 
   @Nested
@@ -139,288 +138,88 @@ class PasswordEncryptionUtilBranchTest {
     @Test
     void shouldVerifyMatchingPassword() {
       String password = "testPassword";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      assertTrue(util.verifyPassword(password, encrypted.getSalt(), encrypted.getDigest()));
+      String digest = util.generateDigest(password);
+      assertTrue(util.verifyPassword(password, digest));
     }
 
     @Test
     void shouldRejectNonMatchingPassword() {
       String password = "testPassword";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      assertFalse(util.verifyPassword("wrongPassword", encrypted.getSalt(), encrypted.getDigest()));
+      String digest = util.generateDigest(password);
+      assertFalse(util.verifyPassword("wrongPassword", digest));
     }
 
     @Test
     void shouldHandleEmptyPasswordVerification() {
-      String password = "";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      assertTrue(util.verifyPassword("", encrypted.getSalt(), encrypted.getDigest()));
-      assertFalse(util.verifyPassword("nonEmpty", encrypted.getSalt(), encrypted.getDigest()));
+      String digest = util.generateDigest("");
+      assertTrue(util.verifyPassword("", digest));
+      assertFalse(util.verifyPassword("nonEmpty", digest));
     }
 
     @Test
     void shouldHandleSpecialCharacterVerification() {
       String password = "!@#$%^&*()";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      assertTrue(util.verifyPassword(password, encrypted.getSalt(), encrypted.getDigest()));
-    }
-
-    @Test
-    void shouldReturnFalseForInvalidSalt() {
-      String password = "testPassword";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      assertFalse(util.verifyPassword(password, "invalidSalt", encrypted.getDigest()));
+      String digest = util.generateDigest(password);
+      assertTrue(util.verifyPassword(password, digest));
     }
 
     @Test
     void shouldReturnFalseForInvalidDigest() {
       String password = "testPassword";
-      PasswordEncryptionUtil.EncryptedPassword encrypted = util.encryptPassword(password);
-      assertFalse(util.verifyPassword(password, encrypted.getSalt(), "invalidDigest"));
+      assertFalse(util.verifyPassword(password, "invalidDigest"));
     }
   }
 
   @Nested
-  class TestEncryptedPasswordClass {
+  class TestSalt {
 
     @Test
-    void shouldCreateWithBuilder() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertEquals("encrypted", password.getEncryptedPassword());
-      assertEquals("salt", password.getSalt());
-      assertEquals("digest", password.getDigest());
+    void shouldGenerateNonNullSalt() {
+      String salt = util.generateSalt();
+      assertNotNull(salt);
+      assertFalse(salt.isEmpty());
     }
 
     @Test
-    void equalsShouldReturnTrueForSameObject() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertTrue(password.equals(password));
+    void shouldGenerateDifferentSaltsEachTime() {
+      String salt1 = util.generateSalt();
+      String salt2 = util.generateSalt();
+      assertNotEquals(salt1, salt2);
     }
 
     @Test
-    void equalsShouldReturnFalseForNull() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertFalse(password.equals(null));
+    void shouldGenerateBase64EncodedSalt() {
+      String salt = util.generateSalt();
+      assertNotNull(salt);
+      assertFalse(salt.isEmpty());
+      // Should be valid Base64
+      java.util.Base64.getDecoder().decode(salt);
+    }
+  }
+
+  @Nested
+  class TestGetKeyAsBase64 {
+
+    @Test
+    void shouldReturnNonNullKey() {
+      String key = util.getKeyAsBase64();
+      assertNotNull(key);
+      assertFalse(key.isEmpty());
     }
 
     @Test
-    void equalsShouldReturnFalseForDifferentClass() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertFalse(password.equals("string"));
+    void shouldReturnConsistentKey() {
+      String key1 = util.getKeyAsBase64();
+      String key2 = util.getKeyAsBase64();
+      assertEquals(key1, key2);
     }
 
     @Test
-    void equalsShouldReturnTrueForEqualObjects() {
-      PasswordEncryptionUtil.EncryptedPassword password1 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      PasswordEncryptionUtil.EncryptedPassword password2 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertTrue(password1.equals(password2));
-    }
-
-    @Test
-    void equalsShouldReturnFalseWhenEncryptedPasswordDiffers() {
-      PasswordEncryptionUtil.EncryptedPassword password1 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted1")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      PasswordEncryptionUtil.EncryptedPassword password2 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted2")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertFalse(password1.equals(password2));
-    }
-
-    @Test
-    void equalsShouldReturnFalseWhenSaltDiffers() {
-      PasswordEncryptionUtil.EncryptedPassword password1 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt1")
-              .digest("digest")
-              .build();
-      PasswordEncryptionUtil.EncryptedPassword password2 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt2")
-              .digest("digest")
-              .build();
-      assertFalse(password1.equals(password2));
-    }
-
-    @Test
-    void equalsShouldReturnFalseWhenDigestDiffers() {
-      PasswordEncryptionUtil.EncryptedPassword password1 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest1")
-              .build();
-      PasswordEncryptionUtil.EncryptedPassword password2 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest2")
-              .build();
-      assertFalse(password1.equals(password2));
-    }
-
-    @Test
-    void equalsShouldHandleNullFields() {
-      PasswordEncryptionUtil.EncryptedPassword password1 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword(null)
-              .salt(null)
-              .digest(null)
-              .build();
-      PasswordEncryptionUtil.EncryptedPassword password2 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword(null)
-              .salt(null)
-              .digest(null)
-              .build();
-      assertTrue(password1.equals(password2));
-    }
-
-    @Test
-    void equalsShouldHandleMixedNullFields() {
-      PasswordEncryptionUtil.EncryptedPassword password1 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt(null)
-              .digest("digest")
-              .build();
-      PasswordEncryptionUtil.EncryptedPassword password2 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertFalse(password1.equals(password2));
-    }
-
-    @Test
-    void hashCodeShouldBeConsistent() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertEquals(password.hashCode(), password.hashCode());
-    }
-
-    @Test
-    void hashCodeShouldBeEqualForEqualObjects() {
-      PasswordEncryptionUtil.EncryptedPassword password1 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      PasswordEncryptionUtil.EncryptedPassword password2 = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertEquals(password1.hashCode(), password2.hashCode());
-    }
-
-    @Test
-    void hashCodeShouldHandleNullFields() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder().build();
-      assertNotNull(password.hashCode());
-    }
-
-    @Test
-    void toStringShouldNotReturnNull() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertNotNull(password.toString());
-    }
-
-    @Test
-    void toStringShouldContainFieldValues() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      String str = password.toString();
-      assertTrue(str.contains("encrypted") || str.contains("encryptedPassword"));
-      assertTrue(str.contains("salt"));
-      assertTrue(str.contains("digest"));
-    }
-
-    @Test
-    void canEqualShouldWork() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder()
-              .encryptedPassword("encrypted")
-              .salt("salt")
-              .digest("digest")
-              .build();
-      assertTrue(password.canEqual(PasswordEncryptionUtil.EncryptedPassword.builder().build()));
-      assertFalse(password.canEqual("string"));
-    }
-
-    @Test
-    void builderToStringShouldWork() {
-      String str = PasswordEncryptionUtil.EncryptedPassword.builder()
-          .encryptedPassword("test")
-          .toString();
-      assertNotNull(str);
-    }
-
-    @Test
-    void settersShouldWork() {
-      PasswordEncryptionUtil.EncryptedPassword password = 
-          PasswordEncryptionUtil.EncryptedPassword.builder().build();
-      password.setEncryptedPassword("newEncrypted");
-      password.setSalt("newSalt");
-      password.setDigest("newDigest");
-      assertEquals("newEncrypted", password.getEncryptedPassword());
-      assertEquals("newSalt", password.getSalt());
-      assertEquals("newDigest", password.getDigest());
+    void shouldReturnValidBase64Key() {
+      String key = util.getKeyAsBase64();
+      byte[] decoded = java.util.Base64.getDecoder().decode(key);
+      assertNotNull(decoded);
+      assertTrue(decoded.length > 0);
     }
   }
 
@@ -429,12 +228,12 @@ class PasswordEncryptionUtilBranchTest {
 
     @Test
     void shouldThrowExceptionForInvalidEncryptedPassword() {
-      assertThrows(RuntimeException.class, () -> util.decryptPassword("invalid"));
+      assertThrows(RuntimeException.class, () -> util.decrypt("invalid"));
     }
 
     @Test
     void shouldThrowExceptionForNullEncryptedPassword() {
-      assertThrows(Exception.class, () -> util.decryptPassword(null));
+      assertThrows(Exception.class, () -> util.decrypt(null));
     }
   }
 }

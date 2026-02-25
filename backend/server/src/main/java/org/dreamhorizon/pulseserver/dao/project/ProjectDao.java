@@ -176,9 +176,9 @@ public class ProjectDao {
             .apiKey(null)  // Not stored in projects table - managed in project_api_keys
             .isActive(row.getBoolean("is_active"))
             .createdBy(row.getString("created_by"))
-            .createdAt(row.getLocalDateTime("created_at") != null ? 
+            .createdAt(row.getLocalDateTime("created_at") != null ?
                 row.getLocalDateTime("created_at").toString() : null)
-            .updatedAt(row.getLocalDateTime("updated_at") != null ? 
+            .updatedAt(row.getLocalDateTime("updated_at") != null ?
                 row.getLocalDateTime("updated_at").toString() : null)
             .build();
     }

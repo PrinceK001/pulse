@@ -5,6 +5,8 @@ import jakarta.annotation.Priority;
 import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.container.ResourceInfo;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
@@ -15,6 +17,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 
 /**
  * JAX-RS authorization filter that checks user permissions using OpenFGA.
@@ -38,6 +41,9 @@ public class AuthorizationFilter implements ContainerRequestFilter {
     private static final String AUTH_PATH_PREFIX = "v1/auth";
     private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
     
+    @Context
+    private ResourceInfo resourceInfo;
+
     private OpenFgaService openFgaService;
     private JwtService jwtService;
     
@@ -67,8 +73,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
             return;
         }
         
-        // Map HTTP method to OpenFGA action
-        String action = mapHttpMethodToAction(requestContext.getMethod());
+        String action = resolveAction(requestContext.getMethod());
         
         log.debug("Checking permission: userId={}, action={}, projectId={}", userId, action, projectId);
         
@@ -111,14 +116,36 @@ public class AuthorizationFilter implements ContainerRequestFilter {
     }
     
     /**
-     * Map HTTP method to OpenFGA action/relation.
+     * Resolve the required OpenFGA permission for the current request.
+     * Checks for a {@link RequiresPermission} annotation on the resource method
+     * (or its class) first; falls back to HTTP-method-based inference.
      */
+    private String resolveAction(String httpMethod) {
+        if (resourceInfo != null) {
+            Method resourceMethod = resourceInfo.getResourceMethod();
+            if (resourceMethod != null) {
+                RequiresPermission methodAnnotation = resourceMethod.getAnnotation(RequiresPermission.class);
+                if (methodAnnotation != null) {
+                    return methodAnnotation.value();
+                }
+            }
+            Class<?> resourceClass = resourceInfo.getResourceClass();
+            if (resourceClass != null) {
+                RequiresPermission classAnnotation = resourceClass.getAnnotation(RequiresPermission.class);
+                if (classAnnotation != null) {
+                    return classAnnotation.value();
+                }
+            }
+        }
+        return mapHttpMethodToAction(httpMethod);
+    }
+
     private String mapHttpMethodToAction(String method) {
         return switch (method.toUpperCase()) {
-            case "GET", "HEAD" -> "view";
-            case "POST", "PUT", "PATCH" -> "edit";
-            case "DELETE" -> "delete";
-            default -> "view";  // Default to most restrictive for unknown methods
+            case "GET", "HEAD" -> "can_view";
+            case "POST", "PUT", "PATCH" -> "can_edit";
+            case "DELETE" -> "can_delete_project";
+            default -> "can_view";
         };
     }
     

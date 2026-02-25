@@ -25,7 +25,6 @@ import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromR
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.LoginResponse;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.VerifyAuthTokenResponseDto;
 import org.dreamhorizon.pulseserver.util.JwtUtils;
-import org.dreamhorizon.pulseserver.model.Project;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -97,7 +96,7 @@ public class AuthService {
    * Simplified login flow without Firebase tenant claims.
    * Uses OpenFGA as single source of truth for user-project relationships.
    * Activates pending users on first login.
-   * 
+   *
    * @param firebaseIdToken Firebase ID token from Google sign-in
    * @return LoginResponse with tokens (if has projects) or needs onboarding flag
    */
@@ -124,12 +123,12 @@ public class AuthService {
                 .flatMap(user -> {
                     // Check if user is pending (added by admin but never logged in)
                     if ("pending".equals(user.getStatus())) {
-                        log.info("Activating pending user on first login: userId={}, email={}", 
+                        log.info("Activating pending user on first login: userId={}, email={}",
                             user.getUserId(), user.getEmail());
-                        
+
                         // Activate the user and update Firebase UID
                         return userService.activateUser(
-                            user.getUserId(), 
+                            user.getUserId(),
                             userInfo.userId,  // Firebase UID
                             userInfo.name
                         ).andThen(Single.just(user.toBuilder()
@@ -144,7 +143,7 @@ public class AuthService {
                     }
                 });
         })
-        .flatMap(user -> 
+        .flatMap(user ->
             // Query OpenFGA for user's projects
             openFgaService.getUserProjects(user.getUserId())
                 .flatMap(projectIds -> {
@@ -162,26 +161,26 @@ public class AuthService {
 
                   // User has projects - get first project's tenant
                   String firstProjectId = projectIds.get(0);
-                  log.info("User has {} project(s), using first: userId={}, projectId={}", 
+                  log.info("User has {} project(s), using first: userId={}, projectId={}",
                       projectIds.size(), user.getUserId(), firstProjectId);
 
                   return projectService.getProjectById(firstProjectId)
                       .flatMap(project -> {
                         String tenantId = project.getTenantId();
-                        
+
                         // Get user's tenant role
                         return openFgaService.getUserTenantRole(user.getUserId(), tenantId)
                             .map(roleOpt -> {
-                                String tenantRole = roleOpt.orElse("member");
-                                
-                                // Generate JWT tokens with tenantId
-                                String accessToken = jwtService.generateAccessToken(
-                                    user.getUserId(), user.getEmail(), user.getName(), tenantId);
-                                String refreshToken = jwtService.generateRefreshToken(
-                                    user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                              String tenantRole = roleOpt.orElse("member");
 
-                                log.info("Login successful: userId={}, tenantId={}, tenantRole={}", 
-                                    user.getUserId(), tenantId, tenantRole);
+                              // Generate JWT tokens with tenantId
+                              String accessToken = jwtService.generateAccessToken(
+                                  user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                              String refreshToken = jwtService.generateRefreshToken(
+                                  user.getUserId(), user.getEmail(), user.getName(), tenantId);
+
+                              log.info("Login successful: userId={}, tenantId={}, tenantRole={}",
+                                  user.getUserId(), tenantId, tenantRole);
 
                                 return LoginResponse.builder()
                                     .status(LoginStatus.SUCCESS)
@@ -201,7 +200,7 @@ public class AuthService {
                       });
                 })
         )
-        .doOnError(error -> 
+        .doOnError(error ->
             log.error("Login failed: {}", error.getMessage(), error)
         );
   }
@@ -218,7 +217,7 @@ public class AuthService {
       try {
         SignedJWT signedJWT = SignedJWT.parse(idTokenString);
         String kid = signedJWT.getHeader().getKeyID();
-        
+
         if (kid == null) {
           throw new IllegalArgumentException("Invalid Firebase token: missing key ID");
         }
@@ -268,9 +267,10 @@ public class AuthService {
         if (userId == null || userId.isBlank()) {
           throw new IllegalArgumentException("Token missing user ID");
         }
-        
+
         if (email == null || email.isBlank()) {
-          throw new IllegalArgumentException("Firebase token is missing email claim. Please ensure your authentication includes email permissions.");
+          throw new IllegalArgumentException(
+              "Firebase token is missing email claim. Please ensure your authentication includes email permissions.");
         }
 
         return new UserInfo(userId, email, name, picture);
@@ -307,8 +307,8 @@ public class AuthService {
       return false;
     }
     // Accept various mock token formats for development
-    return token.startsWith("mock-") 
-        || token.startsWith("dev-") 
+    return token.startsWith("mock-")
+        || token.startsWith("dev-")
         || token.equals("test-token-user1")
         || token.equals("test-token-user2")
         || !token.contains(".");  // Not a JWT format
@@ -324,7 +324,7 @@ public class AuthService {
     String userId;
     String email;
     String name;
-    
+
     // Parse mock token to determine which user
     if (mockToken != null && (mockToken.contains("user2") || mockToken.contains("2"))) {
       userId = "mock-user-2";
@@ -335,9 +335,9 @@ public class AuthService {
       email = "user1@example.com";
       name = "Test User 1";
     }
-    
+
     log.info("Development mode login: userId={}, email={}", userId, email);
-    
+
     // Check if user exists in database
     return userService.getUserByEmail(email)
         .flatMapSingle(user -> {
@@ -377,16 +377,16 @@ public class AuthService {
                     }
                 });
         }))
-        .doOnError(error -> 
+        .doOnError(error ->
             log.error("Dev login failed: {}", error.getMessage(), error)
         );
   }
-  
+
   /**
    * Helper to proceed with dev login after activation/verification
    */
-  private Single<LoginResponse> proceedWithDevLogin(String userId, String email, String name, 
-                                                     java.util.List<String> projectIds) {
+  private Single<LoginResponse> proceedWithDevLogin(String userId, String email, String name,
+                                                    java.util.List<String> projectIds) {
     if (projectIds == null || projectIds.isEmpty()) {
         log.info("Dev user has no projects, requires onboarding: userId={}", userId);
         return Single.just(LoginResponse.builder()
@@ -400,24 +400,24 @@ public class AuthService {
 
     // User has projects - get first project's tenant
     String firstProjectId = projectIds.get(0);
-    log.info("Dev user has {} project(s), using first: userId={}, projectId={}", 
+    log.info("Dev user has {} project(s), using first: userId={}, projectId={}",
         projectIds.size(), userId, firstProjectId);
 
     return projectService.getProjectById(firstProjectId)
         .flatMap(project -> {
-            String tenantId = project.getTenantId();
-            
-            // Get user's tenant role
-            return openFgaService.getUserTenantRole(userId, tenantId)
-                .map(roleOpt -> {
-                    String tenantRole = roleOpt.orElse("member");
-                    
-                    // Generate JWT tokens with tenantId
-                    String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
-                    String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+          String tenantId = project.getTenantId();
 
-                    log.info("Dev login successful: userId={}, tenantId={}, tenantRole={}", 
-                        userId, tenantId, tenantRole);
+          // Get user's tenant role
+          return openFgaService.getUserTenantRole(userId, tenantId)
+              .map(roleOpt -> {
+                String tenantRole = roleOpt.orElse("member");
+
+                // Generate JWT tokens with tenantId
+                String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+                String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+
+                log.info("Dev login successful: userId={}, tenantId={}, tenantRole={}",
+                    userId, tenantId, tenantRole);
 
                     return LoginResponse.builder()
                         .status(LoginStatus.SUCCESS)
