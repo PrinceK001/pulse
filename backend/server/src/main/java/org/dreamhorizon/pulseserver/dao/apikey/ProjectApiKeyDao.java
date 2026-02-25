@@ -69,7 +69,14 @@ public class ProjectApiKeyDao {
       String apiKeyDigest,
       LocalDateTime expiresAt,
       String createdBy) {
-    return Tuple.of(projectId, displayName, apiKeyEncrypted, encryptionSalt, apiKeyDigest, expiresAt, createdBy);
+    return Tuple.tuple()
+        .addString(projectId)
+        .addString(displayName)
+        .addString(apiKeyEncrypted)
+        .addString(encryptionSalt)
+        .addString(apiKeyDigest)
+        .addLocalDateTime(expiresAt)
+        .addString(createdBy);
   }
 
   private ProjectApiKey mapToCreatedApiKey(
@@ -81,7 +88,7 @@ public class ProjectApiKeyDao {
       String apiKeyDigest,
       LocalDateTime expiresAt,
       String createdBy) {
-    long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
+    long generatedId = Long.parseLong(result.property(io.vertx.rxjava3.mysqlclient.MySQLClient.LAST_INSERTED_ID).toString());
     log.info("Created API key {} for project: {}", generatedId, projectId);
     return ProjectApiKey.builder()
         .projectApiKeyId(generatedId)

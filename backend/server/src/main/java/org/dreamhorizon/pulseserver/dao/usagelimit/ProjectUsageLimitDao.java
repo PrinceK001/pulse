@@ -54,7 +54,7 @@ public class ProjectUsageLimitDao {
       String projectId,
       String usageLimitsJson,
       String createdBy) {
-    long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
+    long generatedId = Long.parseLong(result.property(io.vertx.rxjava3.mysqlclient.MySQLClient.LAST_INSERTED_ID).toString());
     log.info("Created usage limit {} for project: {}", generatedId, projectId);
     return ProjectUsageLimit.builder()
         .projectUsageLimitId(generatedId)

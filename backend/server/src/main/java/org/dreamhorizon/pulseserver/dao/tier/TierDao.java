@@ -45,7 +45,7 @@ public class TierDao {
                 tier.getUsageLimitDefaults(),
                 tier.getIsActive() != null ? tier.getIsActive() : true))
         .map(result -> {
-          long lastInsertId = result.property(MySQLPool.LAST_INSERTED_ID);
+          long lastInsertId = Long.parseLong(result.property(io.vertx.rxjava3.mysqlclient.MySQLClient.LAST_INSERTED_ID).toString());
           log.info("Created tier: {} with ID: {}", tier.getName(), lastInsertId);
           return Tier.builder()
               .tierId((int) lastInsertId)

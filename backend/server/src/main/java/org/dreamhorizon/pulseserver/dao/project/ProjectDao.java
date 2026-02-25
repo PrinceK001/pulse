@@ -56,7 +56,7 @@ public class ProjectDao {
   }
 
   private Project mapToCreatedProject(io.vertx.rxjava3.sqlclient.RowSet<Row> result, Project project) {
-    long generatedId = result.property(io.vertx.sqlclient.PropertyKind.create("last-inserted-id", Long.class));
+    long generatedId = Long.parseLong(result.property(io.vertx.rxjava3.mysqlclient.MySQLClient.LAST_INSERTED_ID).toString());
     log.info("Created project: {} (id: {}) for tenant: {}", project.getProjectId(), generatedId, project.getTenantId());
     return Project.builder()
         .id((int) generatedId)

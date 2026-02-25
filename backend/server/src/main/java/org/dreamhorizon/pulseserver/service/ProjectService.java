@@ -9,9 +9,9 @@ import io.vertx.rxjava3.sqlclient.SqlConnection;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
 import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
-import org.dreamhorizon.pulseserver.model.Project;
 import org.dreamhorizon.pulseserver.service.apikey.ProjectApiKeyService;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
@@ -75,7 +75,6 @@ public class ProjectService {
             .tenantId(tenantId)
             .name(name)
             .description(description)
-            .apiKey(null)
             .isActive(true)
             .createdBy(createdBy)
             .build();
@@ -192,21 +191,18 @@ public class ProjectService {
 
     public Single<List<ProjectSummaryDto>> getProjectsForUser(String userId, String tenantId) {
         return projectDao.getProjectsByTenantId(tenantId)
-            .flatMap(projects -> 
-                Flowable.fromIterable(projects)
-                    .flatMapSingle(project -> 
-                        openFgaService.getUserRoleInProject(userId, project.getProjectId())
-                            .map(roleOpt -> ProjectSummaryDto.builder()
-                                .projectId(project.getProjectId())
-                                .name(project.getName())
-                                .description(project.getDescription())
-                                .role(roleOpt.orElse("none"))
-                                .isActive(project.getIsActive())
-                                .createdAt(project.getCreatedAt())
-                                .build())
-                    )
-                    .toList()
+            .flatMapSingle(project -> 
+                openFgaService.getUserRoleInProject(userId, project.getProjectId())
+                    .map(roleOpt -> ProjectSummaryDto.builder()
+                        .projectId(project.getProjectId())
+                        .name(project.getName())
+                        .description(project.getDescription())
+                        .role(roleOpt.orElse("none"))
+                        .isActive(project.getIsActive())
+                        .createdAt(project.getCreatedAt())
+                        .build())
             )
+            .toList()
             .doOnSuccess(projects -> 
                 log.debug("Retrieved {} projects for user {} in tenant {}", 
                     projects.size(), userId, tenantId)
@@ -236,7 +232,6 @@ public class ProjectService {
                             .tenantId(project.getTenantId())
                             .name(project.getName())
                             .description(project.getDescription())
-                            .apiKey(isAdmin ? project.getApiKey() : null)
                             .isActive(project.getIsActive())
                             .createdBy(project.getCreatedBy())
                             .createdAt(project.getCreatedAt())
@@ -290,7 +285,6 @@ public class ProjectService {
     }
 
     public Single<Integer> getActiveProjectCount(String tenantId) {
-        return projectDao.getActiveProjectCount(tenantId)
-            .map(Long::intValue);
+        return projectDao.getActiveProjectCount(tenantId);
     }
 }

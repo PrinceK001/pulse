@@ -66,7 +66,13 @@ public class TenantService {
   public Single<Tenant> updateTenant(UpdateTenantRequest request) {
     log.info("Updating tenant: {}", request.getTenantId());
 
-    return tenantDao.updateTenant(request.getTenantId(), request.getName(), request.getDescription())
+    Tenant tenant = Tenant.builder()
+        .tenantId(request.getTenantId())
+        .name(request.getName())
+        .description(request.getDescription())
+        .build();
+
+    return tenantDao.updateTenant(tenant)
         .doOnSuccess(t -> log.info("Tenant updated: {}", t.getTenantId()))
         .doOnError(error -> log.error("Failed to update tenant: {}", request.getTenantId(), error));
   }

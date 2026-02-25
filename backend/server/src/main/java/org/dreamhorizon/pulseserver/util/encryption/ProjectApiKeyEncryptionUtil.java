@@ -7,6 +7,7 @@ import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.G
 import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.SALT_LENGTH;
 import static org.dreamhorizon.pulseserver.util.encryption.EncryptionConstants.TRANSFORMATION;
 
+import java.nio.ByteBuffer;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;

@@ -42,16 +42,16 @@ public class TenantDao {
 
   public Single<Tenant> createTenant(Tenant tenant, int tierId) {
     MySQLPool pool = mysqlClient.getWriterPool();
+    Tuple tuple = Tuple.tuple()
+        .addString(tenant.getTenantId())
+        .addString(tenant.getName())
+        .addString(tenant.getDescription())
+        .addString(tenant.getGcpTenantId())
+        .addString(tenant.getDomainName())
+        .addInteger(tierId)
+        .addBoolean(true);
     return pool.preparedQuery(INSERT_TENANT)
-        .rxExecute(
-            Tuple.of(
-                tenant.getTenantId(),
-                tenant.getName(),
-                tenant.getDescription(),
-                tenant.getGcpTenantId(),
-                tenant.getDomainName(),
-                tierId,
-                true))
+        .rxExecute(tuple)
         .map(result -> {
           log.info("Created tenant: {} with tier: {}", tenant.getTenantId(), tierId);
           return Tenant.builder()
