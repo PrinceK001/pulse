@@ -36,14 +36,13 @@ public class InteractionServiceImpl implements InteractionService {
 
   @Override
   public Single<InteractionDetails> createInteraction(@Valid CreateInteractionRequest request) {
-    String tenantId = TenantContext.requireTenantId();
     String projectId = ProjectContext.getProjectId();
     
     return validateInteractionAlreadyPresent(request)
         .flatMap(resp -> interactionDao.createInteractionAndUploadMetadata(mapper.toInteractionDetails(request)))
         .flatMap(resp -> Single.just(resp.getInteractionDetails()))
         .doOnSuccess(resp -> uploadInteractionDetailService
-            .pushInteractionDetailsToObjectStore(tenantId, projectId)
+            .pushInteractionDetailsToObjectStore(projectId)
             .subscribe())
         .doOnError(err -> log.error("error while creating interaction", err));
   }
@@ -62,14 +61,13 @@ public class InteractionServiceImpl implements InteractionService {
 
   @Override
   public Single<EmptyResponse> updateInteraction(@Valid UpdateInteractionRequest request) {
-    String tenantId = TenantContext.requireTenantId();
     String projectId = ProjectContext.getProjectId();
     
     return getInteractionDetails(request.getName())
         .flatMap(interaction -> this.patchInteraction(request, interaction))
         .flatMap(resp -> Single.just(EmptyResponse.emptyResponse))
         .doOnSuccess(resp -> uploadInteractionDetailService
-            .pushInteractionDetailsToObjectStore(tenantId, projectId)
+            .pushInteractionDetailsToObjectStore(projectId)
             .subscribe())
         .doOnError(err -> log.error("error while updating interaction", err));
   }
@@ -134,20 +132,19 @@ public class InteractionServiceImpl implements InteractionService {
 
   @Override
   public Single<EmptyResponse> deleteInteraction(DeleteInteractionRequest deleteInteractionRequest) {
-    String tenantId = TenantContext.requireTenantId();
     String projectId = ProjectContext.getProjectId();
     
     return interactionDao
         .deleteInteractionAndCreateUploadMetadata(deleteInteractionRequest)
         .map(res -> EmptyResponse.emptyResponse)
         .doOnSuccess(resp -> uploadInteractionDetailService
-            .pushInteractionDetailsToObjectStore(tenantId, projectId)
+            .pushInteractionDetailsToObjectStore(projectId)
             .subscribe());
   }
 
   @Override
   public Single<List<InteractionDetails>> getInteractionConfig() {
-    return interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+    return interactionDao.getAllActiveAndRunningInteractions(ProjectContext.getProjectId());
   }
 
   @Override

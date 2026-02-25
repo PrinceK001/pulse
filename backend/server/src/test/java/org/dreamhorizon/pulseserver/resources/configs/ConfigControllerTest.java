@@ -63,6 +63,7 @@ class ConfigControllerTest {
     TenantContext.setTenant(Tenant.builder()
         .tenantId("default")
         .build());
+    org.dreamhorizon.pulseserver.context.ProjectContext.setProjectId("test-project");
   }
 
   @Nested
@@ -82,7 +83,7 @@ class ConfigControllerTest {
             .description("Test Config")
             .build();
 
-        when(configService.getSdkConfig(TenantContext.requireTenantId(), version)).thenReturn(Single.just(mockConfig));
+        when(configService.getSdkConfig("test-project", version)).thenReturn(Single.just(mockConfig));
 
         // When
         CompletionStage<Response<PulseConfig>> result = configController.getSdkConfig(version);
@@ -94,7 +95,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(1L, resp.getData().getVersion());
             assertEquals("Test Config", resp.getData().getDescription());
-            verify(configService, times(1)).getSdkConfig(TenantContext.requireTenantId(), version);
+            verify(configService, times(1)).getSdkConfig("test-project", version);
           });
           testContext.completeNow();
         });
@@ -121,7 +122,7 @@ class ConfigControllerTest {
             assertInstanceOf(WebApplicationException.class, err);
             WebApplicationException webException = (WebApplicationException) err;
             assertEquals(404, webException.getResponse().getStatus());
-            verify(configService, times(1)).getSdkConfig(TenantContext.requireTenantId(), version);
+            verify(configService, times(1)).getSdkConfig("test-project", version);
           });
           testContext.completeNow();
         });
@@ -342,8 +343,8 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
-            assertEquals("http://default-config.example.com/default/config/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
                 pulseConfig.getInteraction().getConfigUrl());
             verify(applicationConfig, times(1)).getInteractionConfigUrl();
           });
@@ -377,8 +378,8 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
-            assertEquals("http://default-config.example.com/default/config/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
                 pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
@@ -413,8 +414,8 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals("http://default-collector.example.com", pulseConfig.getInteraction().getCollectorUrl());
-            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
-            assertEquals("http://default-config.example.com/default/config/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
                 pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();

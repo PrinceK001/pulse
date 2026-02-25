@@ -39,7 +39,7 @@ public class ConfigController {
   @Path("/{version}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PulseConfig>> getSdkConfig(@PathParam("version") Integer version) {
-    return configService.getSdkConfig(TenantContext.requireTenantId(), version)
+    return configService.getSdkConfig(org.dreamhorizon.pulseserver.context.ProjectContext.getProjectId(), version)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -47,9 +47,9 @@ public class ConfigController {
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<PulseConfig> getActiveSdkConfig() {
-    String tenantId = TenantContext.requireTenantId();
-    log.info("Fetching active SDK config for tenant: {}", tenantId);
-    return configService.getActiveSdkConfig(tenantId)
+    String projectId = org.dreamhorizon.pulseserver.context.ProjectContext.getProjectId();
+    log.info("Fetching active SDK config for project: {}", projectId);
+    return configService.getActiveSdkConfig(projectId)
         .to(CompletableFutureUtils::fromSingle);
   }
 
@@ -78,8 +78,9 @@ public class ConfigController {
         interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
-        String tenantId = TenantContext.requireTenantId();
-        String configUrl = applicationConfig.getInteractionConfigUrl() + "/" + tenantId + "/config/interaction.json";
+        String projectId = org.dreamhorizon.pulseserver.context.ProjectContext.getProjectId();
+        String configUrl = String.format("%s/projects/%s/interaction.json", 
+            applicationConfig.getInteractionConfigUrl(), projectId);
         interaction.setConfigUrl(configUrl);
       }
     }

@@ -51,15 +51,15 @@ public class ConfigServiceImpl implements ConfigService {
         .recordStats()
         .buildAsync((String projectId, java.util.concurrent.Executor executor) -> {
           log.info("Loading config into cache for project: {}", projectId);
-          return sdkConfigsDao.getConfig(projectId)
+          return sdkConfigsDao.getConfig()
               .toCompletionStage()
               .toCompletableFuture();
         });
   }
 
   @Override
-  public Single<PulseConfig> getSdkConfig(String tenantId, long version) {
-    return sdkConfigsDao.getConfig(tenantId, version);
+  public Single<PulseConfig> getSdkConfig(String projectId, long version) {
+    return sdkConfigsDao.getConfig(version);
   }
 
   @Override
@@ -81,14 +81,13 @@ public class ConfigServiceImpl implements ConfigService {
   @Override
   public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
     String projectId = ProjectContext.getProjectId();
-    String tenantId = org.dreamhorizon.pulseserver.tenant.TenantContext.requireTenantId();
     
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(projectId);
           log.info("Invalidated config cache for project: {}", projectId);
           uploadConfigDetailService
-              .pushInteractionDetailsToObjectStore(tenantId, projectId)
+              .pushInteractionDetailsToObjectStore(projectId)
               .subscribe();
         })
         .doOnError(err -> log.error("error while creating config for project: {}", projectId, err));
