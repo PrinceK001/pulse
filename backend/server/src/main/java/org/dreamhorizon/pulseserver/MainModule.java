@@ -115,9 +115,6 @@ public class MainModule extends VertxAbstractModule {
       }
       return null;
     }).in(Singleton.class);
-
-    // Project DAO
-    bind(ProjectDao.class).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {
