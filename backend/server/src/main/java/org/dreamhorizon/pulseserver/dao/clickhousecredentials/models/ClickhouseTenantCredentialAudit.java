@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models;
+package org.dreamhorizon.pulseserver.dao.clickhousecredentials.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

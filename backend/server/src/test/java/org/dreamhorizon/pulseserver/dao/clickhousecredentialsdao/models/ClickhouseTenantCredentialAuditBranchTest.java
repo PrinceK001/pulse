@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -57,7 +58,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
     void equalsShouldReturnFalseWhenTenantIdDiffers() {
       ClickhouseTenantCredentialAudit audit1 = createFullAudit();
       ClickhouseTenantCredentialAudit audit2 = createFullAudit();
-      audit2.setTenantId("different");
+      audit2.setProjectId("different");
       assertFalse(audit1.equals(audit2));
     }
 
@@ -108,9 +109,9 @@ class ClickhouseTenantCredentialAuditBranchTest {
     @Test
     void equalsShouldHandleNullTenantId() {
       ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      audit1.setTenantId(null);
+      audit1.setProjectId(null);
       ClickhouseTenantCredentialAudit audit2 = createFullAudit();
-      audit2.setTenantId(null);
+      audit2.setProjectId(null);
       assertTrue(audit1.equals(audit2));
       
       ClickhouseTenantCredentialAudit audit3 = createFullAudit();
@@ -209,7 +210,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
       ClickhouseTenantCredentialAudit audit = createFullAudit();
       String str = audit.toString();
       assertTrue(str.contains("id"));
-      assertTrue(str.contains("tenantId"));
+      assertTrue(str.contains("projectId"));
       assertTrue(str.contains("action"));
     }
 
@@ -228,7 +229,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
     void builderShouldCreateObjectWithAllFields() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .id(1L)
-          .tenantId("tenant1")
+          .projectId("tenant1")
           .action("CREATE")
           .performedBy("admin")
           .details("test_details")
@@ -236,7 +237,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
           .build();
       
       assertEquals(1L, audit.getId());
-      assertEquals("tenant1", audit.getTenantId());
+      assertEquals("tenant1", audit.getProjectId());
       assertEquals("CREATE", audit.getAction());
       assertEquals("admin", audit.getPerformedBy());
       assertEquals("test_details", audit.getDetails());
@@ -247,7 +248,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
     void builderShouldHandleNullValues() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .id(null)
-          .tenantId(null)
+          .projectId(null)
           .action(null)
           .performedBy(null)
           .details(null)
@@ -255,7 +256,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
           .build();
       
       assertNull(audit.getId());
-      assertNull(audit.getTenantId());
+      assertNull(audit.getProjectId());
     }
 
     @Test
@@ -294,7 +295,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
           1L, "tenant", "action", "performer", "details", "created");
       
       assertEquals(1L, audit.getId());
-      assertEquals("tenant", audit.getTenantId());
+      assertEquals("tenant", audit.getProjectId());
       assertEquals("action", audit.getAction());
       assertEquals("performer", audit.getPerformedBy());
       assertEquals("details", audit.getDetails());
@@ -305,7 +306,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
   private ClickhouseTenantCredentialAudit createFullAudit() {
     return ClickhouseTenantCredentialAudit.builder()
         .id(1L)
-        .tenantId("tenant1")
+        .projectId("tenant1")
         .action("CREATE")
         .performedBy("admin")
         .details("test_details")

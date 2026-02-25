@@ -6,25 +6,27 @@ import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
+import org.dreamhorizon.pulseserver.service.configs.DefaultSdkConfigTemplate;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 @Slf4j
 public class ConfigServiceImpl implements ConfigService {
@@ -51,15 +53,15 @@ public class ConfigServiceImpl implements ConfigService {
         .recordStats()
         .buildAsync((String projectId, java.util.concurrent.Executor executor) -> {
           log.info("Loading config into cache for project: {}", projectId);
-          return sdkConfigsDao.getConfig(projectId)
+          return sdkConfigsDao.getConfig()
               .toCompletionStage()
               .toCompletableFuture();
         });
   }
 
   @Override
-  public Single<PulseConfig> getSdkConfig(String tenantId, long version) {
-    return sdkConfigsDao.getConfig(tenantId, version);
+  public Single<PulseConfig> getSdkConfig(String projectId, long version) {
+    return sdkConfigsDao.getConfig(version);
   }
 
   @Override
@@ -79,19 +81,25 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
-    String projectId = ProjectContext.getProjectId();
-    String tenantId = org.dreamhorizon.pulseserver.tenant.TenantContext.requireTenantId();
-    
+  public Single<PulseConfig> createSdkConfig(String projectId, ConfigData createConfigRequest) {
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(projectId);
           log.info("Invalidated config cache for project: {}", projectId);
           uploadConfigDetailService
-              .pushInteractionDetailsToObjectStore(tenantId, projectId)
+              .pushInteractionDetailsToObjectStore(projectId)
               .subscribe();
         })
         .doOnError(err -> log.error("error while creating config for project: {}", projectId, err));
+  }
+
+  @Override
+  public Single<PulseConfig> createInitialConfig(SqlConnection conn, String projectId, String createdBy) {
+    log.debug("Creating initial SDK config for project: {} within transaction", projectId);
+    ConfigData defaultConfig = DefaultSdkConfigTemplate.createDefaultConfig(createdBy);
+    return sdkConfigsDao.createInitialConfig(conn, projectId, defaultConfig)
+        .doOnSuccess(config -> log.debug("Created initial SDK config for project: {}, version: {}", projectId, config.getVersion()))
+        .doOnError(err -> log.error("Failed to create initial SDK config for project: {}", projectId, err));
   }
 
   @Override

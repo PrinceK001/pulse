@@ -71,7 +71,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     TenantContext.setTenantId(tenantId);
     log.debug("Request tenant context set to: {} for path: {}",
         tenantId, path);
-    
+
     // Extract project ID from X-Project-ID header if present
     String projectId = requestContext.getHeaderString(PROJECT_HEADER);
     if (projectId != null && !projectId.isBlank()) {
@@ -88,7 +88,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
     return normalizedPath.equals(HEALTHCHECK_PATH)
         || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
-        || normalizedPath.startsWith(AUTH_PATH_PREFIX)  // Includes /v1/auth/login
+        || normalizedPath.startsWith(AUTH_PATH_PREFIX)
         || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
         || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
         || normalizedPath.startsWith(ALERTS_PATH_PREFIX)

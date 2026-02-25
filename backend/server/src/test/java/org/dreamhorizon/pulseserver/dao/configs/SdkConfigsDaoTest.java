@@ -22,6 +22,7 @@ import io.vertx.rxjava3.sqlclient.Transaction;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
@@ -32,9 +33,11 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.tenant.Tenant;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -82,6 +85,13 @@ class SdkConfigsDaoTest {
     TenantContext.setTenant(Tenant.builder()
         .tenantId("test")
         .build());
+    ProjectContext.setProjectId("test-project");
+  }
+
+  @AfterEach
+  void tearDown() {
+    TenantContext.clear();
+    ProjectContext.clear();
   }
 
   @Nested
@@ -116,7 +126,7 @@ class SdkConfigsDaoTest {
       when(preparedQuery.rxExecute(tupleCaptor.capture())).thenReturn(Single.just(rowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId(), version).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -124,7 +134,7 @@ class SdkConfigsDaoTest {
       assertThat(result.getDescription()).isEqualTo(description);
 
       Tuple capturedTuple = tupleCaptor.getValue();
-      // First parameter is tenantId (String), second is version (Long)
+      // First parameter is projectId (String), second is version (Long)
       assertThat(capturedTuple.getString(0)).isNotNull();
       assertThat(capturedTuple.getLong(1)).isEqualTo(version);
 
@@ -157,7 +167,7 @@ class SdkConfigsDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId(), version).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -181,7 +191,7 @@ class SdkConfigsDaoTest {
 
       // When & Then
       RuntimeException exception = assertThrows(RuntimeException.class,
-          () -> sdkConfigsDao.getConfig(TenantContext.requireTenantId(), version).blockingGet());
+          () -> sdkConfigsDao.getConfig(version).blockingGet());
       assertThat(exception.getMessage()).isEqualTo("No config found for version: " + version);
     }
 
@@ -198,7 +208,7 @@ class SdkConfigsDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(dbError));
 
       // When
-      var testObserver = sdkConfigsDao.getConfig(TenantContext.requireTenantId(), version).test();
+      var testObserver = sdkConfigsDao.getConfig(version).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -251,7 +261,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -297,7 +307,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -342,7 +352,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -387,7 +397,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -407,7 +417,7 @@ class SdkConfigsDaoTest {
       when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(dbError));
 
       // When
-      var testObserver = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).test();
+      var testObserver = sdkConfigsDao.getConfig().test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -442,7 +452,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      var testObserver = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).test();
+      var testObserver = sdkConfigsDao.getConfig().test();
 
       // Then
       testObserver.assertError(RuntimeException.class);

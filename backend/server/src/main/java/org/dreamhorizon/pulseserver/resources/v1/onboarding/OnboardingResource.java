@@ -106,56 +106,6 @@ public class OnboardingResource {
         }
     }
     
-    /**
-     * Handle mock/development token onboarding
-     */
-    private CompletionStage<Response<OnboardingResponse>> handleMockOnboarding(
-            String token, OnboardingRequest request) {
-        
-        String userId;
-        String email;
-        String name;
-        
-        // Parse mock token to determine user
-        if (token.contains("user2") || token.contains("2")) {
-            userId = "mock-user-2";
-            email = "user2@example.com";
-            name = "Test User 2";
-        } else {
-            userId = "mock-user-1";
-            email = "user1@example.com";
-            name = "Test User 1";
-        }
-        
-        log.info("Processing mock onboarding: userId={}, org={}, project={}", 
-            userId, request.getOrganizationName(), request.getProjectName());
-        
-        return onboardingService.completeOnboarding(
-                userId,
-                email,
-                name,
-                request.getOrganizationName(),
-                request.getProjectName(),
-                request.getProjectDescription())
-            .map(result -> OnboardingResponse.builder()
-                .userId(result.getUserId())
-                .email(result.getEmail())
-                .name(result.getName())
-                .tenantId(result.getTenantId())
-                .tenantName(result.getTenantName())
-                .tier(result.getTier())
-                .projectId(result.getProjectId())
-                .projectName(result.getProjectName())
-                .projectApiKey(result.getProjectApiKey())
-                .accessToken(result.getAccessToken())
-                .refreshToken(result.getRefreshToken())
-                .tokenType(result.getTokenType())
-                .expiresIn(result.getExpiresIn())
-                .redirectTo(result.getRedirectTo())
-                .build())
-            .to(RestResponse.jaxrsRestHandler());
-    }
-    
     private String extractToken(String authorization) {
         if (authorization == null || authorization.trim().isEmpty()) {
             return null;

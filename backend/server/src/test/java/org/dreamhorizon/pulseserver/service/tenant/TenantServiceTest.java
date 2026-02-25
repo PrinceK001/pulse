@@ -18,11 +18,12 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
-import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
-import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateCredentialsRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.TenantInfo;
@@ -48,11 +49,15 @@ class TenantServiceTest {
   @Mock
   ClickhouseTenantConnectionPoolManager poolManager;
 
+  @Mock
+  org.dreamhorizon.pulseserver.service.OpenFgaService openFgaService;
+
   TenantService tenantService;
 
   @BeforeEach
   void setup() {
-    tenantService = new TenantService(tenantDao, credentialsDao, poolManager);
+    tenantService = new TenantService(tenantDao, credentialsDao, poolManager, openFgaService);
+    tenantService = new TenantService(tenantDao, credentialsDao, poolManager, openFgaService);
   }
 
   private Tenant createMockTenant() {
@@ -83,7 +88,7 @@ class TenantServiceTest {
   private ClickhouseTenantCredentialAudit createMockAudit() {
     return ClickhouseTenantCredentialAudit.builder()
         .id(1L)
-        .tenantId("test_tenant")
+        .projectId("test_project")
         .action("CREDENTIALS_CREATED")
         .performedBy("admin@example.com")
         .details("{\"action\":\"test\"}")
@@ -650,10 +655,10 @@ class TenantServiceTest {
     @Test
     void shouldGetAuditHistorySuccessfully() {
       ClickhouseTenantCredentialAudit mockAudit = createMockAudit();
-      when(credentialsDao.getAuditLogsByTenantId("test_tenant"))
+      when(credentialsDao.getAuditLogsByProjectId("test_project"))
           .thenReturn(Flowable.just(mockAudit));
 
-      List<ClickhouseTenantCredentialAudit> result = tenantService.getCredentialsAuditHistory("test_tenant").toList().blockingGet();
+      List<ClickhouseTenantCredentialAudit> result = tenantService.getCredentialsAuditHistory("test_project").toList().blockingGet();
 
       assertNotNull(result);
       assertEquals(1, result.size());
@@ -662,11 +667,11 @@ class TenantServiceTest {
 
     @Test
     void shouldThrowExceptionOnDaoError() {
-      when(credentialsDao.getAuditLogsByTenantId(anyString()))
+      when(credentialsDao.getAuditLogsByProjectId(anyString()))
           .thenReturn(Flowable.error(new RuntimeException("Database error")));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> tenantService.getCredentialsAuditHistory("test_tenant").toList().blockingGet());
+          () -> tenantService.getCredentialsAuditHistory("test_project").toList().blockingGet());
       assertTrue(ex.getMessage().contains("Database error"));
     }
   }
