@@ -17,7 +17,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProjectUsageLimitPublicRestResponse {
-  private Integer projectId;
+  private String projectId;
   private Map<String, UsageLimitPublicRestDto> usageLimits;
 }
 

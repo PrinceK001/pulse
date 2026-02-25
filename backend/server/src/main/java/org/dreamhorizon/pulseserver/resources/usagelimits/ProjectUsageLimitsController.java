@@ -60,7 +60,7 @@ public class ProjectUsageLimitsController {
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitPublicRestResponse>> getPublicProjectLimits(
-      @NotNull @PathParam("projectId") Integer projectId
+      @NotNull @PathParam("projectId") String projectId
   ) {
     return usageLimitService.getProjectLimitsPublic(projectId)
         .map(mapper::toPublicRestResponse)
@@ -79,7 +79,7 @@ public class ProjectUsageLimitsController {
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitRestResponse>> getProjectLimits(
-      @NotNull @PathParam("projectId") Integer projectId
+      @NotNull @PathParam("projectId") String projectId
   ) {
     return usageLimitService.getProjectLimits(projectId)
         .map(mapper::toRestResponse)
@@ -118,7 +118,7 @@ public class ProjectUsageLimitsController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitRestResponse>> setCustomLimits(
-      @NotNull @PathParam("projectId") Integer projectId,
+      @NotNull @PathParam("projectId") String projectId,
       @NotNull @HeaderParam("user-email") String userEmail,
       @NotNull @Valid SetCustomLimitsRestRequest request
   ) {
@@ -136,7 +136,7 @@ public class ProjectUsageLimitsController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitRestResponse>> resetToDefaults(
-      @NotNull @PathParam("projectId") Integer projectId,
+      @NotNull @PathParam("projectId") String projectId,
       @NotNull @HeaderParam("user-email") String userEmail,
       @Valid ResetLimitsRestRequest request
   ) {
@@ -157,7 +157,7 @@ public class ProjectUsageLimitsController {
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectLimitHistoryRestResponse>> getProjectLimitHistory(
-      @NotNull @PathParam("projectId") Integer projectId
+      @NotNull @PathParam("projectId") String projectId
   ) {
     return usageLimitService.getProjectLimitHistory(projectId)
         .toList()

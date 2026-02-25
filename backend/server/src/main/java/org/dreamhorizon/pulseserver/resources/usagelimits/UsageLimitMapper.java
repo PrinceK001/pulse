@@ -32,13 +32,13 @@ public abstract class UsageLimitMapper {
   @Mapping(target = "limits", source = "request.limits")
   @Mapping(target = "performedBy", source = "performedBy")
   public abstract SetCustomLimitsRequest toSetCustomLimitsRequest(
-      Integer projectId, SetCustomLimitsRestRequest request, String performedBy);
+      String projectId, SetCustomLimitsRestRequest request, String performedBy);
 
   @Mapping(target = "projectId", source = "projectId")
   @Mapping(target = "tierId", source = "request.tierId")
   @Mapping(target = "performedBy", source = "performedBy")
   public abstract ResetLimitsRequest toResetLimitsRequest(
-      Integer projectId, ResetLimitsRestRequest request, String performedBy);
+      String projectId, ResetLimitsRestRequest request, String performedBy);
 
   // Response mappings
   public ProjectUsageLimitRestResponse toRestResponse(ProjectUsageLimitInfo info) {
@@ -79,7 +79,7 @@ public abstract class UsageLimitMapper {
         .build();
   }
 
-  public ProjectLimitHistoryRestResponse toHistoryRestResponse(Integer projectId, List<ProjectUsageLimitInfo> infos) {
+  public ProjectLimitHistoryRestResponse toHistoryRestResponse(String projectId, List<ProjectUsageLimitInfo> infos) {
     List<ProjectUsageLimitRestResponse> responses = infos.stream()
         .map(this::toRestResponse)
         .collect(Collectors.toList());

@@ -15,7 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProjectLimitHistoryRestResponse {
-  private Integer projectId;
+  private String projectId;
   private List<ProjectUsageLimitRestResponse> history;
   private Integer totalCount;
 }

@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
-import org.dreamhorizon.pulseserver.model.Project;
+import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.model.User;
 
 import java.util.ArrayList;
@@ -69,7 +69,7 @@ public class ProjectMemberService {
         
         // Fetch all needed data
         return Single.zip(
-                projectDao.getProjectById(projectId)
+                projectDao.getProjectByProjectId(projectId)
                     .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId))),
                 userService.getUserById(addedBy)
                     .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + addedBy))),
@@ -129,7 +129,7 @@ public class ProjectMemberService {
         
         // Fetch all needed data
         return Single.zip(
-                projectDao.getProjectById(projectId)
+                projectDao.getProjectByProjectId(projectId)
                     .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId))),
                 userService.getUserById(removedBy)
                     .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + removedBy))),
@@ -249,7 +249,7 @@ public class ProjectMemberService {
         
         // Fetch all needed data
         return Single.zip(
-                projectDao.getProjectById(projectId)
+                projectDao.getProjectByProjectId(projectId)
                     .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId))),
                 userService.getUserById(updatedBy)
                     .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + updatedBy))),
