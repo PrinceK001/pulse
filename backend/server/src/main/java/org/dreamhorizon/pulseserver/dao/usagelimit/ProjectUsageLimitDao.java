@@ -197,10 +197,21 @@ public class ProjectUsageLimitDao {
   }
 
   private ProjectUsageLimit mapRowToUsageLimit(Row row) {
+    // MySQL JSON column returns JsonObject, convert to String for the model
+    String usageLimitsJson = null;
+    Object usageLimitsValue = row.getValue("usage_limits");
+    if (usageLimitsValue != null) {
+      if (usageLimitsValue instanceof io.vertx.core.json.JsonObject) {
+        usageLimitsJson = ((io.vertx.core.json.JsonObject) usageLimitsValue).encode();
+      } else {
+        usageLimitsJson = usageLimitsValue.toString();
+      }
+    }
+    
     return ProjectUsageLimit.builder()
         .projectUsageLimitId(row.getLong("project_usage_limit_id"))
         .projectId(row.getString("project_id"))
-        .usageLimits(row.getString("usage_limits"))
+        .usageLimits(usageLimitsJson)
         .isActive(row.getBoolean("is_active"))
         .createdAt(row.getLocalDateTime("created_at") != null
             ? row.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC) : null)
