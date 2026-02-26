@@ -90,6 +90,46 @@ INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, dom
 VALUES ('default', 'Default Tenant', 'Default tenant for existing data', TRUE, 'dummy-f3w8r', 'localhost')
 ON DUPLICATE KEY UPDATE name = name;
 
+-- ============================================================
+-- Users and Projects tables (must be created BEFORE tables that reference them)
+-- ============================================================
+
+-- Users table for authentication and user management
+CREATE TABLE IF NOT EXISTS users (
+    id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id           VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique user identifier (user-{uuid})',
+    email             VARCHAR(255) NOT NULL UNIQUE COMMENT 'User email from Google OAuth',
+    name              VARCHAR(255) NOT NULL COMMENT 'User display name',
+    status            ENUM('pending', 'active', 'suspended') NOT NULL DEFAULT 'pending' COMMENT 'pending=added by admin, active=logged in',
+    firebase_uid      VARCHAR(255) NULL UNIQUE COMMENT 'Firebase user ID for authentication',
+    last_login_at     TIMESTAMP NULL COMMENT 'Track user activity',
+    is_active         BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'User account status',
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_email (email),
+    INDEX idx_user_id (user_id),
+    INDEX idx_user_active (is_active),
+    INDEX idx_user_status (status),
+    INDEX idx_user_firebase_uid (firebase_uid)
+);
+
+-- Projects table (hierarchy: tenant -> projects)
+CREATE TABLE IF NOT EXISTS projects (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project identifier (proj-{uuid})',
+    tenant_id VARCHAR(64) NOT NULL COMMENT 'Parent tenant ID',
+    name VARCHAR(255) NOT NULL COMMENT 'Project name',
+    description TEXT COMMENT 'Project description',
+    slug VARCHAR(100) COMMENT 'Project slug for URL-friendly identifier',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Project status',
+    created_by VARCHAR(255) NOT NULL COMMENT 'User who created the project',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    INDEX idx_project_tenant (tenant_id, is_active)
+);
 
 -- Insert sample projects
 INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
@@ -126,46 +166,6 @@ INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active,
 ('dream11-web', 'dream11', 'Dream11 Web', 'Dream11 web platform', 'web', TRUE, 'system'),
 ('dream11-pwa', 'dream11', 'Dream11 PWA', 'Dream11 Progressive Web App', 'pwa', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
-
--- ============================================================
--- Users and Projects tables (must be created BEFORE tables that reference them)
--- ============================================================
-
--- Users table for authentication and user management
-CREATE TABLE IF NOT EXISTS users (
-    id                BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id           VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique user identifier (user-{uuid})',
-    email             VARCHAR(255) NOT NULL UNIQUE COMMENT 'User email from Google OAuth',
-    name              VARCHAR(255) NOT NULL COMMENT 'User display name',
-    status            ENUM('pending', 'active', 'suspended') NOT NULL DEFAULT 'pending' COMMENT 'pending=added by admin, active=logged in',
-    firebase_uid      VARCHAR(255) NULL UNIQUE COMMENT 'Firebase user ID for authentication',
-    last_login_at     TIMESTAMP NULL COMMENT 'Track user activity',
-    is_active         BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'User account status',
-    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    INDEX idx_user_email (email),
-    INDEX idx_user_id (user_id),
-    INDEX idx_user_active (is_active),
-    INDEX idx_user_status (status),
-    INDEX idx_user_firebase_uid (firebase_uid)
-);
-
--- Projects table (hierarchy: tenant -> projects)
-CREATE TABLE IF NOT EXISTS projects (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project identifier (proj-{uuid})',
-    tenant_id VARCHAR(64) NOT NULL COMMENT 'Parent tenant ID',
-    name VARCHAR(255) NOT NULL COMMENT 'Project name',
-    description TEXT COMMENT 'Project description',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Project status',
-    created_by VARCHAR(255) NOT NULL COMMENT 'User who created the project',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-    INDEX idx_project_tenant (tenant_id, is_active)
-);
 
 -- ============================================================
 -- Tables that reference projects
