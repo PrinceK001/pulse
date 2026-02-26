@@ -619,15 +619,16 @@ CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
 -- Audits changes to ClickHouse project credentials
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clickhouse_project_credential_audit (
-    clickhouse_project_credential_audit_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL COMMENT 'Project ID (projectName-{uuid})',
-    clickhouse_username VARCHAR(255) NOT NULL,
-    action ENUM('CREATE', 'ROTATE', 'REVOKE') NOT NULL,
+    action VARCHAR(50) NOT NULL,
     performed_by VARCHAR(255) NOT NULL,
-    performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_chaudit_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    INDEX idx_chaudit_project (project_id)
-);
+    INDEX idx_chaudit_project (project_id),
+    INDEX idx_chaudit_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
