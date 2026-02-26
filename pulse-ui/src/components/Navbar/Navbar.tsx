@@ -96,7 +96,7 @@ export function Navbar({
     if (contextProjectId) {
       navigate(`/projects/${contextProjectId}`);
     } else {
-      navigate("/");
+      navigate(ROUTES.PROJECT_SELECTION.basePath);
     }
   };
 

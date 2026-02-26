@@ -49,7 +49,7 @@ export function Login() {
     if (refreshToken && refreshToken !== "undefined") {
       const isRefreshTokenExpired = checkRefreshTokenExpiration(refreshToken);
       if (!isRefreshTokenExpired) {
-        navigate(ROUTES.HOME.basePath);
+        navigate(ROUTES.PROJECT_SELECTION.basePath);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

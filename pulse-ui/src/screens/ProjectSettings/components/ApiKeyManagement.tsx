@@ -7,6 +7,36 @@ import { getProjectApiKey } from '../../../helpers/getProjectApiKey';
 import { makeRequest } from '../../../helpers/makeRequest';
 import { API_BASE_URL } from '../../../constants';
 
+// Type definitions for API responses
+interface ApiKeyRestResponse {
+  apiKeyId: number;
+  projectId: string;
+  displayName: string;
+  apiKey: string;
+  isActive: boolean;
+  expiresAt: string | null;
+  gracePeriodEndsAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  deactivatedAt: string | null;
+  deactivatedBy: string | null;
+  deactivationReason: string | null;
+}
+
+interface ApiKeyListResponse {
+  apiKeys: ApiKeyRestResponse[];
+  count: number;
+}
+
+interface CreateApiKeyResponse {
+  apiKeyId: number;
+  projectId: string;
+  displayName: string;
+  apiKey: string;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export function ApiKeyManagement() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,56 +91,74 @@ export function ApiKeyManagement() {
     setGenerating(true);
     
     try {
-      // Call regenerate endpoint (works for both generate and regenerate)
-      // X-Project-ID header is automatically included by makeRequest
-      const response = await makeRequest({
-        url: `${API_BASE_URL}/v1/project/api-keys/regenerate`,
-        init: { method: 'POST' },
-      });
+      let currentDisplayName = 'Default Key';
       
-      // Handle 404 - API not implemented yet
-      if (response.status === 404) {
-        console.log('[ApiKeyManagement] API endpoint not implemented (404)');
-        notifications.show({
-          title: 'API Not Ready',
-          message: 'The API key management endpoint is being developed. Using development key for now.',
-          color: 'blue',
-          icon: <IconInfoCircle size={18} />,
+      // Step 1: If regenerating, revoke old key first
+      if (isRegenerate && apiKey) {
+        console.log('[ApiKeyManagement] Regenerating: fetching current keys');
+        
+        // Get current active key to find its ID and display name
+        const listResponse = await makeRequest<ApiKeyListResponse>({
+          url: `${API_BASE_URL}/v1/projects/${projectId}/api-keys`,
+          init: { method: 'GET' },
         });
         
-        // Generate a new dummy key with timestamp to simulate regeneration
-        const timestamp = Date.now();
-        const newDummyKey = `pulse_${projectId}_sk_dummy_${timestamp}`;
-        setApiKey(newDummyKey);
-        setIsDummyKey(true);
-        setGenerating(false);
-        return;
+        if (listResponse.data?.apiKeys) {
+          const activeKey = listResponse.data.apiKeys.find((k) => k.isActive);
+          
+          if (activeKey) {
+            console.log('[ApiKeyManagement] Revoking old key:', activeKey.apiKeyId);
+            currentDisplayName = activeKey.displayName || 'Default Key';
+            
+            // Revoke the old key with 0-day grace period (immediate revocation)
+            await makeRequest({
+              url: `${API_BASE_URL}/v1/projects/${projectId}/api-keys/${activeKey.apiKeyId}`,
+              init: {
+                method: 'DELETE',
+                body: JSON.stringify({ gracePeriodDays: 0 })
+              },
+            });
+            
+            console.log('[ApiKeyManagement] Old key revoked successfully');
+          }
+        }
       }
       
-      // Handle successful response
-      if (response.data) {
+      // Step 2: Create new key
+      console.log('[ApiKeyManagement] Creating new API key');
+      const createResponse = await makeRequest<CreateApiKeyResponse>({
+        url: `${API_BASE_URL}/v1/projects/${projectId}/api-keys`,
+        init: {
+          method: 'POST',
+          body: JSON.stringify({
+            displayName: currentDisplayName,
+            expiresAt: null  // null means never expires
+          })
+        },
+      });
+      
+      // Step 3: Handle response
+      if (createResponse.data?.apiKey) {
+        setApiKey(createResponse.data.apiKey);
+        setIsDummyKey(false);
+        
         notifications.show({
           title: 'Success',
-          message: isRegenerate ? 'API key regenerated successfully' : 'API key generated successfully',
+          message: isRegenerate 
+            ? 'API key regenerated successfully' 
+            : 'API key generated successfully',
           color: 'green',
           icon: <IconCheck size={18} />,
         });
-        
-        // Refresh the key
-        await fetchApiKey();
       } else {
-        console.error('[ApiKeyManagement] Failed to generate/regenerate key:', response.error);
-        notifications.show({
-          title: 'Error',
-          message: response.error?.message || 'Failed to generate API key. Please try again.',
-          color: 'red',
-        });
+        throw new Error(createResponse.error?.message || 'Failed to create API key');
       }
+      
     } catch (error) {
       console.error('[ApiKeyManagement] Error during generate/regenerate:', error);
       notifications.show({
         title: 'Error',
-        message: 'An unexpected error occurred. Please try again.',
+        message: error instanceof Error ? error.message : 'An unexpected error occurred',
         color: 'red',
       });
     } finally {

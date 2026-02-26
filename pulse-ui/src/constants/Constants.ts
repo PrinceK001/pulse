@@ -271,7 +271,7 @@ export const ROUTES: Routes = {
     key: "HOME",
     basePath: "/",
     path: "/",
-    element: Home,
+    element: LegacyRedirect,
   },
   USER_ENGAGEMENT: {
     key: "USER_ENGAGEMENT",

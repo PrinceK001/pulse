@@ -1,15 +1,24 @@
 import { makeRequest } from '../makeRequest';
 import { API_BASE_URL } from '../../constants';
 
-interface ApiKeyItem {
-  id: string;
-  key: string;
-  createdAt: string;
+interface ApiKeyRestResponse {
+  apiKeyId: number;
+  projectId: string;
+  displayName: string;
+  apiKey: string;
   isActive: boolean;
+  expiresAt: string | null;
+  gracePeriodEndsAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  deactivatedAt: string | null;
+  deactivatedBy: string | null;
+  deactivationReason: string | null;
 }
 
 interface ApiKeysResponse {
-  keys: ApiKeyItem[];
+  apiKeys: ApiKeyRestResponse[];
+  count: number;
 }
 
 export interface ApiKeyResult {
@@ -31,7 +40,7 @@ export const getProjectApiKey = async (projectId: string): Promise<ApiKeyResult>
     
     // X-Project-ID header is automatically added by makeRequest
     const response = await makeRequest<ApiKeysResponse>({
-      url: `${API_BASE_URL}/v1/project/api-keys`,
+      url: `${API_BASE_URL}/v1/projects/${projectId}/api-keys`,
       init: { method: 'GET' },
     });
     
@@ -45,13 +54,13 @@ export const getProjectApiKey = async (projectId: string): Promise<ApiKeyResult>
     }
     
     // Check for successful response with data
-    if (response.data?.keys && response.data.keys.length > 0) {
+    if (response.data?.apiKeys && response.data.apiKeys.length > 0) {
       // Get the active key
-      const activeKey = response.data.keys.find(k => k.isActive);
-      if (activeKey?.key) {
+      const activeKey = response.data.apiKeys.find(k => k.isActive);
+      if (activeKey?.apiKey) {
         console.log('[getProjectApiKey] Found active API key');
         return {
-          key: activeKey.key,
+          key: activeKey.apiKey,
           isDummy: false,
         };
       }
