@@ -162,6 +162,7 @@ CREATE TABLE IF NOT EXISTS projects (
     created_by VARCHAR(255) NOT NULL COMMENT 'User who created the project',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
     INDEX idx_project_tenant (tenant_id, is_active)
 );
@@ -569,22 +570,6 @@ CREATE TABLE IF NOT EXISTS project_usage_limits (
     INDEX idx_pul_active (project_id, is_active)
 );
 
--- Trigger to ensure only one active record per project
-DELIMITER //
-CREATE TRIGGER trg_single_active_limit
-BEFORE INSERT ON project_usage_limits
-FOR EACH ROW
-BEGIN
-    IF NEW.is_active = TRUE THEN
-        UPDATE project_usage_limits 
-        SET is_active = FALSE, 
-            disabled_at = CURRENT_TIMESTAMP,
-            disabled_reason = COALESCE(disabled_reason, 'new_record')
-        WHERE project_id = NEW.project_id AND is_active = TRUE;
-    END IF;
-END //
-DELIMITER ;
-
 -- ============================================================================
 -- PROJECT API KEYS TABLE
 -- Stores API keys for project authentication at API Gateway
@@ -616,7 +601,7 @@ CREATE TABLE IF NOT EXISTS project_api_keys (
 -- Stores ClickHouse user credentials for each project
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
-    clickhouse_project_credential_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project ID (projectName-{uuid})',
     clickhouse_username VARCHAR(255) NOT NULL UNIQUE,
     clickhouse_password_encrypted TEXT NOT NULL,
