@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        node { label 'ec2-pulse-deployment-fleet' }
+        node { label 'pulse-artifact-build-default-ec2-fleet' }
     }
 
     options {
@@ -28,7 +28,7 @@ pipeline {
             steps {
                 checkout([
                         $class: 'GitSCM',
-                        branches: [[name: '*/main']],
+                        branches: [[name: 'feat/pulse-alerts-deploy']],
                         userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
