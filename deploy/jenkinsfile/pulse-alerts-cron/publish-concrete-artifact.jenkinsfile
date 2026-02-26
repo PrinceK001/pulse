@@ -92,7 +92,7 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-                        def nextVersion = bumpPatchVersion(ARTIFACT_VERSION)
+                        def nextVersion = bumpMinorVersion(ARTIFACT_VERSION)
                         sh """
                             #!/bin/bash -el
                             cd backend/pulse-alerts-cron
@@ -136,16 +136,15 @@ pipeline {
 
 def getVersionFromPom(String path = 'backend/pulse-alerts-cron/pom.xml') {
     def rawVersion = sh(
-            script: "mvn -f ${path} help:evaluate -Dexpression=project.version -q -DforceStdout",
+            script: "mvn -B -f ${path} help:evaluate -Dexpression=project.version -q -DforceStdout | sed 's/\\x1b\\[[0-9;]*m//g'",
             returnStdout: true
     ).trim()
     return rawVersion.replaceAll('-SNAPSHOT$', '')
 }
 
-def bumpPatchVersion(String version) {
+def bumpMinorVersion(String version) {
     def parts = version.tokenize('.')
     def major = parts[0] as int
     def minor = parts.size() > 1 ? parts[1] as int : 0
-    def patch = parts.size() > 2 ? parts[2] as int : 0
-    return "${major}.${minor}.${patch + 1}"
+    return "${major}.${minor + 1}"
 }
