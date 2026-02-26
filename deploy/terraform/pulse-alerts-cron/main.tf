@@ -8,12 +8,12 @@ terraform {
     }
   }
 
-#   backend "s3" {
-#     bucket       = "pulse-deployment-config"
-#     key          = "terraform/production/pulse-alerts-cron/terraform.tfstate"
-#     region       = "ap-south-1"
-#     use_lockfile = true
-#   }
+  backend "s3" {
+    bucket       = "pulse-deployment-config"
+    key          = "terraform/production/pulse-alerts-cron/terraform.tfstate"
+    region       = "ap-south-1"
+    use_lockfile = true
+  }
 }
 
 provider "aws" {
