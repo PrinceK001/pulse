@@ -18,7 +18,6 @@ import org.dreamhorizon.pulseserver.resources.apikeys.models.ApiKeyListRestRespo
 import org.dreamhorizon.pulseserver.resources.apikeys.models.CreateApiKeyRestRequest;
 import org.dreamhorizon.pulseserver.resources.apikeys.models.CreateApiKeyRestResponse;
 import org.dreamhorizon.pulseserver.resources.apikeys.models.RevokeApiKeyRestRequest;
-import org.dreamhorizon.pulseserver.resources.apikeys.models.ValidApiKeyListRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.apikey.ProjectApiKeyService;
@@ -33,13 +32,10 @@ import java.util.concurrent.CompletionStage;
  * - GET /v1/projects/{projectId}/api-keys - List active API keys (metadata only)
  * - POST /v1/projects/{projectId}/api-keys - Create a new API key (returns raw key once)
  * - DELETE /v1/projects/{projectId}/api-keys/{apiKeyId} - Revoke an API key
- * 
- * Internal endpoints:
- * - GET /internal/v1/api-keys/valid - Get all valid API keys (with raw keys, for cron)
  */
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("")
+@Path("/v1/projects/{projectId}/api-keys")
 public class ProjectApiKeysController {
 
   private static final ApiKeyMapper mapper = ApiKeyMapper.INSTANCE;
@@ -52,7 +48,7 @@ public class ProjectApiKeysController {
    * List active API keys for a project (metadata only, no raw key).
    */
   @GET
-  @Path("/v1/projects/{projectId}/api-keys")
+  @Path("")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ApiKeyListRestResponse>> getActiveApiKeys(
@@ -68,7 +64,7 @@ public class ProjectApiKeysController {
    * Returns the raw API key (only time it's visible to the user).
    */
   @POST
-  @Path("/v1/projects/{projectId}/api-keys")
+  @Path("")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<CreateApiKeyRestResponse>> createApiKey(
@@ -85,7 +81,7 @@ public class ProjectApiKeysController {
    * Revoke an API key with optional grace period.
    */
   @DELETE
-  @Path("/v1/projects/{projectId}/api-keys/{apiKeyId}")
+  @Path("/{apiKeyId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<Void>> revokeApiKey(
@@ -99,23 +95,6 @@ public class ProjectApiKeysController {
     return apiKeyService.revokeApiKey(mapper.toRevokeApiKeyRequest(projectId, apiKeyId, requestWithDefaults, revokedBy))
         .toSingleDefault(true)
         .map(v -> (Void) null)
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-  // ==================== INTERNAL ENDPOINTS ====================
-
-  /**
-   * Get all valid API keys with raw keys (for cron to sync to Redis).
-   * Valid means: active OR (inactive but in grace period), AND not expired.
-   */
-  @GET
-  @Path("/internal/v1/api-keys/valid")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<ValidApiKeyListRestResponse>> getAllValidApiKeys() {
-    return apiKeyService.getAllValidApiKeys()
-        .toList()
-        .map(mapper::toValidApiKeyListRestResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
 
