@@ -90,24 +90,6 @@ INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, dom
 VALUES ('default', 'Default Tenant', 'Default tenant for existing data', TRUE, 'dummy-f3w8r', 'localhost')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Projects table - projects belong to tenants
-CREATE TABLE IF NOT EXISTS projects (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(64) NOT NULL UNIQUE,
-    tenant_id VARCHAR(64) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    slug VARCHAR(100),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    created_by VARCHAR(255),
-    INDEX idx_project_tenant (tenant_id),
-    INDEX idx_project_slug (tenant_id, slug),
-    INDEX idx_project_active (tenant_id, is_active),
-    UNIQUE KEY unique_tenant_slug (tenant_id, slug),
-    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
-);
 
 -- Insert sample projects
 INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
@@ -569,23 +551,6 @@ CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
     CONSTRAINT fk_credential_audit_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
--- ============================================================================
--- PROJECTS TABLE
--- Projects within a tenant
--- ============================================================================
-CREATE TABLE IF NOT EXISTS projects (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project identifier (projectName-{uuid})',
-    tenant_id VARCHAR(64) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_project_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
-    INDEX idx_project_tenant (tenant_id, is_active)
-);
 
 -- ============================================================================
 -- PROJECT USAGE LIMITS TABLE
@@ -604,22 +569,6 @@ CREATE TABLE IF NOT EXISTS project_usage_limits (
     CONSTRAINT fk_pul_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     INDEX idx_pul_active (project_id, is_active)
 );
-
--- Trigger to ensure only one active record per project
-DELIMITER //
-CREATE TRIGGER trg_single_active_limit
-BEFORE INSERT ON project_usage_limits
-FOR EACH ROW
-BEGIN
-    IF NEW.is_active = TRUE THEN
-        UPDATE project_usage_limits 
-        SET is_active = FALSE, 
-            disabled_at = CURRENT_TIMESTAMP,
-            disabled_reason = COALESCE(disabled_reason, 'new_record')
-        WHERE project_id = NEW.project_id AND is_active = TRUE;
-    END IF;
-END //
-DELIMITER ;
 
 -- ============================================================================
 -- PROJECT API KEYS TABLE
@@ -652,7 +601,7 @@ CREATE TABLE IF NOT EXISTS project_api_keys (
 -- Stores ClickHouse user credentials for each project
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
-    clickhouse_project_credential_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL UNIQUE COMMENT 'Project ID (projectName-{uuid})',
     clickhouse_username VARCHAR(255) NOT NULL UNIQUE,
     clickhouse_password_encrypted TEXT NOT NULL,
