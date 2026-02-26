@@ -88,30 +88,30 @@ pipeline {
             }
         }
 
-        stage('Bump snapshot version') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-                        def nextVersion = bumpMinorVersion(ARTIFACT_VERSION)
-                        sh """
-                            #!/bin/bash -el
-                            cd backend/pulse-alerts-cron
-
-                            # Update pom.xml with next SNAPSHOT version
-                            mvn versions:set -DnewVersion=${nextVersion}-SNAPSHOT -DgenerateBackupPoms=false
-
-                            git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
-                            git config user.name "${GITBOT_USERNAME}"
-
-                            git add pom.xml
-                            git commit -m "chore: bump pulse-alerts-cron version to ${nextVersion}-SNAPSHOT"
-
-                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
-                        """
-                    }
-                }
-            }
-        }
+//         stage('Bump snapshot version') {
+//             steps {
+//                 script {
+//                     withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+//                         def nextVersion = bumpMinorVersion(ARTIFACT_VERSION)
+//                         sh """
+//                             #!/bin/bash -el
+//                             cd backend/pulse-alerts-cron
+//
+//                             # Update pom.xml with next SNAPSHOT version
+//                             mvn versions:set -DnewVersion=${nextVersion}-SNAPSHOT -DgenerateBackupPoms=false
+//
+//                             git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+//                             git config user.name "${GITBOT_USERNAME}"
+//
+//                             git add pom.xml
+//                             git commit -m "chore: bump pulse-alerts-cron version to ${nextVersion}-SNAPSHOT"
+//
+//                             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+//                         """
+//                     }
+//                 }
+//             }
+//         }
     }
 
     post {
