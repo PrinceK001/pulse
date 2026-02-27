@@ -40,19 +40,7 @@ export ${env_var.key}='${replace(env_var.value, "'", "'\\''")}'
 %{ endfor ~}
 
 # -------------------------------------------------------------------
-# 2. Install Java 17
-# -------------------------------------------------------------------
-echo "Installing Java 17 JRE..."
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
-apt-get install -y openjdk-17-jre-headless curl unzip
-
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-export PATH=$PATH:$JAVA_HOME/bin
-java -version
-
-# -------------------------------------------------------------------
-# 3. Download artifact from CodeArtifact
+# 2. Download artifact from CodeArtifact
 # -------------------------------------------------------------------
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
@@ -73,56 +61,51 @@ aws codeartifact get-package-version-asset \
   "$APPLICATION_NAME.zip"
 
 # -------------------------------------------------------------------
-# 4. Unzip and verify artifact
+# 3. Unzip and verify artifact
 # -------------------------------------------------------------------
 unzip "$APPLICATION_NAME.zip"
 
-if [ ! -f "$APPLICATION_NAME/pulse-alerts-cron.jar" ]; then
-    echo "ERROR: JAR file not found at $APPLICATION_NAME/pulse-alerts-cron.jar"
+APP_DIR="/home/admin/$APPLICATION_NAME"
+
+if [ ! -f "$APP_DIR/pulse-alerts-cron.jar" ]; then
+    echo "ERROR: JAR file not found at $APP_DIR/pulse-alerts-cron.jar"
     exit 1
 fi
 
 # -------------------------------------------------------------------
-# 5. Create systemd service for persistence across reboots
+# 4. Start the application
 # -------------------------------------------------------------------
-APP_DIR="/home/admin/$APPLICATION_NAME"
+echo "Starting pulse-alerts-cron..."
 
-cat > /etc/systemd/system/pulse-alerts-cron.service << EOF
-[Unit]
-Description=Pulse Alerts Cron Service
-After=network.target
+nohup java \
+    -jar $APP_DIR/pulse-alerts-cron.jar \
+    run org.dreamhorizon.pulsealertscron.verticle.MainVerticle \
+    > /home/admin/pulse-alerts-cron.log 2>&1 &
 
-[Service]
-Type=simple
-User=admin
-WorkingDirectory=$APP_DIR
-EnvironmentFile=$ENV_FILE
-ExecStart=$JAVA_HOME/bin/java -jar $APP_DIR/pulse-alerts-cron.jar run org.dreamhorizon.pulsealertscron.verticle.MainVerticle
-Restart=on-failure
-RestartSec=10
-StandardOutput=append:/var/log/pulse-alerts-cron.log
-StandardError=append:/var/log/pulse-alerts-cron.log
+echo $! > /home/admin/pulse-alerts-cron.pid
 
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable pulse-alerts-cron
-systemctl start pulse-alerts-cron
-
-# -------------------------------------------------------------------
-# 6. Verify the service started
-# -------------------------------------------------------------------
 sleep 10
 
-if systemctl is-active --quiet pulse-alerts-cron; then
-    echo "pulse-alerts-cron started successfully"
+if ps -p $(cat /home/admin/pulse-alerts-cron.pid) > /dev/null 2>&1; then
+    echo "pulse-alerts-cron started successfully (PID: $(cat /home/admin/pulse-alerts-cron.pid))"
+
+    echo "Waiting for application to be ready..."
+    sleep 15
+
+    if netstat -tlnp 2>/dev/null | grep -q ':4000' || ss -tlnp 2>/dev/null | grep -q ':4000'; then
+        echo "Application is listening on port 4000"
+    else
+        echo "Warning: Port 4000 may not be listening yet"
+    fi
 else
-    echo "WARNING: pulse-alerts-cron may not have started properly"
-    journalctl -u pulse-alerts-cron --no-pager -n 50 || true
+    echo "Warning: pulse-alerts-cron may not have started properly"
+    echo "Check logs at: /home/admin/pulse-alerts-cron.log"
+    if [ -f /home/admin/pulse-alerts-cron.log ]; then
+        echo "Recent log output:"
+        tail -n 50 /home/admin/pulse-alerts-cron.log || true
+    fi
 fi
 
 echo "User-data script completed at $(date)"
-echo "Service managed by: systemctl {start|stop|restart|status} pulse-alerts-cron"
-echo "Logs: journalctl -u pulse-alerts-cron -f  OR  /var/log/pulse-alerts-cron.log"
+echo "Log file: /home/admin/pulse-alerts-cron.log"
+echo "PID file: /home/admin/pulse-alerts-cron.pid"
