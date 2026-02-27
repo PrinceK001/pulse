@@ -39,10 +39,10 @@ public class SdkConfigsDao {
     return ProjectContext.getProjectId();
   }
 
-  public Single<PulseConfig> getConfig(String projectId, long version) {
+  public Single<PulseConfig> getConfig(long version) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_CONFIG_BY_VERSION)
-        .rxExecute(Tuple.of(projectId, version))
+        .rxExecute(Tuple.of(getProjectId(), version))
         .map(rows -> {
           if (rows.size() > 0) {
             Row row = rows.iterator().next();
@@ -63,17 +63,17 @@ public class SdkConfigsDao {
         });
   }
 
-  public Single<PulseConfig> getConfig(String projectId) {
+  public Single<PulseConfig> getConfig() {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_LATEST_VERSION)
-        .rxExecute(Tuple.of(projectId))
+        .rxExecute(Tuple.of(getProjectId()))
         .flatMap(rows -> {
           if (rows.size() == 0) {
             log.warn("No active configuration found in database");
             return Single.error(new RuntimeException("No active configuration found. Please create a configuration first."));
           }
           Row row = rows.iterator().next();
-          return getConfig(projectId, Long.parseLong(row.getValue("version").toString()));
+          return getConfig(Long.parseLong(row.getValue("version").toString()));
         })
         .onErrorResumeNext(error -> {
           log.error("Error while fetching latest version from db: {}", error.getMessage());
