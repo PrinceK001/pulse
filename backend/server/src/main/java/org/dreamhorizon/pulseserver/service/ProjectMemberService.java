@@ -378,13 +378,12 @@ public class ProjectMemberService {
             String addedByName) {
         try {
             SendNotificationRequestDto request = SendNotificationRequestDto.builder()
-                .projectId(DEFAULT_PROJECT_ID)
-                .eventType(EVENT_COLLABORATOR_ADDED)
+                .eventName(EVENT_COLLABORATOR_ADDED)
                 .recipients(RecipientsDto.builder()
                     .emails(List.of(recipientEmail))
                     .build())
-                .channels(List.of(ChannelType.EMAIL.getValue()))
-                .data(Map.of(
+                .channelTypes(List.of(ChannelType.EMAIL))
+                .params(Map.of(
                     "projectName", projectName,
                     "projectId", projectId,
                     "role", role,
@@ -392,7 +391,7 @@ public class ProjectMemberService {
                 ))
                 .build();
             
-            notificationService.sendNotification(request)
+            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
                 .doOnError(error -> log.error(
                     "Failed to send collaborator added notification to {}: {}", 
                     recipientEmail, error.getMessage()))
@@ -412,19 +411,18 @@ public class ProjectMemberService {
             String removedByName) {
         try {
             SendNotificationRequestDto request = SendNotificationRequestDto.builder()
-                .projectId(DEFAULT_PROJECT_ID)
-                .eventType(EVENT_COLLABORATOR_REMOVED)
+                .eventName(EVENT_COLLABORATOR_REMOVED)
                 .recipients(RecipientsDto.builder()
                     .emails(List.of(recipientEmail))
                     .build())
-                .channels(List.of(ChannelType.EMAIL.getValue()))
-                .data(Map.of(
+                .channelTypes(List.of(ChannelType.EMAIL))
+                .params(Map.of(
                     "projectName", projectName,
                     "removedBy", removedByName
                 ))
                 .build();
             
-            notificationService.sendNotification(request)
+            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
                 .doOnError(error -> log.error(
                     "Failed to send collaborator removed notification to {}: {}", 
                     recipientEmail, error.getMessage()))
@@ -445,20 +443,19 @@ public class ProjectMemberService {
             String updatedByName) {
         try {
             SendNotificationRequestDto request = SendNotificationRequestDto.builder()
-                .projectId(DEFAULT_PROJECT_ID)
-                .eventType(EVENT_COLLABORATOR_ROLE_UPDATED)
+                .eventName(EVENT_COLLABORATOR_ROLE_UPDATED)
                 .recipients(RecipientsDto.builder()
                     .emails(List.of(recipientEmail))
                     .build())
-                .channels(List.of(ChannelType.EMAIL.getValue()))
-                .data(Map.of(
+                .channelTypes(List.of(ChannelType.EMAIL))
+                .params(Map.of(
                     "projectName", projectName,
                     "newRole", newRole,
                     "updatedBy", updatedByName
                 ))
                 .build();
             
-            notificationService.sendNotification(request)
+            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
                 .doOnError(error -> log.error(
                     "Failed to send role updated notification to {}: {}", 
                     recipientEmail, error.getMessage()))

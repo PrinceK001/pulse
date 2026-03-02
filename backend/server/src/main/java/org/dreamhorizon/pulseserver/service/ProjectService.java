@@ -190,8 +190,7 @@ public class ProjectService {
     // Build template parameters
     Map<String, Object> params = Map.of(
         "createdBy", displayName,
-        "tenantName", tenantId,
-        "projectName", projectId,
+        "projectName", result.project.getName(),
         "apiKey", result.rawApiKey != null ? result.rawApiKey : "[API key not available]"
     );
 
@@ -215,7 +214,8 @@ public class ProjectService {
   // ==================== HELPER METHODS ====================
 
   private String generateProjectId(String projectName) {
-    return projectName + "-" + SecureRandomUtil.generateAlphanumeric(PROJECT_ID_RANDOM_LENGTH);
+    String sanitized = projectName.replaceAll("\\s+", "-");
+    return sanitized + "-" + SecureRandomUtil.generateAlphanumeric(PROJECT_ID_RANDOM_LENGTH);
   }
 
   // ==================== NESTED CLASSES ====================
