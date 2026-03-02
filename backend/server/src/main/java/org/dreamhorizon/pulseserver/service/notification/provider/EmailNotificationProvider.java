@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
 import org.dreamhorizon.pulseserver.service.notification.models.*;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ses.SesClient;
 import software.amazon.awssdk.services.ses.model.*;
@@ -34,7 +35,10 @@ public class EmailNotificationProvider implements NotificationProvider {
     this.templateService = templateService;
     this.notificationConfig = notificationConfig;
 
-    this.sesClient = SesClient.builder().region(Region.of(notificationConfig.getRegion())).build();
+    this.sesClient = SesClient.builder()
+        .region(Region.of(notificationConfig.getRegion()))
+        .httpClient(UrlConnectionHttpClient.builder().build())
+        .build();
 
     log.info(
         "Email notification provider initialized with region: {}", notificationConfig.getRegion());

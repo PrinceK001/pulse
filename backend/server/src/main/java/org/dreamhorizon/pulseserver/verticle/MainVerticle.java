@@ -28,6 +28,8 @@ import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.guice.GuiceInjector;
+import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 @Slf4j
@@ -111,7 +113,8 @@ public class MainVerticle extends AbstractVerticle {
                     new RestVerticle(
                         new HttpServerOptions().setPort(8080)),
                 new DeploymentOptions().setInstances(getNumOfCores()))
-        ).ignoreElement();
+        ).ignoreElement()
+        .doOnComplete(this::startNotificationWorker);
 
     if (Objects.equals(System.getenv("KAFKA_ENABLED"), "true")) {
       return completable
@@ -126,6 +129,26 @@ public class MainVerticle extends AbstractVerticle {
 
   private Integer getNumOfCores() {
     return CpuCoreSensor.availableProcessors();
+  }
+
+  private void startNotificationWorker() {
+    try {
+      NotificationWorker worker = GuiceInjector.getGuiceInjector().getInstance(NotificationWorker.class);
+      worker.start();
+      log.info("Notification worker started successfully");
+    } catch (Exception e) {
+      log.warn("Failed to start notification worker: {}", e.getMessage());
+    }
+  }
+
+  private void stopNotificationWorker() {
+    try {
+      NotificationWorker worker = GuiceInjector.getGuiceInjector().getInstance(NotificationWorker.class);
+      worker.stop();
+      log.info("Notification worker stopped");
+    } catch (Exception e) {
+      log.warn("Error stopping notification worker: {}", e.getMessage());
+    }
   }
 
   /**
@@ -204,6 +227,8 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public Completable rxStop() {
+    stopNotificationWorker();
+    
     try {
       ClickhouseTenantConnectionPoolManager poolManager =
           SharedDataUtils.get(vertx.getDelegate(), ClickhouseTenantConnectionPoolManager.class);

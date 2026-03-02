@@ -17,6 +17,7 @@ public class NotificationConfig {
   private SesConfig ses;
   private RetryConfig retry;
   private WorkerConfig worker;
+  private SlackOAuthConfig slackOAuth;
 
   @Data
   @NoArgsConstructor
@@ -72,7 +73,7 @@ public class NotificationConfig {
   }
 
   public String getRegion() {
-    return aws != null && aws.getRegion() != null ? aws.getRegion() : "us-east-1";
+    return aws != null && aws.getRegion() != null ? aws.getRegion() : "ap-south-1";
   }
 
   public boolean isSqsEnabled() {
@@ -89,5 +90,24 @@ public class NotificationConfig {
 
   public WorkerConfig getWorkerConfig() {
     return worker != null ? worker : new WorkerConfig();
+  }
+
+  public SlackOAuthConfig getSlackOAuthConfig() {
+    return slackOAuth != null ? slackOAuth : new SlackOAuthConfig();
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class SlackOAuthConfig {
+    private String clientId;
+    private String clientSecret;
+    private String redirectUri;
+    private String scopes = "chat:write,chat:write.public,channels:read";
+
+    public boolean isEnabled() {
+      return clientId != null && !clientId.isBlank()
+          && clientSecret != null && !clientSecret.isBlank();
+    }
   }
 }

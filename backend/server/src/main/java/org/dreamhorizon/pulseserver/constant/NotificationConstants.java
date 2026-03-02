@@ -36,6 +36,8 @@ public final class NotificationConstants {
   // Slack constants
   public static final class Slack {
     public static final String API_URL = "https://slack.com/api/chat.postMessage";
+    public static final String OAUTH_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
+    public static final String OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 
     public static final String KEY_CHANNEL = "channel";
     public static final String KEY_USERNAME = "username";

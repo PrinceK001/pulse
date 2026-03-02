@@ -13,9 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationMessage;
 import org.dreamhorizon.pulseserver.service.notification.models.QueuedNotification;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.SqsClientBuilder;
 import software.amazon.awssdk.services.sqs.model.*;
 
 @Slf4j
@@ -31,9 +31,10 @@ public class SqsNotificationQueue {
     this.objectMapper = objectMapper;
     this.config = config;
 
-    SqsClientBuilder builder = SqsClient.builder().region(Region.of(config.getRegion()));
-
-    this.sqsClient = SqsClient.builder().region(Region.of(config.getRegion())).build();
+    this.sqsClient = SqsClient.builder()
+        .region(Region.of(config.getRegion()))
+        .httpClient(UrlConnectionHttpClient.builder().build())
+        .build();
 
     if (!config.isSqsEnabled()) {
       log.warn("SQS queue URL not configured - async notifications disabled");

@@ -6,6 +6,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
+import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.time.ZoneOffset;
@@ -26,10 +27,9 @@ public class NotificationChannelDao {
   private final MysqlClient mysqlClient;
 
   public Maybe<NotificationChannel> getChannelById(Long channelId) {
-    String tenantId = TenantContext.getTenantId();
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_CHANNEL_BY_ID)
-        .rxExecute(Tuple.of(channelId, tenantId))
+        .rxExecute(Tuple.of(channelId))
         .flatMapMaybe(
             rows -> {
               var iterator = rows.iterator();
@@ -80,6 +80,21 @@ public class NotificationChannelDao {
             });
   }
 
+  public Maybe<NotificationChannel> getActiveChannelByProjectAndType(
+      String projectId, ChannelType channelType) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(NotificationQueries.GET_ACTIVE_CHANNEL_BY_PROJECT_AND_TYPE)
+        .rxExecute(Tuple.of(projectId, channelType.name()))
+        .flatMapMaybe(
+            rows -> {
+              var iterator = rows.iterator();
+              if (iterator.hasNext()) {
+                return Maybe.just(mapRowToChannel(iterator.next()));
+              }
+              return Maybe.empty();
+            });
+  }
+
   public Single<Long> createChannel(NotificationChannel channel) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(NotificationQueries.INSERT_CHANNEL)
@@ -109,12 +124,16 @@ public class NotificationChannelDao {
   }
 
   private NotificationChannel mapRowToChannel(Row row) {
+    Object configValue = row.getValue("config");
+    String configString =
+        configValue instanceof JsonObject jsonObject ? jsonObject.encode() : (String) configValue;
+
     return NotificationChannel.builder()
         .id(row.getLong("id"))
         .projectId(row.getString("project_id"))
         .channelType(ChannelType.valueOf(row.getString("channel_type")))
         .name(row.getString("name"))
-        .config(row.getString("config"))
+        .config(configString)
         .isActive(row.getBoolean("is_active"))
         .createdAt(
             row.getLocalDateTime("created_at") != null

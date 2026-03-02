@@ -134,9 +134,9 @@ public class NotificationServiceImpl implements NotificationService {
                     }
 
                     int queued =
-                        (int) results.stream().filter(r -> "QUEUED".equals(r.getStatus())).count();
+                        (int) results.stream().filter(r -> NotificationStatus.QUEUED.equals(r.getStatus())).count();
                     int failed =
-                        (int) results.stream().filter(r -> "FAILED".equals(r.getStatus())).count();
+                        (int) results.stream().filter(r -> NotificationStatus.FAILED.equals(r.getStatus())).count();
 
                     return NotificationBatchResponseDto.builder()
                         .batchId(batchId)
@@ -171,56 +171,106 @@ public class NotificationServiceImpl implements NotificationService {
             recipient -> {
               String recipientKey = idempotencyKey + ":" + channelType + ":" + recipient;
 
-              NotificationMessage message =
-                  NotificationMessage.builder()
-                      .projectId(projectId)
-                      .batchId(batchId)
-                      .idempotencyKey(recipientKey)
-                      .channelType(channelType)
-                      .channelId(channel.getId())
-                      .channelConfig(channel.getConfig())
-                      .templateId(template.getId())
-                      .templateBody(template.getBody())
-                      .recipient(recipient)
-                      .subject(subject)
-                      .params(request.getParams())
-                      .metadata(request.getMetadata())
-                      .build();
+              Single<NotificationResultDto> processingChain =
+                  logDao
+                      .getLogByIdempotency(projectId, recipientKey, channelType, recipient)
+                      .flatMapSingle(
+                          existingLog -> {
+                            log.debug(
+                                "Skipping duplicate notification for recipient: {}, idempotencyKey: {}",
+                                recipient,
+                                recipientKey);
+                            return Single.just(
+                                NotificationResultDto.builder()
+                                    .recipient(recipient)
+                                    .channelType(channelType)
+                                    .status(NotificationStatus.SKIPPED)
+                                    .errorMessage("Duplicate notification (idempotency)")
+                                    .build());
+                          })
+                      .switchIfEmpty(
+                          Single.defer(
+                              () ->
+                                  logDao
+                                      .insertLog(
+                                          NotificationLog.builder()
+                                              .projectId(projectId)
+                                              .batchId(batchId)
+                                              .idempotencyKey(recipientKey)
+                                              .channelType(channelType)
+                                              .channelId(channel.getId())
+                                              .templateId(template.getId())
+                                              .recipient(recipient)
+                                              .subject(subject)
+                                              .status(NotificationStatus.QUEUED)
+                                              .attemptCount(0)
+                                              .build())
+                                      .flatMap(
+                                          logId -> {
+                                            NotificationMessage message =
+                                                NotificationMessage.builder()
+                                                    .logId(logId)
+                                                    .projectId(projectId)
+                                                    .batchId(batchId)
+                                                    .idempotencyKey(recipientKey)
+                                                    .channelType(channelType)
+                                                    .channelId(channel.getId())
+                                                    .channelConfig(channel.getConfig())
+                                                    .templateId(template.getId())
+                                                    .templateBody(template.getBody())
+                                                    .recipient(recipient)
+                                                    .subject(subject)
+                                                    .params(request.getParams())
+                                                    .metadata(request.getMetadata())
+                                                    .build();
 
-              return notificationQueue
-                  .enqueue(message)
-                  .flatMap(
-                      messageId ->
-                          logDao
-                              .insertLog(
-                                  NotificationLog.builder()
-                                      .projectId(projectId)
-                                      .batchId(batchId)
-                                      .idempotencyKey(recipientKey)
-                                      .channelType(channelType)
-                                      .channelId(channel.getId())
-                                      .templateId(template.getId())
-                                      .recipient(recipient)
-                                      .subject(subject)
-                                      .status(NotificationStatus.QUEUED)
-                                      .attemptCount(0)
-                                      .build())
-                              .map(
-                                  logId ->
-                                      NotificationResultDto.builder()
-                                          .recipient(recipient)
-                                          .channelType(channelType)
-                                          .status("QUEUED")
-                                          .externalId(messageId)
-                                          .build()))
-                  .onErrorReturn(
-                      e ->
-                          NotificationResultDto.builder()
-                              .recipient(recipient)
-                              .channelType(channelType)
-                              .status("FAILED")
-                              .errorMessage(e.getMessage())
-                              .build());
+                                            return notificationQueue
+                                                .enqueue(message)
+                                                .map(
+                                                    messageId ->
+                                                        NotificationResultDto.builder()
+                                                            .recipient(recipient)
+                                                            .channelType(channelType)
+                                                            .status(NotificationStatus.QUEUED)
+                                                            .externalId(messageId)
+                                                            .build());
+                                          })));
+
+              if (channelType == ChannelType.EMAIL) {
+                return suppressionDao
+                    .isEmailSuppressed(projectId, recipient)
+                    .flatMap(
+                        suppressed -> {
+                          if (suppressed) {
+                            log.info("Skipping suppressed email: {}", recipient);
+                            return Single.just(
+                                NotificationResultDto.builder()
+                                    .recipient(recipient)
+                                    .channelType(channelType)
+                                    .status(NotificationStatus.SKIPPED)
+                                    .errorMessage("Email is suppressed")
+                                    .build());
+                          }
+                          return processingChain;
+                        })
+                    .onErrorReturn(
+                        e ->
+                            NotificationResultDto.builder()
+                                .recipient(recipient)
+                                .channelType(channelType)
+                                .status(NotificationStatus.FAILED)
+                                .errorMessage(e.getMessage())
+                                .build());
+              }
+
+              return processingChain.onErrorReturn(
+                  e ->
+                      NotificationResultDto.builder()
+                          .recipient(recipient)
+                          .channelType(channelType)
+                          .status(NotificationStatus.FAILED)
+                          .errorMessage(e.getMessage())
+                          .build());
             })
         .toList();
   }
@@ -261,7 +311,7 @@ public class NotificationServiceImpl implements NotificationService {
                             projectId, request.getEventName(), channelType)
                         .switchIfEmpty(
                             Maybe.error(
-                                ServiceError.NOT_FOUND.getCustomException(
+                                ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
                                     "No template found for event: "
                                         + request.getEventName()
                                         + " and channel: "
@@ -301,9 +351,9 @@ public class NotificationServiceImpl implements NotificationService {
                     }
 
                     int sent =
-                        (int) results.stream().filter(r -> "SENT".equals(r.getStatus())).count();
+                        (int) results.stream().filter(r -> NotificationStatus.SENT.equals(r.getStatus())).count();
                     int failed =
-                        (int) results.stream().filter(r -> "FAILED".equals(r.getStatus())).count();
+                        (int) results.stream().filter(r -> NotificationStatus.FAILED.equals(r.getStatus())).count();
 
                     return NotificationBatchResponseDto.builder()
                         .batchId(batchId)
@@ -356,7 +406,7 @@ public class NotificationServiceImpl implements NotificationService {
                                 NotificationResultDto.builder()
                                     .recipient(recipient)
                                     .channelType(channelType)
-                                    .status("SKIPPED")
+                                    .status(NotificationStatus.SKIPPED)
                                     .errorMessage("Email is suppressed")
                                     .build());
                           }
@@ -437,7 +487,7 @@ public class NotificationServiceImpl implements NotificationService {
                     NotificationResultDto.builder()
                         .recipient(recipient)
                         .channelType(channelType)
-                        .status("SKIPPED")
+                        .status(NotificationStatus.SKIPPED)
                         .errorMessage("Duplicate notification (idempotency)")
                         .build());
               }
@@ -473,7 +523,7 @@ public class NotificationServiceImpl implements NotificationService {
                                                 NotificationResultDto.builder()
                                                     .recipient(recipient)
                                                     .channelType(channelType)
-                                                    .status(status.name())
+                                                    .status(status)
                                                     .externalId(result.getExternalId())
                                                     .errorMessage(result.getErrorMessage())
                                                     .build());
@@ -485,7 +535,7 @@ public class NotificationServiceImpl implements NotificationService {
               return NotificationResultDto.builder()
                   .recipient(recipient)
                   .channelType(channelType)
-                  .status("FAILED")
+                  .status(NotificationStatus.FAILED)
                   .errorMessage(e.getMessage())
                   .build();
             });
@@ -532,21 +582,33 @@ public class NotificationServiceImpl implements NotificationService {
   @Override
   public Single<NotificationChannelDto> createChannel(
       String projectId, CreateChannelRequestDto request) {
-    String configJson = serializeBody(request.getConfig());
-
-    NotificationChannel channel =
-        NotificationChannel.builder()
-            .projectId(projectId)
-            .channelType(request.getChannelType())
-            .name(request.getName())
-            .config(configJson)
-            .isActive(true)
-            .build();
-
     return channelDao
-        .createChannel(channel)
-        .flatMap(id -> channelDao.getChannelById(id).toSingle())
-        .map(this::toChannelDto);
+        .getActiveChannelByProjectAndType(projectId, request.getChannelType())
+        .isEmpty()
+        .flatMap(
+            noActiveChannel -> {
+              if (!noActiveChannel) {
+                return Single.<NotificationChannelDto>error(
+                    ServiceError.DUPLICATE_CHANNEL_TYPE.getCustomException(
+                        "An active " + request.getChannelType() + " channel already exists for this project"));
+              }
+
+              String configJson = serializeBody(request.getConfig());
+
+              NotificationChannel channel =
+                  NotificationChannel.builder()
+                      .projectId(projectId)
+                      .channelType(request.getChannelType())
+                      .name(request.getName())
+                      .config(configJson)
+                      .isActive(true)
+                      .build();
+
+              return channelDao
+                  .createChannel(channel)
+                  .flatMap(id -> channelDao.getChannelById(id).toSingle())
+                  .map(this::toChannelDto);
+            });
   }
 
   @Override
