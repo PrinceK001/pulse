@@ -35,6 +35,7 @@ import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.notification.*;
+import org.dreamhorizon.pulseserver.service.notification.oauth.*;
 import org.dreamhorizon.pulseserver.service.notification.provider.*;
 import org.dreamhorizon.pulseserver.service.notification.queue.*;
 import org.dreamhorizon.pulseserver.service.notification.webhook.*;
@@ -146,6 +147,8 @@ public class MainModule extends VertxAbstractModule {
     providerBinder.addBinding().to(TeamsNotificationProvider.class).in(Singleton.class);
 
     bind(SesWebhookHandler.class).in(Singleton.class);
+
+    bind(SlackOAuthService.class).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {
