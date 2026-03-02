@@ -26,10 +26,9 @@ public class NotificationTemplateDao {
   private final MysqlClient mysqlClient;
 
   public Maybe<NotificationTemplate> getTemplateById(Long templateId) {
-    String tenantId = TenantContext.getTenantId();
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_TEMPLATE_BY_ID)
-        .rxExecute(Tuple.of(templateId, tenantId))
+        .rxExecute(Tuple.of(templateId))
         .flatMapMaybe(
             rows -> {
               var iterator = rows.iterator();

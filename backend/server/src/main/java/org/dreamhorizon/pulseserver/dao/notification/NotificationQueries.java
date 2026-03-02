@@ -7,9 +7,8 @@ public final class NotificationQueries {
   // Channel queries
   public static final String GET_CHANNEL_BY_ID =
       """
-        SELECT c.* FROM project_notification_channels c
-        JOIN projects p ON c.project_id = p.project_id
-        WHERE c.id = ? AND p.tenant_id = ?
+        SELECT * FROM project_notification_channels
+        WHERE id = ?
         """;
 
   public static final String GET_CHANNELS_BY_PROJECT =
@@ -24,6 +23,13 @@ public final class NotificationQueries {
         SELECT * FROM project_notification_channels
         WHERE project_id = ? AND channel_type = ? AND is_active = TRUE
         ORDER BY created_at ASC LIMIT 1
+        """;
+
+  public static final String GET_ACTIVE_CHANNEL_BY_PROJECT_AND_TYPE =
+      """
+        SELECT * FROM project_notification_channels
+        WHERE project_id = ? AND channel_type = ? AND is_active = TRUE
+        LIMIT 1
         """;
 
   public static final String INSERT_CHANNEL =
@@ -48,9 +54,8 @@ public final class NotificationQueries {
   // Template queries
   public static final String GET_TEMPLATE_BY_ID =
       """
-        SELECT t.* FROM project_notification_templates t
-        JOIN projects p ON t.project_id = p.project_id
-        WHERE t.id = ? AND p.tenant_id = ?
+        SELECT * FROM project_notification_templates
+        WHERE id = ?
         """;
 
   public static final String GET_TEMPLATES_BY_PROJECT =

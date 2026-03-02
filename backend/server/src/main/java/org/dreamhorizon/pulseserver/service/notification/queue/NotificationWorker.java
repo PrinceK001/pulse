@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.util.concurrent.TimeUnit;
@@ -136,7 +137,7 @@ public class NotificationWorker {
         .ignoreElement();
   }
 
-  private io.reactivex.rxjava3.core.Single<Boolean> handleNoProvider(
+  private Single<Boolean> handleNoProvider(
       QueuedNotification queuedNotification) {
     NotificationMessage message = queuedNotification.getMessage();
     log.error("No provider for channel type: {}", message.getChannelType());
@@ -151,7 +152,7 @@ public class NotificationWorker {
         .toSingleDefault(false);
   }
 
-  private io.reactivex.rxjava3.core.Single<Boolean> handleResult(
+  private Single<Boolean> handleResult(
       QueuedNotification queuedNotification, NotificationResult result) {
 
     NotificationMessage message = queuedNotification.getMessage();
@@ -212,7 +213,7 @@ public class NotificationWorker {
     }
   }
 
-  private io.reactivex.rxjava3.core.Single<Boolean> handleError(
+  private Single<Boolean> handleError(
       QueuedNotification queuedNotification, Throwable error) {
 
     NotificationMessage message = queuedNotification.getMessage();

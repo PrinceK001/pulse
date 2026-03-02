@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationStatus;
 
 @Data
 @Builder
@@ -13,7 +14,7 @@ import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 public class NotificationResultDto {
   private String recipient;
   private ChannelType channelType;
-  private String status;
+  private NotificationStatus status;
   private String externalId;
   private String errorMessage;
 }

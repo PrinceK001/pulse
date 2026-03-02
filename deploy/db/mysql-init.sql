@@ -641,7 +641,7 @@ CREATE TABLE IF NOT EXISTS project_notification_channels (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     UNIQUE KEY unique_project_channel_name (project_id, name),
-    INDEX idx_channel_project_type (project_id, channel_type)
+    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
 );
 
 -- Insert default platform email channel for system notifications (onboarding, etc.)
@@ -726,7 +726,7 @@ CREATE TABLE IF NOT EXISTS notification_logs (
     CONSTRAINT fk_notification_log_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     INDEX idx_log_batch (batch_id),
     INDEX idx_log_project_status (project_id, status),
-    INDEX idx_log_idempotency (project_id, idempotency_key, channel_type, recipient),
+    UNIQUE INDEX idx_log_idempotency (project_id, idempotency_key, channel_type, recipient),
     INDEX idx_log_external_id (external_id)
 );
 

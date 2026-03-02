@@ -10,6 +10,8 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.notification.models.*;
+import io.reactivex.rxjava3.core.Maybe;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
@@ -33,7 +35,11 @@ public class NotificationChannelController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationChannelDto>> getChannel(
       @PathParam("projectId") String projectId, @PathParam("channelId") Long channelId) {
-    return notificationService.getChannel(channelId).toSingle().to(RestResponse.jaxrsRestHandler());
+    return notificationService
+        .getChannel(channelId)
+        .switchIfEmpty(Maybe.error(ServiceError.NOT_FOUND.getCustomException("Channel not found")))
+        .toSingle()
+        .to(RestResponse.jaxrsRestHandler());
   }
 
   @POST
