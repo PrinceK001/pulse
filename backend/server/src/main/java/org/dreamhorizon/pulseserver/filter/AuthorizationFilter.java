@@ -40,6 +40,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
     private static final String HEALTHCHECK_PATH = "healthcheck";
     private static final String AUTH_PATH_PREFIX = "v1/auth";
     private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
+    private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
     
     @Context
     private ResourceInfo resourceInfo;
@@ -112,7 +113,8 @@ public class AuthorizationFilter implements ContainerRequestFilter {
         return normalizedPath.equals(HEALTHCHECK_PATH)
             || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
             || normalizedPath.startsWith(AUTH_PATH_PREFIX)
-            || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX);
+            || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
+            || normalizedPath.startsWith(TNC_DOCUMENTS_PATH);
     }
     
     /**

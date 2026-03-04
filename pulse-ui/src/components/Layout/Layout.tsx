@@ -12,61 +12,65 @@ import { LoaderWithMessage } from "../LoaderWithMessage";
 import { getCookies } from "../../helpers/cookies";
 import { ProjectGuard } from "../ProjectGuard";
 import { useTenantContext } from "../../contexts";
+import { useGetTncStatus } from "../../hooks/useGetTncStatus";
+import { TncAcceptance } from "../../screens/TncAcceptance";
 
 export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const [opened, { toggle }] = useDisclosure(false);
   const { pathname } = useLocation();
-  const { setTenantInfo, tenantId } = useTenantContext();
+  const { tenantId, userRole } = useTenantContext();
   const [checkingCredentials, setCheckingCredentials] = useState(true);
   const displayMessage = useRef<string>(
     LAYOUT_PAGE_CONSTANTS.CHECKING_CREDENTIALS,
   );
 
-  // Check if we're on a project route or organization route (both need header)
   const isProjectRoute = pathname.startsWith('/projects/');
   const isOrganizationRoute = pathname.startsWith('/organization/');
   const shouldShowHeader = isProjectRoute || isOrganizationRoute;
 
+  const isLoginPage = pathname === ROUTES.LOGIN.path;
+  const isOnboardingPage = pathname === ROUTES.ONBOARDING.basePath;
+
   useEffect(() => {
-    const initializeAuth = async () => {
-      const token = getCookies(COOKIES_KEY.ACCESS_TOKEN);
-      if (!token || token === "undefined") {
-        setCheckingCredentials(false);
-        navigate(ROUTES.LOGIN.basePath);
-        return;
-      }
-
-      // Initialize tenant context if tenantId exists in cookies but not in context
-      const cookieTenantId = getCookies(COOKIES_KEY.TENANT_ID);
-      if (cookieTenantId && cookieTenantId !== 'undefined' && !tenantId) {
-        console.log('[Layout] Initializing tenant context from cookies');
-        try {
-          // Set tenant info (which will automatically trigger project fetch)
-          setTenantInfo({
-            tenantId: cookieTenantId,
-            tenantName: '', // Will be populated from projects API
-            userRole: 'member', // Default role, will be updated from projects API
-            tier: 'free', // Default tier, will be updated from login/projects API
-          });
-        } catch (error) {
-          console.error('[Layout] Failed to initialize tenant context:', error);
-        }
-      }
-
+    const token = getCookies(COOKIES_KEY.ACCESS_TOKEN);
+    if (!token || token === "undefined") {
       setCheckingCredentials(false);
-    };
-
-    initializeAuth();
+      if (!isLoginPage && !isOnboardingPage) {
+        navigate(ROUTES.LOGIN.basePath);
+      }
+      return;
+    }
+    setCheckingCredentials(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathname]);
+
+  const tncEnabled = !!tenantId && userRole === 'admin' && !isLoginPage && !isOnboardingPage;
+  const { data: tncData, isLoading: tncLoading } = useGetTncStatus(tncEnabled);
 
   if (checkingCredentials) {
     return <LoaderWithMessage loadingMessage={displayMessage.current} />;
   }
 
-  if (pathname === ROUTES.LOGIN.path) {
+  if (isLoginPage) {
     return <Login />;
+  }
+
+  if (isOnboardingPage) {
+    return <>{children}</>;
+  }
+
+  if (tncEnabled && tncLoading) {
+    return <LoaderWithMessage loadingMessage="Checking policies..." />;
+  }
+
+  const tncStatus = tncData?.data;
+  if (tncStatus && !tncStatus.accepted) {
+    return (
+      <TncAcceptance
+        tncStatus={tncStatus}
+      />
+    );
   }
 
   return (
