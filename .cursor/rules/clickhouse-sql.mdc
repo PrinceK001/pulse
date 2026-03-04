@@ -1,0 +1,41 @@
+---
+description: ClickHouse SQL conventions and OTEL schema reference
+globs: "**/*.sql"
+alwaysApply: false
+---
+
+# ClickHouse SQL Conventions
+
+## Database: `otel`
+
+## Core Tables
+
+| Table | Engine | Purpose |
+|-------|--------|---------|
+| `otel_traces` | MergeTree | Spans — TraceId, SpanId, SpanName, Duration, SpanAttributes, ResourceAttributes |
+| `otel_logs` | MergeTree | Logs — TraceId, Body, SeverityText, LogAttributes, ResourceAttributes |
+| `otel_metrics_gauge` | MergeTree | Gauge metrics |
+| `stack_trace_events` | MergeTree | Symbolicated + grouped stack traces |
+
+## Key Columns in `otel_traces`
+
+`TraceId`, `SpanId`, `ParentSpanId`, `SpanName`, `SpanKind`, `ServiceName`, `Duration` (nanoseconds), `StatusCode`, `StatusMessage`, `SpanAttributes` (Map), `ResourceAttributes` (Map), `Timestamp` (DateTime64)
+
+## Pulse-Specific Attributes
+
+Accessed via `SpanAttributes['key']`:
+- `pulse.type`, `pulse.interaction.name`, `pulse.screen.name`
+- `app.version`, `os.type`, `device.model.name`
+
+## Schema Conventions
+
+- Use `MergeTree` engine with `ORDER BY` tuples for efficient range queries
+- Partition by date for time-series data
+- `DateTime64(9)` for nanosecond timestamps
+- Map columns for flexible attributes
+
+## Query Rules
+
+- Always include time-range filter on `Timestamp`
+- Use `LIMIT` on all queries
+- Prefer `toDateTime64()` for timestamp comparisons

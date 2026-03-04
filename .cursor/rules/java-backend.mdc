@@ -1,0 +1,52 @@
+---
+description: Java/Vert.x backend coding conventions for pulse-server
+globs: backend/**/*.java
+alwaysApply: false
+---
+
+# Java Backend Conventions
+
+## Package Structure
+
+`org.dreamhorizon.pulseserver` → `resources/` (REST), `service/` (business), `dao/` (data), `dto/`, `model/`, `error/`, `module/`, `client/`, `util/`
+
+## Service Layer
+
+- Always define an **interface** and an **impl** in `service/<domain>/impl/`
+- Return RxJava3 `Single<T>`, `Maybe<T>`, or `Completable` — never block
+- Inject via Guice: `@RequiredArgsConstructor(onConstructor = @__({@Inject}))`
+
+## DAO Layer
+
+- SQL strings live in a `Queries` class (static constants)
+- Use `MysqlClient` (writer/reader pools) or `ClickhouseQueryService`
+- Name classes `*Dao`
+
+## DTOs
+
+- Lombok `@Data` on all DTOs
+- Jackson `@JsonIgnoreProperties(ignoreUnknown = true)` on response DTOs
+- MapStruct mappers with `INSTANCE = Mappers.getMapper(...)` pattern
+
+## Error Handling
+
+- Use `ServiceError` enum (codes like `BE1001`) implementing `RestError`
+- Throw via `ServiceError.X.getException()` or `getCustomException(message, cause)`
+- Response shape: `Response<T>` with `data` and `Error.of(code, message)`
+
+## REST Controllers
+
+- JAX-RS annotations (`@Path`, `@GET`, `@POST`, etc.) from `vertx-rest`
+- Use `RestResponse.jaxrsRestHandler()` to bridge RxJava to Vert.x
+- Group by domain in `resources/` package
+
+## Validation
+
+- `ConstraintViolation` → 400 with `errors` array
+- Validation logic in dedicated `ValidationModule`
+
+## Code Style
+
+- Google Checkstyle (140 char lines, 2-space indent)
+- No wildcard imports
+- Constants: `UPPER_SNAKE_CASE`

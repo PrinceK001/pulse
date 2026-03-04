@@ -1,0 +1,40 @@
+---
+description: Android SDK conventions for pulse-android-otel
+globs: pulse-android-otel/**/*.kt
+alwaysApply: false
+---
+
+# Android SDK Conventions
+
+## Tech Stack
+
+Kotlin, OpenTelemetry Android SDK, Gradle, min API 21
+
+## Instrumentation Pattern
+
+Each instrumentation lives in `instrumentation/` as a self-contained module:
+- Activity lifecycle
+- Fragment lifecycle
+- ANR detection
+- Crash reporting
+- Network (OkHttp)
+- Screen rendering
+
+## Span Attributes
+
+Use `pulse.*` prefixed attributes for Pulse-specific data:
+- `pulse.type` — categorizes the span (interaction, screen, network, etc.)
+- `pulse.interaction.name` — critical interaction name
+- `pulse.screen.name` — screen identifier
+
+## Resource Attributes
+
+- `app.version`, `os.type`, `os.version`, `device.model.name`
+
+## Publishing
+
+Automated via `.github/workflows/publish-android.yml`
+
+## Code Style
+
+Follow Kotlin conventions — `camelCase` for functions/properties, `PascalCase` for classes.

@@ -1,0 +1,42 @@
+---
+description: Docker deployment and infrastructure conventions
+globs: deploy/**
+alwaysApply: false
+---
+
+# Deploy Conventions
+
+## Docker Compose Services
+
+| Service | Image | Port | Depends On |
+|---------|-------|------|------------|
+| mysql | mysql:8.0 | 3307 | — |
+| clickhouse | clickhouse-server:24.8 | 8123, 9000 | — |
+| kafka | apache/kafka:latest | 9094 | — |
+| kafka-ui | provectuslabs/kafka-ui | 8081 | kafka |
+| otel-collector-1 | otel-collector-contrib:0.137.0 | 4317, 4318, 13133 | kafka |
+| otel-collector-2 | otel-collector-contrib:0.137.0 | 8889, 13134 | clickhouse, kafka |
+| pulse-ui | Build `pulse-ui/` | 3000 | pulse-server |
+| pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse |
+| pulse-ai | Build `pulse_ai/` | 8001 | — |
+| pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server |
+
+## Network
+
+All services on `pulse-network` (bridge). Internal references use container names (e.g., `mysql`, `kafka:9092`, `clickhouse:8123`).
+
+## Volumes
+
+`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe.
+
+## Environment Variables
+
+- `CONFIG_SERVICE_APPLICATION_*` — backend app config
+- `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
+- `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection
+- `PULSE_AI_*` — AI agent config
+- `REACT_APP_*` — frontend build-time config
+
+## Scripts
+
+`build.sh`, `start.sh`, `stop.sh`, `quickstart.sh`, `logs.sh`, `reset-databases.sh`, `init-clickhouse.sh`

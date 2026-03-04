@@ -1,0 +1,61 @@
+---
+description: Python/Google ADK conventions for the Pulse AI NL-to-SQL agent
+globs: pulse_ai/**/*.py
+alwaysApply: false
+---
+
+# Pulse AI Agent Conventions
+
+## Framework
+
+Google ADK (`google.adk.agents`) with Gemini models via FastAPI + uvicorn.
+
+## Agent Types
+
+| Type | Use |
+|------|-----|
+| `BaseAgent` | Custom routing logic (e.g., `DeterministicIntentRouterAgent`) |
+| `LlmAgent` | LLM-powered agents with instructions + tools |
+| `SequentialAgent` | Pipeline of sub-agents run in order |
+| `ParallelAgent` | Sub-agents run concurrently |
+
+## Root Architecture
+
+```
+DeterministicIntentRouterAgent (keyword routing)
+├── data_query_pipeline (SequentialAgent)
+│   ├── query_classifier_pipeline
+│   ├── sql_generator_agent
+│   └── sql_syntax_validator
+└── conversational_agent
+```
+
+## Tool Pattern
+
+```python
+from google.adk.tools import FunctionTool
+
+def my_tool(tool_context: ToolContext) -> dict:
+    value = tool_context.state.get(STATE_KEYS.SOME_KEY)
+    # ... deterministic logic ...
+    tool_context.state[STATE_KEYS.RESULT] = result
+    return {"status": "passed", "data": result}
+
+my_function_tool = FunctionTool(my_tool)
+```
+
+## Registries
+
+Dict-based configs in `registries/`: `METRICS_REGISTRY`, `TABLE_REGISTRY`, `FILTER_COLUMN_REGISTRY`. Each entry has `sql`, `unit`, `description`.
+
+## Constants
+
+- State keys: `constants/state_keys.py` → `STATE_KEYS.*`
+- Error messages: `constants/error_messages.py` → `ERROR_MESSAGES.*`
+- Enums: `constants/enums.py`
+
+## SQL Safety
+
+- SELECT-only queries (no DDL/DML)
+- LIMIT enforcement on all generated SQL
+- Time-range filters required

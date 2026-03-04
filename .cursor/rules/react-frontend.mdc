@@ -1,0 +1,56 @@
+---
+description: React/TypeScript frontend conventions for pulse-ui
+globs: pulse-ui/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# React Frontend Conventions
+
+## Screen Folder Structure
+
+Every screen in `screens/<ScreenName>/`:
+
+```
+ScreenName/
+├── ScreenName.tsx           # Main component
+├── ScreenName.interface.ts  # Props and types
+├── ScreenName.module.css    # Scoped styles
+├── ScreenName.constants.ts  # Strings, options, configs
+└── components/              # Sub-components (same pattern)
+```
+
+## UI Framework
+
+- **Mantine v7** for all components (`AppShell`, `Button`, `Modal`, `Select`, etc.)
+- **Tabler icons**: `@tabler/icons-react`
+- **Charts**: `echarts-for-react`
+- **Data tables**: `mantine-datatable`
+
+## State Management
+
+- **Server state**: TanStack Query v5 (`useQuery`, `useMutation`)
+- **Client state**: Zustand with `devtools` middleware
+- **Forms**: `react-hook-form`
+
+## API Integration
+
+- Use `makeRequest<T>()` from `helpers/makeRequest/` — handles 401 refresh automatically
+- API routes in `constants/Constants.ts` → `API_ROUTES`
+- Base URL: `REACT_APP_PULSE_SERVER_URL`
+- Custom hooks in `hooks/` wrap `useQuery`/`useMutation` + `makeRequest`
+
+## Routing
+
+- React Router v6 — routes defined in `Constants.ts` as `ROUTES`
+- Add new routes to both `ROUTES` object and `App.tsx` `<Route>` tree
+
+## Styling
+
+- CSS modules: `import classes from "./Name.module.css"`
+- Use Mantine CSS variables: `var(--mantine-spacing-md)`, `var(--mantine-color-gray-6)`
+- Layout with flexbox/grid
+
+## Types
+
+- Export interfaces in `*.interface.ts` files co-located with components
+- Props type: `ComponentNameProps`
