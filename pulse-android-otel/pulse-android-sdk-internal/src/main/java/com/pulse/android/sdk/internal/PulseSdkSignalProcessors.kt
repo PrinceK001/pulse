@@ -13,6 +13,7 @@ import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.internal.ExtendedSpanProcessor
 import io.opentelemetry.semconv.HttpAttributes
+import io.opentelemetry.semconv.UrlAttributes
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 
@@ -143,13 +144,20 @@ internal class PulseSdkSignalProcessors {
 
             if (PulseOtelUtils.isNetworkSpan(span)) {
                 // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
-                //  use the new not deprecated attributes
+                //  remove deprecated attributes
                 @Suppress("DEPRECATION")
-                val httpUrlKey: AttributeKey<String> = HttpIncubatingAttributes.HTTP_URL
-                val originalUrl = span.attributes.get(httpUrlKey)
-
-                originalUrl?.let {
-                    span.setAttribute(httpUrlKey, PulseNetworkingUtils.redactUrl(it))
+                listOf(
+                    HttpIncubatingAttributes.HTTP_URL,
+                    UrlAttributes.URL_FULL,
+                    UrlAttributes.URL_PATH,
+                    AttributeKey.stringKey("url.original"),
+                    HttpIncubatingAttributes.HTTP_TARGET,
+                    UrlAttributes.URL_QUERY,
+                ).forEach { attributeKey ->
+                    val originalValue = span.attributes.get(attributeKey)
+                    if (originalValue != null) {
+                        span.setAttribute(attributeKey, PulseNetworkingUtils.redactUrl(originalValue))
+                    }
                 }
             }
         }
