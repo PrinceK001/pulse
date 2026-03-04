@@ -81,16 +81,6 @@ check_env_file() {
     fi
   fi
 
-  # Validate that GOOGLE_API_KEY is set (not the placeholder)
-  if grep -q "your-google-api-key-here" .env 2>/dev/null; then
-    log_error "GOOGLE_API_KEY is still set to the placeholder value."
-    echo ""
-    echo "  Edit pulse_ai/.env and replace 'your-google-api-key-here'"
-    echo "  with your actual API key from: https://aistudio.google.com/apikey"
-    echo ""
-    exit 1
-  fi
-
   log_info ".env file configured ✓"
 }
 
