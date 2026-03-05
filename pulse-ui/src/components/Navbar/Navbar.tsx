@@ -59,6 +59,10 @@ export function Navbar({
   const { projectId: contextProjectId, clearProject } = useProjectContext();
   const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
   const permissions = usePermissions();
+  
+  // Show nav items only on project dashboard pages (not on org pages or onboarding)
+  const isProjectDashboard = pathname.startsWith('/projects/') && 
+                             !pathname.includes('/onboarding');
 
   const handleAllProjectsClick = () => {
     console.log('[Navbar] Clearing project context and navigating to organization projects');
@@ -120,9 +124,9 @@ export function Navbar({
   const currentTenantId = tenantId || getCookies(COOKIES_KEY.TENANT_ID);
 
   return (
-    <AppShell.Navbar pt="md" pb="md" className={classes.navbarContainer}>
-      <AppShell.Section className={classes.navbarHeader}>
-        <Box className={classes.logoSection}>
+    <AppShell.Navbar className={classes.navbarContainer}>
+      <AppShell.Section className={classes.navbarHeader} style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 16px' }}>
+        <Box className={classes.logoSection} style={{ width: '100%', justifyContent: opened ? 'flex-start' : 'center' }}>
           {opened ? (
             <Box className={classes.logoExpanded} onClick={onLogoClick}>
               <Image
@@ -168,60 +172,65 @@ export function Navbar({
         </Box>
       </AppShell.Section>
 
-      <Divider my="sm" />
-      <AppShell.Section
-        grow
-        my="md"
-        component={ScrollArea}
-        style={{
-          width: "100%",
-        }}
-      >
-        {NAVBAR_ITEMS.map((item) => {
-          const NavbarIcon = item.icon;
-          const active = isActive(item.routeTo);
+      {/* Only show navigation items on project dashboard pages */}
+      {isProjectDashboard && (
+        <>
+          {/* <Divider mb="sm" /> */}
+          <AppShell.Section
+            grow
+            my="xl"
+            component={ScrollArea}
+            style={{
+              width: "100%",
+            }}
+          >
+            {NAVBAR_ITEMS.map((item) => {
+              const NavbarIcon = item.icon;
+              const active = isActive(item.routeTo);
 
-          const navItem = (
-            <Box
-              key={item.tabName}
-              className={`${classes.navbarItem} ${active ? classes.navbarItemActive : ""}`}
-              onClick={() => onItemClick(item.routeTo)}
-              style={{
-                justifyContent: opened ? "flex-start" : "center",
-                padding: opened ? "12px" : "12px 8px",
-              }}
-            >
-              <NavbarIcon
-                size={item.iconSize}
-                className={classes.navbarIcon}
-                style={{ color: active ? "#0ba09a" : "#64748b" }}
-              />
-              {opened && (
-                <Text className={classes.navbarText}>{item.tabName}</Text>
-              )}
-            </Box>
-          );
+              const navItem = (
+                <Box
+                  key={item.tabName}
+                  className={`${classes.navbarItem} ${active ? classes.navbarItemActive : ""}`}
+                  onClick={() => onItemClick(item.routeTo)}
+                  style={{
+                    justifyContent: opened ? "flex-start" : "center",
+                    padding: opened ? "12px" : "12px 8px",
+                  }}
+                >
+                  <NavbarIcon
+                    size={item.iconSize}
+                    className={classes.navbarIcon}
+                    style={{ color: active ? "#0ba09a" : "#64748b" }}
+                  />
+                  {opened && (
+                    <Text className={classes.navbarText}>{item.tabName}</Text>
+                  )}
+                </Box>
+              );
 
-          // Show tooltip only when collapsed
-          if (!opened) {
-            return (
-              <Tooltip
-                key={item.tabName}
-                label={item.tabName}
-                position="right"
-                withArrow
-              >
-                {navItem}
-              </Tooltip>
-            );
-          }
+              // Show tooltip only when collapsed
+              if (!opened) {
+                return (
+                  <Tooltip
+                    key={item.tabName}
+                    label={item.tabName}
+                    position="right"
+                    withArrow
+                  >
+                    {navItem}
+                  </Tooltip>
+                );
+              }
 
-          return navItem;
-        })}
-      </AppShell.Section>
+              return navItem;
+            })}
+          </AppShell.Section>
+        </>
+      )}
 
       {/* Bottom Section: Menu Button */}
-      <AppShell.Section className={classes.menuSectionContainer}>
+      <AppShell.Section className={classes.menuSectionContainer} style={{ paddingBottom: 16 }}>
         <Divider my="sm" />
 
         <Popover width={280} position="right-end" withArrow shadow="md">

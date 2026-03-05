@@ -23,10 +23,11 @@ export function Layout({ children }: LayoutProps) {
     LAYOUT_PAGE_CONSTANTS.CHECKING_CREDENTIALS,
   );
 
-  // Check if we're on a project route or organization route (both need header)
-  const isProjectRoute = pathname.startsWith('/projects/');
-  const isOrganizationRoute = pathname.startsWith('/organization/');
-  const shouldShowHeader = isProjectRoute || isOrganizationRoute;
+  // Show header on all authenticated pages except login and initial onboarding
+  // This includes: project routes, organization routes (/:orgId/projects, /:orgId/members)
+  const isLoginPage = pathname === ROUTES.LOGIN.path;
+  const isInitialOnboarding = pathname === ROUTES.ONBOARDING.basePath;
+  const shouldShowHeader = !isLoginPage && !isInitialOnboarding;
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -39,6 +40,7 @@ export function Layout({ children }: LayoutProps) {
 
       // Initialize tenant context if tenantId exists in cookies but not in context
       const cookieTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+      const cookieTenantName = getCookies(COOKIES_KEY.TENANT_NAME);
       const cookieTier = getCookies(COOKIES_KEY.TIER);
       if (cookieTenantId && cookieTenantId !== 'undefined' && !tenantId) {
         console.log('[Layout] Initializing tenant context from cookies');
@@ -46,7 +48,7 @@ export function Layout({ children }: LayoutProps) {
           // Set tenant info (which will automatically trigger project fetch)
           setTenantInfo({
             tenantId: cookieTenantId,
-            tenantName: '', // Will be populated from projects API
+            tenantName: cookieTenantName || '', // Get tenantName from cookie
             userRole: 'member', // Default role, will be updated from projects API
             tier: (cookieTier as 'free' | 'enterprise') || 'free', // Get tier from cookie
           });
@@ -70,19 +72,33 @@ export function Layout({ children }: LayoutProps) {
     return <Login />;
   }
 
+  const navbarWidth = opened ? 255 : 95;
+
   return (
     <AppShell
       header={shouldShowHeader ? HEADER_CONFIG : undefined}
       navbar={{
-        width: opened ? 255 : 95,
+        width: navbarWidth,
         breakpoint: "sm",
         collapsed: { mobile: !opened },
       }}
       padding="md"
+      styles={{
+        navbar: {
+          height: '100vh',
+          top: 0,
+          zIndex: 100,
+        },
+        header: shouldShowHeader ? {
+          left: navbarWidth,
+          width: `calc(100% - ${navbarWidth}px)`,
+          zIndex: 100,
+        } : undefined,
+      }}
     >
       {shouldShowHeader && <Header toggle={toggle} opened={opened} />}
       <Navbar toggle={toggle} opened={opened} />
-      <Main>
+      <Main >
         <ProjectGuard>
           {children}
         </ProjectGuard>
