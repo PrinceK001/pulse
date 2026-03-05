@@ -5,6 +5,7 @@ import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.SdkTracerProvider
+import io.opentelemetry.semconv.HttpAttributes
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.RepeatedTest
@@ -46,6 +47,18 @@ class PulseOtelUtilsTest {
                 ).startSpan()
 
         assertIsNetworkSpan(span, false)
+    }
+
+    @Test
+    fun `isNetworkSpan returns true when only HTTP_REQUEST_METHOD is present`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span =
+            tracer
+                .spanBuilder("test-span")
+                .setAttribute(HttpAttributes.HTTP_REQUEST_METHOD, "GET")
+                .startSpan()
+
+        assertIsNetworkSpan(span, true)
     }
 
     @Test
