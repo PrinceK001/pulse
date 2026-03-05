@@ -34,6 +34,7 @@ import {
   IconSettings,
   IconUsers,
   IconFolder,
+  IconCreditCard,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef } from "react";
@@ -308,6 +309,22 @@ export function Navbar({
                   <Box>
                     <Text size="sm" fw={500}>Members</Text>
                     <Text size="xs" c="dimmed">Team management</Text>
+                  </Box>
+                </Group>
+              </Box>
+
+              <Box
+                className={classes.menuItem}
+                onClick={() => navigate(ROUTES.PRICING.basePath)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconCreditCard size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>Pricing & Plans</Text>
+                    <Text size="xs" c="dimmed">
+                      {tier === 'enterprise' ? 'View your plan' : 'Upgrade to Enterprise'}
+                    </Text>
                   </Box>
                 </Group>
               </Box>
