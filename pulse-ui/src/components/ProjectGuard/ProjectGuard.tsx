@@ -15,20 +15,39 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId: contextProjectId, switchProject } = useProjectContext();
-  const { projects } = useTenantContext();
+  const { projects, tenantId } = useTenantContext();
 
   useEffect(() => {
     const excludedPaths = [
       ROUTES.LOGIN.basePath,
       ROUTES.ONBOARDING.basePath,
       ROUTES.PRICING.basePath,
-      ROUTES.PROJECT_SELECTION.basePath,
-      '/organization',
     ];
+
+    // Check if path is organization-scoped (/:organizationId/...)
+    const isOrganizationPath = /^\/[^/]+\/(projects|members)/.test(location.pathname);
+    
+    // Check if path is onboarding page for a project (should not trigger guard)
+    const isOnboardingPath = /^\/projects\/[^/]+\/onboarding/.test(location.pathname);
 
     const isExcludedPath = excludedPaths.some(path => 
       location.pathname.startsWith(path)
     );
+
+    console.log('[ProjectGuard] Check:', {
+      pathname: location.pathname,
+      contextProjectId,
+      isExcludedPath,
+      isOrganizationPath,
+      isOnboardingPath,
+      projectsCount: projects.length
+    });
+
+    // Skip guard for onboarding pages
+    if (isOnboardingPath) {
+      console.log('[ProjectGuard] Skipping guard - on onboarding page');
+      return;
+    }
 
     // Extract project ID from URL if on project-scoped route
     const projectIdMatch = location.pathname.match(/^\/projects\/([^/]+)/);
@@ -42,21 +61,28 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
         
         // Check if user has access to this project
         const hasAccess = projects.some(p => p.projectId === urlProjectId);
+        console.log(`[ProjectGuard] Access check: hasAccess=${hasAccess}, projectsInContext=${projects.length}`);
+        
         if (hasAccess) {
+          console.log('[ProjectGuard] User has access, switching to project');
           switchProject(urlProjectId);
-        } else if (projects.length > 0) {
-          // Project not found or no access - redirect to project selection
-          console.log('[ProjectGuard] No access to project, redirecting to project selection');
-          navigate(ROUTES.PROJECT_SELECTION.basePath);
+        } else if (projects.length > 0 && tenantId) {
+          // Project not found or no access - redirect to organization projects
+          console.log('[ProjectGuard] No access to project, redirecting to organization projects');
+          navigate(`/${tenantId}/projects`);
+        } else {
+          console.log('[ProjectGuard] Projects not loaded yet, waiting...');
         }
         // If projects array is empty, wait for it to load (handled by TenantContext)
       }
-    } else if (!contextProjectId && !isExcludedPath && !urlProjectId) {
-      // No project context and not on excluded route or project-scoped route
-      console.log('[ProjectGuard] No project context, redirecting to project selection');
-      navigate(ROUTES.PROJECT_SELECTION.basePath);
+    } else if (!contextProjectId && !isExcludedPath && !urlProjectId && !isOrganizationPath) {
+      // No project context and not on excluded route, project-scoped route, or organization route
+      console.log('[ProjectGuard] No project context, redirecting to organization projects');
+      if (tenantId) {
+        navigate(`/${tenantId}/projects`);
+      }
     }
-  }, [contextProjectId, location.pathname, navigate, projects, switchProject]);
+  }, [contextProjectId, location.pathname, navigate, projects, switchProject, tenantId]);
 
   return <>{children}</>;
 }

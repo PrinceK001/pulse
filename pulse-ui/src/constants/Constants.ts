@@ -44,7 +44,6 @@ import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
 import { Onboarding } from "../screens/Onboarding";
 import { OnboardingSuccess } from "../screens/OnboardingSuccess";
-import { ProjectSelection } from "../screens/ProjectSelection";
 import { Pricing } from "../screens/Pricing";
 import { ProjectSettings } from "../screens/ProjectSettings";
 import { SamplingConfig } from "../screens/SamplingConfig";
@@ -115,20 +114,20 @@ export const ROUTES: Routes = {
   },
   ORGANIZATION_MEMBERS: {
     key: "ORGANIZATION_MEMBERS",
-    basePath: "/organization/members",
-    path: "/organization/members/*",
+    basePath: "/:organizationId/members",
+    path: "/:organizationId/members/*",
     element: OrganizationMembers,
   },
   ORGANIZATION_PROJECTS: {
     key: "ORGANIZATION_PROJECTS",
-    basePath: "/organization/projects",
-    path: "/organization/projects",
+    basePath: "/:organizationId/projects",
+    path: "/:organizationId/projects",
     element: OrganizationProjects,
   },
   CREATE_PROJECT: {
     key: "CREATE_PROJECT",
-    basePath: "/organization/projects/new",
-    path: "/organization/projects/new",
+    basePath: "/:organizationId/projects/new",
+    path: "/:organizationId/projects/new",
     element: CreateProject,
   },
   
@@ -320,12 +319,6 @@ export const ROUTES: Routes = {
     basePath: "/pricing",
     path: "/pricing",
     element: Pricing,
-  },
-  PROJECT_SELECTION: {
-    key: "PROJECT_SELECTION",
-    basePath: "/project-selection",
-    path: "/project-selection",
-    element: ProjectSelection,
   },
   UNIVERSAL_QUERYING: {
     key: "UNIVERSAL_QUERYING",
@@ -1033,6 +1026,7 @@ export const COOKIES_KEY: Record<string, string> = {
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
   TENANT_ID: "tenantId", // Keep for initial hydration only
+  TIER: "tier", // Store tier for initial hydration
   // REMOVED: PROJECT_ID, PROJECT_NAME, TENANT_NAME - Now handled by React Context
 };
 

@@ -7,7 +7,8 @@ interface ProjectInfo {
   projectName: string;
   userRole: 'admin' | 'editor' | 'viewer';
   isActive?: boolean;
-  plan?: 'free' | 'enterprise';  // @deprecated - Tier is now tenant-level, use TenantContext.tier instead
+  /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. This field is ignored. */
+  plan?: 'free' | 'enterprise';
 }
 
 interface ProjectContextType {
@@ -15,7 +16,8 @@ interface ProjectContextType {
   projectId: string | null;
   projectName: string | null;
   userRole: 'admin' | 'editor' | 'viewer' | null;
-  plan: 'free' | 'enterprise' | null;  // @deprecated - Tier is now tenant-level, use TenantContext.tier instead
+  /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. Always returns 'free' for backward compatibility. */
+  plan: 'free' | 'enterprise' | null;
   isActive: boolean;
   
   // Methods
@@ -107,8 +109,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     
     if (!project) {
       console.error('[ProjectContext] Project not found:', newProjectId);
-      // Navigate to project selection if project not found
-      navigate('/project-selection');
+      // Navigate to organization projects if project not found
+      const tenantId = sessionStorage.getItem('pulse_tenant_context');
+      if (tenantId) {
+        try {
+          const tenantData = JSON.parse(tenantId);
+          navigate(`/${tenantData.tenantId}/projects`);
+        } catch {
+          navigate('/');
+        }
+      }
       return;
     }
 

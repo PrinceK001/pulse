@@ -70,9 +70,10 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     }
 
     String tenantId = resolveTenantId(requestContext);
-    TenantContext.setTenantId(tenantId);
-    log.debug("Request tenant context set to: {} for path: {}",
-        tenantId, path);
+    if (tenantId != null && !tenantId.isBlank()) {
+      TenantContext.setTenantId(tenantId.trim());
+      log.debug("Request tenant context set to: {} for path: {}", tenantId, path);
+    }
 
     // Extract project ID from X-Project-ID header if present
     String projectId = requestContext.getHeaderString(PROJECT_HEADER);

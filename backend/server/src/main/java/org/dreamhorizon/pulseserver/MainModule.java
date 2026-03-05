@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.inject.Singleton;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
@@ -12,13 +13,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
-import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
@@ -59,15 +58,6 @@ public class MainModule extends VertxAbstractModule {
     bind(ObjectMapper.class).toInstance(getObjectMapper());
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
     bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
-
-    bind(ClickhouseTenantConnectionPoolManager.class).toProvider(() -> {
-      ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
-      ClickhouseTenantConnectionPoolManager manager = new ClickhouseTenantConnectionPoolManager(config);
-      SharedDataUtils.put(vertx, manager);
-      return manager;
-    }).in(Singleton.class);
-
-    bind(ClickhouseCredentialsDao.class).in(Singleton.class);
 
     // === NEW: Multi-tenancy & RBAC Services ===
     // === NEW: Multi-tenancy & RBAC DAOs ===
@@ -122,11 +112,11 @@ public class MainModule extends VertxAbstractModule {
   protected ObjectMapper getObjectMapper() {
     if (objectMapper == null) {
       objectMapper = new ObjectMapper();
+      objectMapper.registerModule(new JavaTimeModule());
       objectMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
       objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
       objectMapper.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false);
       objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-      objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, true);
       objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
     return objectMapper;

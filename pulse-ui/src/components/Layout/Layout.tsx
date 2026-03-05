@@ -42,6 +42,31 @@ export function Layout({ children }: LayoutProps) {
       return;
     }
     setCheckingCredentials(false);
+        return;
+      }
+
+      // Initialize tenant context if tenantId exists in cookies but not in context
+      const cookieTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+      const cookieTier = getCookies(COOKIES_KEY.TIER);
+      if (cookieTenantId && cookieTenantId !== 'undefined' && !tenantId) {
+        console.log('[Layout] Initializing tenant context from cookies');
+        try {
+          // Set tenant info (which will automatically trigger project fetch)
+          setTenantInfo({
+            tenantId: cookieTenantId,
+            tenantName: '', // Will be populated from projects API
+            userRole: 'member', // Default role, will be updated from projects API
+            tier: (cookieTier as 'free' | 'enterprise') || 'free', // Get tier from cookie
+          });
+        } catch (error) {
+          console.error('[Layout] Failed to initialize tenant context:', error);
+        }
+      }
+
+      setCheckingCredentials(false);
+    };
+
+    initializeAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 

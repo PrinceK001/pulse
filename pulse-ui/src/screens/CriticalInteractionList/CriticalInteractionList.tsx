@@ -14,7 +14,6 @@ import { useIntersection } from "@mantine/hooks";
 import {
   COOKIES_KEY,
   CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS,
-  ROUTES,
 } from "../../constants";
 import { IconFilterEdit } from "@tabler/icons-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";

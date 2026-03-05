@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getProjectContext } from '../../helpers/projectContext';
-import { ROUTES } from '../../constants';
 import { Box, Loader, Text } from '@mantine/core';
+import { getCookies } from '../../helpers/cookies';
+import { COOKIES_KEY } from '../../constants';
 
 export function LegacyRedirect() {
   const navigate = useNavigate();
@@ -16,8 +17,13 @@ export function LegacyRedirect() {
       console.log(`[LegacyRedirect] Redirecting ${path} -> ${newPath}`);
       navigate(newPath, { replace: true });
     } else {
-      console.log('[LegacyRedirect] No project context, redirecting to project selection');
-      navigate(ROUTES.PROJECT_SELECTION.basePath, { replace: true });
+      console.log('[LegacyRedirect] No project context, redirecting to organization projects');
+      const tenantId = getCookies(COOKIES_KEY.TENANT_ID);
+      if (tenantId && tenantId !== "undefined") {
+        navigate(`/${tenantId}/projects`, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
   }, [projectContext, location, navigate]);
 

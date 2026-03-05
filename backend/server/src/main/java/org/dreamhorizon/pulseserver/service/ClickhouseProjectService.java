@@ -5,13 +5,16 @@ import com.google.inject.Singleton;
 import io.r2dbc.pool.ConnectionPool;
 import io.r2dbc.spi.Connection;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.models.ClickhouseProjectCredentialAudit;
 import reactor.core.publisher.Mono;
 
 import java.security.SecureRandom;
@@ -116,18 +119,23 @@ public class ClickhouseProjectService {
     // ==================== COMBINED OPERATIONS (Backward Compatible) ====================
 
     /**
-     * Complete setup for a project's ClickHouse access.
+     * Complete setup for a project's ClickHouse access with audit logging.
      * Generates credentials, creates CH user/policies, and saves credentials to MySQL.
      * 
      * Note: For transactional flows, use generateUsername(), generatePassword(),
      * save credentials via DAO with SqlConnection, then call createClickhouseUserAndPolicies().
      */
-    public Completable setupProjectClickhouseUser(String projectId) {
+    public Completable setupProjectClickhouseUser(String projectId, String performedBy) {
         String username = generateUsername(projectId);
         String password = generatePassword();
         
+        JsonObject auditDetails = new JsonObject()
+            .put("clickhouseUsername", username)
+            .put("action", "ClickHouse credentials created");
+        
         return createClickhouseUserAndPolicies(projectId, username, password)
             .andThen(credentialsDao.saveCredentials(projectId, username, password).ignoreElement())
+            .andThen(credentialsDao.insertAuditLog(projectId, ProjectAuditAction.CREDENTIALS_SETUP, performedBy, auditDetails))
             .doOnComplete(() -> 
                 log.info("Successfully set up ClickHouse access for project: {}", projectId)
             )
@@ -137,10 +145,14 @@ public class ClickhouseProjectService {
             );
     }
     
-    public Completable removeProjectClickhouseUser(String projectId) {
+    public Completable removeProjectClickhouseUser(String projectId, String performedBy) {
         String username = generateUsername(projectId);
         
         log.info("Removing ClickHouse user for project: {}, username: {}", projectId, username);
+        
+        JsonObject auditDetails = new JsonObject()
+            .put("clickhouseUsername", username)
+            .put("action", "ClickHouse credentials removed");
         
         return Completable.fromAction(() -> {
             ConnectionPool adminPool = poolManager.getAdminPool();
@@ -163,12 +175,77 @@ public class ClickhouseProjectService {
         })
         .andThen(credentialsDao.deactivateCredentials(projectId))
         .andThen(Completable.fromAction(() -> poolManager.closePoolForProject(projectId)))
+        .andThen(credentialsDao.insertAuditLog(projectId, ProjectAuditAction.CREDENTIALS_REMOVED, performedBy, auditDetails))
         .doOnComplete(() -> 
             log.info("Successfully removed ClickHouse access for project: {}", projectId)
         )
         .doOnError(error -> 
             log.error("Failed to remove ClickHouse user: projectId={}", projectId, error)
         );
+    }
+    
+    /**
+     * Rotate ClickHouse password for a project.
+     * Generates new password, updates CH user, updates MySQL credentials, and logs audit.
+     */
+    public Completable rotateProjectClickhousePassword(String projectId, String performedBy) {
+        String username = generateUsername(projectId);
+        String newPassword = generatePassword();
+        
+        log.info("Rotating ClickHouse password for project: {}, username: {}", projectId, username);
+        
+        JsonObject auditDetails = new JsonObject()
+            .put("clickhouseUsername", username)
+            .put("action", "ClickHouse password rotated")
+            .put("reason", "Manual rotation");
+        
+        return Completable.fromAction(() -> {
+            ConnectionPool adminPool = poolManager.getAdminPool();
+            
+            // Update ClickHouse user password
+            String alterUserSQL = String.format(
+                "ALTER USER %s IDENTIFIED WITH plaintext_password BY '%s'",
+                username, newPassword
+            );
+            executeSQL(adminPool, alterUserSQL);
+            log.info("Updated ClickHouse password for user: {}", username);
+        })
+        .andThen(credentialsDao.saveCredentials(projectId, username, newPassword).ignoreElement())
+        .andThen(Completable.fromAction(() -> {
+            // Close and recreate connection pool with new credentials
+            poolManager.closePoolForProject(projectId);
+            log.info("Closed connection pool for project: {}", projectId);
+        }))
+        .andThen(credentialsDao.insertAuditLog(projectId, ProjectAuditAction.CREDENTIALS_ROTATED, performedBy, auditDetails))
+        .doOnComplete(() -> 
+            log.info("Successfully rotated password for project: {}", projectId)
+        )
+        .doOnError(error -> 
+            log.error("Failed to rotate password: projectId={}", projectId, error)
+        );
+    }
+    
+    /**
+     * Get audit history for a project's credentials.
+     */
+    public Flowable<ClickhouseProjectCredentialAudit> getAuditHistory(String projectId) {
+        return credentialsDao.getAuditLogsByProjectId(projectId)
+            .doOnError(error -> log.error("Failed to get audit history for project: {}", projectId, error));
+    }
+    
+    /**
+     * Get recent audit logs across all projects.
+     */
+    public Flowable<ClickhouseProjectCredentialAudit> getRecentAuditLogs(int limit) {
+        return credentialsDao.getRecentAuditLogs(limit)
+            .doOnError(error -> log.error("Failed to get recent audit logs", error));
+    }
+    
+    /**
+     * Get credentials by project ID (for info display, not actual password).
+     */
+    public io.reactivex.rxjava3.core.Maybe<org.dreamhorizon.pulseserver.model.ClickhouseProjectCredentials> getCredentialsByProjectId(String projectId) {
+        return credentialsDao.getCredentialsByProjectId(projectId);
     }
 
     // ==================== PRIVATE HELPERS ====================

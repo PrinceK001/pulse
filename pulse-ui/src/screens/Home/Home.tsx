@@ -5,7 +5,6 @@ import {
   IconNetwork,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import { ROUTES } from "../../constants";
 import { HomeProps } from "./Home.interface";
 import classes from "./Home.module.css";
 import dayjs from "dayjs";

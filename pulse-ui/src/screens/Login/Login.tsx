@@ -49,7 +49,10 @@ export function Login() {
     if (refreshToken && refreshToken !== "undefined") {
       const isRefreshTokenExpired = checkRefreshTokenExpiration(refreshToken);
       if (!isRefreshTokenExpired) {
-        navigate(ROUTES.PROJECT_SELECTION.basePath);
+        const tenantId = getCookies(COOKIES_KEY.TENANT_ID);
+        if (tenantId && tenantId !== "undefined") {
+          navigate(`/${tenantId}/projects`);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,7 +126,8 @@ export function Login() {
             });
           }
           
-          navigate(ROUTES.PROJECT_SELECTION.basePath);
+          // Navigate to organization projects page with tenantId
+          navigate(`/${data.tenantId}/projects`);
         }
       }
       
@@ -173,7 +177,8 @@ export function Login() {
           });
         }
         
-        navigate(ROUTES.PROJECT_SELECTION.basePath);
+        // Navigate to organization projects page with tenantId
+        navigate(`/${data.tenantId}/projects`);
       }
     }
     

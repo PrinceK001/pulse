@@ -34,6 +34,7 @@ import {
   IconSettings,
   IconUsers,
   IconFolder,
+  IconCreditCard,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef } from "react";
@@ -55,14 +56,16 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
-  const { projectId: contextProjectId, clearProject, plan } = useProjectContext();
-  const { tenantId, tenantName, clearTenant } = useTenantContext();
+  const { projectId: contextProjectId, clearProject } = useProjectContext();
+  const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
   const permissions = usePermissions();
 
   const handleAllProjectsClick = () => {
-    console.log('[Navbar] Clearing project context and navigating to project selection');
+    console.log('[Navbar] Clearing project context and navigating to organization projects');
     clearProject();
-    navigate(ROUTES.PROJECT_SELECTION.basePath);
+    if (tenantId) {
+      navigate(`/${tenantId}/projects`);
+    }
   };
 
   function onItemClick(routeTo: string) {
@@ -95,8 +98,8 @@ export function Navbar({
   const onLogoClick = () => {
     if (contextProjectId) {
       navigate(`/projects/${contextProjectId}`);
-    } else {
-      navigate(ROUTES.PROJECT_SELECTION.basePath);
+    } else if (tenantId) {
+      navigate(`/${tenantId}/projects`);
     }
   };
 
@@ -280,7 +283,7 @@ export function Navbar({
               {/* Organization Section */}
               <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Organization</Text>
               
-              {plan === 'enterprise' && (
+              {tier === 'enterprise' && (
                 <Box
                   className={classes.menuItem}
                   onClick={handleAllProjectsClick}
@@ -289,8 +292,8 @@ export function Navbar({
                   <Group gap="sm">
                     <IconFolder size={20} style={{ color: "#0ba09a" }} />
                     <Box>
-                      <Text size="sm" fw={500}>All Projects</Text>
-                      <Text size="xs" c="dimmed">Switch projects</Text>
+                      <Text size="sm" fw={500}>Projects</Text>
+                      <Text size="xs" c="dimmed">View all projects</Text>
                     </Box>
                   </Group>
                 </Box>
@@ -306,6 +309,22 @@ export function Navbar({
                   <Box>
                     <Text size="sm" fw={500}>Members</Text>
                     <Text size="xs" c="dimmed">Team management</Text>
+                  </Box>
+                </Group>
+              </Box>
+
+              <Box
+                className={classes.menuItem}
+                onClick={() => navigate(ROUTES.PRICING.basePath)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconCreditCard size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>Pricing & Plans</Text>
+                    <Text size="xs" c="dimmed">
+                      {tier === 'enterprise' ? 'View your plan' : 'Upgrade to Enterprise'}
+                    </Text>
                   </Box>
                 </Group>
               </Box>
