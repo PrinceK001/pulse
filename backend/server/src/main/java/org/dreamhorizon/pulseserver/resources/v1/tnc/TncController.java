@@ -74,7 +74,6 @@ public class TncController {
   public CompletionStage<Response<AcceptTncResponse>> acceptTnc(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @HeaderParam("User-Agent") String userAgent,
-      @HeaderParam("X-Forwarded-For") String forwardedFor,
       @NotNull @Valid AcceptTncRequest request) {
 
     String tenantId = TenantContext.getTenantId();
@@ -91,9 +90,7 @@ public class TncController {
                 new SecurityException("Only tenant admins can accept Terms & Conditions"));
           }
 
-          String ipAddress = forwardedFor != null ? forwardedFor : "unknown";
-
-          return tncService.acceptTnc(tenantId, request.getVersionId(), userEmail, ipAddress, userAgent);
+          return tncService.acceptTnc(tenantId, request.getVersionId(), userEmail, userAgent);
         })
         .map(acceptance -> AcceptTncResponse.builder()
             .status("accepted")
@@ -119,7 +116,6 @@ public class TncController {
                   .versionId(a.getTncVersionId())
                   .acceptedBy(a.getAcceptedByEmail())
                   .acceptedAt(a.getAcceptedAt())
-                  .ipAddress(a.getIpAddress())
                   .build())
               .toList();
           return TncHistoryResponse.builder()

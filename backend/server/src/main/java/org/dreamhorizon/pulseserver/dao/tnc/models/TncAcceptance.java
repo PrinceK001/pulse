@@ -15,6 +15,5 @@ public class TncAcceptance {
   private Long tncVersionId;
   private String acceptedByEmail;
   private String acceptedAt;
-  private String ipAddress;
   private String userAgent;
 }

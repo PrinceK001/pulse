@@ -50,10 +50,10 @@ public class TncDao {
   }
 
   public Single<TncAcceptance> insertAcceptance(String tenantId, Long versionId,
-      String email, String ipAddress, String userAgent) {
+      String email, String userAgent) {
     return mysqlClient.getWriterPool()
         .preparedQuery(TncQueries.INSERT_ACCEPTANCE)
-        .rxExecute(Tuple.of(tenantId, versionId, email, ipAddress, userAgent))
+        .rxExecute(Tuple.of(tenantId, versionId, email, userAgent))
         .flatMap(result -> {
           log.info("TnC acceptance recorded: tenant={}, version={}, email={}", tenantId, versionId, email);
           return getAcceptance(tenantId, versionId).toSingle();
@@ -109,7 +109,6 @@ public class TncDao {
         .tncVersionId(row.getLong("tnc_version_id"))
         .acceptedByEmail(row.getString("accepted_by_email"))
         .acceptedAt(formatDateTime(row.getLocalDateTime("accepted_at")))
-        .ipAddress(row.getString("ip_address"))
         .userAgent(row.getString("user_agent"))
         .build();
   }

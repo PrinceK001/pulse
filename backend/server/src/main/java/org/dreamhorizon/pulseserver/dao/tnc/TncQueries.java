@@ -8,18 +8,18 @@ public class TncQueries {
           + "FROM tnc_versions WHERE is_active = TRUE ORDER BY id DESC LIMIT 1";
 
   public static final String GET_ACCEPTANCE =
-      "SELECT id, tenant_id, tnc_version_id, accepted_by_email, accepted_at, ip_address, user_agent "
+      "SELECT id, tenant_id, tnc_version_id, accepted_by_email, accepted_at, user_agent "
           + "FROM tnc_acceptances WHERE tenant_id = ? AND tnc_version_id = ?";
 
   public static final String INSERT_ACCEPTANCE =
-      "INSERT INTO tnc_acceptances (tenant_id, tnc_version_id, accepted_by_email, ip_address, user_agent) "
-          + "VALUES (?, ?, ?, ?, ?) "
+      "INSERT INTO tnc_acceptances (tenant_id, tnc_version_id, accepted_by_email, user_agent) "
+          + "VALUES (?, ?, ?, ?) "
           + "ON DUPLICATE KEY UPDATE accepted_by_email = VALUES(accepted_by_email), "
-          + "accepted_at = CURRENT_TIMESTAMP, ip_address = VALUES(ip_address), user_agent = VALUES(user_agent)";
+          + "accepted_at = CURRENT_TIMESTAMP, user_agent = VALUES(user_agent)";
 
   public static final String GET_ACCEPTANCE_HISTORY =
       "SELECT a.id, a.tenant_id, a.tnc_version_id, a.accepted_by_email, a.accepted_at, "
-          + "a.ip_address, a.user_agent "
+          + "a.user_agent "
           + "FROM tnc_acceptances a "
           + "WHERE a.tenant_id = ? ORDER BY a.accepted_at DESC";
 

@@ -22,6 +22,5 @@ public class TncHistoryResponse {
     private Long versionId;
     private String acceptedBy;
     private String acceptedAt;
-    private String ipAddress;
   }
 }

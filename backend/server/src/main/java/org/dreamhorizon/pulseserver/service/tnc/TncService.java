@@ -39,25 +39,19 @@ public class TncService {
   public Single<TncStatusResult> getTncStatus(String tenantId) {
     return tncDao.getActiveVersion()
         .switchIfEmpty(Single.error(new RuntimeException("No active TnC version configured")))
-        .flatMap(version -> {
-          if (tenantId == null || tenantId.isBlank()) {
-            return Single.just(TncStatusResult.builder()
-                .accepted(false)
-                .version(version)
-                .build());
-          }
-          return tncDao.getAcceptance(tenantId, version.getId())
-              .map(acceptance -> TncStatusResult.builder()
-                  .accepted(true)
-                  .version(version)
-                  .acceptedByEmail(acceptance.getAcceptedByEmail())
-                  .acceptedAt(acceptance.getAcceptedAt())
-                  .build())
-              .switchIfEmpty(Single.just(TncStatusResult.builder()
-                  .accepted(false)
-                  .version(version)
-                  .build()));
-        });
+        .flatMap(version ->
+            tncDao.getAcceptance(tenantId, version.getId())
+                .map(acceptance -> TncStatusResult.builder()
+                    .accepted(true)
+                    .version(version)
+                    .acceptedByEmail(acceptance.getAcceptedByEmail())
+                    .acceptedAt(acceptance.getAcceptedAt())
+                    .build())
+                .switchIfEmpty(Single.just(TncStatusResult.builder()
+                    .accepted(false)
+                    .version(version)
+                    .build()))
+        );
   }
 
   /**
@@ -80,7 +74,7 @@ public class TncService {
    * Record TnC acceptance for a tenant.
    */
   public Single<TncAcceptance> acceptTnc(String tenantId, Long versionId, String email,
-      String ipAddress, String userAgent) {
+      String userAgent) {
     return tncDao.getActiveVersion()
         .switchIfEmpty(Single.error(new RuntimeException("No active TnC version configured")))
         .flatMap(activeVersion -> {
@@ -88,7 +82,7 @@ public class TncService {
             return Single.error(new IllegalArgumentException(
                 "Version " + versionId + " is not the currently active version"));
           }
-          return tncDao.insertAcceptance(tenantId, versionId, email, ipAddress, userAgent);
+          return tncDao.insertAcceptance(tenantId, versionId, email, userAgent);
         });
   }
 
@@ -99,6 +93,16 @@ public class TncService {
   public Single<TncVersion> uploadAndPublish(
       String version, String summary, String createdBy,
       byte[] tosBytes, byte[] aupBytes, byte[] ppBytes) {
+
+    if (tosBytes == null || tosBytes.length == 0) {
+      return Single.error(new IllegalArgumentException("Terms of Service document is required"));
+    }
+    if (aupBytes == null || aupBytes.length == 0) {
+      return Single.error(new IllegalArgumentException("Acceptable Use Policy document is required"));
+    }
+    if (ppBytes == null || ppBytes.length == 0) {
+      return Single.error(new IllegalArgumentException("Privacy Policy document is required"));
+    }
 
     Single<String> uploadTos = uploadToS3(version, "tos", tosBytes);
     Single<String> uploadAup = uploadToS3(version, "aup", aupBytes);
