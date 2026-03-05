@@ -49,7 +49,7 @@ public class RestVerticle extends AbstractRestVerticle {
     allowedHeaders.add("accept");
     allowedHeaders.add("X-PINGARUNER");
     allowedHeaders.add("Authorization");
-    allowedHeaders.add("X-Tenant-ID");  // Multi-tenancy support
+    allowedHeaders.add("X-API-KEY");  // API key for authentication
 
     final Set<HttpMethod> allowedMethods = new HashSet<>();
     allowedMethods.add(HttpMethod.GET);

@@ -20,7 +20,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
  * <p>Tenant resolution order:</p>
  * <ol>
  *   <li>JWT token tenantId claim from Authorization header</li>
- *   <li>X-Tenant-ID header (explicit override, useful for admin operations)</li>
+ *   <li>X-API-KEY header (API key for authentication, useful for admin operations)</li>
  * </ol>
  */
 @Slf4j
@@ -28,7 +28,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 @Priority(Priorities.AUTHENTICATION + 10) // Run after authentication but before authorization
 public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
-  public static final String TENANT_HEADER = "X-Tenant-ID";
+  public static final String API_KEY_HEADER = "X-API-KEY";
   public static final String PROJECT_HEADER = "X-Project-ID";
   private static final String HEALTHCHECK_PATH = "healthcheck";
   private static final String AUTH_PATH_PREFIX = "v1/auth";
@@ -98,11 +98,11 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return tokenTenantId.trim();
     }
 
-    // Priority 2: Explicit X-Tenant-ID header (fallback)
-    String headerTenantId = requestContext.getHeaderString(TENANT_HEADER);
-    if (headerTenantId != null && !headerTenantId.isBlank()) {
-      log.debug("Tenant ID resolved from header: {}", headerTenantId);
-      return headerTenantId.trim();
+    // Priority 2: X-API-KEY header 
+    String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
+    if (apiKey != null && !apiKey.isBlank()) {
+      log.debug("Tenant ID resolved from API key header: {}", apiKey);
+      return apiKey.trim();
     }
 
     //This a Temporary fix for supporting the projectId.
@@ -112,11 +112,11 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return projectId.trim();
     }
 
-    log.error("Missing tenant ID (not found in token or X-Tenant-ID header) for path: {}",
+    log.error("Missing tenant ID (not found in token or X-API-KEY header) for path: {}",
         requestContext.getUriInfo().getPath());
     requestContext.abortWith(
         jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
-            .entity("{\"error\": \"Tenant ID is required (via Authorization token or X-Tenant-ID header)\"}")
+            .entity("{\"error\": \"Tenant ID is required (via Authorization token or X-API-KEY header)\"}")
             .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
             .build());
     return null;
