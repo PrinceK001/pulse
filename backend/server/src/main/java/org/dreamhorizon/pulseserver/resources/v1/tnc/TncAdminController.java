@@ -1,5 +1,9 @@
 package org.dreamhorizon.pulseserver.resources.v1.tnc;
 
+import static org.dreamhorizon.pulseserver.constant.Constants.PERMISSION_CAN_UPLOAD_TNC;
+import static org.dreamhorizon.pulseserver.constant.Constants.RESOURCE_SYSTEM_PULSE;
+import static org.dreamhorizon.pulseserver.constant.Constants.RESOURCE_TYPE_SYSTEM;
+
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.ws.rs.Consumes;
@@ -20,10 +24,9 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tnc.TncService;
+import org.dreamhorizon.pulseserver.util.JwtUtils;
 import org.jboss.resteasy.plugins.providers.multipart.InputPart;
 import org.jboss.resteasy.plugins.providers.multipart.MultipartFormDataInput;
-
-import static org.dreamhorizon.pulseserver.util.AuthenticationUtil.extractUserId;
 
 /**
  * Admin-only TnC endpoints for uploading and publishing TnC documents.
@@ -46,9 +49,10 @@ public class TncAdminController {
       @HeaderParam("user-email") String userEmailHeader,
       MultipartFormDataInput multipartInput) {
 
-    String emailForAuth = extractEmailFromJwt(authorization);
+    String token = authorization.substring("Bearer ".length());
+    String emailForAuth = JwtUtils.extractEmail(token);
 
-    return openFgaService.checkPermission(emailForAuth, "can_upload_tnc", "system", "pulse")
+    return openFgaService.checkPermission(emailForAuth, PERMISSION_CAN_UPLOAD_TNC, RESOURCE_TYPE_SYSTEM, RESOURCE_SYSTEM_PULSE)
         .flatMap(allowed -> {
           if (!allowed) {
             return Single.error(new SecurityException(
@@ -116,17 +120,4 @@ public class TncAdminController {
     }
   }
 
-  private String extractEmailFromJwt(String authorization) {
-    try {
-      String token = authorization.substring("Bearer ".length());
-      com.nimbusds.jwt.SignedJWT jwt = com.nimbusds.jwt.SignedJWT.parse(token);
-      String email = jwt.getJWTClaimsSet().getStringClaim("email");
-      if (email != null && !email.isBlank()) {
-        return email;
-      }
-    } catch (Exception e) {
-      log.warn("Failed to extract email from JWT", e);
-    }
-    return extractUserId(authorization);
-  }
 }

@@ -73,13 +73,16 @@ public class TncDao {
   public Single<TncVersion> publishVersion(String version, String tosUrl, String aupUrl,
       String ppUrl, String summary, String createdBy) {
     return mysqlClient.getWriterPool()
-        .preparedQuery(TncQueries.DEACTIVATE_ALL_VERSIONS)
-        .rxExecute()
-        .flatMap(deactivated -> mysqlClient.getWriterPool()
-            .preparedQuery(TncQueries.INSERT_VERSION)
-            .rxExecute(Tuple.of(version, tosUrl, aupUrl, ppUrl, summary, createdBy)))
-        .flatMap(result -> {
-          log.info("Published TnC version: {}", version);
+        .preparedQuery(TncQueries.INSERT_VERSION)
+        .rxExecute(Tuple.of(version, tosUrl, aupUrl, ppUrl, summary, createdBy))
+        .flatMap(insertResult -> {
+          log.info("Inserted TnC version: {}", version);
+          return mysqlClient.getWriterPool()
+              .preparedQuery(TncQueries.DEACTIVATE_OTHER_VERSIONS)
+              .rxExecute(Tuple.of(version));
+        })
+        .flatMap(deactivated -> {
+          log.info("Published TnC version: {}, deactivated previous versions", version);
           return getActiveVersion().toSingle();
         });
   }

@@ -23,8 +23,8 @@ public class TncQueries {
           + "FROM tnc_acceptances a "
           + "WHERE a.tenant_id = ? ORDER BY a.accepted_at DESC";
 
-  public static final String DEACTIVATE_ALL_VERSIONS =
-      "UPDATE tnc_versions SET is_active = FALSE";
+  public static final String DEACTIVATE_OTHER_VERSIONS =
+      "UPDATE tnc_versions SET is_active = FALSE WHERE version != ?";
 
   public static final String INSERT_VERSION =
       "INSERT INTO tnc_versions (version, tos_s3_url, aup_s3_url, privacy_policy_s3_url, summary, is_active, created_by) "

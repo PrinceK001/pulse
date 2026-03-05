@@ -25,7 +25,10 @@ import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tnc.TncService;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
-import static org.dreamhorizon.pulseserver.util.AuthenticationUtil.extractUserId;
+import static org.dreamhorizon.pulseserver.constant.Constants.PERMISSION_CAN_ACCEPT_TNC;
+import static org.dreamhorizon.pulseserver.constant.Constants.RESOURCE_TYPE_TENANT;
+
+import org.dreamhorizon.pulseserver.util.JwtUtils;
 
 /**
  * Tenant-facing TnC endpoints.
@@ -40,32 +43,6 @@ public class TncController {
 
   private final TncService tncService;
   private final OpenFgaService openFgaService;
-
-  /**
-   * Public endpoint - returns active TnC documents without requiring auth.
-   * Used by the onboarding page before the user has a tenant/token.
-   */
-  @GET
-  @Path("/documents")
-  public CompletionStage<Response<TncStatusResponse>> getDocuments() {
-    log.info("Getting TnC documents (public, no auth required)");
-
-    return tncService.getTncStatus(null)
-        .map(result -> {
-          var version = result.getVersion();
-          return TncStatusResponse.builder()
-              .accepted(false)
-              .version(version.getVersion())
-              .versionId(version.getId())
-              .documents(TncStatusResponse.TncDocumentUrls.builder()
-                  .tos(tncService.generatePresignedUrl(version.getTosS3Url()))
-                  .aup(tncService.generatePresignedUrl(version.getAupS3Url()))
-                  .privacyPolicy(tncService.generatePresignedUrl(version.getPrivacyPolicyS3Url()))
-                  .build())
-              .build();
-        })
-        .to(RestResponse.jaxrsRestHandler());
-  }
 
   @GET
   @Path("/status")
@@ -101,12 +78,13 @@ public class TncController {
       @NotNull @Valid AcceptTncRequest request) {
 
     String tenantId = TenantContext.getTenantId();
-    String userId = extractUserId(authorization);
-    String userEmail = extractEmailFromAuth(authorization);
+    String token = authorization.substring("Bearer ".length());
+    String userId = JwtUtils.extractUserId(token);
+    String userEmail = JwtUtils.extractEmail(token);
 
-    log.info("TnC acceptance attempt: tenant={}, user={}, email={}, version={}", tenantId, userId, userEmail, request.getVersionId());
+    log.info("TnC acceptance attempt: tenant={}, user={}, version={}", tenantId, userEmail, request.getVersionId());
 
-    return openFgaService.checkPermission(userId, "can_accept_tnc", "tenant", tenantId)
+    return openFgaService.checkPermission(userId, PERMISSION_CAN_ACCEPT_TNC, RESOURCE_TYPE_TENANT, tenantId)
         .flatMap(allowed -> {
           if (!allowed) {
             return io.reactivex.rxjava3.core.Single.error(
@@ -152,14 +130,4 @@ public class TncController {
         .to(RestResponse.jaxrsRestHandler());
   }
 
-  private String extractEmailFromAuth(String authorization) {
-    try {
-      String token = authorization.substring("Bearer ".length());
-      com.nimbusds.jwt.SignedJWT jwt = com.nimbusds.jwt.SignedJWT.parse(token);
-      return jwt.getJWTClaimsSet().getStringClaim("email");
-    } catch (Exception e) {
-      log.warn("Failed to extract email from JWT", e);
-      return "unknown";
-    }
-  }
 }
