@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -12,7 +13,7 @@ import {
   Group,
 } from '@mantine/core';
 import { IconFolder, IconArrowLeft } from '@tabler/icons-react';
-import { useTenantContext } from '../../contexts';
+import { useTenantContext, useProjectContext } from '../../contexts';
 import { showNotification } from '../../helpers/showNotification';
 import { API_BASE_URL } from '../../constants';
 import { makeRequest } from '../../helpers/makeRequest';
@@ -35,6 +36,7 @@ interface ProjectResponse {
 export function CreateProject() {
   const navigate = useNavigate();
   const { tenantId, addProject } = useTenantContext();
+  const { setProject } = useProjectContext();
   
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
@@ -77,14 +79,50 @@ export function CreateProject() {
       });
       
       if (response.data) {
-        // Add project to tenant context
-        addProject({
-          projectId: response.data.projectId,
-          name: response.data.name,
-          description: response.data.description,
-          isActive: true,
-          role: 'admin',
+        const projectData = response.data; // Store in const to help TypeScript's control flow analysis
+        
+        console.log('[CreateProject] Project created successfully:', {
+          projectId: projectData.projectId,
+          projectName: projectData.name,
+          apiKey: projectData.apiKey ? 'present' : 'missing'
         });
+        
+        // Force immediate state update using flushSync to prevent race conditions
+        // This ensures the project is in both TenantContext and ProjectContext before navigation
+        console.log('[CreateProject] Adding project to tenant and project contexts with flushSync');
+        flushSync(() => {
+          // Update TenantContext (adds to projects list)
+          addProject({
+            projectId: projectData.projectId,
+            name: projectData.name,
+            description: projectData.description,
+            isActive: true,
+            role: 'admin',
+          });
+          
+          // Update ProjectContext (sets as active project)
+          setProject({
+            projectId: projectData.projectId,
+            projectName: projectData.name,
+            userRole: 'admin',
+            isActive: true,
+          });
+          
+          // CRITICAL: Also update sessionStorage immediately to prevent race conditions
+          sessionStorage.setItem('pulse_project_context', JSON.stringify({
+            projectId: projectData.projectId,
+            projectName: projectData.name,
+            userRole: 'admin',
+            isActive: true,
+            plan: 'free',
+            timestamp: Date.now()
+          }));
+          
+          // Update last used project ID
+          sessionStorage.setItem('pulse_last_project_id', projectData.projectId);
+        });
+        
+        console.log('[CreateProject] Project added to both contexts and sessionStorage (state flushed)');
         
         showNotification(
           'Success',
@@ -93,14 +131,18 @@ export function CreateProject() {
           '#0ec9c2'
         );
         
+        console.log('[CreateProject] Navigating to onboarding:', `/projects/${projectData.projectId}/onboarding`);
+        
         // Navigate to project onboarding
-        navigate(`/projects/${response.data.projectId}/onboarding`, {
+        navigate(`/projects/${projectData.projectId}/onboarding`, {
           state: {
-            projectId: response.data.projectId,
-            projectName: response.data.name,
-            projectApiKey: response.data.apiKey,
+            projectId: projectData.projectId,
+            projectName: projectData.name,
+            projectApiKey: projectData.apiKey,
           }
         });
+        
+        console.log('[CreateProject] Navigation initiated');
       } else {
         showNotification(
           'Error',
@@ -123,7 +165,9 @@ export function CreateProject() {
   };
 
   const handleBack = () => {
-    navigate('/organization/projects');
+    if (tenantId) {
+      navigate(`/${tenantId}/projects`);
+    }
   };
 
   return (

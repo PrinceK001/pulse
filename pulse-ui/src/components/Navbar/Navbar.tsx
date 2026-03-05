@@ -60,9 +60,11 @@ export function Navbar({
   const permissions = usePermissions();
 
   const handleAllProjectsClick = () => {
-    console.log('[Navbar] Clearing project context and navigating to project selection');
+    console.log('[Navbar] Clearing project context and navigating to organization projects');
     clearProject();
-    navigate(ROUTES.PROJECT_SELECTION.basePath);
+    if (tenantId) {
+      navigate(`/${tenantId}/projects`);
+    }
   };
 
   function onItemClick(routeTo: string) {
@@ -95,8 +97,8 @@ export function Navbar({
   const onLogoClick = () => {
     if (contextProjectId) {
       navigate(`/projects/${contextProjectId}`);
-    } else {
-      navigate(ROUTES.PROJECT_SELECTION.basePath);
+    } else if (tenantId) {
+      navigate(`/${tenantId}/projects`);
     }
   };
 
@@ -289,8 +291,8 @@ export function Navbar({
                   <Group gap="sm">
                     <IconFolder size={20} style={{ color: "#0ba09a" }} />
                     <Box>
-                      <Text size="sm" fw={500}>All Projects</Text>
-                      <Text size="xs" c="dimmed">Switch projects</Text>
+                      <Text size="sm" fw={500}>Projects</Text>
+                      <Text size="xs" c="dimmed">View all projects</Text>
                     </Box>
                   </Group>
                 </Box>

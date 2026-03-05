@@ -56,7 +56,17 @@ export function OnboardingSuccess() {
   useEffect(() => {
     const fetchProjectDetails = async () => {
       if (!projectId) {
-        navigate('/project-selection', { replace: true });
+        // Get tenant ID from cookies and redirect to organization projects
+        const tenantId = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('tenantId='))
+          ?.split('=')[1];
+        
+        if (tenantId && tenantId !== "undefined") {
+          navigate(`/${tenantId}/projects`, { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
         return;
       }
 

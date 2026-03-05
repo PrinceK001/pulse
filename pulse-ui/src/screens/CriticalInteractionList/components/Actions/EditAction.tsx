@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import {
-  ROUTES,
   TOOLTIP_LABLES,
 } from "../../../../constants";
 import { Loader, Tooltip } from "@mantine/core";

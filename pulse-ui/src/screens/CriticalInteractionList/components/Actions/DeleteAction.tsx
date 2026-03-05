@@ -14,7 +14,6 @@ import {
   COOKIES_KEY,
   COMMON_CONSTANTS,
   TOOLTIP_LABLES,
-  ROUTES,
 } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
 import { Loader, Tooltip } from "@mantine/core";
