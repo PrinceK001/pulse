@@ -1,16 +1,116 @@
 import { Container, Title, Text, Stack, Card, Group, Button, Badge, List, ThemeIcon, Box } from '@mantine/core';
-import { IconCheck, IconMail, IconRocket, IconBuilding } from '@tabler/icons-react';
+import { IconCheck, IconMail, IconRocket, IconBuilding, IconCircleCheck, IconUsers } from '@tabler/icons-react';
 import { useTenantContext } from '../../contexts';
+import { useNavigate } from 'react-router-dom';
 import classes from './Pricing.module.css';
 
 export function Pricing() {
   const { tier } = useTenantContext();
+  const navigate = useNavigate();
   const currentPlan = tier || 'free';
 
   const handleContactUs = () => {
     window.open('mailto:sales@yourcompany.com?subject=Enterprise Plan Inquiry', '_blank');
   };
 
+  const handleContactSupport = () => {
+    window.open('mailto:support@yourcompany.com?subject=Enterprise Support Request', '_blank');
+  };
+
+  // If user is already on Enterprise, show different UI
+  if (tier === 'enterprise') {
+    return (
+      <Box className={classes.container}>
+        <Container size="lg" py="xl">
+          <Stack gap="xl" align="center" style={{ maxWidth: 800, margin: '0 auto', paddingTop: '3rem' }}>
+            {/* Success Icon */}
+            <ThemeIcon 
+              size={100} 
+              radius="xl" 
+              variant="gradient" 
+              gradient={{ from: 'teal', to: 'blue', deg: 135 }}
+            >
+              <IconCircleCheck size={60} />
+            </ThemeIcon>
+
+            {/* Heading */}
+            <Stack gap="sm" align="center">
+              <Title order={1} style={{ fontSize: '2.5rem', textAlign: 'center' }}>
+                You're on Enterprise Plan
+              </Title>
+              <Text size="lg" c="dimmed" ta="center" maw={600}>
+                Unlock the full power of Pulse with unlimited projects and advanced features
+              </Text>
+            </Stack>
+
+            {/* Features Card */}
+            <Card shadow="md" radius="lg" padding="xl" withBorder style={{ width: '100%' }}>
+              <Stack gap="md">
+                <Group gap="xs" mb="md">
+                  <ThemeIcon size="lg" radius="md" variant="gradient" gradient={{ from: 'teal', to: 'blue', deg: 135 }}>
+                    <IconBuilding size={24} />
+                  </ThemeIcon>
+                  <Title order={3}>Your Enterprise Benefits</Title>
+                </Group>
+                <List
+                  spacing="sm"
+                  size="md"
+                  icon={
+                    <ThemeIcon 
+                      variant="gradient" 
+                      gradient={{ from: 'teal', to: 'blue', deg: 135 }}
+                      size={22} 
+                      radius="xl"
+                    >
+                      <IconCheck size={14} />
+                    </ThemeIcon>
+                  }
+                >
+                  <List.Item><strong>Unlimited projects</strong></List.Item>
+                  <List.Item><strong>Unlimited team members</strong></List.Item>
+                  <List.Item>Advanced analytics & monitoring</List.Item>
+                  <List.Item>Custom data retention</List.Item>
+                  <List.Item>Priority support & SLA</List.Item>
+                  <List.Item>Custom integrations</List.Item>
+                  <List.Item>On-premise deployment option</List.Item>
+                  <List.Item>Dedicated account manager</List.Item>
+                </List>
+              </Stack>
+            </Card>
+
+            {/* Action Buttons */}
+            <Group gap="md" mt="lg">
+              <Button 
+                size="lg" 
+                variant="gradient"
+                gradient={{ from: 'teal', to: 'blue', deg: 135 }}
+                leftSection={<IconUsers size={20} />}
+                onClick={() => navigate('/organization/members')}
+              >
+                Manage Team
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline"
+                color="teal"
+                leftSection={<IconMail size={20} />}
+                onClick={handleContactSupport}
+              >
+                Contact Support
+              </Button>
+            </Group>
+
+            {/* Footer Note */}
+            <Text size="sm" c="dimmed" ta="center" mt="xl">
+              Need to discuss your plan? <Text component="span" c="teal" fw={600} style={{ cursor: 'pointer' }} onClick={handleContactSupport}>Contact our support team</Text> for assistance.
+            </Text>
+          </Stack>
+        </Container>
+      </Box>
+    );
+  }
+
+  // Free tier user - show pricing comparison
   return (
     <Box className={classes.container}>
       <Container size="lg" py="xl">

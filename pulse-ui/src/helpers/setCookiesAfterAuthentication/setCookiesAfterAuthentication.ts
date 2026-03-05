@@ -37,6 +37,9 @@ export const setCookiesAfterAuthentication = (
   if (loginResponse.tenantId) {
     setCookies(COOKIES_KEY.TENANT_ID, loginResponse.tenantId);
   }
+  if (loginResponse.tier) {
+    setCookies(COOKIES_KEY.TIER, loginResponse.tier);
+  }
   
   // NOTE: PROJECT_ID and PROJECT_NAME are no longer stored in cookies
   // They are now managed by ProjectContext (React Context API)

@@ -7,7 +7,8 @@ interface ProjectInfo {
   projectName: string;
   userRole: 'admin' | 'editor' | 'viewer';
   isActive?: boolean;
-  plan?: 'free' | 'enterprise';  // @deprecated - Tier is now tenant-level, use TenantContext.tier instead
+  /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. This field is ignored. */
+  plan?: 'free' | 'enterprise';
 }
 
 interface ProjectContextType {
@@ -15,7 +16,8 @@ interface ProjectContextType {
   projectId: string | null;
   projectName: string | null;
   userRole: 'admin' | 'editor' | 'viewer' | null;
-  plan: 'free' | 'enterprise' | null;  // @deprecated - Tier is now tenant-level, use TenantContext.tier instead
+  /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. Always returns 'free' for backward compatibility. */
+  plan: 'free' | 'enterprise' | null;
   isActive: boolean;
   
   // Methods

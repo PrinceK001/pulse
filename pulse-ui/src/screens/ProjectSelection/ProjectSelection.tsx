@@ -9,7 +9,7 @@ import classes from './ProjectSelection.module.css';
 
 export function ProjectSelection() {
   const navigate = useNavigate();
-  const { projects, isLoading, refreshProjects } = useTenantContext();
+  const { projects, isLoading, refreshProjects, tier } = useTenantContext();
   const { projectId, switchProject } = useProjectContext();
   const { canCreateProjects, maxProjects, currentProjectCount, isFree } = useTierLimits();
   const [error, setError] = useState<string | null>(null);
@@ -49,15 +49,20 @@ export function ProjectSelection() {
       return;
     }
 
-    // On first load after login, if user has no project selected but has projects available,
-    // auto-select the first project (or last used project from sessionStorage)
-    if (!projectId && projects.length > 0) {
-      console.log('[ProjectSelection] No project selected, auto-selecting first project');
+    // Auto-select first project ONLY for free tier users (who can only have 1 project)
+    // Enterprise users should see the project selection page to choose
+    if (!projectId && projects.length > 0 && tier === 'free') {
+      console.log('[ProjectSelection] Free tier user - auto-selecting first project');
       const lastUsedProjectId = sessionStorage.getItem('pulse_last_project_id');
       const projectToSelect = projects.find(p => p.projectId === lastUsedProjectId) || projects[0];
       handleProjectSelect(projectToSelect.projectId);
     }
-  }, [projectId, isLoading, projects, navigate, handleProjectSelect, hasFetched]);
+    
+    // Enterprise users with multiple projects will stay on this page to choose
+    if (tier === 'enterprise' && projects.length > 0) {
+      console.log('[ProjectSelection] Enterprise user with', projects.length, 'projects - showing selection page');
+    }
+  }, [projectId, isLoading, projects, navigate, handleProjectSelect, hasFetched, tier]);
 
   const handleCreateProject = () => {
     if (!canCreateProjects) {

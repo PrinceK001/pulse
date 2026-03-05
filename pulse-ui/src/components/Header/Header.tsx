@@ -23,8 +23,8 @@ import { useTenantContext, useProjectContext } from "../../contexts";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
-  const { projects } = useTenantContext();
-  const { projectId, projectName, plan, switchProject } = useProjectContext();
+  const { projects, tier } = useTenantContext();
+  const { projectId, projectName, switchProject } = useProjectContext();
 
   const handleProjectSwitch = async (newProjectId: string | null) => {
     if (!newProjectId || newProjectId === projectId) return;
@@ -56,22 +56,31 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
         {/* Project Display Section */}
         <Box className={classes.projectSection}>
           {projectId && projects.length <= 1 ? (
-            // Single project - show name with upgrade badge (Free plan)
-            <Group gap="xs" className={classes.projectInfo}>
-              <IconFolder size={18} style={{ color: '#0ba09a' }} />
-              <Text className={classes.projectName}>{projectName}</Text>
-              <Badge 
-                variant="light" 
-                color="teal"
-                size="sm"
-                className={classes.upgradeBadge}
-                onClick={() => navigate('/pricing')}
-              >
-                {plan === 'free' ? 'Free' : 'Enterprise'} · Upgrade
-              </Badge>
-            </Group>
+            // Single project display
+            tier === 'free' ? (
+              // FREE tier: Show project name with upgrade badge
+              <Group gap="xs" className={classes.projectInfo}>
+                <IconFolder size={18} style={{ color: '#0ba09a' }} />
+                <Text className={classes.projectName}>{projectName}</Text>
+                <Badge 
+                  variant="light" 
+                  color="teal"
+                  size="sm"
+                  className={classes.upgradeBadge}
+                  onClick={() => navigate('/pricing')}
+                >
+                  Free · Upgrade
+                </Badge>
+              </Group>
+            ) : (
+              // ENTERPRISE tier: Show project name only (no upgrade badge)
+              <Group gap="xs" className={classes.projectInfo}>
+                <IconFolder size={18} style={{ color: '#0ba09a' }} />
+                <Text className={classes.projectName}>{projectName}</Text>
+              </Group>
+            )
           ) : projectId && projects.length > 1 ? (
-            // Multiple projects - show selector
+            // Multiple projects - show selector (same for both tiers)
             <Select
               leftSection={<IconFolder size={18} />}
               placeholder="Select project"

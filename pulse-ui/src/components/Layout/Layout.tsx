@@ -39,6 +39,7 @@ export function Layout({ children }: LayoutProps) {
 
       // Initialize tenant context if tenantId exists in cookies but not in context
       const cookieTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+      const cookieTier = getCookies(COOKIES_KEY.TIER);
       if (cookieTenantId && cookieTenantId !== 'undefined' && !tenantId) {
         console.log('[Layout] Initializing tenant context from cookies');
         try {
@@ -47,7 +48,7 @@ export function Layout({ children }: LayoutProps) {
             tenantId: cookieTenantId,
             tenantName: '', // Will be populated from projects API
             userRole: 'member', // Default role, will be updated from projects API
-            tier: 'free', // Default tier, will be updated from login/projects API
+            tier: (cookieTier as 'free' | 'enterprise') || 'free', // Get tier from cookie
           });
         } catch (error) {
           console.error('[Layout] Failed to initialize tenant context:', error);

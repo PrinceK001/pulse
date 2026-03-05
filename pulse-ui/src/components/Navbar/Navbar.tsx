@@ -55,8 +55,8 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
-  const { projectId: contextProjectId, clearProject, plan } = useProjectContext();
-  const { tenantId, tenantName, clearTenant } = useTenantContext();
+  const { projectId: contextProjectId, clearProject } = useProjectContext();
+  const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
   const permissions = usePermissions();
 
   const handleAllProjectsClick = () => {
@@ -280,7 +280,7 @@ export function Navbar({
               {/* Organization Section */}
               <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Organization</Text>
               
-              {plan === 'enterprise' && (
+              {tier === 'enterprise' && (
                 <Box
                   className={classes.menuItem}
                   onClick={handleAllProjectsClick}

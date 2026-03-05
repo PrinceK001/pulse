@@ -1013,6 +1013,7 @@ export const COOKIES_KEY: Record<string, string> = {
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
   TENANT_ID: "tenantId", // Keep for initial hydration only
+  TIER: "tier", // Store tier for initial hydration
   // REMOVED: PROJECT_ID, PROJECT_NAME, TENANT_NAME - Now handled by React Context
 };
 
