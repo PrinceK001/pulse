@@ -14,6 +14,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.apikeys.models.ApiKeyListRestResponse;
 import org.dreamhorizon.pulseserver.resources.apikeys.models.CreateApiKeyRestRequest;
 import org.dreamhorizon.pulseserver.resources.apikeys.models.CreateApiKeyRestResponse;
@@ -84,7 +85,7 @@ public class ProjectApiKeysController {
   @Path("/{apiKeyId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<Void>> revokeApiKey(
+  public CompletionStage<Response<EmptyResponse>> revokeApiKey(
       @NotBlank @PathParam("projectId") String projectId,
       @NotNull @PathParam("apiKeyId") Long apiKeyId,
       RevokeApiKeyRestRequest request
@@ -93,8 +94,7 @@ public class ProjectApiKeysController {
     RevokeApiKeyRestRequest requestWithDefaults = request != null ? request : new RevokeApiKeyRestRequest();
     
     return apiKeyService.revokeApiKey(mapper.toRevokeApiKeyRequest(projectId, apiKeyId, requestWithDefaults, revokedBy))
-        .toSingleDefault(true)
-        .map(v -> (Void) null)
+        .toSingleDefault(EmptyResponse.emptyResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -105,4 +105,3 @@ public class ProjectApiKeysController {
     return userId != null ? userId : "system";
   }
 }
-
