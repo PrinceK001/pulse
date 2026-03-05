@@ -120,7 +120,7 @@ export function Login() {
           if (data.tenantId && data.tenantRole) {
             setTenantInfo({
               tenantId: data.tenantId,
-              tenantName: '', // Will be fetched from projects API
+              tenantName: data.tenantName || '', // Use tenantName from API
               userRole: data.tenantRole as 'admin' | 'member',
               tier: data.tier || 'free',
             });

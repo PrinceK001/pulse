@@ -120,6 +120,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (response.data) {
         console.log('[TenantContext] Fetched projects:', response.data.projects.length);
         setProjects(response.data.projects);
+        
+        // Update tenant information from API response
+        if (response.data.tenantName) {
+          console.log('[TenantContext] Updating tenant name:', response.data.tenantName);
+          setTenantName(response.data.tenantName);
+        }
+        if (response.data.tenantId) {
+          setTenantId(response.data.tenantId);
+        }
       } else {
         console.error('[TenantContext] Failed to fetch projects:', response.error);
       }
