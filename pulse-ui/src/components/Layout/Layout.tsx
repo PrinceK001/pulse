@@ -82,18 +82,18 @@ export function Layout({ children }: LayoutProps) {
         breakpoint: "sm",
         collapsed: { mobile: !opened },
       }}
-      padding="md"
+      padding={0}
       styles={{
         navbar: {
           height: '100vh',
           top: 0,
-          zIndex: 100,
+          zIndex: 0,
         },
         header: shouldShowHeader ? {
           left: navbarWidth,
           width: `calc(100% - ${navbarWidth}px)`,
           zIndex: 100,
-        } : undefined,
+        } : undefined
       }}
     >
       {shouldShowHeader && <Header toggle={toggle} opened={opened} />}

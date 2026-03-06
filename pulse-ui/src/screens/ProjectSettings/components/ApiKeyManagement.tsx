@@ -6,6 +6,7 @@ import { useProjectContext } from '../../../contexts';
 import { getProjectApiKey } from '../../../helpers/getProjectApiKey';
 import { makeRequest } from '../../../helpers/makeRequest';
 import { API_BASE_URL } from '../../../constants';
+import { ConfirmationModal } from '../../../components/ConfirmationModal';
 
 // Type definitions for API responses
 interface ApiKeyRestResponse {
@@ -42,6 +43,7 @@ export function ApiKeyManagement() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [isDummyKey, setIsDummyKey] = useState(false);
+  const [confirmRegenerateOpen, setConfirmRegenerateOpen] = useState(false);
   const { projectId, projectName } = useProjectContext();
 
   useEffect(() => {
@@ -188,7 +190,7 @@ export function ApiKeyManagement() {
   }
 
   return (
-    <Stack gap="lg">
+    <Stack gap="lg" p="md">
       <div>
         <Title order={2}>API Key Management</Title>
         <Text c="dimmed" size="sm">
@@ -247,7 +249,7 @@ export function ApiKeyManagement() {
                 leftSection={<IconRefresh size={16} />}
                 variant="light"
                 color="orange"
-                onClick={() => handleGenerateOrRegenerateKey(true)}
+                onClick={() => setConfirmRegenerateOpen(true)}
                 loading={generating}
               >
                 {generating ? 'Regenerating...' : 'Regenerate Key'}
@@ -262,6 +264,22 @@ export function ApiKeyManagement() {
           )}
         </Stack>
       </Card>
+
+      <ConfirmationModal
+        opened={confirmRegenerateOpen}
+        onClose={() => setConfirmRegenerateOpen(false)}
+        onConfirm={async () => {
+          await handleGenerateOrRegenerateKey(true);
+          setConfirmRegenerateOpen(false);
+        }}
+        title="Regenerate API Key?"
+        message="This will immediately invalidate your current API key. All applications using the old key will stop working. Are you sure you want to continue?"
+        confirmLabel="Yes, Regenerate"
+        cancelLabel="Cancel"
+        confirmColor="orange"
+        loading={generating}
+        severity="danger"
+      />
     </Stack>
   );
 }

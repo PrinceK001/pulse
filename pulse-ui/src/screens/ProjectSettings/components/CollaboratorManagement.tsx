@@ -7,6 +7,7 @@ import { usePermissions } from '../../../hooks';
 import { useProjectContext } from '../../../contexts';
 import { showNotification } from '../../../helpers/showNotification';
 import { getCookies } from '../../../helpers/cookies';
+import { ConfirmationModal } from '../../../components/ConfirmationModal';
 
 interface Collaborator {
   userId: string;
@@ -30,6 +31,7 @@ export function CollaboratorManagement() {
   const [inviteRole, setInviteRole] = useState('viewer');
   const [inviting, setInviting] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+  const [removeConfirmUser, setRemoveConfirmUser] = useState<{ userId: string; userName: string } | null>(null);
   const [editingRoleUserId, setEditingRoleUserId] = useState<string | null>(null);
   const [newRole, setNewRole] = useState<string>('');
   
@@ -100,10 +102,16 @@ export function CollaboratorManagement() {
   };
 
   const handleRemove = async (userId: string, userName: string) => {
-    if (!window.confirm(`Remove ${userName} from this project?`)) return;
-    if (!projectId) return;
+    setRemoveConfirmUser({ userId, userName });
+  };
+
+  const confirmRemove = async () => {
+    if (!removeConfirmUser || !projectId) return;
     
+    const { userId, userName } = removeConfirmUser;
     setRemovingUserId(userId);
+    setRemoveConfirmUser(null);
+    
     try {
       const response = await makeRequest<void>({
         url: `${API_BASE_URL}/v1/projects/${projectId}/members/${userId}`,
@@ -161,7 +169,7 @@ export function CollaboratorManagement() {
   }
 
   return (
-    <Stack gap="lg">
+    <Stack gap="lg" p="md">
       <Group justify="space-between">
         <div>
           <Title order={2}>Team Members</Title>
@@ -306,6 +314,19 @@ export function CollaboratorManagement() {
           </Button>
         </Stack>
       </Modal>
+
+      <ConfirmationModal
+        opened={removeConfirmUser !== null}
+        onClose={() => setRemoveConfirmUser(null)}
+        onConfirm={confirmRemove}
+        title="Remove Member?"
+        message={`Are you sure you want to remove ${removeConfirmUser?.userName} from this project? They will lose access immediately.`}
+        confirmLabel="Yes, Remove"
+        cancelLabel="Cancel"
+        confirmColor="red"
+        loading={removingUserId !== null}
+        severity="warning"
+      />
     </Stack>
   );
 }

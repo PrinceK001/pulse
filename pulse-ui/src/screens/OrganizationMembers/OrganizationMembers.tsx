@@ -7,6 +7,7 @@ import { showNotification } from '../../helpers/showNotification';
 import { API_BASE_URL, COOKIES_KEY } from '../../constants';
 import { makeRequest } from '../../helpers/makeRequest';
 import { getCookies } from '../../helpers/cookies';
+import { ConfirmationModal } from '../../components/ConfirmationModal';
 
 interface Member {
   userId: string;
@@ -35,6 +36,8 @@ export function OrganizationMembers() {
   const [editingRoleUserId, setEditingRoleUserId] = useState<string | null>(null);
   const [newRole, setNewRole] = useState<string>('');
   const [updatingRole, setUpdatingRole] = useState(false);
+  const [removeConfirmUser, setRemoveConfirmUser] = useState<{ userId: string; userName: string } | null>(null);
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   
   // Get current user ID to prevent self-role changes
   const currentUserId = getCookies(COOKIES_KEY.USER_ID);
@@ -126,11 +129,15 @@ export function OrganizationMembers() {
   };
 
   const handleRemoveMember = async (userId: string, userName: string) => {
-    if (!window.confirm(`Are you sure you want to remove ${userName} from the organization?`)) {
-      return;
-    }
+    setRemoveConfirmUser({ userId, userName });
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!removeConfirmUser || !tenantId) return;
     
-    if (!tenantId) return;
+    const { userId, userName } = removeConfirmUser;
+    setRemovingUserId(userId);
+    setRemoveConfirmUser(null);
     
     try {
       const response = await makeRequest<void>({
@@ -164,6 +171,8 @@ export function OrganizationMembers() {
         <IconTrash />,
         '#fa5252'
       );
+    } finally {
+      setRemovingUserId(null);
     }
   };
 
@@ -400,6 +409,19 @@ export function OrganizationMembers() {
           </Button>
         </Group>
       </Modal>
+
+      <ConfirmationModal
+        opened={removeConfirmUser !== null}
+        onClose={() => setRemoveConfirmUser(null)}
+        onConfirm={confirmRemoveMember}
+        title="Remove Member?"
+        message={`Are you sure you want to remove ${removeConfirmUser?.userName} from the organization? They will lose access to all projects immediately.`}
+        confirmLabel="Yes, Remove"
+        cancelLabel="Cancel"
+        confirmColor="red"
+        loading={removingUserId !== null}
+        severity="warning"
+      />
     </Container>
   );
 }

@@ -124,7 +124,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
         <Box className={classes.headerContainer}>
         {/* Organization Name Section */}
         <Box className={classes.leftSection}>
-          <Group gap="xs" style={{ cursor: 'pointer' }} onClick={toogle}>
+          <Group gap="xs">
             <IconBuilding size={20} style={{ color: '#0ba09a' }} />
             <Text fw={600} size="md" className={classes.orgName}>
               {tenantName || 'Organization'}
@@ -132,8 +132,8 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
           </Group>
         </Box>
         
-        {/* Project Display Section */}
-        <Box className={classes.projectSection}>
+        {/* Project Display Section - 64px gap from organization */}
+        <Box className={classes.projectSection} style={{ marginLeft: '64px' }}>
           {projectId && projects.length <= 1 ? (
             // Single project display
             tier === 'free' ? (

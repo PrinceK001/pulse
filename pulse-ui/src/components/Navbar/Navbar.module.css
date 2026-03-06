@@ -10,6 +10,7 @@
   justify-content: space-between;
   background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
   border-right: 1px solid rgba(14, 201, 194, 0.12);
+  flex-direction: column-reverse;
 }
 
 .navbarItem {

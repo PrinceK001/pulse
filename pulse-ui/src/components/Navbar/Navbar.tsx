@@ -154,28 +154,12 @@ export function Navbar({
               />
             </Tooltip>
           )}
-          {/* {opened ? (
-            <Tooltip label={TOOLTIP_LABLES.CLOSE_NAVBAR}>
-              <IconCircleChevronLeft
-                onClick={toggle}
-                className={classes.toggleIcon}
-              />
-            </Tooltip>
-          ) : (
-            <Tooltip label={TOOLTIP_LABLES.OPEN_NAVBAR}>
-              <IconCircleChevronRight
-                onClick={toggle}
-                className={classes.toggleIcon}
-              />
-            </Tooltip>
-          )} */}
         </Box>
       </AppShell.Section>
 
       {/* Only show navigation items on project dashboard pages */}
       {isProjectDashboard && (
         <>
-          {/* <Divider mb="sm" /> */}
           <AppShell.Section
             grow
             my="xl"
