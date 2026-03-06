@@ -25,7 +25,7 @@ import { showNotification } from "../../helpers/showNotification";
 import { getCookies } from "../../helpers/cookies";
 import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpiration";
 import { logEvent } from "../../helpers/googleAnalytics";
-import { login } from "../../helpers/login";
+import { useLogin } from "../../hooks";
 import { useTenantContext } from "../../contexts";
 
 export function Login() {
@@ -34,6 +34,8 @@ export function Login() {
   const { setTenantInfo } = useTenantContext();
   const [isFetchingTokensFromServer, setIsFetchingTokensFromServer] =
     useState<boolean>(false);
+
+  const loginMutation = useLogin();
 
   const googleOAuthEnabled = process.env.REACT_APP_GOOGLE_OAUTH_ENABLED;
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID ?? "";
@@ -67,102 +69,75 @@ export function Login() {
     );
   };
 
+  const handleLoginSuccess = async (data: any, firebaseToken: string) => {
+    if (data.needsOnboarding) {
+      sessionStorage.setItem('onboarding_user', JSON.stringify({
+        userId: data.userId,
+        email: data.email,
+        name: data.name,
+      }));
+      sessionStorage.setItem('firebase_token', firebaseToken);
+      navigate(ROUTES.ONBOARDING.basePath);
+    } else {
+      await setCookiesAfterAuthentication(data);
+      
+      if (data.tenantId && data.tenantRole) {
+        setTenantInfo({
+          tenantId: data.tenantId,
+          tenantName: data.tenantName || '',
+          userRole: data.tenantRole as 'admin' | 'member',
+          tier: data.tier || 'free',
+        });
+      }
+      
+      navigate(`/${data.tenantId}/projects`);
+    }
+  };
+
   const onFirebaseGoogleLogin = async () => {
     setIsFetchingTokensFromServer(true);
     logEvent("User logged in", ROUTES.LOGIN.key);
     
     try {
       const auth = getFirebaseAuth();
-      
-
       const provider = new GoogleAuthProvider();
-      
       const result = await signInWithPopup(auth, provider);
-
       const firebaseToken = await result.user.getIdToken();
-      const { data, error } = await login(firebaseToken);
       
-      if (data) {
-
-        
-        if (data.needsOnboarding) {
-          sessionStorage.setItem('onboarding_user', JSON.stringify({
-            userId: data.userId,
-            email: data.email,
-            name: data.name,
-          }));
-          // Store the Firebase token for onboarding API call
-          sessionStorage.setItem('firebase_token', firebaseToken);
-          navigate(ROUTES.ONBOARDING.basePath);
-        } else {          // Set auth tokens in cookies
-          await setCookiesAfterAuthentication(data);
-          
-          // Set tenant context
-          if (data.tenantId && data.tenantRole) {
-            setTenantInfo({
-              tenantId: data.tenantId,
-              tenantName: data.tenantName || '', // Use tenantName from API
-              userRole: data.tenantRole as 'admin' | 'member',
-              tier: data.tier || 'free',
-            });
+      loginMutation.mutate(firebaseToken, {
+        onSuccess: async (response) => {
+          if (response?.data) {
+            await handleLoginSuccess(response.data, firebaseToken);
           }
-          
-          // Navigate to organization projects page with tenantId
-          navigate(`/${data.tenantId}/projects`);
-        }
-      }
-      
-      if (error) {
-        console.error("[Login] ❌ Backend login error:", error);
-        showErrorToast(error.message);
-      }
+        },
+        onError: (error) => {
+          console.error("[Login] ❌ Backend login error:", error);
+          showErrorToast(error instanceof Error ? error.message : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE);
+        },
+      });
     } catch (error: any) {
       console.error("[Login] Error code:", error.code);
       console.error("[Login] Error message:", error.message);
       showErrorToast(error.message || COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE);
+    } finally {
+      setIsFetchingTokensFromServer(false);
     }
-    
-    setIsFetchingTokensFromServer(false);
   };
 
   const onDummyLogin = async () => {
     setIsFetchingTokensFromServer(true);
     logEvent("User logged in (dummy)", ROUTES.LOGIN.key);
     
-    const { data, error } = await login("dev-id-token");
-    
-    if (data) {
-      if (data.needsOnboarding) {
-        sessionStorage.setItem('onboarding_user', JSON.stringify({
-          userId: data.userId,
-          email: data.email,
-          name: data.name,
-        }));
-        // Store the dev token for onboarding API call
-        sessionStorage.setItem('firebase_token', 'dev-id-token');
-        navigate(ROUTES.ONBOARDING.basePath);
-      } else {
-        // Set auth tokens in cookies
-        await setCookiesAfterAuthentication(data);
-        
-        // Set tenant context
-        if (data.tenantId && data.tenantRole) {
-          setTenantInfo({
-            tenantId: data.tenantId,
-            tenantName: '', // Will be fetched from projects API
-            userRole: data.tenantRole as 'admin' | 'member',
-            tier: data.tier || 'free',
-          });
+    loginMutation.mutate("dev-id-token", {
+      onSuccess: async (response) => {
+        if (response?.data) {
+          await handleLoginSuccess(response.data, "dev-id-token");
         }
-        
-        // Navigate to organization projects page with tenantId
-        navigate(`/${data.tenantId}/projects`);
-      }
-    }
-    
-    if (error) {
-      showErrorToast(error.message);
-    }
+      },
+      onError: (error) => {
+        showErrorToast(error instanceof Error ? error.message : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE);
+      },
+    });
     
     setIsFetchingTokensFromServer(false);
   };
