@@ -28,8 +28,11 @@ import {
 import { showNotification } from '../../helpers/showNotification';
 import { getProjectApiKey } from '../../helpers/getProjectApiKey';
 import { useProjectContext } from '../../contexts';
-import { makeRequest } from '../../helpers/makeRequest';
-import { API_BASE_URL, ROUTES } from '../../constants';
+import { ROUTES } from '../../constants';
+import { useInviteProjectMember } from '../../hooks';
+import { ApiResponse } from '../../helpers/makeRequest';
+import { ProjectMember } from '../../types/members';
+import { PROJECT_ROLES, ProjectRole } from '../../constants/Roles';
 import classes from './OnboardingSuccess.module.css';
 
 export function OnboardingSuccess() {
@@ -37,7 +40,7 @@ export function OnboardingSuccess() {
   const location = useLocation();
   const navigate = useNavigate();
   const locationState = location.state || {};
-  const projectId = urlProjectId; // Get from URL params
+  const projectId = urlProjectId;
   
   // Get project info from context
   const { projectName: contextProjectName, projectId: contextProjectId } = useProjectContext();
@@ -49,8 +52,11 @@ export function OnboardingSuccess() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('viewer');
-  const [inviting, setInviting] = useState(false);
+  const [inviteRole, setInviteRole] = useState<ProjectRole>(PROJECT_ROLES.VIEWER);
+  
+  // React Query hook for inviting members
+  const inviteMutation = useInviteProjectMember();
+  const inviting = inviteMutation.isPending;
 
   // Fetch project details if not in location.state
   useEffect(() => {
@@ -120,34 +126,29 @@ export function OnboardingSuccess() {
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const handleInviteMember = async () => {
+  const handleInviteMember = () => {
     if (!inviteEmail.trim() || !projectId) return;
     
-    setInviting(true);
-    try {
-      const response = await makeRequest<any>({
-        url: `${API_BASE_URL}/v1/projects/${projectId}/members`,
-        init: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: inviteEmail.trim(),
-            role: inviteRole,
-          }),
+    inviteMutation.mutate(
+      {
+        projectId,
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      },
+      {
+        onSuccess: (response: ApiResponse<ProjectMember>) => {
+          if (response?.data && !response?.error) {
+            showNotification('Success', `Invitation sent to ${inviteEmail}`, <IconUsers />, '#0ec9c2');
+            setInviteEmail('');
+          } else {
+            showNotification('Error', response?.error?.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+          }
         },
-      });
-      
-      if (response.data) {
-        showNotification('Success', `Invitation sent to ${inviteEmail}`, <IconUsers />, '#0ec9c2');
-        setInviteEmail('');
-      } else {
-        showNotification('Error', response.error?.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+        onError: (error: any) => {
+          showNotification('Error', error.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+        },
       }
-    } catch (error: any) {
-      showNotification('Error', error.message || 'Failed to invite member', <IconUsers />, '#fa5252');
-    } finally {
-      setInviting(false);
-    }
+    );
   };
 
   const handleGoToDashboard = () => {
@@ -300,11 +301,11 @@ Pulse.initialize({
               <Select
                 label="Role"
                 value={inviteRole}
-                onChange={(value) => setInviteRole(value || 'viewer')}
+                onChange={(value) => setInviteRole((value as ProjectRole) || PROJECT_ROLES.VIEWER)}
                 data={[
-                  { value: 'admin', label: 'Admin' },
-                  { value: 'editor', label: 'Editor' },
-                  { value: 'viewer', label: 'Viewer' },
+                  { value: PROJECT_ROLES.ADMIN, label: 'Admin' },
+                  { value: PROJECT_ROLES.EDITOR, label: 'Editor' },
+                  { value: PROJECT_ROLES.VIEWER, label: 'Viewer' },
                 ]}
                 style={{ width: 150 }}
               />
