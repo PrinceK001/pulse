@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTenantContext } from './TenantContext';
-import { PROJECT_ROLES, ProjectRole } from '../constants/Roles';
+import { ProjectRole } from '../constants/Roles';
 import { TIERS, TierType } from '../constants/Tiers';
 
 interface ProjectInfo {

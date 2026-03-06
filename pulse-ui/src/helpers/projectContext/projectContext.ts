@@ -1,5 +1,3 @@
-import { COOKIES_KEY } from '../../constants';
-
 export interface ProjectInfo {
   projectId: string;
   projectName: string;

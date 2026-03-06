@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { getUserProjects, ProjectSummary } from '../helpers/getUserProjects';
-import { TENANT_ROLES, TenantRole } from '../constants/Roles';
+import { TenantRole } from '../constants/Roles';
 import { TIERS, TierType } from '../constants/Tiers';
 
 interface TenantInfo {
