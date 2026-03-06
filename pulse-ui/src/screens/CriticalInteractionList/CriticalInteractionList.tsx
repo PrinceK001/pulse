@@ -14,6 +14,7 @@ import { useIntersection } from "@mantine/hooks";
 import {
   COOKIES_KEY,
   CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS,
+  ROUTES,
 } from "../../constants";
 import { IconFilterEdit } from "@tabler/icons-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -490,7 +491,7 @@ export function CriticalInteractionList() {
             </Popover.Dropdown>
           </Popover>
 
-          <Link to={`/projects/${projectId}/critical-interaction-form`}>
+          <Link to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(':projectId', projectId || '')}>
             <Button size="sm" variant="light" className={classes.createButton}>
               {
                 CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS.CREATE_USER_EXPERIENCE_BUTTON_TEXT

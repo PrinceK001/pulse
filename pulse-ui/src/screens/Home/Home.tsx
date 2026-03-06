@@ -17,6 +17,7 @@ import { ScreensHealth } from "./components/ScreensHealth";
 import { TopInteractionsHealth } from "./components/TopInteractionsHealth";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
+import { ROUTES } from "../../constants";
 
 dayjs.extend(utc);
 
@@ -29,25 +30,25 @@ export function Home(_props: HomeProps) {
     {
       title: "Interactions",
       description: "View and manage all configured user interactions",
-      route: `/projects/${projectId}/interactions`,
+      route: ROUTES.PROJECT_INTERACTIONS.basePath.replace(':projectId', projectId || ''),
       icon: IconListDetails,
     },
     {
       title: "App Vitals",
       description: "View and manage all configured app vitals",
-      route: `/projects/${projectId}/app-vitals`,
+      route: ROUTES.PROJECT_APP_VITALS.basePath.replace(':projectId', projectId || ''),
       icon: IconActivityHeartbeat,
     },
     {
       title: "Screens",
       description: "View and manage all configured screens",
-      route: `/projects/${projectId}/screens`,
+      route: ROUTES.PROJECT_SCREENS.basePath.replace(':projectId', projectId || ''),
       icon: IconDeviceDesktop,
     },
     {
       title: "Network APIs",
       description: "View and manage all configured network APIs",
-      route: `/projects/${projectId}/network-apis`,
+      route: ROUTES.PROJECT_NETWORK_LIST.basePath.replace(':projectId', projectId || ''),
       icon: IconNetwork,
     }
   ];
@@ -60,7 +61,8 @@ export function Home(_props: HomeProps) {
 
   const handleViewAllInteractions = () => {
     trackClick("ViewAllInteractions");
-    navigate(`/projects/${projectId}/interactions`);
+    if (!projectId) return;
+    navigate(ROUTES.PROJECT_INTERACTIONS.basePath.replace(':projectId', projectId));
   };
 
   const handleInteractionCardClick = (interaction: {
@@ -68,20 +70,23 @@ export function Home(_props: HomeProps) {
     name: string;
   }) => {
     trackClick(`InteractionCard: ${interaction.name}`);
+    if (!projectId) return;
     navigate(
-      `/projects/${projectId}/interaction-details/${interaction.name}`,
+      `${ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(':projectId', projectId)}/${interaction.name}`,
     );
   };
 
   const handleViewAllScreens = () => {
     trackClick("ViewAllScreens");
-    navigate(`/projects/${projectId}/screens`);
+    if (!projectId) return;
+    navigate(ROUTES.PROJECT_SCREENS.basePath.replace(':projectId', projectId));
   };
 
   const handleScreenCardClick = (screenName: string) => {
     trackClick(`ScreenCard: ${screenName}`);
+    if (!projectId) return;
     navigate(
-      `/projects/${projectId}/screens/${encodeURIComponent(screenName)}`,
+      `${ROUTES.PROJECT_SCREEN_DETAILS.basePath.replace(':projectId', projectId)}/${encodeURIComponent(screenName)}`,
     );
   };
 
