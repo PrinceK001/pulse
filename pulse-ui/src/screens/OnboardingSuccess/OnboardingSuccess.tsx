@@ -32,7 +32,7 @@ import { ROUTES } from '../../constants';
 import { useInviteProjectMember } from '../../hooks';
 import { ApiResponse } from '../../helpers/makeRequest';
 import { ProjectMember } from '../../types/members';
-import { PROJECT_ROLES, ProjectRole } from '../../constants/Roles';
+import { PROJECT_ROLES, PROJECT_ROLE_LABELS, ProjectRole } from '../../constants/Roles';
 import classes from './OnboardingSuccess.module.css';
 
 export function OnboardingSuccess() {
@@ -303,9 +303,9 @@ Pulse.initialize({
                 value={inviteRole}
                 onChange={(value) => setInviteRole((value as ProjectRole) || PROJECT_ROLES.VIEWER)}
                 data={[
-                  { value: PROJECT_ROLES.ADMIN, label: 'Admin' },
-                  { value: PROJECT_ROLES.EDITOR, label: 'Editor' },
-                  { value: PROJECT_ROLES.VIEWER, label: 'Viewer' },
+                  { value: PROJECT_ROLES.ADMIN, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.ADMIN] },
+                  { value: PROJECT_ROLES.EDITOR, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.EDITOR] },
+                  { value: PROJECT_ROLES.VIEWER, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.VIEWER] },
                 ]}
                 style={{ width: 150 }}
               />

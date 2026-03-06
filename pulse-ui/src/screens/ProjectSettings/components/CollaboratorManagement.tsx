@@ -16,7 +16,7 @@ import {
 import { ApiResponse } from '../../../helpers/makeRequest';
 import { ProjectMember } from '../../../types/members';
 import classes from './CollaboratorManagement.module.css';
-import { PROJECT_ROLES, ProjectRole } from '../../../constants/Roles';
+import { PROJECT_ROLES, PROJECT_ROLE_LABELS, ProjectRole } from '../../../constants/Roles';
 
 export function CollaboratorManagement() {
   const { projectId } = useProjectContext();
@@ -231,9 +231,9 @@ export function CollaboratorManagement() {
                           value={newRole}
                           onChange={(val) => setNewRole((val as ProjectRole) || collab.role)}
                           data={[
-                            { value: PROJECT_ROLES.ADMIN, label: 'Admin' },
-                            { value: PROJECT_ROLES.EDITOR, label: 'Editor' },
-                            { value: PROJECT_ROLES.VIEWER, label: 'Viewer' },
+                            { value: PROJECT_ROLES.ADMIN, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.ADMIN] },
+                            { value: PROJECT_ROLES.EDITOR, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.EDITOR] },
+                            { value: PROJECT_ROLES.VIEWER, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.VIEWER] },
                           ]}
                           style={{ width: 120 }}
                           disabled={isCurrentUser || updateRoleMutation.isPending}
@@ -325,9 +325,9 @@ export function CollaboratorManagement() {
           <Select
             label="Role"
             data={[
-              { value: PROJECT_ROLES.ADMIN, label: 'Admin' },
-              { value: PROJECT_ROLES.EDITOR, label: 'Editor' },
-              { value: PROJECT_ROLES.VIEWER, label: 'Viewer' },
+              { value: PROJECT_ROLES.ADMIN, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.ADMIN] },
+              { value: PROJECT_ROLES.EDITOR, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.EDITOR] },
+              { value: PROJECT_ROLES.VIEWER, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.VIEWER] },
             ]}
             value={inviteRole}
             onChange={(val) => setInviteRole((val as ProjectRole) || PROJECT_ROLES.VIEWER)}

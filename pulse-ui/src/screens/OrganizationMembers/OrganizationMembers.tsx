@@ -5,7 +5,7 @@ import { useTenantContext } from '../../contexts';
 import { usePermissions } from '../../hooks';
 import { showNotification } from '../../helpers/showNotification';
 import { COOKIES_KEY } from '../../constants';
-import { TENANT_ROLES, TenantRole } from '../../constants/Roles';
+import { TENANT_ROLES, TENANT_ROLE_LABELS, TenantRole } from '../../constants/Roles';
 import { getCookies } from '../../helpers/cookies';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
 import { ApiResponse } from '../../helpers/makeRequest';
@@ -262,8 +262,8 @@ export function OrganizationMembers() {
                               value={newRole}
                               onChange={(val) => setNewRole((val as TenantRole) || member.role)}
                               data={[
-                                { value: TENANT_ROLES.ADMIN, label: 'Admin' },
-                                { value: TENANT_ROLES.MEMBER, label: 'Member' },
+                                { value: TENANT_ROLES.ADMIN, label: TENANT_ROLE_LABELS[TENANT_ROLES.ADMIN] },
+                                { value: TENANT_ROLES.MEMBER, label: TENANT_ROLE_LABELS[TENANT_ROLES.MEMBER] },
                               ]}
                               style={{ width: 120 }}
                               disabled={updatingRole || isCurrentUser}
@@ -359,8 +359,8 @@ export function OrganizationMembers() {
             value={inviteRole}
             onChange={(value) => setInviteRole((value as TenantRole) || TENANT_ROLES.MEMBER)}
             data={[
-              { value: TENANT_ROLES.ADMIN, label: 'Admin' },
-              { value: TENANT_ROLES.MEMBER, label: 'Member' },
+              { value: TENANT_ROLES.ADMIN, label: TENANT_ROLE_LABELS[TENANT_ROLES.ADMIN] },
+              { value: TENANT_ROLES.MEMBER, label: TENANT_ROLE_LABELS[TENANT_ROLES.MEMBER] },
             ]}
           />
           <Button
