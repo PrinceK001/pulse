@@ -52,7 +52,6 @@ export function Layout({ children }: LayoutProps) {
       const cookieTenantName = getCookies(COOKIES_KEY.TENANT_NAME);
       const cookieTier = getCookies(COOKIES_KEY.TIER);
       if (cookieTenantId && cookieTenantId !== 'undefined' && !tenantId) {
-        console.log('[Layout] Initializing tenant context from cookies');
         try {
           // Set tenant info (which will automatically trigger project fetch)
           setTenantInfo({

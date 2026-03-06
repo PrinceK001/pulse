@@ -65,10 +65,6 @@ export function ApiKeyManagement() {
       const result = await getProjectApiKey(projectId);
       setApiKey(result.key);
       setIsDummyKey(result.isDummy);
-      
-      if (result.isDummy) {
-        console.log('[ApiKeyManagement] Using dummy development key');
-      }
     } catch (error) {
       console.error('[ApiKeyManagement] Failed to fetch API key:', error);
       notifications.show({
@@ -98,8 +94,6 @@ export function ApiKeyManagement() {
       
       // Step 1: If regenerating, revoke old key first
       if (isRegenerate && apiKey) {
-        console.log('[ApiKeyManagement] Regenerating: fetching current keys');
-        
         // Get current active key to find its ID and display name
         const listResponse = await makeRequest<ApiKeyListResponse>({
           url: `${API_BASE_URL}/v1/projects/${projectId}/api-keys`,
@@ -110,7 +104,6 @@ export function ApiKeyManagement() {
           const activeKey = listResponse.data.apiKeys.find((k) => k.isActive);
           
           if (activeKey) {
-            console.log('[ApiKeyManagement] Revoking old key:', activeKey.apiKeyId);
             currentDisplayName = activeKey.displayName || 'Default Key';
             
             // Revoke the old key with 0-day grace period (immediate revocation)
@@ -121,14 +114,11 @@ export function ApiKeyManagement() {
                 body: JSON.stringify({ gracePeriodDays: 0 })
               },
             });
-            
-            console.log('[ApiKeyManagement] Old key revoked successfully');
           }
         }
       }
-      
+
       // Step 2: Create new key
-      console.log('[ApiKeyManagement] Creating new API key');
       const createResponse = await makeRequest<CreateApiKeyResponse>({
         url: `${API_BASE_URL}/v1/projects/${projectId}/api-keys`,
         init: {

@@ -63,7 +63,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           setUserRole(data.userRole);
           setIsActive(data.isActive);
           setPlan(data.plan || 'free');
-          console.log('[ProjectContext] Hydrated from sessionStorage:', data.projectId);
         } else {
           sessionStorage.removeItem(STORAGE_KEY);
         }
@@ -90,7 +89,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [projectId, projectName, userRole, isActive, plan]);
 
   const setProject = useCallback((project: ProjectInfo) => {
-    console.log('[ProjectContext] Setting project:', project.projectId);
     setProjectId(project.projectId);
     setProjectName(project.projectName);
     setUserRole(project.userRole);
@@ -102,8 +100,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const switchProject = useCallback(async (newProjectId: string) => {
-    console.log('[ProjectContext] Switching to project:', newProjectId);
-    
     // Find project in tenant's project list
     const project = projects.find(p => p.projectId === newProjectId);
     
@@ -136,7 +132,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [projects, navigate, setProject]);
 
   const clearProject = useCallback(() => {
-    console.log('[ProjectContext] Clearing project context');
     setProjectId(null);
     setProjectName(null);
     setUserRole(null);

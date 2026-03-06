@@ -21,8 +21,6 @@ export function OrganizationProjects() {
   // Define handleProjectClick before it's used in useEffect
   const handleProjectClick = useCallback(async (selectedProjectId: string) => {
     try {
-      console.log('[OrganizationProjects] Project selected:', selectedProjectId);
-      
       // Find the project details from the projects list
       const selectedProject = projects.find(p => p.projectId === selectedProjectId);
       
@@ -33,7 +31,6 @@ export function OrganizationProjects() {
       }
       
       // Force immediate context AND sessionStorage update before navigation
-      console.log('[OrganizationProjects] Updating project context and sessionStorage with flushSync');
       flushSync(() => {
         // Update React context
         setProject({
@@ -56,8 +53,7 @@ export function OrganizationProjects() {
         // Update last used project ID
         sessionStorage.setItem('pulse_last_project_id', selectedProject.projectId);
       });
-      
-      console.log('[OrganizationProjects] Context and sessionStorage updated, navigating to project');
+
       navigate(`/projects/${selectedProjectId}`);
     } catch (err) {
       setError('Failed to switch to project');
@@ -67,7 +63,6 @@ export function OrganizationProjects() {
 
   // FIRST: Always fetch projects when landing on this page
   useEffect(() => {
-    console.log('[OrganizationProjects] Component mounted - fetching fresh projects');
     const fetchProjects = async () => {
       await refreshProjects();
       setHasFetched(true);
@@ -77,25 +72,14 @@ export function OrganizationProjects() {
 
   // SECOND: Handle auto-selection after projects are loaded
   useEffect(() => {
-    console.log('[OrganizationProjects] Auto-selection check:', {
-      hasFetched,
-      isLoading,
-      projectId,
-      projectsCount: projects.length,
-      tier,
-      pathname: window.location.pathname
-    });
-    
     // Wait until we've fetched projects at least once
     if (!hasFetched || isLoading) {
-      console.log('[OrganizationProjects] Waiting for projects to load...');
       return;
     }
 
     // If user already has a project context set, redirect to that project
     // This prevents unnecessary showing of project selection when user is already in a project
     if (projectId) {
-      console.log('[OrganizationProjects] Project context exists, redirecting to:', projectId);
       navigate(`/projects/${projectId}`, { replace: true });
       return;
     }
@@ -103,20 +87,9 @@ export function OrganizationProjects() {
     // Auto-select first project ONLY for free tier users (who can only have 1 project)
     // Enterprise users should see the project selection page to choose
     if (!projectId && projects.length > 0 && tier === 'free') {
-      console.log('[OrganizationProjects] Free tier user - auto-selecting first project');
       const lastUsedProjectId = sessionStorage.getItem('pulse_last_project_id');
       const projectToSelect = projects.find(p => p.projectId === lastUsedProjectId) || projects[0];
-      console.log('[OrganizationProjects] Selecting project:', projectToSelect.projectId);
       handleProjectClick(projectToSelect.projectId);
-    }
-    
-    // Enterprise users with multiple projects will stay on this page to choose
-    if (tier === 'enterprise' && projects.length > 0) {
-      console.log('[OrganizationProjects] Enterprise user with', projects.length, 'projects - showing selection page');
-    }
-    
-    if (projects.length === 0) {
-      console.log('[OrganizationProjects] No projects found - showing empty state');
     }
   }, [projectId, isLoading, projects, navigate, hasFetched, tier, handleProjectClick]);
 

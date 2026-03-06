@@ -80,16 +80,9 @@ export function CreateProject() {
       
       if (response.data) {
         const projectData = response.data; // Store in const to help TypeScript's control flow analysis
-        
-        console.log('[CreateProject] Project created successfully:', {
-          projectId: projectData.projectId,
-          projectName: projectData.name,
-          apiKey: projectData.apiKey ? 'present' : 'missing'
-        });
-        
+
         // Force immediate state update using flushSync to prevent race conditions
         // This ensures the project is in both TenantContext and ProjectContext before navigation
-        console.log('[CreateProject] Adding project to tenant and project contexts with flushSync');
         flushSync(() => {
           // Update TenantContext (adds to projects list)
           addProject({
@@ -122,16 +115,12 @@ export function CreateProject() {
           sessionStorage.setItem('pulse_last_project_id', projectData.projectId);
         });
         
-        console.log('[CreateProject] Project added to both contexts and sessionStorage (state flushed)');
-        
         showNotification(
           'Success',
           'Project created successfully!',
           <IconFolder />,
           '#0ec9c2'
         );
-        
-        console.log('[CreateProject] Navigating to onboarding:', `/projects/${projectData.projectId}/onboarding`);
         
         // Navigate to project onboarding
         navigate(`/projects/${projectData.projectId}/onboarding`, {
@@ -141,8 +130,6 @@ export function CreateProject() {
             projectApiKey: projectData.apiKey,
           }
         });
-        
-        console.log('[CreateProject] Navigation initiated');
       } else {
         showNotification(
           'Error',

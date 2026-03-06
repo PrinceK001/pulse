@@ -36,8 +36,6 @@ export interface ApiKeyResult {
  */
 export const getProjectApiKey = async (projectId: string): Promise<ApiKeyResult> => {
   try {
-    console.log('[getProjectApiKey] Fetching API key for project:', projectId);
-    
     // X-Project-ID header is automatically added by makeRequest
     const response = await makeRequest<ApiKeysResponse>({
       url: `${API_BASE_URL}/v1/projects/${projectId}/api-keys`,
@@ -46,7 +44,6 @@ export const getProjectApiKey = async (projectId: string): Promise<ApiKeyResult>
     
     // Check if API returned 404 (not implemented yet)
     if (response.status === 404) {
-      console.log('[getProjectApiKey] API endpoint not implemented (404), using dummy key');
       return {
         key: `pulse_${projectId}_sk_dummy_development_key`,
         isDummy: true,
@@ -58,16 +55,14 @@ export const getProjectApiKey = async (projectId: string): Promise<ApiKeyResult>
       // Get the active key
       const activeKey = response.data.apiKeys.find(k => k.isActive);
       if (activeKey?.apiKey) {
-        console.log('[getProjectApiKey] Found active API key');
         return {
           key: activeKey.apiKey,
           isDummy: false,
         };
       }
     }
-    
+
     // No active keys found in response
-    console.log('[getProjectApiKey] No active API keys found, returning null');
     return {
       key: null,
       isDummy: false,

@@ -65,7 +65,6 @@ export function Navbar({
                              !pathname.includes('/onboarding');
 
   const handleAllProjectsClick = () => {
-    console.log('[Navbar] Clearing project context and navigating to organization projects');
     clearProject();
     if (tenantId) {
       navigate(`/${tenantId}/projects`);
@@ -111,7 +110,6 @@ export function Navbar({
     // Clear all React contexts explicitly
     clearProject();
     clearTenant();
-    console.log('[Navbar] Cleared project and tenant contexts');
     
     // Perform logout (clears cookies, sessionStorage, and signs out)
     await performLogout();

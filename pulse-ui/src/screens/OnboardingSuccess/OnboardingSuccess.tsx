@@ -76,17 +76,14 @@ export function OnboardingSuccess() {
         return;
       }
 
-      console.log('[OnboardingSuccess] Fetching project details from API');
       setLoading(true);
 
       try {
         // Get project name from React Context
         if (contextProjectName && contextProjectId === projectId) {
-          console.log('[OnboardingSuccess] Using project name from context:', contextProjectName);
           setProjectName(contextProjectName);
         } else if (!projectName) {
           // If context doesn't have the project name and it's not in state, redirect to project dashboard
-          console.log('[OnboardingSuccess] No project context, redirecting to dashboard');
           navigate(`/projects/${projectId}`, { replace: true });
           return;
         }

@@ -56,8 +56,6 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
           switchProject(urlProjectId);
         } else if (projects.length > 0 && tenantId) {
           navigate(`/${tenantId}/projects`);
-        } else {
-          console.log('[ProjectGuard] Projects not loaded yet, waiting...');
         }
         // If projects array is empty, wait for it to load (handled by TenantContext)
       }

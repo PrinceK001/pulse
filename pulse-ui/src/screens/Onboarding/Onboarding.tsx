@@ -91,8 +91,6 @@ export function Onboarding() {
     );
     
     if (data) {
-      console.log('[Onboarding] Onboarding successful, setting contexts');
-      
       // Set cookies with auth tokens only
       await setCookiesAfterAuthentication(data);
       
