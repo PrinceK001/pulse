@@ -92,6 +92,7 @@ export * from './useProjectApiKeys';
 
 // Auth hooks
 export * from './useLogin';
+export * from './useCompleteOnboarding';
 
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from './hooks.interface';

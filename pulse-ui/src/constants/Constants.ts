@@ -794,6 +794,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/auth/login`,
     method: API_METHODS.POST,
   },
+  COMPLETE_ONBOARDING: {
+    key: "COMPLETE_ONBOARDING",
+    apiPath: `/v1/onboarding/complete`,
+    method: API_METHODS.POST,
+  },
   // Tenant Member Management API Routes
   GET_TENANT_MEMBERS: {
     key: "GET_TENANT_MEMBERS",
