@@ -273,6 +273,10 @@ export function AlertListingPage({
     if (isInteractionDetailsFlow) {
       onCreateAlert?.();
     } else {
+      if (!projectId) {
+        console.error('[AlertListingPage] Cannot navigate: projectId is null');
+        return;
+      }
       navigate(ROUTES.PROJECT_ALERTS_FORM.basePath.replace(':projectId', projectId));
     }
   };
