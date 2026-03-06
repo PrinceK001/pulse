@@ -34,10 +34,12 @@ Use the output to confirm which services are running and on which ports.
 
 ## Step 2: OTEL Collector
 
-```bash
-curl http://localhost:13133
+Use the health and metrics ports from Step 1's `docker ps` output:
 
-curl http://localhost:8888/metrics | grep otelcol_receiver_accepted
+```bash
+curl http://localhost:<health-port>           # default 13133
+
+curl http://localhost:<metrics-port>/metrics | grep otelcol_receiver_accepted  # default 8888
 
 cd deploy && ./scripts/logs.sh otel-collector
 ```
@@ -46,7 +48,7 @@ If zero `otelcol_receiver_accepted`: SDK is not sending data, or port is wrong.
 
 ## Step 3: Kafka
 
-Open Kafka UI: http://localhost:8081
+Open Kafka UI at the port shown by `docker ps` for kafka-ui (default 8081):
 
 Check:
 - Topics exist (e.g., `otlp_spans`, `otlp_logs`)
@@ -80,8 +82,10 @@ docker exec pulse-clickhouse clickhouse-client \
 
 ## Step 5: Backend
 
+Use pulse-server port from Step 1's `docker ps` output (default 8080):
+
 ```bash
-curl http://localhost:8080/healthcheck
+curl http://localhost:<port>/healthcheck
 cd deploy && ./scripts/logs.sh pulse-server | grep -i error
 ```
 

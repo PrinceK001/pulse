@@ -55,8 +55,9 @@ Always run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` firs
 Note: pulse-ai runs via its own Docker Compose in `pulse_ai/`. Manage with `cd pulse_ai && ./setup.sh [start|stop|restart|logs]`. Health check: `curl http://localhost:8000`.
 
 ### Alerts (not firing, wrong evaluation)
-1. Check alerts-cron health: `curl http://localhost:4000/healthcheck`
-2. Verify alert definition in MySQL `alerts` table
+1. Run `docker ps` to find alerts-cron container and port
+2. Check alerts-cron health: `curl http://localhost:<port>/healthcheck`
+3. Verify alert definition in MySQL `alerts` table
 3. Check `alert_evaluation_history` for recent runs
 4. Verify metric query in ClickHouse returns data
 5. Check notification channel configuration

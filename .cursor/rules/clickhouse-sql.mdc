@@ -63,13 +63,13 @@ Accessed via `SpanAttributes['key']` (for traces) or `LogAttributes['key']` (for
 - `pulse.type`, `pulse.interaction.name`, `screen.name`
 - `app.build_name` (→ `AppVersion`), `os.name` (→ `Platform`), `device.model.name` (→ `DeviceModel`)
 
-## Multi-Tenant Access (Row-Level Security)
+## Multi-Tenant Data Isolation
 
-Queries must use the ClickHouse tenant user for project-scoped data access. Credentials are in `deploy/.env`:
+Each tenant has dedicated ClickHouse credentials (stored in MySQL `clickhouse_credentials` table). The backend resolves the tenant from JWT/headers via `TenantFilter`, then uses `ClickhouseTenantConnectionPoolManager` to route queries through per-tenant connection pools — each pool authenticates as that tenant's ClickHouse user, scoping data access to their `ProjectId`.
+
+For local CLI queries, use the admin credentials from `deploy/.env`:
 - User: `OTEL_CLICKHOUSE_USER` (default: `pulse_user`)
 - Password: `OTEL_CLICKHOUSE_PASSWORD` (default: `pulse_password`)
-
-The tenant user has row-level policies that filter by `ProjectId`, so queries automatically return only data for the authenticated project.
 
 ## Schema Conventions
 

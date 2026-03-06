@@ -137,4 +137,4 @@ Four scopes exist for alerting:
 - **Always time-range filter** — prevent full table scans
 - **Use column pruning** — don't SELECT * on wide tables
 - **Use materialized columns** — always prefer `AppVersion`, `Platform`, etc. over `ResourceAttributes['...']`
-- **Use tenant user** — queries require the ClickHouse tenant user (credentials in `deploy/.env`: `OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD`) for project-scoped data access via row-level security
+- **Use tenant credentials** — each tenant has dedicated ClickHouse credentials (stored in MySQL, resolved via `TenantContext`). The backend uses `ClickhouseTenantConnectionPoolManager` to route queries through per-tenant connection pools, ensuring project-scoped data isolation. For local CLI queries, use credentials from `deploy/.env` (`OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD`).

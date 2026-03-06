@@ -56,15 +56,15 @@ curl http://localhost:8000             # health check
 
 ## Health Checks
 
-Use `docker ps` to verify actual ports, then:
+Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover actual ports, then use them in health checks:
 
-| Service | Health Check |
-|---------|-------------|
-| pulse-server | `curl http://localhost:8080/healthcheck` |
-| pulse-ui | `curl http://localhost:3000/healthcheck.txt` |
-| pulse-alerts-cron | `curl http://localhost:4000/healthcheck` |
-| OTEL Collector | `curl http://localhost:13133` |
-| pulse-ai (Docker) | `curl http://localhost:8000` |
+| Service | Health Check | Default Port |
+|---------|-------------|--------------|
+| pulse-server | `curl http://localhost:<port>/healthcheck` | 8080 |
+| pulse-ui | `curl http://localhost:<port>/healthcheck.txt` | 3000 |
+| pulse-alerts-cron | `curl http://localhost:<port>/healthcheck` | 4000 |
+| OTEL Collector | `curl http://localhost:<port>/` | 13133 |
+| pulse-ai (own compose) | `curl http://localhost:8000` | 8000 |
 
 ## Troubleshooting
 
