@@ -38,8 +38,6 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
   const handleProjectSwitch = (newProjectId: string | null) => {
     if (!newProjectId || newProjectId === projectId) return;
     
-    console.log('[Header] Project switch requested:', newProjectId);
-    
     // Find the selected project from the projects list
     const selectedProject = projects.find(p => p.projectId === newProjectId);
     if (!selectedProject) {
@@ -52,7 +50,6 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
     setIsSwitchingProject(true);
     
     // Update context and sessionStorage immediately while modal is shown
-    console.log('[Header] Updating project context and sessionStorage with flushSync');
     flushSync(() => {
       // Update React context
       setProject({
@@ -72,23 +69,19 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
         timestamp: Date.now()
       }));
       
-      // Update last used project ID
-      sessionStorage.setItem('pulse_last_project_id', selectedProject.projectId);
-    });
-    
-    console.log('[Header] Context and sessionStorage updated');
-    
-    // Auto-navigate after 800ms (gives time for state to settle)
-    setTimeout(() => {
-      console.log('[Header] Navigating to project:', newProjectId);
-      navigate(`/projects/${newProjectId}`);
-      setIsSwitchingProject(false);
-      setSelectedProjectForSwitch(null);
-    }, 800);
+    // Update last used project ID
+    sessionStorage.setItem('pulse_last_project_id', selectedProject.projectId);
+  });
+  
+  // Auto-navigate after state settles
+  setTimeout(() => {
+    navigate(`/projects/${newProjectId}`);
+    setIsSwitchingProject(false);
+    setSelectedProjectForSwitch(null);
+  }, 300);
   };
   
   const handleCancelSwitch = () => {
-    console.log('[Header] Project switch cancelled');
     setIsSwitchingProject(false);
     setSelectedProjectForSwitch(null);
   };
