@@ -1026,8 +1026,9 @@ export const COOKIES_KEY: Record<string, string> = {
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
   TENANT_ID: "tenantId", // Keep for initial hydration only
+  TENANT_NAME: "tenantName", // Store tenant name for initial hydration
   TIER: "tier", // Store tier for initial hydration
-  // REMOVED: PROJECT_ID, PROJECT_NAME, TENANT_NAME - Now handled by React Context
+  // REMOVED: PROJECT_ID, PROJECT_NAME - Now handled by React Context
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {

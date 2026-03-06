@@ -59,18 +59,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           setUserRole(data.userRole);
           setTier(data.tier);
           setProjects(data.projects);
-          console.log('[TenantContext] Hydrated from sessionStorage:', data.tenantId);
           
           // Always refetch in background for fresh data
           setTimeout(() => {
-            console.log('[TenantContext] Background refresh for fresh data');
             refreshProjects();
           }, 100);
         } else {
           sessionStorage.removeItem(STORAGE_KEY);
         }
       } catch (error) {
-        console.error('[TenantContext] Failed to parse stored data:', error);
         sessionStorage.removeItem(STORAGE_KEY);
       }
     }
@@ -108,20 +105,24 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     })();
 
     if (!currentTenantId) {
-      console.log('[TenantContext] No tenant ID available, skipping project refresh');
       return;
     }
 
     setIsLoading(true);
-    console.log('[TenantContext] Fetching projects for tenant:', currentTenantId);
     
     try {
       const response = await getUserProjects();
       if (response.data) {
-        console.log('[TenantContext] Fetched projects:', response.data.projects.length);
         setProjects(response.data.projects);
+        
+        // Update tenant information from API response
+        if (response.data.tenantName) {
+          setTenantName(response.data.tenantName);
+        }
+        if (response.data.tenantId) {
+          setTenantId(response.data.tenantId);
+        }
       } else {
-        console.error('[TenantContext] Failed to fetch projects:', response.error);
       }
     } catch (error) {
       console.error('[TenantContext] Error fetching projects:', error);
@@ -131,7 +132,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [tenantId]);
 
   const setTenantInfo = useCallback((tenant: TenantInfo) => {
-    console.log('[TenantContext] Setting tenant info:', tenant);
     setTenantId(tenant.tenantId);
     setTenantName(tenant.tenantName);
     setUserRole(tenant.userRole);
@@ -144,7 +144,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [refreshProjects]);
 
   const addProject = useCallback((project: ProjectSummary) => {
-    console.log('[TenantContext] Adding project:', project.projectId);
     setProjects(prev => {
       // Check if project already exists
       const exists = prev.some(p => p.projectId === project.projectId);
@@ -156,7 +155,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearTenant = useCallback(() => {
-    console.log('[TenantContext] Clearing tenant context');
     setTenantId(null);
     setTenantName(null);
     setUserRole(null);

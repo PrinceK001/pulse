@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Stack, Title, Text, Card, Group, Button, Code, CopyButton, ActionIcon, Tooltip, Loader, Alert } from '@mantine/core';
-import { IconCopy, IconCheck, IconRefresh, IconPlus, IconInfoCircle } from '@tabler/icons-react';
+import { Stack, Text, Box, Group, Button, Code, CopyButton, ActionIcon, Tooltip, Loader, Alert } from '@mantine/core';
+import { IconCopy, IconCheck, IconRefresh, IconPlus, IconInfoCircle, IconKey } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useProjectContext } from '../../../contexts';
 import { getProjectApiKey } from '../../../helpers/getProjectApiKey';
 import { makeRequest } from '../../../helpers/makeRequest';
 import { API_BASE_URL } from '../../../constants';
+import { ConfirmationModal } from '../../../components/ConfirmationModal';
+import classes from './ApiKeyManagement.module.css';
 
 // Type definitions for API responses
 interface ApiKeyRestResponse {
@@ -42,6 +44,7 @@ export function ApiKeyManagement() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [isDummyKey, setIsDummyKey] = useState(false);
+  const [confirmRegenerateOpen, setConfirmRegenerateOpen] = useState(false);
   const { projectId, projectName } = useProjectContext();
 
   useEffect(() => {
@@ -169,99 +172,146 @@ export function ApiKeyManagement() {
   // Show error if no project ID
   if (!projectId) {
     return (
-      <Stack gap="lg">
+      <Box className={classes.pageContainer}>
+        <Box className={classes.pageHeader}>
+          <Box className={classes.titleSection}>
+            <Text className={classes.pageTitle}>API Key Management</Text>
+          </Box>
+        </Box>
         <Alert color="red" title="No Project Selected" icon={<IconInfoCircle />}>
           Please select a project to manage API keys.
         </Alert>
-      </Stack>
+      </Box>
     );
   }
 
   // Show loading state
   if (loading) {
     return (
-      <Stack align="center" gap="md" py="xl">
-        <Loader size="lg" />
-        <Text c="dimmed">Loading API key...</Text>
-      </Stack>
+      <Box className={classes.pageContainer}>
+        <Box className={classes.pageHeader}>
+          <Box className={classes.titleSection}>
+            <Text className={classes.pageTitle}>API Key Management</Text>
+          </Box>
+        </Box>
+        <Box className={classes.contentTable}>
+          <Box className={classes.tableHeader}>
+            <Box className={classes.tableHeaderContent}>
+              <IconKey size={18} color="#0ba09a" />
+              <Text className={classes.tableHeaderTitle}>Project API Key</Text>
+            </Box>
+          </Box>
+          <Box className={classes.tableWrapper} style={{ textAlign: 'center' }}>
+            <Loader size="lg" />
+            <Text c="dimmed" mt="md">Loading API key...</Text>
+          </Box>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <Stack gap="lg">
-      <div>
-        <Title order={2}>API Key Management</Title>
-        <Text c="dimmed" size="sm">
-          Use this API key to authenticate SDK and API requests for {projectName}
-        </Text>
-      </div>
+    <Box className={classes.pageContainer}>
+      {/* Page Header */}
+      <Box className={classes.pageHeader}>
+        <Box className={classes.headerGroup}>
+          <Box className={classes.titleSection}>
+            <Text className={classes.pageTitle}>API Key Management</Text>
+          </Box>
+        </Box>
+      </Box>
 
       {/* Show info banner when using dummy key */}
       {isDummyKey && (
-        <Alert color="blue" title="Development Mode" icon={<IconInfoCircle />}>
+        <Alert color="blue" title="Development Mode" icon={<IconInfoCircle />} mb="lg">
           Using a development API key. The API key management endpoint is being developed by your team.
           This key can be used for local testing.
         </Alert>
       )}
 
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={500}>Project API Key</Text>
+      {/* API Key Content */}
+      <Box className={classes.contentTable}>
+        <Box className={classes.tableHeader}>
+          <Box className={classes.tableHeaderContent}>
+            <IconKey size={18} color="#0ba09a" />
+            <Text className={classes.tableHeaderTitle}>Project API Key</Text>
+          </Box>
+        </Box>
+        <Box className={classes.tableWrapper}>
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Text fw={500}>API Key</Text>
+              {apiKey && (
+                <CopyButton value={apiKey}>
+                  {({ copied, copy }) => (
+                    <Tooltip label={copied ? 'Copied' : 'Copy'}>
+                      <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy}>
+                        {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </CopyButton>
+              )}
+            </Group>
+            
             {apiKey && (
-              <CopyButton value={apiKey}>
-                {({ copied, copy }) => (
-                  <Tooltip label={copied ? 'Copied' : 'Copy'}>
-                    <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy}>
-                      {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </CopyButton>
+              <Code block>{apiKey}</Code>
             )}
-          </Group>
-          
-          {apiKey && (
-            <Code block>{apiKey}</Code>
-          )}
-          
-          {!apiKey && (
-            <Text c="dimmed" size="sm">No API key found for this project. Generate one to get started.</Text>
-          )}
-          
-          <Group gap="sm">
-            {!apiKey ? (
-              // Show "Generate Key" button when no key exists
-              <Button
-                leftSection={<IconPlus size={16} />}
-                variant="filled"
-                color="blue"
-                onClick={() => handleGenerateOrRegenerateKey(false)}
-                loading={generating}
-              >
-                {generating ? 'Generating...' : 'Generate Key'}
-              </Button>
-            ) : (
-              // Show "Regenerate Key" button when key exists
-              <Button
-                leftSection={<IconRefresh size={16} />}
-                variant="light"
-                color="orange"
-                onClick={() => handleGenerateOrRegenerateKey(true)}
-                loading={generating}
-              >
-                {generating ? 'Regenerating...' : 'Regenerate Key'}
-              </Button>
+            
+            {!apiKey && (
+              <Text c="dimmed" size="sm">No API key found for this project. Generate one to get started.</Text>
             )}
-          </Group>
-          
-          {apiKey && (
-            <Text size="xs" c="dimmed">
-              Warning: Regenerating the key will invalidate the old key immediately.
-            </Text>
-          )}
-        </Stack>
-      </Card>
-    </Stack>
+            
+            <Group gap="sm">
+              {!apiKey ? (
+                // Show "Generate Key" button when no key exists
+                <Button
+                  leftSection={<IconPlus size={16} />}
+                  variant="filled"
+                  color="teal"
+                  onClick={() => handleGenerateOrRegenerateKey(false)}
+                  loading={generating}
+                >
+                  {generating ? 'Generating...' : 'Generate Key'}
+                </Button>
+              ) : (
+                // Show "Regenerate Key" button when key exists
+                <Button
+                  leftSection={<IconRefresh size={16} />}
+                  variant="light"
+                  color="orange"
+                  onClick={() => setConfirmRegenerateOpen(true)}
+                  loading={generating}
+                >
+                  {generating ? 'Regenerating...' : 'Regenerate Key'}
+                </Button>
+              )}
+            </Group>
+            
+            {apiKey && (
+              <Text size="xs" c="dimmed">
+                Warning: Regenerating the key will invalidate the old key immediately.
+              </Text>
+            )}
+          </Stack>
+        </Box>
+      </Box>
+
+      <ConfirmationModal
+        opened={confirmRegenerateOpen}
+        onClose={() => setConfirmRegenerateOpen(false)}
+        onConfirm={async () => {
+          await handleGenerateOrRegenerateKey(true);
+          setConfirmRegenerateOpen(false);
+        }}
+        title="Regenerate API Key?"
+        message="This will immediately invalidate your current API key. All applications using the old key will stop working. Are you sure you want to continue?"
+        confirmLabel="Yes, Regenerate"
+        cancelLabel="Cancel"
+        confirmColor="orange"
+        loading={generating}
+        severity="danger"
+      />
+    </Box>
   );
 }

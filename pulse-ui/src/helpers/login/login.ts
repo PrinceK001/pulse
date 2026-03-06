@@ -13,6 +13,7 @@ export interface LoginResponse {
   email: string;
   name: string;
   tenantId?: string;
+  tenantName?: string;
   tenantRole?: string;
   tier?: 'free' | 'enterprise';
   needsOnboarding: boolean;

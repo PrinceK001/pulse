@@ -35,11 +35,11 @@ function buildAuthHeaders(): Record<string, string> {
   }
 
   // Add project-id header for project-scoped requests
-  // Priority: 1) React Context (sessionStorage), 2) cookies (legacy)
+  // Priority: 1) React Context (sessionStorage) - single source of truth
   // NOTE: Never extract projectId from URL to avoid parsing issues
   let projectId: string | undefined;
   
-  // Priority 1: Try sessionStorage (ProjectContext - single source of truth)
+  // Try sessionStorage (ProjectContext - single source of truth)
   try {
     const stored = sessionStorage.getItem('pulse_project_context');
     if (stored) {
@@ -50,14 +50,6 @@ function buildAuthHeaders(): Record<string, string> {
     }
   } catch (error) {
     // Silently ignore parsing errors
-  }
-  
-  // Priority 2: Fallback to cookies (legacy support)
-  if (!projectId) {
-    const cookieProjectId = getCookies(COOKIES_KEY.PROJECT_ID);
-    if (cookieProjectId && cookieProjectId !== "undefined") {
-      projectId = cookieProjectId;
-    }
   }
   
   // Only set header if we have a valid projectId from context

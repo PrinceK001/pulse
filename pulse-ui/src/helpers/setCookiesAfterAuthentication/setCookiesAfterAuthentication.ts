@@ -37,6 +37,9 @@ export const setCookiesAfterAuthentication = (
   if (loginResponse.tenantId) {
     setCookies(COOKIES_KEY.TENANT_ID, loginResponse.tenantId);
   }
+  if (loginResponse.tenantName) {
+    setCookies(COOKIES_KEY.TENANT_NAME, loginResponse.tenantName);
+  }
   if (loginResponse.tier) {
     setCookies(COOKIES_KEY.TIER, loginResponse.tier);
   }

@@ -10,6 +10,8 @@ export interface ProjectSummary {
 }
 
 export interface UserProjectsResponse {
+  tenantId: string;
+  tenantName: string;
   projects: ProjectSummary[];
   redirectTo?: string;
 }

@@ -1,6 +1,5 @@
 import {
   AppShell,
-  Tooltip,
   Group,
   Text,
   Box,
@@ -17,18 +16,14 @@ import classes from "./Header.module.css";
 import { HeaderProps } from "./Header.interface";
 import { useNavigate } from "react-router-dom";
 import {
-  TOOLTIP_LABLES,
-} from "../../constants";
-import {
-  IconCircleChevronLeft,
-  IconCircleChevronRight,
   IconFolder,
+  IconBuilding,
 } from "@tabler/icons-react";
 import { useTenantContext, useProjectContext } from "../../contexts";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
-  const { projects, tier } = useTenantContext();
+  const { projects, tier, tenantName } = useTenantContext();
   const { projectId, projectName, setProject } = useProjectContext();
   
   // Modal state for project switching
@@ -127,27 +122,18 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
 
       <AppShell.Header>
         <Box className={classes.headerContainer}>
-        {/* Navbar Toggle */}
+        {/* Organization Name Section */}
         <Box className={classes.leftSection}>
-          {opened ? (
-            <Tooltip label={TOOLTIP_LABLES.CLOSE_NAVBAR}>
-              <IconCircleChevronLeft
-                onClick={toogle}
-                className={classes.cheveronIcon}
-              />
-            </Tooltip>
-          ) : (
-            <Tooltip label={TOOLTIP_LABLES.OPEN_NAVBAR}>
-              <IconCircleChevronRight
-                onClick={toogle}
-                className={classes.cheveronIcon}
-              />
-            </Tooltip>
-          )}
+          <Group gap="xs">
+            <IconBuilding size={20} style={{ color: '#0ba09a' }} />
+            <Text fw={600} size="md" className={classes.orgName}>
+              {tenantName || 'Organization'}
+            </Text>
+          </Group>
         </Box>
         
-        {/* Project Display Section */}
-        <Box className={classes.projectSection}>
+        {/* Project Display Section - 64px gap from organization */}
+        <Box className={classes.projectSection} style={{ marginLeft: '64px' }}>
           {projectId && projects.length <= 1 ? (
             // Single project display
             tier === 'free' ? (
