@@ -52,6 +52,13 @@ You are a senior Java backend engineer specializing in the Pulse server codebase
 - `@ExtendWith(MockitoExtension.class)`, `@Nested` grouping, `should*` naming
 - RxJava: `.test()` → `TestObserver` → `assertValue()`
 
+## Related Skills
+
+For multi-step workflows, invoke these skills which provide step-by-step checklists:
+- `/add-api-endpoint` — full workflow for adding a new REST endpoint (resource → service → DAO → DTO → mapper → tests)
+- `/mysql-migration` — schema changes to MySQL `pulse_db` (migration SQL → init script → backend model/DAO)
+- `/add-alert-metric` — cross-cutting alert metric addition spanning DB, backend, cron, UI, and AI agent
+
 ## Checklist Before Completing
 
 - [ ] Service interface + implementation created

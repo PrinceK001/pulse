@@ -52,11 +52,28 @@ export interface MyDataItem {
 
 ## Step 3: React Query Hook
 
-`pulse-ui/src/hooks/useGetMyData.ts`:
+Create a folder-based hook at `pulse-ui/src/hooks/useGetMyData/`:
+
+```
+hooks/useGetMyData/
+├── index.ts                  # Barrel export
+├── useGetMyData.ts           # Hook implementation
+└── useGetMyData.interface.ts # Types for this hook
+```
+
+`useGetMyData.interface.ts`:
+```typescript
+export interface MyDataResponse {
+  items: MyDataItem[];
+}
+```
+
+`useGetMyData.ts`:
 ```typescript
 import { useQuery } from "@tanstack/react-query";
-import { makeRequest } from "../helpers/makeRequest/makeRequest";
-import { API_BASE_URL } from "../constants/Constants";
+import { makeRequest } from "../../helpers/makeRequest/makeRequest";
+import { API_BASE_URL } from "../../constants/Constants";
+import { MyDataResponse } from "./useGetMyData.interface";
 
 export function useGetMyData(enabled: boolean) {
   return useQuery({
@@ -69,6 +86,11 @@ export function useGetMyData(enabled: boolean) {
     refetchOnWindowFocus: false,
   });
 }
+```
+
+`index.ts`:
+```typescript
+export { useGetMyData } from "./useGetMyData";
 ```
 
 ## Step 4: Screen Component

@@ -1,6 +1,7 @@
 ---
 name: mysql-migration
 description: Workflow for MySQL schema changes — adding tables, columns, or modifying the pulse_db metadata schema. Use when making changes to MySQL tables.
+disable-model-invocation: true
 ---
 
 # MySQL Migration
@@ -45,10 +46,12 @@ Edit `deploy/db/mysql-init.sql` to include the change for fresh database initial
 
 ## Step 4: Apply and Verify
 
+Read MySQL credentials from `deploy/.env` (variables: `MYSQL_USER` / `MYSQL_PASSWORD`, defaults in docker-compose: `pulse_user` / `pulse_password`):
+
 ```bash
 # Apply to running MySQL
-docker exec -i pulse-mysql mysql -upulse_user -ppulse_password pulse_db < deploy/db/migration-<desc>.sql
+docker exec -i pulse-mysql mysql -u$MYSQL_USER -p$MYSQL_PASSWORD pulse_db < deploy/db/migration-<desc>.sql
 
 # Verify
-docker exec pulse-mysql mysql -upulse_user -ppulse_password pulse_db -e "DESCRIBE my_table;"
+docker exec pulse-mysql mysql -u$MYSQL_USER -p$MYSQL_PASSWORD pulse_db -e "DESCRIBE my_table;"
 ```

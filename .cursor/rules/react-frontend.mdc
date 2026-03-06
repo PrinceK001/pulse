@@ -6,24 +6,99 @@ alwaysApply: false
 
 # React Frontend Conventions
 
+## Project Structure
+
+```
+pulse-ui/src/
+├── screens/        # Page-level screens (one folder per route)
+├── components/     # Shared reusable components
+├── hooks/          # Custom React hooks (API/data)
+├── stores/         # Zustand stores (client state)
+├── constants/      # App constants, routes, API routes, OTEL semconv
+├── helpers/        # Auth, cookies, API helpers (makeRequest)
+├── types/          # Shared TypeScript types
+├── utils/          # Utility functions
+├── clients/        # API client setup
+├── mocks/          # MSW mocks
+└── theme/          # Mantine theme configuration
+```
+
 ## Screen Folder Structure
 
 Every screen in `screens/<ScreenName>/`:
 
 ```
 ScreenName/
+├── index.ts                 # Barrel export
 ├── ScreenName.tsx           # Main component
-├── ScreenName.interface.ts  # Props and types
 ├── ScreenName.module.css    # Scoped styles
-├── ScreenName.constants.ts  # Strings, options, configs
+├── ScreenName.interface.ts  # Props and types (optional)
+├── ScreenName.constants.ts  # Strings, options, configs (optional)
 └── components/              # Sub-components (same pattern)
+```
+
+Complex screens may also contain:
+- `hooks/` — screen-specific hooks
+- `utils/` or `helpers/` — screen-specific utilities
+- `constants/` — subfolder for multiple constant files
+- `pages/` — sub-pages within a screen
+
+## Shared Component Pattern
+
+Each component in `components/<ComponentName>/`:
+
+```
+ComponentName/
+├── index.ts                    # Barrel export
+├── ComponentName.tsx           # Component implementation
+├── ComponentName.module.css    # Scoped styles
+├── ComponentName.interface.ts  # Props types (optional)
+└── ComponentName.constants.ts  # Constants (optional)
+```
+
+Nested component groups (e.g., `Charts/`) can contain sub-component folders following the same pattern.
+
+## Custom Hook Pattern
+
+Each hook in `hooks/<useHookName>/`:
+
+```
+useHookName/
+├── index.ts                    # Barrel re-export
+├── useHookName.ts              # Hook implementation
+└── useHookName.interface.ts    # Types for params/response
+```
+
+Related hooks may be grouped in one folder (e.g., `useSdkConfig/` contains `useGetActiveSdkConfig.ts`, `useCreateSdkConfig.ts`, etc. with a shared `useSdkConfig.interface.ts`).
+
+## File Naming
+
+| Type | Convention | Examples |
+|------|------------|---------|
+| Screens | PascalCase folder + `.tsx` | `UserEngagement/UserEngagement.tsx` |
+| Components | PascalCase folder + `.tsx` | `PageHeader/PageHeader.tsx` |
+| Hooks | `use*` camelCase | `useGetInteractionDetails.ts` |
+| Interfaces | `*.interface.ts` | `UserEngagement.interface.ts` |
+| Constants | `*.constants.ts` | `AppVitals.constants.ts` |
+| Styles | `*.module.css` | `UserEngagement.module.css` |
+| Barrel exports | `index.ts` (or `index.tsx` for route definitions) | `screens/index.tsx` |
+| Props types | `<ComponentName>Props` | `UserEngagementProps`, `LineChartProps` |
+
+## Constants Organization
+
+```
+constants/
+├── index.ts                # Barrel exports
+├── Constants.ts            # API_ROUTES and ROUTES objects
+├── Constants.interface.ts  # Route type definitions
+└── PulseOtelSemcov.ts      # PulseType, STATUS_CODE, COLUMN_NAME enums
 ```
 
 ## UI Framework
 
 - **Mantine v7** for all components (`AppShell`, `Button`, `Modal`, `Select`, etc.)
 - **Tabler icons**: `@tabler/icons-react`
-- **Charts**: `echarts-for-react`
+- **Charts**: `echarts-for-react` (wrapped in `components/Charts/`)
 - **Data tables**: `mantine-datatable`
 
 ## State Management
@@ -42,15 +117,18 @@ ScreenName/
 ## Routing
 
 - React Router v6 — routes defined in `Constants.ts` as `ROUTES`
+- Screen barrel exports in `screens/index.tsx`
 - Add new routes to both `ROUTES` object and `App.tsx` `<Route>` tree
 
 ## Styling
 
-- CSS modules: `import classes from "./Name.module.css"`
+- Prefer CSS modules: `import classes from "./Name.module.css"`
 - Use Mantine CSS variables: `var(--mantine-spacing-md)`, `var(--mantine-color-gray-6)`
 - Layout with flexbox/grid
+- Inline `style={{}}` is acceptable for dynamic or one-off styles
 
 ## Types
 
 - Export interfaces in `*.interface.ts` files co-located with components
-- Props type: `ComponentNameProps`
+- Props type naming: `<ComponentName>Props`
+- Shared types in `types/` directory

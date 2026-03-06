@@ -1,6 +1,7 @@
 ---
 name: add-alert-metric
-description: Cross-cutting workflow for adding a new alert metric that spans database, backend, cron, frontend, and AI agent. Use when adding a new metric type to the alerting system.
+description: Cross-cutting workflow for adding a new alert metric spanning DB, backend, cron, frontend, and AI agent. Only invoke explicitly when adding a new metric type.
+disable-model-invocation: true
 ---
 
 # Add Alert Metric (Cross-Cutting)
@@ -48,14 +49,7 @@ Verify `AlertEvaluationService` can evaluate the new metric:
 
 ## Step 5: AI Agent
 
-Add to `pulse_ai/pulse_agent/registries/metrics_registry.py`:
-```python
-METRICS_REGISTRY["my_new_metric"] = {
-    "sql": "the_clickhouse_expression",
-    "unit": "the_unit",
-    "description": "Human-readable description for NL-to-SQL",
-}
-```
+**Note:** The AI agent currently has a flat structure (`pulse_ai/agent.py`) with no registries. When registries are added, create or update the metrics registry. For now, update the root agent's instruction in `pulse_ai/agent.py` to include knowledge of the new metric, or add a registry file at the `pulse_ai/` root when the first metric is added.
 
 ## Step 6: End-to-End Test
 

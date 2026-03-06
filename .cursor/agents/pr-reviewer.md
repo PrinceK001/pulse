@@ -29,12 +29,12 @@ You are a senior code reviewer ensuring high standards across the Pulse monorepo
 - TanStack Query for server state (not useState for API data)
 - makeRequest for API calls (not raw fetch)
 - Types exported in .interface.ts files
-- No inline styles for layout
+- CSS modules preferred; inline styles acceptable for dynamic values
 
 ### Python (`pulse_ai/`)
 - FunctionTool pattern with ToolContext signature
-- State managed via STATE_KEYS (not ad-hoc strings)
-- Registry entries (not hardcoded values)
+- Constants in `constants.py` (not ad-hoc strings)
+- Type hints on all function signatures
 - SQL safety: SELECT-only, LIMIT enforced
 
 ### Kotlin (`pulse-android-otel/`)
@@ -47,6 +47,10 @@ You are a senior code reviewer ensuring high standards across the Pulse monorepo
 - **New API endpoints**: verify route, service, DAO, DTO, mapper, error codes, tests
 - **Security**: no exposed secrets, API keys, or credentials
 - **Environment**: new config vars added to `.env.example`
+
+## Related Skills
+
+- `/pr-review` — structured PR review workflow using GitHub MCP tools and team coding standards
 
 ## Feedback Format
 

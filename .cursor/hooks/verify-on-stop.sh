@@ -56,6 +56,22 @@ if echo "$changed_files" | grep -q "^pulse_ai/"; then
   fi
 fi
 
+# Check if source-of-truth files changed without .cursor/ updates
+sot_files=("deploy/docker-compose.yml" "backend/ingestion/clickhouse-otel-schema.sql" "deploy/.env.example" "deploy/scripts/build.sh" "deploy/scripts/start.sh")
+sot_changed=false
+for f in "${sot_files[@]}"; do
+  if echo "$changed_files" | grep -q "^${f}$"; then
+    sot_changed=true
+    break
+  fi
+done
+
+if [ "$sot_changed" = true ]; then
+  if ! echo "$changed_files" | grep -q "^\.cursor/"; then
+    errors+=("Source-of-truth files changed (docker-compose, schema, env, or scripts) but .cursor/ config was not updated. Run /audit-cursor-config to check for stale docs.")
+  fi
+fi
+
 if [ ${#errors[@]} -gt 0 ]; then
   error_msg=$(printf '%s\\n' "${errors[@]}" | sed 's/"/\\"/g')
   cat << EOF

@@ -17,10 +17,10 @@ cp .env.example .env    # first time only, then edit values
 
 ```bash
 cd deploy
-./scripts/build.sh ui       # pulse-ui only
-./scripts/build.sh server   # pulse-server only
-./scripts/build.sh ai       # pulse-ai only
-./scripts/build.sh all      # everything
+./scripts/build.sh ui         # pulse-ui only
+./scripts/build.sh server     # pulse-server only
+./scripts/build.sh alerting   # pulse-alerts-cron only
+./scripts/build.sh all        # everything
 ```
 
 ## Start/Stop
@@ -28,7 +28,7 @@ cd deploy
 ```bash
 ./scripts/start.sh -d ui        # start detached
 ./scripts/start.sh -d server
-./scripts/start.sh -d ai
+./scripts/start.sh -d alerting
 ./scripts/stop.sh                # stop all
 ./scripts/stop.sh -v             # stop + remove volumes
 ```
@@ -38,7 +38,14 @@ cd deploy
 ```bash
 ./scripts/logs.sh                # all services
 ./scripts/logs.sh pulse-server   # specific service
-./scripts/logs.sh pulse-ai
+```
+
+## AI Agent (own Docker Compose)
+
+```bash
+cd pulse_ai && cp .env.example .env   # first time — set GOOGLE_API_KEY
+cd pulse_ai && ./setup.sh             # build + start (Docker, port 8000)
+curl http://localhost:8000             # health check
 ```
 
 ## Reset Databases
@@ -49,14 +56,15 @@ cd deploy
 
 ## Health Checks
 
-| Service | URL |
-|---------|-----|
+Use `docker ps` to verify actual ports, then:
+
+| Service | Health Check |
+|---------|-------------|
 | pulse-server | `curl http://localhost:8080/healthcheck` |
 | pulse-ui | `curl http://localhost:3000/healthcheck.txt` |
-| pulse-ai | `curl http://localhost:8001/list-apps` |
-| alerts-cron | `curl http://localhost:4000/healthcheck` |
-| OTEL Collector 1 | `curl http://localhost:13133` |
-| OTEL Collector 2 | `curl http://localhost:13134` |
+| pulse-alerts-cron | `curl http://localhost:4000/healthcheck` |
+| OTEL Collector | `curl http://localhost:13133` |
+| pulse-ai (Docker) | `curl http://localhost:8000` |
 
 ## Troubleshooting
 

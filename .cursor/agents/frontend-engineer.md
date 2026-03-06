@@ -57,7 +57,13 @@ screens/ScreenName/
 
 - CSS modules: `import classes from "./Name.module.css"`
 - Mantine variables: `var(--mantine-spacing-md)`, `var(--mantine-color-gray-6)`
-- Never use inline styles for layout — use CSS modules or Mantine props
+- Prefer CSS modules for styling; inline styles are acceptable for dynamic values (e.g., computed widths, conditional colors)
+
+## Related Skills
+
+For multi-step workflows, invoke these skills which provide step-by-step checklists:
+- `/add-ui-screen` — full workflow for adding a new screen/page (folder structure → route → components → API hooks → styling)
+- `/add-ui-component` — workflow for adding a new reusable component in `pulse-ui/src/components/`
 
 ## Checklist
 

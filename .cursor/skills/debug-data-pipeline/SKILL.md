@@ -8,39 +8,43 @@ description: Systematic debugging checklist for the OTEL data pipeline when trac
 ## Pipeline Architecture
 
 ```
-Mobile SDK → OTEL Collector 1 (:4317 gRPC, :4318 HTTP)
+Mobile SDK → OTEL Collector (:4317 gRPC, :4318 HTTP)
   → Kafka (:9094)
-  → OTEL Collector 2
   → ClickHouse (:8123)
 ```
 
 ## Diagnostic Checklist
 
 ```
-- [ ] Step 1: Verify OTEL Collector 1 is receiving data
-- [ ] Step 2: Verify Kafka has messages
-- [ ] Step 3: Verify OTEL Collector 2 is consuming and exporting
+- [ ] Step 1: Discover running services
+- [ ] Step 2: Verify OTEL Collector is receiving data
+- [ ] Step 3: Verify Kafka has messages
 - [ ] Step 4: Verify ClickHouse has data
 - [ ] Step 5: Verify backend can query ClickHouse
 - [ ] Step 6: Verify UI is fetching from backend
 ```
 
-## Step 1: OTEL Collector 1
+## Step 1: Discover Running Services
 
 ```bash
-# Health check
+docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
+```
+
+Use the output to confirm which services are running and on which ports.
+
+## Step 2: OTEL Collector
+
+```bash
 curl http://localhost:13133
 
-# Internal metrics
 curl http://localhost:8888/metrics | grep otelcol_receiver_accepted
 
-# Logs
-cd deploy && ./scripts/logs.sh pulse-otel-collector-1
+cd deploy && ./scripts/logs.sh otel-collector
 ```
 
 If zero `otelcol_receiver_accepted`: SDK is not sending data, or port is wrong.
 
-## Step 2: Kafka
+## Step 3: Kafka
 
 Open Kafka UI: http://localhost:8081
 
@@ -53,30 +57,25 @@ Check:
 cd deploy && ./scripts/logs.sh kafka
 ```
 
-## Step 3: OTEL Collector 2
-
-```bash
-curl http://localhost:13134    # health
-curl http://localhost:8889/metrics | grep otelcol_exporter_sent
-
-cd deploy && ./scripts/logs.sh pulse-otel-collector-2
-```
-
-If zero `otelcol_exporter_sent`: Kafka consumer or ClickHouse exporter config issue.
-
 ## Step 4: ClickHouse
+
+Read ClickHouse credentials from `deploy/.env` (variables: `OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD`, defaults: `pulse_user` / `pulse_password`):
 
 ```bash
 # Count recent traces
-docker exec pulse-clickhouse clickhouse-client --query \
-  "SELECT count() FROM otel.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR"
+docker exec pulse-clickhouse clickhouse-client \
+  -u $OTEL_CLICKHOUSE_USER --password $OTEL_CLICKHOUSE_PASSWORD \
+  --query "SELECT count() FROM otel.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR"
 
 # Count recent logs
-docker exec pulse-clickhouse clickhouse-client --query \
-  "SELECT count() FROM otel.otel_logs WHERE Timestamp > now() - INTERVAL 1 HOUR"
+docker exec pulse-clickhouse clickhouse-client \
+  -u $OTEL_CLICKHOUSE_USER --password $OTEL_CLICKHOUSE_PASSWORD \
+  --query "SELECT count() FROM otel.otel_logs WHERE Timestamp > now() - INTERVAL 1 HOUR"
 
 # Check tables exist
-docker exec pulse-clickhouse clickhouse-client --query "SHOW TABLES FROM otel"
+docker exec pulse-clickhouse clickhouse-client \
+  -u $OTEL_CLICKHOUSE_USER --password $OTEL_CLICKHOUSE_PASSWORD \
+  --query "SHOW TABLES FROM otel"
 ```
 
 ## Step 5: Backend
@@ -98,7 +97,7 @@ Check ClickHouse connectivity: look for R2DBC or connection errors in logs.
 
 | Symptom | Likely Cause |
 |---------|-------------|
-| No data in ClickHouse | Collector 2 not consuming from Kafka |
-| Kafka topics empty | Collector 1 not receiving from SDK |
+| No data in ClickHouse | Kafka consumer or ClickHouse exporter config issue |
+| Kafka topics empty | OTEL Collector not receiving from SDK |
 | Backend 500 on queries | ClickHouse connection or schema mismatch |
 | UI shows empty charts | Time range filter too narrow, or backend error |

@@ -13,20 +13,23 @@ You are a senior DevOps engineer specializing in the Pulse deployment infrastruc
 
 ## Docker Compose Architecture
 
-10 services on `pulse-network` bridge:
+Services on `pulse-network` bridge:
 
 **Infrastructure**: mysql (3307), clickhouse (8123/9000), kafka (9094), kafka-ui (8081)
-**Data Pipeline**: otel-collector-1 (4317/4318 → Kafka), otel-collector-2 (Kafka → ClickHouse)
-**Application**: pulse-server (8080), pulse-ui (3000), pulse-ai (8001), pulse-alerts-cron (4000)
+**Data Pipeline**: otel-collector (4317/4318 → Kafka → ClickHouse), vector (14317/14318 → S3)
+**Application**: pulse-server (8080), pulse-ui (3000), pulse-alerts-cron (4000)
 
-Startup order: DBs → Kafka → OTEL Collectors → App Services → UI
+**Note:** pulse-ai runs via its own `docker-compose.yml` in `pulse_ai/` (port 8000). Manage with `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
+
+Startup order: DBs → Kafka → OTEL Collector → App Services → UI
+
+Always use `docker ps` to verify actual running services and ports.
 
 ## Environment Variables
 
 - `CONFIG_SERVICE_APPLICATION_*` — backend app config
 - `VAULT_SERVICE_*` — secrets (never commit real values)
 - `OTEL_CLICKHOUSE_*` — OTEL to ClickHouse connection
-- `PULSE_AI_*` — AI agent config
 - `REACT_APP_*` — frontend build-time args
 
 Template: `deploy/.env.example` → copy to `deploy/.env`
@@ -36,9 +39,9 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 | Script | Purpose |
 |--------|---------|
 | `quickstart.sh` | Prereqs → build → start → health checks |
-| `build.sh` | Build images (accepts: ui, server, ai, all) |
-| `start.sh` | Start services (-d for detached) |
-| `stop.sh` | Stop services (-v removes volumes) |
+| `build.sh` | Build images (accepts: `ui`, `server`, `alerting`, `all`) |
+| `start.sh` | Start services (`-d` for detached) |
+| `stop.sh` | Stop services (`-v` removes volumes) |
 | `logs.sh` | View logs (optionally filter by service) |
 | `reset-databases.sh` | Drop volumes and reinitialize DBs |
 | `init-clickhouse.sh` | Create ClickHouse tables from schema SQL |
@@ -46,12 +49,19 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 ## Database Initialization
 
 - MySQL: `deploy/db/mysql-init.sql` mounted to `/docker-entrypoint-initdb.d/`
-- ClickHouse: `backend/ingestion/clickhouse-otel-schema.sql` via `clickhouse-init` container
+- ClickHouse: `backend/ingestion/clickhouse-otel-schema.sql` via `clickhouse-init` container (uses `pulse_user`/`pulse_password`)
 
-## OTEL Collector Configs
+## OTEL Collector Config
 
-- `otel-collector-1.yaml`: OTLP receivers → Kafka exporters
-- `otel-collector-2.yaml`: Kafka receivers → ClickHouse exporters
+- `otel-collector.yaml`: OTLP receivers → Kafka exporters
+
+## Related Skills
+
+For multi-step workflows, invoke these skills which provide step-by-step checklists:
+- `/deploy-service` — building and deploying Pulse services locally via Docker
+- `/clickhouse-migration` — ClickHouse schema changes in the `otel` database
+- `/mysql-migration` — MySQL schema changes in `pulse_db`
+- `/debug-data-pipeline` — systematic debugging of the OTEL ingestion pipeline
 
 ## Checklist
 

@@ -74,6 +74,11 @@ my_function_tool = FunctionTool(my_tool)
 - Test pipelines end-to-end with representative scenarios
 - Mock LLM responses for deterministic test assertions
 
+## Related Skills
+
+For multi-step workflows, invoke this skill which provides a step-by-step checklist:
+- `/add-ai-sub-agent` — full workflow for adding a new sub-agent or tool (state keys → tool function → registry → agent → pipeline wiring → test)
+
 ## Checklist
 
 - [ ] Agent type chosen appropriately for the task

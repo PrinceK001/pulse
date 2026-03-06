@@ -1,6 +1,7 @@
 ---
 name: clickhouse-migration
 description: Workflow for ClickHouse schema changes — adding columns, tables, or modifying the OTEL analytics schema. Use when making changes to ClickHouse tables in the otel database.
+disable-model-invocation: true
 ---
 
 # ClickHouse Migration
@@ -49,11 +50,9 @@ Search for affected queries in:
 - `backend/server/src/main/java/.../service/` — ClickhouseMetricService and related
 - `backend/server/src/main/java/.../dao/` — any DAO querying the changed table
 
-## Step 5: Update AI Registry
+## Step 5: Update AI Agent
 
-If the change affects queryable tables/columns, update:
-- `pulse_ai/pulse_agent/registries/table_registry.py`
-- `pulse_ai/pulse_agent/registries/filter_column_registry.py`
+**Note:** The AI agent currently has a flat structure (`pulse_ai/agent.py`) with no registries. If the change affects queryable tables/columns, update the root agent's instruction in `pulse_ai/agent.py` to reflect the new schema, or update registry files at the `pulse_ai/` root when they are added.
 
 ## Step 6: Apply and Verify
 
