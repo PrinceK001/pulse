@@ -58,7 +58,6 @@ import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
-import { LegacyRedirect } from "../components/LegacyRedirect";
 
 export const APP_NAME: string = "Pulse";
 
@@ -265,43 +264,6 @@ export const ROUTES: Routes = {
     element: RealTimeQuery,
   },
   
-  // Legacy flat routes (kept for backward compatibility)
-  HOME: {
-    key: "HOME",
-    basePath: "/",
-    path: "/",
-    element: LegacyRedirect,
-  },
-  USER_ENGAGEMENT: {
-    key: "USER_ENGAGEMENT",
-    basePath: "/user-engagement",
-    path: "/user-engagement",
-    element: LegacyRedirect,
-  },
-  CRITICAL_INTERACTIONS: {
-    key: "CRITICAL_INTERACTIONS",
-    basePath: "/interactions",
-    path: "/interactions",
-    element: LegacyRedirect,
-  },
-  CRITICAL_INTERACTION_FORM: {
-    key: "CRITICAL_INTERACTION_FORM",
-    basePath: "/critical-interaction-form",
-    path: "/critical-interaction-form/*",
-    element: LegacyRedirect,
-  },
-  ALL_INTERACTION_DETAILS: {
-    key: "ALL_INTERACTION_DETAILS",
-    basePath: "/user-experience",
-    path: "/user-experience",
-    element: LegacyRedirect,
-  },
-  CRITICAL_INTERACTION_DETAILS: {
-    key: "CRITICAL_INTERACTION_DETAILS",
-    basePath: "/interaction-details",
-    path: "/interaction-details/*",
-    element: LegacyRedirect,
-  },
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -320,77 +282,11 @@ export const ROUTES: Routes = {
     path: "/pricing",
     element: Pricing,
   },
-  UNIVERSAL_QUERYING: {
-    key: "UNIVERSAL_QUERYING",
-    basePath: "/universal-querying",
-    path: "/universal-querying",
-    element: LegacyRedirect,
-  },
-  APP_VITALS: {
-    key: "APP_VITALS",
-    basePath: "/app-vitals",
-    path: "/app-vitals",
-    element: LegacyRedirect,
-  },
-  APP_VITALS_ISSUE_DETAIL: {
-    key: "APP_VITALS_ISSUE_DETAIL",
-    basePath: "/app-vitals/:groupId",
-    path: "/app-vitals/:groupId",
-    element: LegacyRedirect,
-  },
-  APP_VITALS_OCCURRENCE_DETAIL: {
-    key: "APP_VITALS_OCCURRENCE_DETAIL",
-    basePath: "/app-vitals/:issueId/occurrence/:occurrenceId",
-    path: "/app-vitals/:issueId/occurrence/:occurrenceId",
-    element: LegacyRedirect,
-  },
-  SESSION_TIMELINE: {
-    key: "SESSION_TIMELINE",
-    basePath: "/session/:id",
-    path: "/session/:id",
-    element: LegacyRedirect,
-  },
-  SCREENS: {
-    key: "SCREENS",
-    basePath: "/screens",
-    path: "/screens",
-    element: LegacyRedirect,
-  },
-  SCREEN_DETAILS: {
-    key: "SCREEN_DETAILS",
-    basePath: "/screens",
-    path: "/screens/:screenName",
-    element: LegacyRedirect,
-  },
-  NETWORK_LIST: {
-    key: "NETWORK_LIST",
-    basePath: "/network-apis",
-    path: "/network-apis",
-    element: LegacyRedirect,
-  },
-  NETWORK_DETAIL: {
-    key: "NETWORK_DETAIL",
-    basePath: "/network-apis",
-    path: "/network-apis/:apiId",
-    element: LegacyRedirect,
-  },
   COMING_SOON: {
     key: "COMING_SOON",
     basePath: "/coming-soon",
     path: "/coming-soon",
     element: ComingSoon,
-  },
-  SDK_CONFIG: {
-    key: "SDK_CONFIG",
-    basePath: "/sdk-config",
-    path: "/sdk-config",
-    element: LegacyRedirect,
-  },
-  SETTINGS: {
-    key: "SETTINGS",
-    basePath: "/settings",
-    path: "/settings/*",
-    element: LegacyRedirect,
   },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
@@ -398,31 +294,20 @@ export const ROUTES: Routes = {
     path: "/project-settings",
     element: ProjectSettings,
   },
-  ALERTS: {
-    key: "ALERTS",
-    basePath: "/alerts",
-    path: "/alerts",
-    element: LegacyRedirect,
-  },
-  ALERT_DETAIL: {
-    key: "ALERT_DETAIL",
-    basePath: "/alerts",
-    path: "/alerts/:alertId",
-    element: LegacyRedirect,
-  },
-  ALERTS_FORM: {
-    key: "ALERTS_FORM",
-    basePath: "/configure-alert",
-    path: "/configure-alert/*",
-    element: LegacyRedirect,
-  },
-  QUERY_BUILDER: {
-    key: "QUERY_BUILDER",
-    basePath: "/query-builder",
-    path: "/query-builder",
-    element: LegacyRedirect,
-  },
 };
+
+// Navbar route paths - These are flat routes that Navbar transforms to project-scoped routes
+// The Navbar component (onItemClick) automatically prepends /projects/:projectId to these paths
+export const NAVBAR_ROUTES = {
+  HOME: "/",
+  USER_ENGAGEMENT: "/user-engagement",
+  CRITICAL_INTERACTIONS: "/interactions",
+  APP_VITALS: "/app-vitals",
+  SCREENS: "/screens",
+  NETWORK_LIST: "/network-apis",
+  QUERY_BUILDER: "/query-builder",
+  ALERTS: "/alerts",
+} as const;
 
 // Settings sub-routes (handled internally by Settings component)
 // Use these paths for programmatic navigation
@@ -436,58 +321,58 @@ export const NAVBAR_ITEMS: NavbarItems = [
   {
     tabName: "Home",
     icon: IconHome,
-    routeTo: ROUTES.HOME.basePath,
-    path: ROUTES.HOME.path,
+    routeTo: NAVBAR_ROUTES.HOME,
+    path: NAVBAR_ROUTES.HOME,
     iconSize: 25,
   },
   {
     tabName: "User Engagement",
     icon: IconUsers,
-    routeTo: ROUTES.USER_ENGAGEMENT.basePath,
-    path: ROUTES.USER_ENGAGEMENT.path,
+    routeTo: NAVBAR_ROUTES.USER_ENGAGEMENT,
+    path: NAVBAR_ROUTES.USER_ENGAGEMENT,
     iconSize: 25,
   },
   {
     tabName: "Interactions",
     icon: IconListDetails,
-    routeTo: ROUTES.CRITICAL_INTERACTIONS.basePath,
-    path: ROUTES.CRITICAL_INTERACTIONS.path,
+    routeTo: NAVBAR_ROUTES.CRITICAL_INTERACTIONS,
+    path: NAVBAR_ROUTES.CRITICAL_INTERACTIONS,
     iconSize: 25,
   },
   {
     tabName: "App Vitals",
     icon: IconActivityHeartbeat,
-    routeTo: ROUTES.APP_VITALS.basePath,
-    path: ROUTES.APP_VITALS.path,
+    routeTo: NAVBAR_ROUTES.APP_VITALS,
+    path: NAVBAR_ROUTES.APP_VITALS,
     iconSize: 25,
   },
   {
     tabName: "Screens",
     icon: IconDeviceDesktop,
-    routeTo: ROUTES.SCREENS.basePath,
-    path: ROUTES.SCREENS.path,
+    routeTo: NAVBAR_ROUTES.SCREENS,
+    path: NAVBAR_ROUTES.SCREENS,
     iconSize: 25,
   },
   {
     tabName: "Network APIs",
     icon: IconNetwork,
-    routeTo: ROUTES.NETWORK_LIST.basePath,
-    path: ROUTES.NETWORK_LIST.path,
+    routeTo: NAVBAR_ROUTES.NETWORK_LIST,
+    path: NAVBAR_ROUTES.NETWORK_LIST,
     iconSize: 25,
   },
   
   {
     tabName: "Query Builder",
     icon: IconDatabaseSearch,
-    routeTo: ROUTES.QUERY_BUILDER.basePath,
-    path: ROUTES.QUERY_BUILDER.path,
+    routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
+    path: NAVBAR_ROUTES.QUERY_BUILDER,
     iconSize: 25,
   },
   {
     tabName: "Alerts",
     icon: IconBell,
-    routeTo: ROUTES.ALERTS.basePath,
-    path: ROUTES.ALERTS.path,
+    routeTo: NAVBAR_ROUTES.ALERTS,
+    path: NAVBAR_ROUTES.ALERTS,
     iconSize: 25,
   },
 ];
