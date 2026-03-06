@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.resources.eventdefinition;
 
 import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -118,7 +119,7 @@ public class EventDefinitionController {
         .build();
 
     return eventDefinitionService.updateEventDefinition(request)
-        .andThen(eventDefinitionService.getEventDefinitionById(id))
+        .andThen(Single.defer(() -> eventDefinitionService.getEventDefinitionById(id)))
         .map(this::toRestModel)
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -132,7 +133,7 @@ public class EventDefinitionController {
       @PathParam("id") Long id
   ) {
     return eventDefinitionService.archiveEventDefinition(id, userEmail)
-        .andThen(eventDefinitionService.getEventDefinitionById(id))
+        .andThen(Single.defer(() -> eventDefinitionService.getEventDefinitionById(id)))
         .map(this::toRestModel)
         .to(RestResponse.jaxrsRestHandler());
   }
