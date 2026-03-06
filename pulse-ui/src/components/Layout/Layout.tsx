@@ -25,9 +25,9 @@ export function Layout({ children }: LayoutProps) {
     LAYOUT_PAGE_CONSTANTS.CHECKING_CREDENTIALS,
   );
 
-  const isProjectRoute = pathname.startsWith('/projects/');
-  const isOrganizationRoute = pathname.startsWith('/organization/');
-  const shouldShowHeader = isProjectRoute || isOrganizationRoute;
+//   const isProjectRoute = pathname.startsWith('/projects/');
+//   const isOrganizationRoute = pathname.startsWith('/organization/');
+//   const shouldShowHeader = isProjectRoute || isOrganizationRoute;
 
   // Show header on all authenticated pages except login and initial onboarding
   // This includes: project routes, organization routes (/:orgId/projects, /:orgId/members
@@ -42,12 +42,8 @@ export function Layout({ children }: LayoutProps) {
       if (!token || token === "undefined") {
         setCheckingCredentials(false);
         if (!isLoginPage && !isOnboardingPage) {
-                navigate(ROUTES.LOGIN.basePath);
-              }
-      }
-      return;
-    }
-    setCheckingCredentials(false);
+          navigate(ROUTES.LOGIN.basePath);
+        }
         return;
       }
 
