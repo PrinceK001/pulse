@@ -18,6 +18,12 @@ export function EditAction({
 
   const onClick = (event: React.MouseEvent) => {
     event.stopPropagation();
+    
+    if (!projectId) {
+      console.error('[EditAction] Cannot navigate: projectId is null');
+      return;
+    }
+    
     navigate(ROUTES.PROJECT_CRITICAL_INTERACTION_FORM.basePath
       .replace(':projectId', projectId)
       .replace('/*', `/${name}`));

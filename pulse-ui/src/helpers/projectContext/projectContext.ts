@@ -6,17 +6,6 @@ export interface ProjectInfo {
 }
 
 /**
- * DEPRECATED: Project context is now managed via React Context (ProjectContext)
- * and stored in sessionStorage. These cookie-based functions are no longer used.
- * 
- * @deprecated Use ProjectContext from contexts instead
- */
-export const setProjectContext = (projectInfo: ProjectInfo) => {
-  console.warn('[projectContext] setProjectContext is deprecated. Use ProjectContext instead.');
-  // Legacy function - no longer used
-};
-
-/**
  * Get project context from sessionStorage (single source of truth).
  * Project context is managed by ProjectContext React Context.
  */
@@ -43,15 +32,4 @@ export const getProjectContext = (): ProjectInfo | null => {
 export const getProjectIdFromPath = (pathname: string): string | null => {
   const match = pathname.match(/^\/projects\/([^/]+)/);
   return match ? match[1] : null;
-};
-
-/**
- * DEPRECATED: Project context is now managed via React Context (ProjectContext)
- * and stored in sessionStorage.
- * 
- * @deprecated Use ProjectContext.clearProject() instead
- */
-export const clearProjectContext = () => {
-  console.warn('[projectContext] clearProjectContext is deprecated. Use ProjectContext.clearProject() instead.');
-  // Legacy function - no longer used
 };

@@ -15,6 +15,10 @@ export const setCookiesAfterAuthentication = (
   options?: SetCookiesAfterAuthOptions,
 ) => {
   // User info
+  // USER_ID: Used for frontend UI logic only (not for authentication)
+  // - Shows "(You)" label next to current user in member lists
+  // - Prevents users from removing themselves or changing their own role
+  // - Backend gets userId from JWT token in Authorization header
   setCookies(COOKIES_KEY.USER_ID, loginResponse.userId);
   setCookies(COOKIES_KEY.USER_EMAIL, loginResponse.email);
   setCookies(COOKIES_KEY.USER_NAME, loginResponse.name);
