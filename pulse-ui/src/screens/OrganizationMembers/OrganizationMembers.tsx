@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Container, Title, Table, Button, Group, Text, Modal, TextInput, Select, Badge, ActionIcon, Loader } from '@mantine/core';
-import { IconUserPlus, IconTrash, IconCheck, IconX, IconEdit } from '@tabler/icons-react';
+import { Box, Table, Button, Group, Text, Modal, TextInput, Select, Badge, ActionIcon, Loader, Stack } from '@mantine/core';
+import { IconUserPlus, IconTrash, IconCheck, IconX, IconEdit, IconUsers } from '@tabler/icons-react';
 import { useTenantContext } from '../../contexts';
 import { usePermissions } from '../../hooks';
 import { showNotification } from '../../helpers/showNotification';
@@ -8,6 +8,7 @@ import { API_BASE_URL, COOKIES_KEY } from '../../constants';
 import { makeRequest } from '../../helpers/makeRequest';
 import { getCookies } from '../../helpers/cookies';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
+import classes from './OrganizationMembers.module.css';
 
 interface Member {
   userId: string;
@@ -220,194 +221,204 @@ export function OrganizationMembers() {
 
   if (loading) {
     return (
-      <Container size="xl">
-        <Loader size="lg" />
-        <Text mt="md">Loading members...</Text>
-      </Container>
+      <Box className={classes.pageContainer}>
+        <Box className={classes.pageHeader}>
+          <Box className={classes.titleSection}>
+            <Text className={classes.pageTitle}>Team Members</Text>
+            <Text className={classes.pageSubtitle}>Manage your organization's team members</Text>
+          </Box>
+        </Box>
+        <Box className={classes.contentTable}>
+          <Box className={classes.tableHeader}>
+            <Box className={classes.tableHeaderContent}>
+              <IconUsers size={18} color="#0ba09a" />
+              <Text className={classes.tableHeaderTitle}>Organization Members</Text>
+            </Box>
+          </Box>
+          <Box className={classes.tableWrapper} style={{ textAlign: 'center' }}>
+            <Loader size="lg" />
+            <Text c="dimmed" mt="md">Loading team members...</Text>
+          </Box>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <Container size="xl">
-      <Group justify="space-between" mb="xl">
-        <div>
-          <Title order={1}>Team Members</Title>
-          <Text c="dimmed" size="sm">
-            Manage your organization's team members
-          </Text>
-        </div>
-        {canInviteTenantMembers && (
-          <Button
-            leftSection={<IconUserPlus size={16} />}
-            onClick={() => setInviteModalOpen(true)}
-            variant="gradient"
-            gradient={{ from: '#0ec9c2', to: '#0ba09a' }}
-          >
-            Invite Member
-          </Button>
-        )}
-      </Group>
-      
-      {members.length === 0 ? (
-        <Text ta="center" c="dimmed" py="xl">
-          No members yet. {canInviteTenantMembers && 'Invite your first team member to get started.'}
-        </Text>
-      ) : (
-        <Table striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Email</Table.Th>
-              <Table.Th>Role</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Last Login</Table.Th>
-              {canRemoveTenantMembers && <Table.Th>Actions</Table.Th>}
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {members.map((member) => {
-              const isCurrentUser = member.userId === currentUserId;
-              return (
-                <Table.Tr 
-                  key={member.userId}
-                  style={{ backgroundColor: isCurrentUser ? '#f8f9fa' : undefined }}
-                >
-                  <Table.Td>
-                    {member.name}
-                    {isCurrentUser && <Text span c="dimmed" size="xs" ml="xs">(You)</Text>}
-                  </Table.Td>
-                  <Table.Td>{member.email}</Table.Td>
-                  <Table.Td>
-                    {editingRoleUserId === member.userId && canUpdateTenantRoles ? (
-                      <Group gap="xs">
-                        <Select
-                          size="xs"
-                          value={newRole}
-                          onChange={(val) => setNewRole(val || member.role)}
-                          data={[
-                            { value: 'admin', label: 'Admin - Can manage members and projects' },
-                            { value: 'member', label: 'Member - Can view and access projects' },
-                          ]}
-                          style={{ width: 200 }}
-                          disabled={updatingRole || isCurrentUser}
-                        />
-                        <ActionIcon 
-                          size="sm" 
-                          color="teal" 
-                          onClick={() => handleRoleUpdate(member.userId, member.role, member.name)}
-                          loading={updatingRole}
-                          disabled={updatingRole || isCurrentUser}
-                        >
-                          <IconCheck size={14} />
-                        </ActionIcon>
-                        <ActionIcon 
-                          size="sm" 
-                          color="gray" 
-                          onClick={() => setEditingRoleUserId(null)}
-                          disabled={updatingRole}
-                        >
-                          <IconX size={14} />
-                        </ActionIcon>
-                      </Group>
-                    ) : (
-                      <Group gap="xs">
-                        <Badge 
-                          color={getRoleBadgeColor(member.role)} 
-                          variant="light"
-                          title={isCurrentUser ? "You cannot change your own role" : undefined}
-                        >
-                          {member.role}
-                        </Badge>
-                        {canUpdateTenantRoles && !isCurrentUser && (
-                          <ActionIcon
+    <Box className={classes.pageContainer}>
+      {/* Page Header */}
+      <Box className={classes.pageHeader}>
+        <Box className={classes.headerGroup}>
+          <Box className={classes.titleSection}>
+            <Text className={classes.pageTitle}>Team Members</Text>
+            <Text className={classes.pageSubtitle}>Manage your organization's team members</Text>
+          </Box>
+          {canInviteTenantMembers && (
+            <Button
+              leftSection={<IconUserPlus size={16} />}
+              onClick={() => setInviteModalOpen(true)}
+              variant="filled"
+              color="teal"
+            >
+              Invite Member
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      {/* Members Table */}
+      <Box className={classes.contentTable}>
+        <Box className={classes.tableHeader}>
+          <Box className={classes.tableHeaderContent}>
+            <IconUsers size={18} color="#0ba09a" />
+            <Text className={classes.tableHeaderTitle}>Organization Members</Text>
+            <Badge size="sm" variant="light" color="teal" ml="auto">
+              {members.length} member{members.length !== 1 ? 's' : ''}
+            </Badge>
+          </Box>
+        </Box>
+        
+        {members.length > 0 ? (
+          <Box className={classes.tableWrapper}>
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Name</Table.Th>
+                  <Table.Th>Email</Table.Th>
+                  <Table.Th>Role</Table.Th>
+                  <Table.Th>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {members.map((member) => {
+                  const isCurrentUser = member.userId === currentUserId;
+                  return (
+                    <Table.Tr 
+                      key={member.userId}
+                      style={{ backgroundColor: isCurrentUser ? '#f8f9fa' : undefined }}
+                    >
+                      <Table.Td>
+                        {member.name}
+                        {isCurrentUser && <Text span c="dimmed" size="xs" ml="xs">(You)</Text>}
+                      </Table.Td>
+                      <Table.Td>{member.email}</Table.Td>
+                      <Table.Td>
+                        {editingRoleUserId === member.userId && canUpdateTenantRoles ? (
+                          <Group gap="xs">
+                            <Select
+                              size="xs"
+                              value={newRole}
+                              onChange={(val) => setNewRole(val || member.role)}
+                              data={[
+                                { value: 'admin', label: 'Admin' },
+                                { value: 'member', label: 'Member' },
+                              ]}
+                              style={{ width: 120 }}
+                              disabled={updatingRole || isCurrentUser}
+                            />
+                            <ActionIcon 
+                              size="sm" 
+                              color="teal" 
+                              onClick={() => handleRoleUpdate(member.userId, member.role, member.name)}
+                              loading={updatingRole}
+                              disabled={updatingRole || isCurrentUser}
+                            >
+                              <IconCheck size={14} />
+                            </ActionIcon>
+                            <ActionIcon 
+                              size="sm" 
+                              color="gray" 
+                              onClick={() => setEditingRoleUserId(null)}
+                              disabled={updatingRole}
+                            >
+                              <IconX size={14} />
+                            </ActionIcon>
+                          </Group>
+                        ) : (
+                          <Group gap="xs">
+                            <Badge 
+                              color={getRoleBadgeColor(member.role)} 
+                              variant="light"
+                              title={isCurrentUser ? "You cannot change your own role" : undefined}
+                            >
+                              {member.role}
+                            </Badge>
+                            {canUpdateTenantRoles && !isCurrentUser && (
+                              <ActionIcon
+                                size="xs"
+                                variant="subtle"
+                                onClick={() => {
+                                  setEditingRoleUserId(member.userId);
+                                  setNewRole(member.role);
+                                }}
+                              >
+                                <IconEdit size={12} />
+                              </ActionIcon>
+                            )}
+                          </Group>
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        {canRemoveTenantMembers && !isCurrentUser && (
+                          <Button
                             size="xs"
                             variant="subtle"
-                            onClick={() => {
-                              setEditingRoleUserId(member.userId);
-                              setNewRole(member.role);
-                            }}
+                            color="red"
+                            leftSection={<IconTrash size={14} />}
+                            onClick={() => handleRemoveMember(member.userId, member.name)}
+                            loading={removingUserId === member.userId}
+                            disabled={removingUserId === member.userId}
                           >
-                            <IconEdit size={12} />
-                          </ActionIcon>
+                            Remove
+                          </Button>
                         )}
-                      </Group>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={member.status === 'active' ? 'teal' : 'gray'} variant="light">
-                      {member.status}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    {member.lastLoginAt 
-                      ? new Date(member.lastLoginAt).toLocaleDateString()
-                      : 'Never'}
-                  </Table.Td>
-                  {canRemoveTenantMembers && (
-                    <Table.Td>
-                      {!isCurrentUser && (
-                        <ActionIcon
-                          color="red"
-                          variant="subtle"
-                          onClick={() => handleRemoveMember(member.userId, member.name)}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      )}
-                    </Table.Td>
-                  )}
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
-      )}
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          </Box>
+        ) : (
+          <Box className={classes.emptyState}>
+            <Text c="dimmed" ta="center" py="xl">
+              No members yet. {canInviteTenantMembers && 'Invite your first team member to get started.'}
+            </Text>
+          </Box>
+        )}
+
+      </Box>
 
       {/* Invite Member Modal */}
       <Modal
         opened={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
         title="Invite Team Member"
-        size="md"
       >
-        <TextInput
-          label="Email Address"
-          placeholder="member@example.com"
-          value={inviteEmail}
-          onChange={(e) => setInviteEmail(e.target.value)}
-          required
-          mb="md"
-        />
-        <Select
-          label="Role"
-          value={inviteRole}
-          onChange={(value) => setInviteRole(value || 'member')}
-          data={[
-            { value: 'member', label: 'Member - Can view and access projects' },
-            { value: 'admin', label: 'Admin - Can manage members and projects' },
-          ]}
-          required
-          mb="lg"
-        />
-        <Group justify="flex-end">
-          <Button
-            variant="subtle"
-            color="gray"
-            onClick={() => setInviteModalOpen(false)}
-            disabled={inviting}
-          >
-            Cancel
-          </Button>
+        <Stack gap="md">
+          <TextInput
+            label="Email Address"
+            placeholder="member@example.com"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+          />
+          <Select
+            label="Role"
+            value={inviteRole}
+            onChange={(value) => setInviteRole(value || 'member')}
+            data={[
+              { value: 'admin', label: 'Admin' },
+              { value: 'member', label: 'Member' },
+            ]}
+          />
           <Button
             onClick={handleInviteMember}
             loading={inviting}
             disabled={inviting || !inviteEmail.trim()}
-            variant="gradient"
-            gradient={{ from: '#0ec9c2', to: '#0ba09a' }}
           >
             Send Invitation
           </Button>
-        </Group>
+        </Stack>
       </Modal>
 
       <ConfirmationModal
@@ -422,6 +433,6 @@ export function OrganizationMembers() {
         loading={removingUserId !== null}
         severity="warning"
       />
-    </Container>
+    </Box>
   );
 }
