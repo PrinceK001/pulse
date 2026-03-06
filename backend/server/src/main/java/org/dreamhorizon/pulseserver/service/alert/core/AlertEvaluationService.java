@@ -986,6 +986,7 @@ public class AlertEvaluationService {
   }
 
   private boolean shouldCreateIncident(AlertState alertState, AlertEvaluationResponseDto responseDto, AlertState currentScopeState) {
+    log.info("AlertState {}, CurrentScope State: {}", alertState, currentScopeState);
     if (isAlertSnoozed(responseDto.getAlert())) {
       return false;
     }
