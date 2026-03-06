@@ -962,9 +962,9 @@ public class AlertEvaluationService {
       String scopeName,
       AlertState currentScopeState
   ) {
-//    if (!shouldCreateIncident(alertState, responseDto, currentScopeState)) {
-//      return;
-//    }
+    if (!shouldCreateIncident(alertState, responseDto, currentScopeState)) {
+      return;
+    }
 
     String message = buildNotificationMessage(responseDto, scopeName, metricReading);
     Integer notificationChannelId = responseDto.getAlert().getNotificationChannelId();
