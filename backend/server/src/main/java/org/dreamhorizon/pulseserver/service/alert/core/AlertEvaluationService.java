@@ -878,7 +878,6 @@ public class AlertEvaluationService {
         .doOnSuccess(responseDtoJson -> {
           JsonObject message = new JsonObject(responseDtoJson);
           vertx.eventBus().send(Constants.EVENT_BUS_RESPONSE_UPDATE_ALERT_EVALUATION_LOGS_CHANNEL, message);
-          log.info("Sending message to eventbus: {}", message);
           vertx.eventBus().send(Constants.EVENT_BUS_RESPONSE_UPDATE_ALERT_STATE_CHANNEL, message);
         })
         .doOnError(error -> log.error("Error converting response DTO to hashmap", error))
@@ -963,13 +962,11 @@ public class AlertEvaluationService {
 
     String message = buildNotificationMessage(responseDto, scopeName, metricReading);
     Integer notificationChannelId = responseDto.getAlert().getNotificationChannelId();
-    log.info("Fetching notification channel Id for alert {}", responseDto.getAlert().getId());
 
     alertsDao.getNotificationChannelById(notificationChannelId)
         .subscribe(
             channelInfo -> {
               if (channelInfo != null && Boolean.TRUE.equals(channelInfo.getIsActive())) {
-                log.info("Sending notification for alert {}", responseDto.getAlert().getId());
                 sendNotification(message, channelInfo.getType(), channelInfo.getConfig());
               } else {
                 log.error("Notification channel not found or inactive for channel ID: {}", notificationChannelId);
@@ -981,7 +978,6 @@ public class AlertEvaluationService {
   }
 
   private boolean shouldCreateIncident(AlertState alertState, AlertEvaluationResponseDto responseDto, AlertState currentScopeState) {
-    log.info("AlertState {}, CurrentScope State: {}", alertState, currentScopeState);
     if (isAlertSnoozed(responseDto.getAlert())) {
       return false;
     }
@@ -1074,7 +1070,6 @@ public class AlertEvaluationService {
     }
 
     if ("slack".equalsIgnoreCase(type)) {
-      log.info("Sending slack notification");
       JsonObject payload = new JsonObject().put("text", message);
       WebClient.create(vertx)
           .postAbs(config)
