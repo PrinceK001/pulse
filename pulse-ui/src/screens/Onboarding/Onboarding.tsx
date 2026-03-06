@@ -129,7 +129,7 @@ export function Onboarding() {
       sessionStorage.removeItem('firebase_token');
       
       // Navigate to project-scoped onboarding success page
-      navigate(`/projects/${data.projectId}/onboarding`, {
+      navigate(ROUTES.PROJECT_ONBOARDING_SUCCESS.basePath.replace(':projectId', data.projectId), {
         state: {
           projectId: data.projectId,
           projectName: data.projectName,

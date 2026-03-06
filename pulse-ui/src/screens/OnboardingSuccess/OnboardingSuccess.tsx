@@ -29,7 +29,7 @@ import { showNotification } from '../../helpers/showNotification';
 import { getProjectApiKey } from '../../helpers/getProjectApiKey';
 import { useProjectContext } from '../../contexts';
 import { makeRequest } from '../../helpers/makeRequest';
-import { API_BASE_URL } from '../../constants';
+import { API_BASE_URL, ROUTES } from '../../constants';
 import classes from './OnboardingSuccess.module.css';
 
 export function OnboardingSuccess() {
@@ -84,7 +84,7 @@ export function OnboardingSuccess() {
           setProjectName(contextProjectName);
         } else if (!projectName) {
           // If context doesn't have the project name and it's not in state, redirect to project dashboard
-          navigate(`/projects/${projectId}`, { replace: true });
+          navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId), { replace: true });
           return;
         }
 
@@ -94,7 +94,7 @@ export function OnboardingSuccess() {
       } catch (error) {
         console.error('[OnboardingSuccess] Error fetching project details:', error);
         // On error, redirect to project dashboard
-        navigate(`/projects/${projectId}`, { replace: true });
+        navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId), { replace: true });
       } finally {
         setLoading(false);
       }
@@ -151,7 +151,8 @@ export function OnboardingSuccess() {
   };
 
   const handleGoToDashboard = () => {
-    navigate(`/projects/${projectId}`);
+    if (!projectId) return;
+    navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId));
   };
 
   const maskApiKey = (key: string) => {

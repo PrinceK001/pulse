@@ -21,6 +21,7 @@ import {
 } from "@tabler/icons-react";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { TIERS } from "../../constants/Tiers";
+import { ROUTES } from "../../constants";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
@@ -76,7 +77,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
   
   // Auto-navigate after state settles
   setTimeout(() => {
-    navigate(`/projects/${newProjectId}`);
+    navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', newProjectId));
     setIsSwitchingProject(false);
     setSelectedProjectForSwitch(null);
   }, 300);

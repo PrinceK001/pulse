@@ -75,7 +75,7 @@ export function Navbar({
   function onItemClick(routeTo: string) {
     // Transform flat routes to project-scoped routes
     if (contextProjectId && !routeTo.startsWith('/organization') && !routeTo.startsWith('/projects/')) {
-      const projectScopedRoute = `/projects/${contextProjectId}${routeTo}`;
+      const projectScopedRoute = `${ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId)}${routeTo}`;
       navigate(projectScopedRoute);
     } else {
       navigate(routeTo);
@@ -101,9 +101,9 @@ export function Navbar({
 
   const onLogoClick = () => {
     if (contextProjectId) {
-      navigate(`/projects/${contextProjectId}`);
+      navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId));
     } else if (tenantId) {
-      navigate(`/${tenantId}/projects`);
+      navigate(ROUTES.ORGANIZATION_PROJECTS.basePath.replace(':organizationId', tenantId));
     }
   };
 
@@ -332,7 +332,11 @@ export function Navbar({
                   {permissions.canManageProjectSettings && (
                     <Box
                       className={classes.menuItem}
-                      onClick={() => navigate(`/projects/${contextProjectId}/settings`)}
+                      onClick={() => {
+                        if (contextProjectId) {
+                          navigate(`${ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId)}${ROUTES.PROJECT_SETTINGS.basePath}`);
+                        }
+                      }}
                       style={{ cursor: 'pointer' }}
                     >
                       <Group gap="sm">
