@@ -922,9 +922,12 @@ public class AlertEvaluationService {
     }
 
     if (responseDto.getScopeId() != null && responseDto.getState() != null) {
+      log.info("Updating scope for alert {}", responseDto.getAlert().getId());
       updateScopeState(responseDto.getScopeId(), responseDto.getState())
           .doOnError(error -> logErrorWhileUpdatingScopeState(error, responseDto))
           .subscribe();
+
+      log.info("Fetching alert scopes for alert {}", responseDto.getAlert().getId());
 
       alertsDao.getAlertScopesForEvaluation(responseDto.getAlert().getId())
           .flatMap(scopes -> {
@@ -935,9 +938,10 @@ public class AlertEvaluationService {
                 .orElse("Unknown Scope");
 
             Float metricReading = extractMetricReading(responseDto.getEvaluationResult());
-
+            log.info("Extracted Metric Reading");
             return alertsDao.getScopeState(responseDto.getScopeId())
                 .map(currentState -> {
+                  log.info("Creating incident now for alert {}", responseDto.getAlert().getId());
                   createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, currentState);
                   return true;
                 });
@@ -964,11 +968,13 @@ public class AlertEvaluationService {
 
     String message = buildNotificationMessage(responseDto, scopeName, metricReading);
     Integer notificationChannelId = responseDto.getAlert().getNotificationChannelId();
+    log.info("Fetching notification channel Id for alert {}", responseDto.getAlert().getId());
 
     alertsDao.getNotificationChannelById(notificationChannelId)
         .subscribe(
             channelInfo -> {
               if (channelInfo != null && Boolean.TRUE.equals(channelInfo.getIsActive())) {
+                log.info("Sending notification for alert {}", responseDto.getAlert().getId());
                 sendNotification(message, channelInfo.getType(), channelInfo.getConfig());
               } else {
                 log.error("Notification channel not found or inactive for channel ID: {}", notificationChannelId);
@@ -1072,6 +1078,7 @@ public class AlertEvaluationService {
     }
 
     if ("slack".equalsIgnoreCase(type)) {
+      log.info("Sending slack notification");
       JsonObject payload = new JsonObject().put("text", message);
       WebClient.create(vertx)
           .postAbs(config)
