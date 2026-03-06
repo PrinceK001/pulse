@@ -34,18 +34,9 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
       location.pathname.startsWith(path)
     );
 
-    console.log('[ProjectGuard] Check:', {
-      pathname: location.pathname,
-      contextProjectId,
-      isExcludedPath,
-      isOrganizationPath,
-      isOnboardingPath,
-      projectsCount: projects.length
-    });
 
     // Skip guard for onboarding pages
     if (isOnboardingPath) {
-      console.log('[ProjectGuard] Skipping guard - on onboarding page');
       return;
     }
 
@@ -57,18 +48,13 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
     if (urlProjectId && !isExcludedPath) {
       // Sync URL project ID with context if different
       if (!contextProjectId || contextProjectId !== urlProjectId) {
-        console.log(`[ProjectGuard] Syncing project context from URL: ${urlProjectId}`);
         
         // Check if user has access to this project
         const hasAccess = projects.some(p => p.projectId === urlProjectId);
-        console.log(`[ProjectGuard] Access check: hasAccess=${hasAccess}, projectsInContext=${projects.length}`);
         
         if (hasAccess) {
-          console.log('[ProjectGuard] User has access, switching to project');
           switchProject(urlProjectId);
         } else if (projects.length > 0 && tenantId) {
-          // Project not found or no access - redirect to organization projects
-          console.log('[ProjectGuard] No access to project, redirecting to organization projects');
           navigate(`/${tenantId}/projects`);
         } else {
           console.log('[ProjectGuard] Projects not loaded yet, waiting...');
@@ -77,7 +63,6 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
       }
     } else if (!contextProjectId && !isExcludedPath && !urlProjectId && !isOrganizationPath) {
       // No project context and not on excluded route, project-scoped route, or organization route
-      console.log('[ProjectGuard] No project context, redirecting to organization projects');
       if (tenantId) {
         navigate(`/${tenantId}/projects`);
       }

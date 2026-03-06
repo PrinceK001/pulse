@@ -36,6 +36,18 @@ export function DeleteAction({
   const { projectId } = useProjectContext();
 
   const navigateToCriticalInteractionListingPage = () => {
+    // Only navigate if projectId is available
+    if (!projectId) {
+      console.error('[DeleteAction] Cannot navigate: projectId is null');
+      showNotification(
+        COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
+        'Project context is missing. Please reload the page.',
+        <IconSquareRoundedX />,
+        errorNotificationColor,
+      );
+      return;
+    }
+    
     setTimeout(() => {
       navigate(`/projects/${projectId}/interactions`);
     }, 3000);

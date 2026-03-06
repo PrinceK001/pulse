@@ -68,41 +68,24 @@ export function Login() {
   };
 
   const onFirebaseGoogleLogin = async () => {
-    console.log("[Login] Starting Firebase Google login...");
     setIsFetchingTokensFromServer(true);
     logEvent("User logged in", ROUTES.LOGIN.key);
     
     try {
-      console.log("[Login] Step 1: Getting Firebase Auth instance...");
       const auth = getFirebaseAuth();
-      console.log("[Login] ✅ Firebase Auth instance obtained");
       
-      console.log("[Login] Step 2: Creating Google Auth Provider...");
+
       const provider = new GoogleAuthProvider();
-      console.log("[Login] ✅ Google Auth Provider created");
       
-      console.log("[Login] Step 3: Initiating sign-in popup...");
       const result = await signInWithPopup(auth, provider);
-      console.log("[Login] ✅ Sign-in popup completed successfully");
-      console.log("[Login] User email:", result.user.email);
-      
-      console.log("[Login] Step 4: Getting Firebase ID token...");
+
       const firebaseToken = await result.user.getIdToken();
-      console.log("[Login] ✅ Firebase ID token obtained (length:", firebaseToken.length, ")");
-      
-      console.log("[Login] Step 5: Calling backend /v1/auth/login...");
       const { data, error } = await login(firebaseToken);
       
       if (data) {
-        console.log("[Login] ✅ Backend login successful");
-        console.log("[Login] User data:", {
-          userId: data.userId,
-          email: data.email,
-          needsOnboarding: data.needsOnboarding,
-        });
+
         
         if (data.needsOnboarding) {
-          console.log("[Login] User needs onboarding, storing temp data and redirecting...");
           sessionStorage.setItem('onboarding_user', JSON.stringify({
             userId: data.userId,
             email: data.email,
@@ -111,9 +94,7 @@ export function Login() {
           // Store the Firebase token for onboarding API call
           sessionStorage.setItem('firebase_token', firebaseToken);
           navigate(ROUTES.ONBOARDING.basePath);
-        } else {
-          console.log("[Login] User authenticated, setting tenant context and redirecting...");
-          // Set auth tokens in cookies
+        } else {          // Set auth tokens in cookies
           await setCookiesAfterAuthentication(data);
           
           // Set tenant context
@@ -136,15 +117,12 @@ export function Login() {
         showErrorToast(error.message);
       }
     } catch (error: any) {
-      console.error("[Login] ❌ Firebase login error:", error);
       console.error("[Login] Error code:", error.code);
       console.error("[Login] Error message:", error.message);
-      console.error("[Login] Full error:", error);
       showErrorToast(error.message || COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE);
     }
     
     setIsFetchingTokensFromServer(false);
-    console.log("[Login] Login flow completed");
   };
 
   const onDummyLogin = async () => {
