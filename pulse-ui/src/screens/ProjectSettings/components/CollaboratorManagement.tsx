@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Stack, Title, Text, Table, Button, Group, Modal, TextInput, Select, Badge, Loader, ActionIcon } from '@mantine/core';
-import { IconUserPlus, IconTrash, IconCheck, IconX, IconEdit } from '@tabler/icons-react';
+import { Stack, Text, Table, Button, Group, Modal, TextInput, Select, Badge, Loader, ActionIcon, Box } from '@mantine/core';
+import { IconUserPlus, IconTrash, IconCheck, IconX, IconEdit, IconUsers } from '@tabler/icons-react';
 import { makeRequest } from '../../../helpers/makeRequest';
 import { API_BASE_URL, COOKIES_KEY } from '../../../constants';
 import { usePermissions } from '../../../hooks';
@@ -8,6 +8,7 @@ import { useProjectContext } from '../../../contexts';
 import { showNotification } from '../../../helpers/showNotification';
 import { getCookies } from '../../../helpers/cookies';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
+import classes from './CollaboratorManagement.module.css';
 
 interface Collaborator {
   userId: string;
@@ -161,43 +162,73 @@ export function CollaboratorManagement() {
 
   if (loading) {
     return (
-      <Stack align="center" gap="md" py="xl">
-        <Loader size="lg" />
-        <Text c="dimmed">Loading team members...</Text>
-      </Stack>
+      <Box className={classes.pageContainer}>
+        <Box className={classes.pageHeader}>
+          <Box className={classes.titleSection}>
+            <Text className={classes.pageTitle}>Team Members</Text>
+          </Box>
+        </Box>
+        <Box className={classes.contentTable}>
+          <Box className={classes.tableHeader}>
+            <Box className={classes.tableHeaderContent}>
+              <IconUsers size={18} color="#0ba09a" />
+              <Text className={classes.tableHeaderTitle}>Members</Text>
+            </Box>
+          </Box>
+          <Box className={classes.tableWrapper} style={{ textAlign: 'center' }}>
+            <Loader size="lg" />
+            <Text c="dimmed" mt="md">Loading team members...</Text>
+          </Box>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <Stack gap="lg" p="md">
-      <Group justify="space-between">
-        <div>
-          <Title order={2}>Team Members</Title>
-          <Text c="dimmed" size="sm">
-            Manage who has access to {projectName}
-          </Text>
-        </div>
-        {canInviteProjectMembers && (
-          <Button
-            leftSection={<IconUserPlus size={16} />}
-            onClick={() => setInviteModalOpen(true)}
-          >
-            Invite Member
-          </Button>
-        )}
-      </Group>
+    <Box className={classes.pageContainer}>
+      {/* Page Header */}
+      <Box className={classes.pageHeader}>
+        <Box className={classes.headerGroup}>
+          <Box className={classes.titleSection}>
+            <Text className={classes.pageTitle}>Manage Team </Text>
+          </Box>
+          {canInviteProjectMembers && (
+            <Button
+              leftSection={<IconUserPlus size={16} />}
+              onClick={() => setInviteModalOpen(true)}
+              variant="filled"
+              color="teal"
+            >
+              Invite Member
+            </Button>
+          )}
+        </Box>
+      </Box>
 
-      {collaborators.length > 0 ? (
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Email</Table.Th>
-              <Table.Th>Role</Table.Th>
-              <Table.Th>Actions</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
+      {/* Members Table */}
+      <Box className={classes.contentTable}>
+        <Box className={classes.tableHeader}>
+          <Box className={classes.tableHeaderContent}>
+            <IconUsers size={18} color="#0ba09a" />
+            <Text className={classes.tableHeaderTitle}>Team Members</Text>
+            <Badge size="sm" variant="light" color="teal" ml="auto">
+              {collaborators.length} member{collaborators.length !== 1 ? 's' : ''}
+            </Badge>
+          </Box>
+        </Box>
+        
+        {collaborators.length > 0 ? (
+          <Box className={classes.tableWrapper}>
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Name</Table.Th>
+                  <Table.Th>Email</Table.Th>
+                  <Table.Th>Role</Table.Th>
+                  <Table.Th>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
             {collaborators.map((collab) => {
               const isCurrentUser = collab.userId === currentUserId;
               return (
@@ -277,11 +308,15 @@ export function CollaboratorManagement() {
             })}
           </Table.Tbody>
         </Table>
-      ) : (
-        <Text c="dimmed" ta="center" py="xl">
-          No collaborators yet. Invite team members to get started.
-        </Text>
-      )}
+          </Box>
+        ) : (
+          <Box className={classes.emptyState}>
+            <Text c="dimmed" ta="center" py="xl">
+              No collaborators yet. Invite team members to get started.
+            </Text>
+          </Box>
+        )}
+      </Box>
 
       <Modal
         opened={inviteModalOpen}
@@ -327,6 +362,6 @@ export function CollaboratorManagement() {
         loading={removingUserId !== null}
         severity="warning"
       />
-    </Stack>
+    </Box>
   );
 }
