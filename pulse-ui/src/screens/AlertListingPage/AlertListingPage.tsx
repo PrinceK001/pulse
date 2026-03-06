@@ -273,7 +273,7 @@ export function AlertListingPage({
     if (isInteractionDetailsFlow) {
       onCreateAlert?.();
     } else {
-      navigate(`/projects/${projectId}/configure-alert`);
+      navigate(ROUTES.PROJECT_ALERTS_FORM.basePath.replace(':projectId', projectId));
     }
   };
 

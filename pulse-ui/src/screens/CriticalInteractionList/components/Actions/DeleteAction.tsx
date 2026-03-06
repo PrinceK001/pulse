@@ -14,6 +14,7 @@ import {
   COOKIES_KEY,
   COMMON_CONSTANTS,
   TOOLTIP_LABLES,
+  NAVBAR_ROUTES,
 } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
 import { Loader, Tooltip } from "@mantine/core";
@@ -49,7 +50,7 @@ export function DeleteAction({
     }
     
     setTimeout(() => {
-      navigate(`/projects/${projectId}/interactions`);
+      navigate(`/projects/${projectId}${NAVBAR_ROUTES.CRITICAL_INTERACTIONS}`);
     }, 3000);
   };
 

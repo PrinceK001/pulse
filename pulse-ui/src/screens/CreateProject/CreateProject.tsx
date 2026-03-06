@@ -15,7 +15,7 @@ import {
 import { IconFolder, IconArrowLeft } from '@tabler/icons-react';
 import { useTenantContext, useProjectContext } from '../../contexts';
 import { showNotification } from '../../helpers/showNotification';
-import { API_BASE_URL } from '../../constants';
+import { API_BASE_URL, ROUTES } from '../../constants';
 import { makeRequest } from '../../helpers/makeRequest';
 
 interface CreateProjectRequest {
@@ -153,7 +153,7 @@ export function CreateProject() {
 
   const handleBack = () => {
     if (tenantId) {
-      navigate(`/${tenantId}/projects`);
+      navigate(ROUTES.ORGANIZATION_PROJECTS.basePath.replace(':organizationId', tenantId));
     }
   };
 
