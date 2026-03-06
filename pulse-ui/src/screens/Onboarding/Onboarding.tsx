@@ -18,6 +18,8 @@ import { showNotification } from "../../helpers/showNotification";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { useMantineTheme } from "@mantine/core";
 import { useTenantContext, useProjectContext } from "../../contexts";
+import { useGetTncStatus } from "../../hooks/useGetTncStatus";
+import { TncAcceptance } from "../TncAcceptance";
 
 interface OnboardingUserData {
   userId: string;

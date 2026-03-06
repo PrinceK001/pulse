@@ -883,6 +883,26 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
+  GET_TNC_STATUS: {
+    key: "GET_TNC_STATUS",
+    apiPath: `/v1/tnc/status`,
+    method: API_METHODS.GET,
+  },
+  GET_TNC_DOCUMENTS: {
+    key: "GET_TNC_DOCUMENTS",
+    apiPath: `/v1/tnc/documents`,
+    method: API_METHODS.GET,
+  },
+  ACCEPT_TNC: {
+    key: "ACCEPT_TNC",
+    apiPath: `/v1/tnc/accept`,
+    method: API_METHODS.POST,
+  },
+  GET_TNC_HISTORY: {
+    key: "GET_TNC_HISTORY",
+    apiPath: `/v1/tnc/history`,
+    method: API_METHODS.GET,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {

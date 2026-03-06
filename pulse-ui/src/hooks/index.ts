@@ -79,5 +79,9 @@ export { useUpdateInteraction } from './useUpdateInteraction';
 export * from './useUpdateNotificationChannel';
 export * from './useValidateUniversalQuery';
 
+// TnC hooks
+export * from './useGetTncStatus';
+export * from './useAcceptTnc';
+
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from './hooks.interface';

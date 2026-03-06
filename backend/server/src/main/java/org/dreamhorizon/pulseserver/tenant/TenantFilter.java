@@ -46,6 +46,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String LOGS_INGESTION_PATH = "v1/logs";
+  private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
 
   private JwtService jwtService;
 
@@ -95,7 +96,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
         || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
         || normalizedPath.startsWith(INTERNAL_PATH_PREFIX)  // Internal service-to-service endpoints
         || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
-        || normalizedPath.startsWith(LOGS_INGESTION_PATH);
+        || normalizedPath.startsWith(LOGS_INGESTION_PATH)
+        || normalizedPath.startsWith(TNC_DOCUMENTS_PATH);
   }
 
   @Override

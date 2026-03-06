@@ -599,6 +599,42 @@ CREATE TABLE IF NOT EXISTS clickhouse_project_credential_audit (
     INDEX idx_chaudit_created (created_at)
 );
 
+-- ============================================================================
+-- TERMS & CONDITIONS VERSIONING
+-- Stores published TnC document versions with S3 URLs
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tnc_versions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    version VARCHAR(20) NOT NULL UNIQUE,
+    tos_s3_url VARCHAR(1024) NOT NULL,
+    aup_s3_url VARCHAR(1024) NOT NULL,
+    privacy_policy_s3_url VARCHAR(1024) NOT NULL,
+    summary TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
+    published_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_tnc_active (is_active)
+);
+
+-- ============================================================================
+-- TERMS & CONDITIONS ACCEPTANCE TRACKING
+-- Tracks per-tenant acceptance of TnC versions (org-level, not project-level)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tnc_acceptances (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    tenant_id VARCHAR(64) NOT NULL,
+    tnc_version_id BIGINT NOT NULL,
+    accepted_by_email VARCHAR(255) NOT NULL,
+    accepted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    UNIQUE KEY uk_tenant_version (tenant_id, tnc_version_id),
+    INDEX idx_tnc_tenant (tenant_id),
+    CONSTRAINT fk_tnc_acc_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
+    CONSTRAINT fk_tnc_acc_version FOREIGN KEY (tnc_version_id) REFERENCES tnc_versions(id)
+);
+
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';

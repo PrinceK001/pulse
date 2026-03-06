@@ -12,20 +12,27 @@ import { LoaderWithMessage } from "../LoaderWithMessage";
 import { getCookies } from "../../helpers/cookies";
 import { ProjectGuard } from "../ProjectGuard";
 import { useTenantContext } from "../../contexts";
+import { useGetTncStatus } from "../../hooks/useGetTncStatus";
+import { TncAcceptance } from "../../screens/TncAcceptance";
 
 export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const [opened, { toggle }] = useDisclosure(false);
   const { pathname } = useLocation();
-  const { setTenantInfo, tenantId } = useTenantContext();
+  const { setTenantInfo, tenantId, userRole } = useTenantContext();
   const [checkingCredentials, setCheckingCredentials] = useState(true);
   const displayMessage = useRef<string>(
     LAYOUT_PAGE_CONSTANTS.CHECKING_CREDENTIALS,
   );
 
+//   const isProjectRoute = pathname.startsWith('/projects/');
+//   const isOrganizationRoute = pathname.startsWith('/organization/');
+//   const shouldShowHeader = isProjectRoute || isOrganizationRoute;
+
   // Show header on all authenticated pages except login and initial onboarding
-  // This includes: project routes, organization routes (/:orgId/projects, /:orgId/members)
+  // This includes: project routes, organization routes (/:orgId/projects, /:orgId/members
   const isLoginPage = pathname === ROUTES.LOGIN.path;
+  const isOnboardingPage = pathname === ROUTES.ONBOARDING.basePath;
   const isInitialOnboarding = pathname === ROUTES.ONBOARDING.basePath;
   const shouldShowHeader = !isLoginPage && !isInitialOnboarding;
 
@@ -34,7 +41,9 @@ export function Layout({ children }: LayoutProps) {
       const token = getCookies(COOKIES_KEY.ACCESS_TOKEN);
       if (!token || token === "undefined") {
         setCheckingCredentials(false);
-        navigate(ROUTES.LOGIN.basePath);
+        if (!isLoginPage && !isOnboardingPage) {
+          navigate(ROUTES.LOGIN.basePath);
+        }
         return;
       }
 
@@ -62,17 +71,37 @@ export function Layout({ children }: LayoutProps) {
 
     initializeAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathname]);
+
+  const tncEnabled = !!tenantId && userRole === 'admin' && !isLoginPage && !isOnboardingPage;
+  const { data: tncData, isLoading: tncLoading } = useGetTncStatus(tncEnabled);
 
   if (checkingCredentials) {
     return <LoaderWithMessage loadingMessage={displayMessage.current} />;
   }
 
-  if (pathname === ROUTES.LOGIN.path) {
+  if (isLoginPage) {
     return <Login />;
   }
 
   const navbarWidth = opened ? 255 : 95;
+
+  if (isOnboardingPage) {
+    return <>{children}</>;
+  }
+
+  if (tncEnabled && tncLoading) {
+    return <LoaderWithMessage loadingMessage="Checking policies..." />;
+  }
+
+  const tncStatus = tncData?.data;
+  if (tncStatus && !tncStatus.accepted) {
+    return (
+      <TncAcceptance
+        tncStatus={tncStatus}
+      />
+    );
+  }
 
   return (
     <AppShell
@@ -98,7 +127,7 @@ export function Layout({ children }: LayoutProps) {
     >
       {shouldShowHeader && <Header toggle={toggle} opened={opened} />}
       <Navbar toggle={toggle} opened={opened} />
-      <Main >
+      <Main>
         <ProjectGuard>
           {children}
         </ProjectGuard>
