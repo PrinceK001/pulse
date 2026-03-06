@@ -8,6 +8,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
@@ -19,6 +20,7 @@ import org.dreamhorizon.pulseserver.service.tenant.models.UpdateTenantRequest;
 public class TenantService {
 
   private final TenantDao tenantDao;
+  private final ClickhouseTenantConnectionPoolManager poolManager;
   private final org.dreamhorizon.pulseserver.service.OpenFgaService openFgaService;
 
   public Single<Tenant> createTenant(CreateTenantRequest request) {
@@ -94,7 +96,7 @@ public class TenantService {
   public Single<Boolean> tenantExists(String tenantId) {
     return tenantDao.tenantExists(tenantId);
   }
-  
+
   /**
    * Create tenant for a specific user during onboarding flow.
    * This method:
