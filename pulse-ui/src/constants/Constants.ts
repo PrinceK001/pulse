@@ -788,6 +788,70 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/tnc/history`,
     method: API_METHODS.GET,
   },
+  // Tenant Member Management API Routes
+  GET_TENANT_MEMBERS: {
+    key: "GET_TENANT_MEMBERS",
+    apiPath: `/v1/tenants/:tenantId/members`,
+    method: API_METHODS.GET,
+  },
+  INVITE_TENANT_MEMBER: {
+    key: "INVITE_TENANT_MEMBER",
+    apiPath: `/v1/tenants/:tenantId/members`,
+    method: API_METHODS.POST,
+  },
+  REMOVE_TENANT_MEMBER: {
+    key: "REMOVE_TENANT_MEMBER",
+    apiPath: `/v1/tenants/:tenantId/members/:userId`,
+    method: API_METHODS.DELETE,
+  },
+  UPDATE_TENANT_MEMBER_ROLE: {
+    key: "UPDATE_TENANT_MEMBER_ROLE",
+    apiPath: `/v1/tenants/:tenantId/members/:userId`,
+    method: API_METHODS.PATCH,
+  },
+  // Project Member Management API Routes
+  GET_PROJECT_MEMBERS: {
+    key: "GET_PROJECT_MEMBERS",
+    apiPath: `/v1/projects/:projectId/members`,
+    method: API_METHODS.GET,
+  },
+  INVITE_PROJECT_MEMBER: {
+    key: "INVITE_PROJECT_MEMBER",
+    apiPath: `/v1/projects/:projectId/members`,
+    method: API_METHODS.POST,
+  },
+  REMOVE_PROJECT_MEMBER: {
+    key: "REMOVE_PROJECT_MEMBER",
+    apiPath: `/v1/projects/:projectId/members/:userId`,
+    method: API_METHODS.DELETE,
+  },
+  UPDATE_PROJECT_MEMBER_ROLE: {
+    key: "UPDATE_PROJECT_MEMBER_ROLE",
+    apiPath: `/v1/projects/:projectId/members/:userId`,
+    method: API_METHODS.PATCH,
+  },
+  // Project Creation API Route
+  CREATE_PROJECT: {
+    key: "CREATE_PROJECT",
+    apiPath: `/v1/projects`,
+    method: API_METHODS.POST,
+  },
+  // Project API Key Management API Routes
+  GET_PROJECT_API_KEYS: {
+    key: "GET_PROJECT_API_KEYS",
+    apiPath: `/v1/projects/:projectId/api-keys`,
+    method: API_METHODS.GET,
+  },
+  CREATE_PROJECT_API_KEY: {
+    key: "CREATE_PROJECT_API_KEY",
+    apiPath: `/v1/projects/:projectId/api-keys`,
+    method: API_METHODS.POST,
+  },
+  REVOKE_PROJECT_API_KEY: {
+    key: "REVOKE_PROJECT_API_KEY",
+    apiPath: `/v1/projects/:projectId/api-keys/:apiKeyId`,
+    method: API_METHODS.DELETE,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {

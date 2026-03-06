@@ -1,211 +1,163 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Box, Table, Button, Group, Text, Modal, TextInput, Select, Badge, ActionIcon, Loader, Stack } from '@mantine/core';
 import { IconUserPlus, IconTrash, IconCheck, IconX, IconEdit, IconUsers } from '@tabler/icons-react';
 import { useTenantContext } from '../../contexts';
 import { usePermissions } from '../../hooks';
 import { showNotification } from '../../helpers/showNotification';
-import { API_BASE_URL, COOKIES_KEY } from '../../constants';
-import { makeRequest } from '../../helpers/makeRequest';
+import { COOKIES_KEY } from '../../constants';
+import { TENANT_ROLES, TenantRole } from '../../constants/Roles';
 import { getCookies } from '../../helpers/cookies';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
+import { ApiResponse } from '../../helpers/makeRequest';
+import { TenantMember } from '../../types/members';
+import { 
+  useTenantMembers, 
+  useInviteTenantMember, 
+  useRemoveTenantMember, 
+  useUpdateTenantMemberRole 
+} from '../../hooks';
 import classes from './OrganizationMembers.module.css';
-
-interface Member {
-  userId: string;
-  email: string;
-  name: string;
-  role: string;
-  status: string;
-  lastLoginAt?: string;
-}
-
-interface MemberListResponse {
-  members: Member[];
-  totalCount: number;
-}
 
 export function OrganizationMembers() {
   const { tenantId } = useTenantContext();
   const { canInviteTenantMembers, canRemoveTenantMembers, canUpdateTenantRoles } = usePermissions();
   
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
+  // React Query hooks
+  const { data, isLoading } = useTenantMembers(tenantId ?? '');
+  const inviteMutation = useInviteTenantMember();
+  const removeMutation = useRemoveTenantMember();
+  const updateRoleMutation = useUpdateTenantMemberRole();
+
+  const members = data?.data?.members ?? [];
+  const loading = isLoading;
+  const inviting = inviteMutation.isPending;
+  const updatingRole = updateRoleMutation.isPending;
+  
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<string>('member');
-  const [inviting, setInviting] = useState(false);
+  const [inviteRole, setInviteRole] = useState<TenantRole>(TENANT_ROLES.MEMBER);
   const [editingRoleUserId, setEditingRoleUserId] = useState<string | null>(null);
-  const [newRole, setNewRole] = useState<string>('');
-  const [updatingRole, setUpdatingRole] = useState(false);
+  const [newRole, setNewRole] = useState<TenantRole | ''>('');
   const [removeConfirmUser, setRemoveConfirmUser] = useState<{ userId: string; userName: string } | null>(null);
-  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   
   // Get current user ID to prevent self-role changes
   const currentUserId = getCookies(COOKIES_KEY.USER_ID);
 
-  const fetchMembers = useCallback(async () => {
-    if (!tenantId) return;
-    
-    setLoading(true);
-    try {
-      const response = await makeRequest<MemberListResponse>({
-        url: `${API_BASE_URL}/v1/tenants/${tenantId}/members`,
-        init: {
-          method: 'GET',
-        },
-      });
-      
-      if (response.data) {
-        setMembers(response.data.members);
-      } else {
-        showNotification(
-          'Error',
-          response.error?.message || 'Failed to load members',
-          <IconUserPlus />,
-          '#fa5252'
-        );
-      }
-    } catch (error) {
-      console.error('[OrganizationMembers] Error fetching members:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantId]);
-
-  useEffect(() => {
-    if (tenantId) {
-      fetchMembers();
-    }
-  }, [tenantId, fetchMembers]);
-
-  const handleInviteMember = async () => {
+  const handleInviteMember = () => {
     if (!inviteEmail.trim() || !tenantId) return;
     
-    setInviting(true);
-    try {
-      const response = await makeRequest<Member>({
-        url: `${API_BASE_URL}/v1/tenants/${tenantId}/members`,
-        init: {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: inviteEmail.trim(),
-            role: inviteRole,
-          }),
+    inviteMutation.mutate(
+      {
+        tenantId,
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      },
+      {
+        onSuccess: (response: ApiResponse<TenantMember>) => {
+          if (response?.data && !response?.error) {
+            showNotification(
+              'Success',
+              `Invitation sent to ${inviteEmail}`,
+              <IconUserPlus />,
+              '#0ec9c2'
+            );
+            setInviteModalOpen(false);
+            setInviteEmail('');
+            setInviteRole(TENANT_ROLES.MEMBER);
+          } else {
+            showNotification(
+              'Error',
+              response?.error?.message || 'Failed to invite member',
+              <IconUserPlus />,
+              '#fa5252'
+            );
+          }
         },
-      });
-      
-      if (response.data) {
-        showNotification(
-          'Success',
-          `Invitation sent to ${inviteEmail}`,
-          <IconUserPlus />,
-          '#0ec9c2'
-        );
-        setInviteModalOpen(false);
-        setInviteEmail('');
-        setInviteRole('member');
-        // Refresh members list
-        fetchMembers();
-      } else {
-        showNotification(
-          'Error',
-          response.error?.message || 'Failed to invite member',
-          <IconUserPlus />,
-          '#fa5252'
-        );
+        onError: (error: any) => {
+          showNotification(
+            'Error',
+            error.message || 'Failed to invite member',
+            <IconUserPlus />,
+            '#fa5252'
+          );
+        },
       }
-    } catch (error: any) {
-      showNotification(
-        'Error',
-        error.message || 'Failed to invite member',
-        <IconUserPlus />,
-        '#fa5252'
-      );
-    } finally {
-      setInviting(false);
-    }
+    );
   };
 
-  const handleRemoveMember = async (userId: string, userName: string) => {
+  const handleRemoveMember = (userId: string, userName: string) => {
     setRemoveConfirmUser({ userId, userName });
   };
 
-  const confirmRemoveMember = async () => {
+  const confirmRemoveMember = () => {
     if (!removeConfirmUser || !tenantId) return;
     
     const { userId, userName } = removeConfirmUser;
-    setRemovingUserId(userId);
-    setRemoveConfirmUser(null);
     
-    try {
-      const response = await makeRequest<void>({
-        url: `${API_BASE_URL}/v1/tenants/${tenantId}/members/${userId}`,
-        init: {
-          method: 'DELETE',
+    removeMutation.mutate(
+      {
+        tenantId,
+        userId,
+      },
+      {
+        onSuccess: (response: ApiResponse<void>) => {
+          if ((response?.data !== undefined || !response?.error) && !response?.error) {
+            showNotification(
+              'Success',
+              `${userName} removed from organization`,
+              <IconTrash />,
+              '#0ec9c2'
+            );
+            setRemoveConfirmUser(null);
+          } else {
+            showNotification(
+              'Error',
+              response?.error?.message || 'Failed to remove member',
+              <IconTrash />,
+              '#fa5252'
+            );
+          }
         },
-      });
-      
-      if (response.data !== undefined || !response.error) {
-        showNotification(
-          'Success',
-          `${userName} removed from organization`,
-          <IconTrash />,
-          '#0ec9c2'
-        );
-        // Refresh members list
-        fetchMembers();
-      } else {
-        showNotification(
-          'Error',
-          response.error?.message || 'Failed to remove member',
-          <IconTrash />,
-          '#fa5252'
-        );
+        onError: (error: any) => {
+          showNotification(
+            'Error',
+            error.message || 'Failed to remove member',
+            <IconTrash />,
+            '#fa5252'
+          );
+          setRemoveConfirmUser(null);
+        },
       }
-    } catch (error: any) {
-      showNotification(
-        'Error',
-        error.message || 'Failed to remove member',
-        <IconTrash />,
-        '#fa5252'
-      );
-    } finally {
-      setRemovingUserId(null);
-    }
+    );
   };
 
-  const handleRoleUpdate = async (userId: string, currentRole: string, userName: string) => {
+  const handleRoleUpdate = (userId: string, currentRole: string, userName: string) => {
     if (!tenantId || !newRole || newRole === currentRole) {
       setEditingRoleUserId(null);
       return;
     }
     
-    setUpdatingRole(true);
-    try {
-      const response = await makeRequest<void>({
-        url: `${API_BASE_URL}/v1/tenants/${tenantId}/members/${userId}`,
-        init: {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newRole }),
+    updateRoleMutation.mutate(
+      {
+        tenantId,
+        userId,
+        newRole,
+      },
+      {
+        onSuccess: (response: ApiResponse<TenantMember>) => {
+          if ((response?.data !== undefined || !response?.error) && !response?.error) {
+            showNotification('Success', `Updated ${userName}'s role to ${newRole}`, <IconUserPlus />, '#0ec9c2');
+            setEditingRoleUserId(null);
+            setNewRole('');
+          } else {
+            showNotification('Error', response?.error?.message || 'Failed to update role', <IconUserPlus />, '#fa5252');
+          }
         },
-      });
-      
-      if (response.data !== undefined || !response.error) {
-        showNotification('Success', `Updated ${userName}'s role to ${newRole}`, <IconUserPlus />, '#0ec9c2');
-        setEditingRoleUserId(null);
-        fetchMembers();
-      } else {
-        showNotification('Error', response.error?.message || 'Failed to update role', <IconUserPlus />, '#fa5252');
+        onError: (error: any) => {
+          showNotification('Error', error.message || 'Failed to update role', <IconUserPlus />, '#fa5252');
+        },
       }
-    } catch (error: any) {
-      showNotification('Error', error.message || 'Failed to update role', <IconUserPlus />, '#fa5252');
-    } finally {
-      setUpdatingRole(false);
-    }
+    );
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -308,10 +260,10 @@ export function OrganizationMembers() {
                             <Select
                               size="xs"
                               value={newRole}
-                              onChange={(val) => setNewRole(val || member.role)}
+                              onChange={(val) => setNewRole((val as TenantRole) || member.role)}
                               data={[
-                                { value: 'admin', label: 'Admin' },
-                                { value: 'member', label: 'Member' },
+                                { value: TENANT_ROLES.ADMIN, label: 'Admin' },
+                                { value: TENANT_ROLES.MEMBER, label: 'Member' },
                               ]}
                               style={{ width: 120 }}
                               disabled={updatingRole || isCurrentUser}
@@ -349,7 +301,7 @@ export function OrganizationMembers() {
                                 variant="subtle"
                                 onClick={() => {
                                   setEditingRoleUserId(member.userId);
-                                  setNewRole(member.role);
+                                  setNewRole(member.role as TenantRole);
                                 }}
                               >
                                 <IconEdit size={12} />
@@ -366,8 +318,8 @@ export function OrganizationMembers() {
                             color="red"
                             leftSection={<IconTrash size={14} />}
                             onClick={() => handleRemoveMember(member.userId, member.name)}
-                            loading={removingUserId === member.userId}
-                            disabled={removingUserId === member.userId}
+                            loading={removeMutation.isPending && removeMutation.variables?.userId === member.userId}
+                            disabled={removeMutation.isPending}
                           >
                             Remove
                           </Button>
@@ -405,10 +357,10 @@ export function OrganizationMembers() {
           <Select
             label="Role"
             value={inviteRole}
-            onChange={(value) => setInviteRole(value || 'member')}
+            onChange={(value) => setInviteRole((value as TenantRole) || TENANT_ROLES.MEMBER)}
             data={[
-              { value: 'admin', label: 'Admin' },
-              { value: 'member', label: 'Member' },
+              { value: TENANT_ROLES.ADMIN, label: 'Admin' },
+              { value: TENANT_ROLES.MEMBER, label: 'Member' },
             ]}
           />
           <Button
@@ -430,7 +382,7 @@ export function OrganizationMembers() {
         confirmLabel="Yes, Remove"
         cancelLabel="Cancel"
         confirmColor="red"
-        loading={removingUserId !== null}
+        loading={removeMutation.isPending}
         severity="warning"
       />
     </Box>
