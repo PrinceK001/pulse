@@ -86,5 +86,9 @@ export * from './useAcceptTnc';
 export * from './useTenantMembers';
 export * from './useProjectMembers';
 
+// Project management hooks
+export * from './useCreateProject';
+export * from './useProjectApiKeys';
+
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from './hooks.interface';
