@@ -1,23 +1,25 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTenantContext } from './TenantContext';
+import { PROJECT_ROLES, ProjectRole } from '../constants/Roles';
+import { TIERS, TierType } from '../constants/Tiers';
 
 interface ProjectInfo {
   projectId: string;
   projectName: string;
-  userRole: 'admin' | 'editor' | 'viewer';
+  userRole: ProjectRole;
   isActive?: boolean;
   /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. This field is ignored. */
-  plan?: 'free' | 'enterprise';
+  plan?: TierType;
 }
 
 interface ProjectContextType {
   // State
   projectId: string | null;
   projectName: string | null;
-  userRole: 'admin' | 'editor' | 'viewer' | null;
+  userRole: ProjectRole | null;
   /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. Always returns 'free' for backward compatibility. */
-  plan: 'free' | 'enterprise' | null;
+  plan: TierType | null;
   isActive: boolean;
   
   // Methods
@@ -33,17 +35,17 @@ const STORAGE_KEY = 'pulse_project_context';
 interface StoredProjectData {
   projectId: string;
   projectName: string;
-  userRole: 'admin' | 'editor' | 'viewer';
+  userRole: ProjectRole;
   isActive: boolean;
-  plan?: 'free' | 'enterprise';
+  plan?: TierType;
   timestamp: number;
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<'admin' | 'editor' | 'viewer' | null>(null);
-  const [plan, setPlan] = useState<'free' | 'enterprise' | null>(null);
+  const [userRole, setUserRole] = useState<ProjectRole | null>(null);
+  const [plan, setPlan] = useState<TierType | null>(null);
   const [isActive, setIsActive] = useState(false);
   
   const { projects } = useTenantContext();
@@ -62,7 +64,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           setProjectName(data.projectName);
           setUserRole(data.userRole);
           setIsActive(data.isActive);
-          setPlan(data.plan || 'free');
+          setPlan(data.plan || TIERS.FREE);
         } else {
           sessionStorage.removeItem(STORAGE_KEY);
         }
@@ -81,7 +83,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         projectName: projectName || '',
         userRole,
         isActive,
-        plan: plan || 'free',
+        plan: plan || TIERS.FREE,
         timestamp: Date.now(),
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -93,7 +95,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjectName(project.projectName);
     setUserRole(project.userRole);
     setIsActive(project.isActive ?? true);
-    setPlan(project.plan || 'free');
+    setPlan(project.plan || TIERS.FREE);
     
     // Store last used project ID for auto-selection on next login
     sessionStorage.setItem('pulse_last_project_id', project.projectId);
@@ -122,9 +124,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProject({
       projectId: project.projectId,
       projectName: project.name,
-      userRole: project.role as 'admin' | 'editor' | 'viewer',
+      userRole: project.role as ProjectRole,
       isActive: project.isActive,
-      plan: 'free', // TODO: Get from project details API
+      plan: TIERS.FREE, // TODO: Get from project details API
     });
 
     // Navigate to project dashboard

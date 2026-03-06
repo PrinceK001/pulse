@@ -26,6 +26,7 @@ import {
   NAVBAR_ITEMS,
   ROUTES,
 } from "../../constants";
+import { TIERS } from "../../constants/Tiers";
 import {
   IconHelp,
   IconLogout,
@@ -274,7 +275,7 @@ export function Navbar({
               {/* Organization Section */}
               <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Organization</Text>
               
-              {tier === 'enterprise' && (
+              {tier === TIERS.ENTERPRISE && (
                 <Box
                   className={classes.menuItem}
                   onClick={handleAllProjectsClick}
@@ -314,7 +315,7 @@ export function Navbar({
                   <Box>
                     <Text size="sm" fw={500}>Pricing & Plans</Text>
                     <Text size="xs" c="dimmed">
-                      {tier === 'enterprise' ? 'View your plan' : 'Upgrade to Enterprise'}
+                      {tier === TIERS.ENTERPRISE ? 'View your plan' : 'Upgrade to Enterprise'}
                     </Text>
                   </Box>
                 </Group>

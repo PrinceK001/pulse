@@ -20,6 +20,7 @@ import {
   IconBuilding,
 } from "@tabler/icons-react";
 import { useTenantContext, useProjectContext } from "../../contexts";
+import { TIERS } from "../../constants/Tiers";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
@@ -129,7 +130,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
         <Box className={classes.projectSection} style={{ marginLeft: '64px' }}>
           {projectId && projects.length <= 1 ? (
             // Single project display
-            tier === 'free' ? (
+            tier === TIERS.FREE ? (
               // FREE tier: Show project name with upgrade badge
               <Group gap="xs" className={classes.projectInfo}>
                 <IconFolder size={18} style={{ color: '#0ba09a' }} />

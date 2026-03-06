@@ -1,19 +1,21 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { getUserProjects, ProjectSummary } from '../helpers/getUserProjects';
+import { TENANT_ROLES, TenantRole } from '../constants/Roles';
+import { TIERS, TierType } from '../constants/Tiers';
 
 interface TenantInfo {
   tenantId: string;
   tenantName: string;
-  userRole: 'admin' | 'member';
-  tier: 'free' | 'enterprise';
+  userRole: TenantRole;
+  tier: TierType;
 }
 
 interface TenantContextType {
   // State
   tenantId: string | null;
   tenantName: string | null;
-  userRole: 'admin' | 'member' | null;
-  tier: 'free' | 'enterprise' | null;
+  userRole: TenantRole | null;
+  tier: TierType | null;
   projects: ProjectSummary[];
   isLoading: boolean;
   
@@ -31,8 +33,8 @@ const STORAGE_KEY = 'pulse_tenant_context';
 interface StoredTenantData {
   tenantId: string;
   tenantName: string;
-  userRole: 'admin' | 'member';
-  tier: 'free' | 'enterprise';
+  userRole: TenantRole;
+  tier: TierType;
   projects: ProjectSummary[];
   timestamp: number;
 }
@@ -40,8 +42,8 @@ interface StoredTenantData {
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
-  const [tier, setTier] = useState<'free' | 'enterprise' | null>(null);
+  const [userRole, setUserRole] = useState<TenantRole | null>(null);
+  const [tier, setTier] = useState<TierType | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -81,7 +83,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         tenantId,
         tenantName: tenantName || '',
         userRole,
-        tier: tier || 'free',
+        tier: tier || TIERS.FREE,
         projects,
         timestamp: Date.now(),
       };

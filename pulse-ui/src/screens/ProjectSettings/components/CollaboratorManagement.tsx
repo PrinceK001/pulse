@@ -9,12 +9,13 @@ import { showNotification } from '../../../helpers/showNotification';
 import { getCookies } from '../../../helpers/cookies';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import classes from './CollaboratorManagement.module.css';
+import { PROJECT_ROLES, ProjectRole } from '../../../constants/Roles';
 
 interface Collaborator {
   userId: string;
   email: string;
   name: string;
-  role: 'admin' | 'editor' | 'viewer';
+  role: ProjectRole;
   status: string;
   lastLoginAt?: string;
 }
@@ -29,14 +30,14 @@ export function CollaboratorManagement() {
   const [loading, setLoading] = useState(true);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('viewer');
+  const [inviteRole, setInviteRole] = useState<ProjectRole>(PROJECT_ROLES.VIEWER);
   const [inviting, setInviting] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   const [removeConfirmUser, setRemoveConfirmUser] = useState<{ userId: string; userName: string } | null>(null);
   const [editingRoleUserId, setEditingRoleUserId] = useState<string | null>(null);
   const [newRole, setNewRole] = useState<string>('');
   
-  const { projectId, projectName } = useProjectContext();
+  const { projectId } = useProjectContext();
   const { canInviteProjectMembers, canRemoveProjectMembers, projectRole } = usePermissions();
   
   // Get current user ID to prevent self-role changes
@@ -90,7 +91,7 @@ export function CollaboratorManagement() {
         showNotification('Success', `Invitation sent to ${inviteEmail}`, <IconUserPlus />, '#0ec9c2');
         setInviteModalOpen(false);
         setInviteEmail('');
-        setInviteRole('viewer');
+        setInviteRole(PROJECT_ROLES.VIEWER);
         fetchCollaborators();
       } else {
         showNotification('Error', response.error?.message || 'Failed to invite member', <IconUserPlus />, '#fa5252');
@@ -242,16 +243,16 @@ export function CollaboratorManagement() {
                   </Table.Td>
                   <Table.Td>{collab.email}</Table.Td>
                   <Table.Td>
-                    {editingRoleUserId === collab.userId && projectRole === 'admin' ? (
+                    {editingRoleUserId === collab.userId && projectRole === PROJECT_ROLES.ADMIN ? (
                       <Group gap="xs">
                         <Select
                           size="xs"
                           value={newRole}
                           onChange={(val) => setNewRole(val || collab.role)}
                           data={[
-                            { value: 'admin', label: 'Admin' },
-                            { value: 'editor', label: 'Editor' },
-                            { value: 'viewer', label: 'Viewer' },
+                            { value: PROJECT_ROLES.ADMIN, label: 'Admin' },
+                            { value: PROJECT_ROLES.EDITOR, label: 'Editor' },
+                            { value: PROJECT_ROLES.VIEWER, label: 'Viewer' },
                           ]}
                           style={{ width: 120 }}
                           disabled={isCurrentUser}
@@ -273,7 +274,7 @@ export function CollaboratorManagement() {
                         <Badge title={isCurrentUser ? "You cannot change your own role" : undefined}>
                           {collab.role}
                         </Badge>
-                        {projectRole === 'admin' && !isCurrentUser && (
+                        {projectRole === PROJECT_ROLES.ADMIN && !isCurrentUser && (
                           <ActionIcon
                             size="xs"
                             variant="subtle"
@@ -333,12 +334,12 @@ export function CollaboratorManagement() {
           <Select
             label="Role"
             data={[
-              { value: 'admin', label: 'Admin' },
-              { value: 'editor', label: 'Editor' },
-              { value: 'viewer', label: 'Viewer' },
+              { value: PROJECT_ROLES.ADMIN, label: 'Admin' },
+              { value: PROJECT_ROLES.EDITOR, label: 'Editor' },
+              { value: PROJECT_ROLES.VIEWER, label: 'Viewer' },
             ]}
             value={inviteRole}
-            onChange={(val) => setInviteRole(val || 'viewer')}
+            onChange={(val) => setInviteRole((val as ProjectRole) || PROJECT_ROLES.VIEWER)}
           />
           <Button 
             onClick={handleInvite} 

@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "../../constants";
 import { makeRequest } from "../makeRequest";
+import { TierType } from "../../constants/Tiers";
 
 export interface LoginRequest {
   firebaseIdToken: string;
@@ -15,7 +16,7 @@ export interface LoginResponse {
   tenantId?: string;
   tenantName?: string;
   tenantRole?: string;
-  tier?: 'free' | 'enterprise';
+  tier?: TierType;
   needsOnboarding: boolean;
   tokenType?: string;
   expiresIn?: number;

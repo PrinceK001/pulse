@@ -3,11 +3,12 @@ import { IconCheck, IconMail, IconRocket, IconBuilding, IconCircleCheck, IconUse
 import { useTenantContext } from '../../contexts';
 import { useNavigate } from 'react-router-dom';
 import classes from './Pricing.module.css';
+import { TIERS } from '../../constants/Tiers';
 
 export function Pricing() {
   const { tier } = useTenantContext();
   const navigate = useNavigate();
-  const currentPlan = tier || 'free';
+  const currentPlan = tier || TIERS.FREE;
 
   const handleContactUs = () => {
     window.open('mailto:sales@yourcompany.com?subject=Enterprise Plan Inquiry', '_blank');
@@ -18,7 +19,7 @@ export function Pricing() {
   };
 
   // If user is already on Enterprise, show different UI
-  if (tier === 'enterprise') {
+  if (tier === TIERS.ENTERPRISE) {
     return (
       <Box className={classes.container}>
         <Container size="lg" py="xl">
@@ -132,7 +133,7 @@ export function Pricing() {
               shadow="md"
               padding="xl"
               radius="lg"
-              className={`${classes.pricingCard} ${currentPlan === 'free' ? classes.currentPlan : ''}`}
+              className={`${classes.pricingCard} ${currentPlan === TIERS.FREE ? classes.currentPlan : ''}`}
               withBorder
             >
               <Stack gap="lg">
@@ -145,7 +146,7 @@ export function Pricing() {
                       </ThemeIcon>
                       <Title order={2}>Free</Title>
                     </Group>
-                    {currentPlan === 'free' && (
+                    {currentPlan === TIERS.FREE && (
                       <Badge color="teal" variant="filled" size="lg">
                         Current Plan
                       </Badge>
@@ -190,11 +191,11 @@ export function Pricing() {
                 <Button
                   fullWidth
                   size="lg"
-                  variant={currentPlan === 'free' ? 'filled' : 'outline'}
+                  variant={currentPlan === TIERS.FREE ? 'filled' : 'outline'}
                   color="teal"
-                  disabled={currentPlan === 'free'}
+                  disabled={currentPlan === TIERS.FREE}
                 >
-                  {currentPlan === 'free' ? 'Current Plan' : 'Get Started'}
+                  {currentPlan === TIERS.FREE ? 'Current Plan' : 'Get Started'}
                 </Button>
               </Stack>
             </Card>

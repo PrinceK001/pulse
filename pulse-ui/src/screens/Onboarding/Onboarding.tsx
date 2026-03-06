@@ -13,6 +13,8 @@ import { IconSquareRoundedX, IconBuilding, IconFolder } from "@tabler/icons-reac
 import classes from "./Onboarding.module.css";
 import { ROUTES, COMMON_CONSTANTS } from "../../constants";
 import { completeOnboarding } from "../../helpers/onboarding";
+import { PROJECT_ROLES } from "../../constants/Roles";
+import { TIERS } from "../../constants/Tiers";
 import { setCookiesAfterAuthentication } from "../../helpers/setCookiesAfterAuthentication";
 import { showNotification } from "../../helpers/showNotification";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
@@ -107,9 +109,9 @@ export function Onboarding() {
         setProject({
           projectId: data.projectId,
           projectName: data.projectName,
-          userRole: 'admin', // Owner's first project = admin
+          userRole: PROJECT_ROLES.ADMIN, // Owner's first project = admin
           isActive: true,
-          plan: 'free',
+          plan: TIERS.FREE,
         });
         
         // Add project to tenant's projects list
@@ -118,7 +120,7 @@ export function Onboarding() {
           name: data.projectName,
           description: projectDescription.trim() || '',
           isActive: true,
-          role: 'admin',
+          role: PROJECT_ROLES.ADMIN,
         });
       }
       

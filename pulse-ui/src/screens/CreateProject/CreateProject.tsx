@@ -17,6 +17,8 @@ import { useTenantContext, useProjectContext } from '../../contexts';
 import { showNotification } from '../../helpers/showNotification';
 import { API_BASE_URL, ROUTES } from '../../constants';
 import { makeRequest } from '../../helpers/makeRequest';
+import { PROJECT_ROLES } from '../../constants/Roles';
+import { TIERS } from '../../constants/Tiers';
 
 interface CreateProjectRequest {
   name: string;
@@ -90,14 +92,14 @@ export function CreateProject() {
             name: projectData.name,
             description: projectData.description,
             isActive: true,
-            role: 'admin',
+            role: PROJECT_ROLES.ADMIN,
           });
           
           // Update ProjectContext (sets as active project)
           setProject({
             projectId: projectData.projectId,
             projectName: projectData.name,
-            userRole: 'admin',
+            userRole: PROJECT_ROLES.ADMIN,
             isActive: true,
           });
           
@@ -105,9 +107,9 @@ export function CreateProject() {
           sessionStorage.setItem('pulse_project_context', JSON.stringify({
             projectId: projectData.projectId,
             projectName: projectData.name,
-            userRole: 'admin',
+            userRole: PROJECT_ROLES.ADMIN,
             isActive: true,
-            plan: 'free',
+            plan: TIERS.FREE,
             timestamp: Date.now()
           }));
           

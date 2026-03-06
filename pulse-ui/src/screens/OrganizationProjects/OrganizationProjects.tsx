@@ -7,6 +7,7 @@ import { usePermissions, useTierLimits } from '../../hooks';
 import { useNavigate, useParams } from 'react-router-dom';
 import { showNotification } from '../../helpers/showNotification';
 import classes from './OrganizationProjects.module.css';
+import { TIERS } from '../../constants/Tiers';
 
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -86,7 +87,7 @@ export function OrganizationProjects() {
 
     // Auto-select first project ONLY for free tier users (who can only have 1 project)
     // Enterprise users should see the project selection page to choose
-    if (!projectId && projects.length > 0 && tier === 'free') {
+    if (!projectId && projects.length > 0 && tier === TIERS.FREE) {
       const lastUsedProjectId = sessionStorage.getItem('pulse_last_project_id');
       const projectToSelect = projects.find(p => p.projectId === lastUsedProjectId) || projects[0];
       handleProjectClick(projectToSelect.projectId);
@@ -138,10 +139,10 @@ export function OrganizationProjects() {
               <Badge 
                 size="lg" 
                 variant="dot"
-                color={tier === 'enterprise' ? 'blue' : 'gray'}
+                color={tier === TIERS.ENTERPRISE ? 'blue' : 'gray'}
                 className={classes.tierBadge}
               >
-                {tier === 'free' ? 'Free Tier' : 'Enterprise'}
+                {tier === TIERS.FREE ? 'Free Tier' : 'Enterprise'}
               </Badge>
             </Group>
             <Text c="dimmed" size="md">
@@ -150,7 +151,7 @@ export function OrganizationProjects() {
           </Stack>
           
           <Group gap="md">
-            {tier === 'free' && (
+            {tier === TIERS.FREE && (
               <Text size="sm" c="dimmed" className={classes.projectCount}>
                 {currentProjectCount} / {maxProjects} projects
               </Text>

@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "../../constants";
 import { makeRequest } from "../makeRequest";
+import { TierType } from "../../constants/Tiers";
 
 export interface OnboardingRequest {
   organizationName: string;
@@ -13,7 +14,7 @@ export interface OnboardingResponse {
   name: string;
   tenantId: string;
   tenantName: string;
-  tier: 'free' | 'enterprise';
+  tier: TierType;
   projectId: string;
   projectName: string;
   projectApiKey: string;
