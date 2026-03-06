@@ -878,6 +878,7 @@ public class AlertEvaluationService {
         .doOnSuccess(responseDtoJson -> {
           JsonObject message = new JsonObject(responseDtoJson);
           vertx.eventBus().send(Constants.EVENT_BUS_RESPONSE_UPDATE_ALERT_EVALUATION_LOGS_CHANNEL, message);
+          log.info("Sending message to eventbus: {}", message);
           vertx.eventBus().send(Constants.EVENT_BUS_RESPONSE_UPDATE_ALERT_STATE_CHANNEL, message);
         })
         .doOnError(error -> log.error("Error converting response DTO to hashmap", error))
