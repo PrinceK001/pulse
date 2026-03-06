@@ -1,4 +1,5 @@
 import { useTenantContext } from '../contexts';
+import { TIERS, TierType } from '../constants/Tiers';
 
 export interface TierLimits {
   canCreateProjects: boolean;
@@ -6,7 +7,7 @@ export interface TierLimits {
   currentProjectCount: number;
   isEnterprise: boolean;
   isFree: boolean;
-  tier: 'free' | 'enterprise' | null;
+  tier: TierType | null;
 }
 
 export function useTierLimits(): TierLimits {
@@ -14,11 +15,11 @@ export function useTierLimits(): TierLimits {
   const currentProjectCount = projects.length;
   
   return {
-    canCreateProjects: tier === 'enterprise' || currentProjectCount < 1,
-    maxProjects: tier === 'free' ? 1 : null,
+    canCreateProjects: tier === TIERS.ENTERPRISE || currentProjectCount < 1,
+    maxProjects: tier === TIERS.FREE ? 1 : null,
     currentProjectCount,
-    isEnterprise: tier === 'enterprise',
-    isFree: tier === 'free',
+    isEnterprise: tier === TIERS.ENTERPRISE,
+    isFree: tier === TIERS.FREE,
     tier,
   };
 }
