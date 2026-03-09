@@ -51,6 +51,22 @@ public class ClickhouseProjectCredentialsDao {
         );
   }
 
+  public Single<ClickhouseProjectCredentials> saveCredentials(
+      String projectId,
+      String clickhouseUsername,
+      String plainPassword) {
+
+    EncryptedData encrypted = encryptionUtil.encrypt(plainPassword);
+
+    return mysqlClient.getWriterPool()
+        .preparedQuery(INSERT_CREDENTIALS)
+        .rxExecute(buildCredentialsTuple(projectId, clickhouseUsername, encrypted))
+        .map(result -> mapToSavedCredentials(projectId, clickhouseUsername, encrypted))
+        .doOnError(error ->
+            log.error("Failed to save credentials: projectId={}", projectId, error)
+        );
+  }
+
   private Tuple buildCredentialsTuple(String projectId, String clickhouseUsername, EncryptedData encrypted) {
     return Tuple.of(
         projectId,
