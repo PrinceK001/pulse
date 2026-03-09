@@ -94,5 +94,8 @@ export * from './useProjectApiKeys';
 export * from './useLogin';
 export * from './useCompleteOnboarding';
 
+// User hooks
+export * from './useUserProjects';
+
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from './hooks.interface';

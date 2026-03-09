@@ -21,8 +21,9 @@ export const useCreateProject = () => {
       }),
     onSuccess: (data: ApiResponse<ProjectResponse>) => {
       if (data?.data && !data?.error) {
+        // Invalidate user projects list
         queryClient.invalidateQueries({
-          queryKey: ['projects'],
+          queryKey: [API_ROUTES.GET_USER_PROJECTS.key],
         });
       }
     },

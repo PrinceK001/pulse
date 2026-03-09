@@ -788,6 +788,12 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/tnc/history`,
     method: API_METHODS.GET,
   },
+  // User API Routes
+  GET_USER_PROJECTS: {
+    key: "GET_USER_PROJECTS",
+    apiPath: `/v1/users/me/projects`,
+    method: API_METHODS.GET,
+  },
   // Auth API Routes
   LOGIN: {
     key: "LOGIN",

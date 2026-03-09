@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { getUserProjects, ProjectSummary } from '../helpers/getUserProjects';
+import { ProjectSummary } from '../helpers/getUserProjects';
+import { useUserProjects } from '../hooks';
 import { TenantRole } from '../constants/Roles';
 import { TIERS, TierType } from '../constants/Tiers';
 
@@ -45,7 +46,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<TenantRole | null>(null);
   const [tier, setTier] = useState<TierType | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [shouldFetchProjects, setShouldFetchProjects] = useState(false);
+
+  // Use React Query hook for fetching projects
+  const { data: projectsData, isLoading, refetch } = useUserProjects(shouldFetchProjects);
 
   // Hydrate from sessionStorage on mount
   useEffect(() => {
@@ -62,9 +66,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           setTier(data.tier);
           setProjects(data.projects);
           
-          // Always refetch in background for fresh data
+          // Enable project fetching and refetch in background for fresh data
+          setShouldFetchProjects(true);
           setTimeout(() => {
-            refreshProjects();
+            refetch();
           }, 100);
         } else {
           sessionStorage.removeItem(STORAGE_KEY);
@@ -91,6 +96,21 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   }, [tenantId, tenantName, userRole, tier, projects]);
 
+  // Update projects when React Query data changes
+  useEffect(() => {
+    if (projectsData?.data) {
+      setProjects(projectsData.data.projects);
+      
+      // Update tenant information from API response
+      if (projectsData.data.tenantName) {
+        setTenantName(projectsData.data.tenantName);
+      }
+      if (projectsData.data.tenantId) {
+        setTenantId(projectsData.data.tenantId);
+      }
+    }
+  }, [projectsData]);
+
   const refreshProjects = useCallback(async () => {
     // Get tenantId from state or sessionStorage
     const currentTenantId = tenantId || (() => {
@@ -110,28 +130,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setIsLoading(true);
-    
-    try {
-      const response = await getUserProjects();
-      if (response.data) {
-        setProjects(response.data.projects);
-        
-        // Update tenant information from API response
-        if (response.data.tenantName) {
-          setTenantName(response.data.tenantName);
-        }
-        if (response.data.tenantId) {
-          setTenantId(response.data.tenantId);
-        }
-      } else {
-      }
-    } catch (error) {
-      console.error('[TenantContext] Error fetching projects:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [tenantId]);
+    // Enable fetching and trigger refetch
+    setShouldFetchProjects(true);
+    await refetch();
+  }, [tenantId, refetch]);
 
   const setTenantInfo = useCallback((tenant: TenantInfo) => {
     setTenantId(tenant.tenantId);
@@ -141,9 +143,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     
     // Auto-fetch projects when tenant is set
     if (tenant.tenantId) {
-      refreshProjects();
+      setShouldFetchProjects(true);
+      setTimeout(() => refetch(), 0);
     }
-  }, [refreshProjects]);
+  }, [refetch]);
 
   const addProject = useCallback((project: ProjectSummary) => {
     setProjects(prev => {

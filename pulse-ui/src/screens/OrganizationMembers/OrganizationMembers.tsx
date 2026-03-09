@@ -177,7 +177,6 @@ export function OrganizationMembers() {
         <Box className={classes.pageHeader}>
           <Box className={classes.titleSection}>
             <Text className={classes.pageTitle}>Team Members</Text>
-            <Text className={classes.pageSubtitle}>Manage your organization's team members</Text>
           </Box>
         </Box>
         <Box className={classes.contentTable}>
@@ -203,7 +202,6 @@ export function OrganizationMembers() {
         <Box className={classes.headerGroup}>
           <Box className={classes.titleSection}>
             <Text className={classes.pageTitle}>Team Members</Text>
-            <Text className={classes.pageSubtitle}>Manage your organization's team members</Text>
           </Box>
           {canInviteTenantMembers && (
             <Button
