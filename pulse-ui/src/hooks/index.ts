@@ -1,13 +1,14 @@
 // New context-based hooks
 export { usePermissions } from './usePermissions';
 export { useTierLimits } from './useTierLimits';
-export type { TierLimits } from './useTierLimits';
+export type { TierLimits } from './useTierLimits.interface';
 
 // AI hooks
 export * from './useAiQuery';
 
 // Analytics & Stats hooks
 export { useAnalytics } from './useAnalytics';
+export type { UseAnalyticsOptions } from './useAnalytics.interface';
 export { useGetScreens } from './useGetScreens';
 
 // Export all hooks from subdirectories (they have their own index.ts files)

@@ -38,12 +38,13 @@ import {
   IconCreditCard,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { getCookies } from "../../helpers/cookies";
 import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { usePermissions } from "../../hooks";
 import { performLogout } from "../../helpers/logout";
+import { ConfirmationModal } from "../ConfirmationModal";
 
 export function Navbar({
   toggle,
@@ -60,6 +61,7 @@ export function Navbar({
   const { projectId: contextProjectId, clearProject } = useProjectContext();
   const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
   const permissions = usePermissions();
+  const [logoutModalOpened, setLogoutModalOpened] = useState(false);
   
   // Show nav items only on project dashboard pages (not on org pages or onboarding)
   const isProjectDashboard = pathname.startsWith('/projects/') && 
@@ -108,6 +110,8 @@ export function Navbar({
   };
 
   const onLogoutClick = async () => {
+    setLogoutModalOpened(false);
+    
     // Clear all React contexts explicitly
     clearProject();
     clearTenant();
@@ -388,7 +392,7 @@ export function Navbar({
               {/* Logout Button */}
               <Button
                 leftSection={<IconLogout size={18} />}
-                onClick={onLogoutClick}
+                onClick={() => setLogoutModalOpened(true)}
                 variant="light"
                 color="red"
                 size="sm"
@@ -400,6 +404,18 @@ export function Navbar({
           </Popover.Dropdown>
         </Popover>
       </AppShell.Section>
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+        opened={logoutModalOpened}
+        onClose={() => setLogoutModalOpened(false)}
+        onConfirm={onLogoutClick}
+        title="Confirm Logout"
+        message="Are you sure you want to log out? You will need to sign in again to access your account."
+        confirmLabel="Logout"
+        confirmColor="red"
+        severity="warning"
+      />
     </AppShell.Navbar>
   );
 }
