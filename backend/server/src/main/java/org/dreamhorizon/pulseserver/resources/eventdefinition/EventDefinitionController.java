@@ -16,24 +16,16 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.io.InputStream;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.eventdefinition.models.RestBulkUploadResponse;
-import org.dreamhorizon.pulseserver.resources.eventdefinition.models.RestEventAttribute;
 import org.dreamhorizon.pulseserver.resources.eventdefinition.models.RestEventDefinition;
 import org.dreamhorizon.pulseserver.resources.eventdefinition.models.RestEventDefinitionListResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.eventdefinition.EventDefinitionService;
-import org.dreamhorizon.pulseserver.service.eventdefinition.models.CreateEventDefinitionRequest;
-import org.dreamhorizon.pulseserver.service.eventdefinition.models.EventAttributeDefinition;
-import org.dreamhorizon.pulseserver.service.eventdefinition.models.EventDefinition;
-import org.dreamhorizon.pulseserver.service.eventdefinition.models.EventDefinitionPage;
-import org.dreamhorizon.pulseserver.service.eventdefinition.models.UpdateEventDefinitionRequest;
 import org.jboss.resteasy.annotations.providers.multipart.MultipartForm;
 import org.jboss.resteasy.plugins.providers.multipart.MultipartFormDataInput;
 
@@ -41,6 +33,8 @@ import org.jboss.resteasy.plugins.providers.multipart.MultipartFormDataInput;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Path("/v1/event-definitions")
 public class EventDefinitionController {
+
+  private static final EventDefinitionMapper mapper = EventDefinitionMapper.INSTANCE;
 
   private final EventDefinitionService eventDefinitionService;
 
@@ -54,7 +48,7 @@ public class EventDefinitionController {
       @QueryParam("category") String category
   ) {
     return eventDefinitionService.queryEventDefinitions(search, category, limit, offset)
-        .map(this::toRestListResponse)
+        .map(mapper::toRestListResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -75,7 +69,7 @@ public class EventDefinitionController {
       @PathParam("id") Long id
   ) {
     return eventDefinitionService.getEventDefinitionById(id)
-        .map(this::toRestModel)
+        .map(mapper::toRestModel)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -86,17 +80,9 @@ public class EventDefinitionController {
       @NotNull @HeaderParam("user-email") String userEmail,
       @NotNull RestEventDefinition restRequest
   ) {
-    CreateEventDefinitionRequest request = CreateEventDefinitionRequest.builder()
-        .eventName(restRequest.getEventName())
-        .displayName(restRequest.getDisplayName())
-        .description(restRequest.getDescription())
-        .category(restRequest.getCategory())
-        .attributes(toServiceAttributes(restRequest.getAttributes()))
-        .user(userEmail)
-        .build();
-
-    return eventDefinitionService.createEventDefinition(request)
-        .map(this::toRestModel)
+    return eventDefinitionService
+        .createEventDefinition(mapper.toCreateRequest(restRequest, userEmail))
+        .map(mapper::toRestModel)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -109,18 +95,10 @@ public class EventDefinitionController {
       @PathParam("id") Long id,
       @NotNull RestEventDefinition restRequest
   ) {
-    UpdateEventDefinitionRequest request = UpdateEventDefinitionRequest.builder()
-        .id(id)
-        .displayName(restRequest.getDisplayName())
-        .description(restRequest.getDescription())
-        .category(restRequest.getCategory())
-        .attributes(toServiceAttributes(restRequest.getAttributes()))
-        .user(userEmail)
-        .build();
-
-    return eventDefinitionService.updateEventDefinition(request)
+    return eventDefinitionService
+        .updateEventDefinition(mapper.toUpdateRequest(restRequest, id, userEmail))
         .andThen(Single.defer(() -> eventDefinitionService.getEventDefinitionById(id)))
-        .map(this::toRestModel)
+        .map(mapper::toRestModel)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -134,7 +112,7 @@ public class EventDefinitionController {
   ) {
     return eventDefinitionService.archiveEventDefinition(id, userEmail)
         .andThen(Single.defer(() -> eventDefinitionService.getEventDefinitionById(id)))
-        .map(this::toRestModel)
+        .map(mapper::toRestModel)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -148,19 +126,7 @@ public class EventDefinitionController {
   ) {
     return extractCsvInputStream(input)
         .flatMap(csvStream -> eventDefinitionService.bulkUploadFromCsv(csvStream, userEmail))
-        .map(result -> RestBulkUploadResponse.builder()
-            .created(result.getCreated())
-            .updated(result.getUpdated())
-            .skipped(result.getSkipped())
-            .errors(result.getErrors() == null ? Collections.emptyList()
-                : result.getErrors().stream()
-                .map(e -> RestBulkUploadResponse.RowError.builder()
-                    .line(e.getLine())
-                    .eventName(e.getEventName())
-                    .message(e.getMessage())
-                    .build())
-                .collect(Collectors.toList()))
-            .build())
+        .map(mapper::toRestBulkUploadResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -178,54 +144,5 @@ public class EventDefinitionController {
     } catch (Exception e) {
       return io.reactivex.rxjava3.core.Single.error(e);
     }
-  }
-
-  private RestEventDefinition toRestModel(EventDefinition def) {
-    return RestEventDefinition.builder()
-        .id(def.getId())
-        .eventName(def.getEventName())
-        .displayName(def.getDisplayName())
-        .description(def.getDescription())
-        .category(def.getCategory())
-        .isArchived(def.isArchived())
-        .createdBy(def.getCreatedBy())
-        .updatedBy(def.getUpdatedBy())
-        .createdAt(def.getCreatedAt())
-        .updatedAt(def.getUpdatedAt())
-        .attributes(def.getAttributes() == null ? Collections.emptyList()
-            : def.getAttributes().stream()
-            .map(attr -> RestEventAttribute.builder()
-                .id(attr.getId())
-                .attributeName(attr.getAttributeName())
-                .description(attr.getDescription())
-                .dataType(attr.getDataType())
-                .isRequired(attr.isRequired())
-                .isArchived(attr.isArchived())
-                .build())
-            .collect(Collectors.toList()))
-        .build();
-  }
-
-  private RestEventDefinitionListResponse toRestListResponse(EventDefinitionPage page) {
-    return RestEventDefinitionListResponse.builder()
-        .eventDefinitions(page.getDefinitions().stream()
-            .map(this::toRestModel).collect(Collectors.toList()))
-        .totalCount(page.getTotalCount())
-        .build();
-  }
-
-  private List<EventAttributeDefinition> toServiceAttributes(
-      List<RestEventAttribute> restAttrs) {
-    if (restAttrs == null) {
-      return null;
-    }
-    return restAttrs.stream()
-        .map(attr -> EventAttributeDefinition.builder()
-            .attributeName(attr.getAttributeName())
-            .description(attr.getDescription())
-            .dataType(attr.getDataType())
-            .required(Boolean.TRUE.equals(attr.getIsRequired()))
-            .build())
-        .collect(Collectors.toList());
   }
 }

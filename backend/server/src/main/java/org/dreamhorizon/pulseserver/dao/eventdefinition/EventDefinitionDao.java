@@ -66,16 +66,19 @@ public class EventDefinitionDao {
     }
     listParams.addInteger(limit).addInteger(offset);
 
-    return mysqlClient.getReaderPool()
+    Single<Long> countSingle = mysqlClient.getReaderPool()
         .preparedQuery(countQuery)
         .rxExecute(countParams)
-        .map(this::extractCount)
-        .flatMap(totalCount -> mysqlClient.getReaderPool()
-            .preparedQuery(listQuery)
-            .rxExecute(listParams)
-            .map(this::mapRowsToEventDefinitions)
-            .map(defs -> EventDefinitionPage.builder()
-                .definitions(defs).totalCount(totalCount).build()))
+        .map(this::extractCount);
+
+    Single<List<EventDefinition>> listSingle = mysqlClient.getReaderPool()
+        .preparedQuery(listQuery)
+        .rxExecute(listParams)
+        .map(this::mapRowsToEventDefinitions);
+
+    return Single.zip(countSingle, listSingle,
+            (totalCount, defs) -> EventDefinitionPage.builder()
+                .definitions(defs).totalCount(totalCount).build())
         .doOnError(error -> log.error("Error querying event definitions: ", error));
   }
 
