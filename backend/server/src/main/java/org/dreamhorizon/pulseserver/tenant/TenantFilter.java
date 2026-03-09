@@ -103,9 +103,19 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     // Priority 2: X-API-KEY header - extract project ID from API key
     String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
     if (apiKey != null && !apiKey.isBlank()) {
-      String projectId = extractProjectIdFromApiKey(apiKey.trim());
-      log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
-      return projectId;
+      try {
+        String projectId = extractProjectIdFromApiKey(apiKey.trim());
+        log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
+        return projectId;
+      } catch (IllegalArgumentException e) {
+        log.error("Invalid API key format: {}. Error: {}", apiKey, e.getMessage());
+        requestContext.abortWith(
+            jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
+                .entity("{\"error\": \"Invalid API key format.\"}")
+                .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+                .build());
+        return null;
+      }
     }
 
     // Priority 3: Explicit X-Tenant-ID header (fallback)
@@ -175,13 +185,12 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
 
   private String extractProjectIdFromApiKey(String apiKey) {
     if (apiKey == null || apiKey.isBlank()) {
-      return apiKey;
+      throw new IllegalArgumentException("API key cannot be null or blank");
     }
     
     int lastUnderscoreIndex = apiKey.lastIndexOf('_');
     if (lastUnderscoreIndex == -1) {
-      // No underscore found, return original string
-      return apiKey;
+      throw new IllegalArgumentException("Invalid API key format.");
     }
     
     // Extract everything before the last underscore

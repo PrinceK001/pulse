@@ -456,11 +456,138 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("v1/configs");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("config-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("config-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
       assertEquals("config-tenant", TenantContext.getTenantId());
+    }
+  }
+
+  @Nested
+  class ProjectIdExtractionTests {
+
+    @Test
+    void shouldExtractProjectIdWithSingleUnderscore() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("project123_secret456");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("project123", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldExtractProjectIdWithMultipleUnderscores() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("test_project-XwzBrFCb_fYJmt8hy0wmZcXvDq3DGRn7x");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("test_project-XwzBrFCb", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldExtractProjectIdWithHyphensInProjectId() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("my-project-id_secret-key-123");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("my-project-id", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldExtractProjectIdWithUnderscoreAtEnd() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("project_");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("project", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldAbortWhenApiKeyHasNoUnderscore() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("simpleid");
+
+      tenantFilter.filter(requestContext);
+
+      verify(requestContext).abortWith(any());
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldAbortWhenApiKeyIsNull() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      verify(requestContext).abortWith(any());
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldAbortWhenApiKeyIsBlank() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("   ");
+
+      tenantFilter.filter(requestContext);
+
+      verify(requestContext).abortWith(any());
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldExtractProjectIdWithOnlyUnderscore() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("_secret");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldExtractProjectIdWithComplexFormat() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("tenant-123_project-456_xyz789_secret");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("tenant-123_project-456_xyz789", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldTrimApiKeyBeforeExtraction() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/some/path");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("  project123_secret  ");
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("project123", TenantContext.getTenantId());
     }
   }
 }
