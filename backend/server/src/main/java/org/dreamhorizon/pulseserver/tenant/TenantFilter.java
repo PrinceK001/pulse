@@ -47,6 +47,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String LOGS_INGESTION_PATH = "v1/logs";
   private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
+  private static final String NOTIFICATIONS_PATH_PREFIX = "notification";
+  private static final String INTEGRATIONS_PATH_PREFIX = "v1/integrations";
 
   private JwtService jwtService;
 
@@ -98,6 +100,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
         || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
         || normalizedPath.startsWith(LOGS_INGESTION_PATH)
         || normalizedPath.startsWith(TNC_DOCUMENTS_PATH);
+        || normalizedPath.contains(NOTIFICATIONS_PATH_PREFIX)
+        || normalizedPath.startsWith(INTEGRATIONS_PATH_PREFIX);
   }
 
   @Override
