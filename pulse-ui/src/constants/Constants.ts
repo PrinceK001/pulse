@@ -290,8 +290,8 @@ export const ROUTES: Routes = {
   },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
-    basePath: "/project-settings",
-    path: "/project-settings",
+    basePath: "/settings",
+    path: "/settings",
     element: ProjectSettings,
   },
 };
