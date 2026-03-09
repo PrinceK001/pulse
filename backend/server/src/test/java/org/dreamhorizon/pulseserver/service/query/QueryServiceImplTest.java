@@ -1584,229 +1584,80 @@ public class QueryServiceImplTest {
   @Nested
   class AppendProjectId {
 
+    private static final String TABLE = "test_db.events";
+    private static final String PROJECT = "proj_42";
+
     @Test
     void shouldInsertProjectIdBeforeOrderBy() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " ORDER BY \"timestamp\" DESC";
-      String jobId = "job-123";
-      String queryExecutionId = "exec-123";
-      Timestamp now = new Timestamp(System.currentTimeMillis());
+      String query = "SELECT * FROM " + TABLE + " WHERE col = 'v' ORDER BY ts DESC";
 
-      String expectedQuery = "SELECT * FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " AND project_id = 'test_tenant'"
-          + " ORDER BY \"timestamp\" DESC;";
+      String result = queryService.appendProjectId(query, PROJECT);
 
-      QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
-          .queryExecutionId(queryExecutionId)
-          .status(QueryStatus.RUNNING)
-          .submissionDateTime(now)
-          .build();
-
-      QueryJob job = QueryJob.builder()
-          .jobId(jobId)
-          .queryString(expectedQuery)
-          .queryExecutionId(queryExecutionId)
-          .status(QueryJobStatus.RUNNING)
-          .createdAt(now)
-          .build();
-
-      when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
-      when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
-      when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), any(Timestamp.class)))
-          .thenReturn(Single.just(true));
-      when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.RUNNING));
-      when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
-
-      queryService.submitQuery(query, "test@example.com").blockingGet();
-
-      verify(queryClient).submitQuery(eq(expectedQuery));
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT + "' ORDER BY ts DESC;");
     }
 
     @Test
     void shouldInsertProjectIdBeforeGroupBy() {
-      String query = "SELECT event_name, COUNT(*) FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " GROUP BY event_name";
-      String jobId = "job-123";
-      String queryExecutionId = "exec-123";
-      Timestamp now = new Timestamp(System.currentTimeMillis());
+      String query = "SELECT name, COUNT(*) FROM " + TABLE + " WHERE col = 'v' GROUP BY name";
 
-      String expectedQuery = "SELECT event_name, COUNT(*) FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " AND project_id = 'test_tenant'"
-          + " GROUP BY event_name;";
+      String result = queryService.appendProjectId(query, PROJECT);
 
-      QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
-          .queryExecutionId(queryExecutionId)
-          .status(QueryStatus.RUNNING)
-          .submissionDateTime(now)
-          .build();
-
-      QueryJob job = QueryJob.builder()
-          .jobId(jobId)
-          .queryString(expectedQuery)
-          .queryExecutionId(queryExecutionId)
-          .status(QueryJobStatus.RUNNING)
-          .createdAt(now)
-          .build();
-
-      when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
-      when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
-      when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), any(Timestamp.class)))
-          .thenReturn(Single.just(true));
-      when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.RUNNING));
-      when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
-
-      queryService.submitQuery(query, "test@example.com").blockingGet();
-
-      verify(queryClient).submitQuery(eq(expectedQuery));
+      assertThat(result).isEqualTo(
+          "SELECT name, COUNT(*) FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT + "' GROUP BY name;");
     }
 
     @Test
     void shouldInsertProjectIdBeforeLimit() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " LIMIT 100";
-      String jobId = "job-123";
-      String queryExecutionId = "exec-123";
-      Timestamp now = new Timestamp(System.currentTimeMillis());
+      String query = "SELECT * FROM " + TABLE + " WHERE col = 'v' LIMIT 100";
 
-      String expectedQuery = "SELECT * FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " AND project_id = 'test_tenant'"
-          + " LIMIT 100;";
+      String result = queryService.appendProjectId(query, PROJECT);
 
-      QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
-          .queryExecutionId(queryExecutionId)
-          .status(QueryStatus.RUNNING)
-          .submissionDateTime(now)
-          .build();
-
-      QueryJob job = QueryJob.builder()
-          .jobId(jobId)
-          .queryString(expectedQuery)
-          .queryExecutionId(queryExecutionId)
-          .status(QueryJobStatus.RUNNING)
-          .createdAt(now)
-          .build();
-
-      when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
-      when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
-      when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), any(Timestamp.class)))
-          .thenReturn(Single.just(true));
-      when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.RUNNING));
-      when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
-
-      queryService.submitQuery(query, "test@example.com").blockingGet();
-
-      verify(queryClient).submitQuery(eq(expectedQuery));
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT + "' LIMIT 100;");
     }
 
     @Test
-    void shouldInsertProjectIdBeforeOrderByWithGroupByAndLimit() {
-      String query = "SELECT event_name, COUNT(*) FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " GROUP BY event_name ORDER BY event_name LIMIT 50";
-      String jobId = "job-123";
-      String queryExecutionId = "exec-123";
-      Timestamp now = new Timestamp(System.currentTimeMillis());
+    void shouldInsertProjectIdBeforeEarliestTrailingClause() {
+      String query = "SELECT name, COUNT(*) FROM " + TABLE
+          + " WHERE col = 'v' GROUP BY name ORDER BY name LIMIT 50";
 
-      String expectedQuery = "SELECT event_name, COUNT(*) FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " AND project_id = 'test_tenant'"
-          + " GROUP BY event_name ORDER BY event_name LIMIT 50;";
+      String result = queryService.appendProjectId(query, PROJECT);
 
-      QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
-          .queryExecutionId(queryExecutionId)
-          .status(QueryStatus.RUNNING)
-          .submissionDateTime(now)
-          .build();
-
-      QueryJob job = QueryJob.builder()
-          .jobId(jobId)
-          .queryString(expectedQuery)
-          .queryExecutionId(queryExecutionId)
-          .status(QueryJobStatus.RUNNING)
-          .createdAt(now)
-          .build();
-
-      when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
-      when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
-      when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), any(Timestamp.class)))
-          .thenReturn(Single.just(true));
-      when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.RUNNING));
-      when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
-
-      queryService.submitQuery(query, "test@example.com").blockingGet();
-
-      verify(queryClient).submitQuery(eq(expectedQuery));
+      assertThat(result).isEqualTo(
+          "SELECT name, COUNT(*) FROM " + TABLE
+              + " WHERE col = 'v' AND project_id = '" + PROJECT + "'"
+              + " GROUP BY name ORDER BY name LIMIT 50;");
     }
 
     @Test
     void shouldAppendProjectIdAtEndWhenNoTrailingClauses() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'";
-      String jobId = "job-123";
-      String queryExecutionId = "exec-123";
-      Timestamp now = new Timestamp(System.currentTimeMillis());
+      String query = "SELECT * FROM " + TABLE + " WHERE col = 'v'";
 
-      String expectedQuery = "SELECT * FROM pulse_athena_db.otel_data_test_tenant"
-          + " WHERE date = '2025-12-23' AND hour = '11'"
-          + " AND project_id = 'test_tenant';";
+      String result = queryService.appendProjectId(query, PROJECT);
 
-      QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
-          .queryExecutionId(queryExecutionId)
-          .status(QueryStatus.RUNNING)
-          .submissionDateTime(now)
-          .build();
-
-      QueryJob job = QueryJob.builder()
-          .jobId(jobId)
-          .queryString(expectedQuery)
-          .queryExecutionId(queryExecutionId)
-          .status(QueryJobStatus.RUNNING)
-          .createdAt(now)
-          .build();
-
-      when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
-      when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
-      when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), any(Timestamp.class)))
-          .thenReturn(Single.just(true));
-      when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.RUNNING));
-      when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
-
-      queryService.submitQuery(query, "test@example.com").blockingGet();
-
-      verify(queryClient).submitQuery(eq(expectedQuery));
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT + "';");
     }
 
     @Test
     void shouldUseWhereWhenNoWhereClauseExists() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant";
+      String query = "SELECT * FROM " + TABLE;
 
-      String result = queryService.appendProjectId(query, "test_tenant");
+      String result = queryService.appendProjectId(query, PROJECT);
 
       assertThat(result).isEqualTo(
-          "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE project_id = 'test_tenant';");
+          "SELECT * FROM " + TABLE + " WHERE project_id = '" + PROJECT + "';");
     }
 
     @Test
     void shouldUseWhereBeforeOrderByWhenNoWhereClauseExists() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant ORDER BY \"timestamp\" DESC";
+      String query = "SELECT * FROM " + TABLE + " ORDER BY ts DESC";
 
-      String result = queryService.appendProjectId(query, "test_tenant");
+      String result = queryService.appendProjectId(query, PROJECT);
 
       assertThat(result).isEqualTo(
-          "SELECT * FROM pulse_athena_db.otel_data_test_tenant"
-              + " WHERE project_id = 'test_tenant'"
-              + " ORDER BY \"timestamp\" DESC;");
+          "SELECT * FROM " + TABLE + " WHERE project_id = '" + PROJECT + "' ORDER BY ts DESC;");
     }
   }
 }
