@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models;
+package org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.models;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -6,18 +6,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.models.ClickhouseProjectCredentialAudit;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-class ClickhouseTenantCredentialAuditModelTest {
+class ClickhouseProjectCredentialAuditModelTest {
 
   @Nested
   class TestBuilder {
 
     @Test
     void shouldBuildWithAllFields() {
-      ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit = ClickhouseProjectCredentialAudit.builder()
           .id(1L)
           .projectId("test_project")
           .action("CREDENTIALS_CREATED")
@@ -36,7 +36,7 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldBuildWithMinimalFields() {
-      ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit = ClickhouseProjectCredentialAudit.builder()
           .projectId("test_project")
           .action("CREDENTIALS_CREATED")
           .build();
@@ -52,7 +52,7 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldSetAndGetAllFields() {
-      ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
+      ClickhouseProjectCredentialAudit audit = new ClickhouseProjectCredentialAudit();
 
       audit.setId(2L);
       audit.setProjectId("project_abc");
@@ -75,13 +75,13 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldBeEqualForSameValues() {
-      ClickhouseTenantCredentialAudit audit1 = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit1 = ClickhouseProjectCredentialAudit.builder()
           .id(1L)
           .projectId("test_project")
           .action("CREDENTIALS_CREATED")
           .build();
 
-      ClickhouseTenantCredentialAudit audit2 = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit2 = ClickhouseProjectCredentialAudit.builder()
           .id(1L)
           .projectId("test_project")
           .action("CREDENTIALS_CREATED")
@@ -93,12 +93,12 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldNotBeEqualForDifferentValues() {
-      ClickhouseTenantCredentialAudit audit1 = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit1 = ClickhouseProjectCredentialAudit.builder()
           .id(1L)
           .action("CREDENTIALS_CREATED")
           .build();
 
-      ClickhouseTenantCredentialAudit audit2 = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit2 = ClickhouseProjectCredentialAudit.builder()
           .id(2L)
           .action("CREDENTIALS_UPDATED")
           .build();
@@ -108,8 +108,7 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldBeEqualToItself() {
-      ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
-          .projectId("test")
+      ClickhouseProjectCredentialAudit audit = ClickhouseProjectCredentialAudit.builder()
           .projectId("test")
           .build();
 
@@ -118,8 +117,7 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldNotBeEqualToNull() {
-      ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
-          .projectId("test")
+      ClickhouseProjectCredentialAudit audit = ClickhouseProjectCredentialAudit.builder()
           .projectId("test")
           .build();
 
@@ -128,8 +126,7 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldNotBeEqualToDifferentType() {
-      ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
-          .projectId("test")
+      ClickhouseProjectCredentialAudit audit = ClickhouseProjectCredentialAudit.builder()
           .projectId("test")
           .build();
 
@@ -142,7 +139,7 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldGenerateToString() {
-      ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit = ClickhouseProjectCredentialAudit.builder()
           .id(1L)
           .projectId("test_project")
           .action("CREDENTIALS_CREATED")
@@ -162,7 +159,7 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldCreateWithAllArgsConstructor() {
-      ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit(
+      ClickhouseProjectCredentialAudit audit = new ClickhouseProjectCredentialAudit(
           1L, "project", "CREATE", "admin", "details", "2026-01-01"
       );
 
@@ -180,10 +177,9 @@ class ClickhouseTenantCredentialAuditModelTest {
 
     @Test
     void shouldCreateWithNoArgsConstructor() {
-      ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
+      ClickhouseProjectCredentialAudit audit = new ClickhouseProjectCredentialAudit();
 
       assertNull(audit.getId());
-      assertNull(audit.getProjectId());
       assertNull(audit.getProjectId());
       assertNull(audit.getAction());
     }

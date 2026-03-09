@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models;
+package org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.models;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -7,157 +7,157 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.models.ClickhouseProjectCredentialAudit;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Comprehensive tests for ClickhouseTenantCredentialAudit model to cover all Lombok branches.
+ * Comprehensive tests for ClickhouseProjectCredentialAudit model to cover all Lombok branches.
  */
-class ClickhouseTenantCredentialAuditBranchTest {
+class ClickhouseProjectCredentialAuditBranchTest {
 
   @Nested
   class TestEqualsAllBranches {
 
     @Test
     void equalsShouldReturnTrueForSameObject() {
-      ClickhouseTenantCredentialAudit audit = createFullAudit();
+      ClickhouseProjectCredentialAudit audit = createFullAudit();
       assertTrue(audit.equals(audit));
     }
 
     @Test
     void equalsShouldReturnFalseForNull() {
-      ClickhouseTenantCredentialAudit audit = createFullAudit();
+      ClickhouseProjectCredentialAudit audit = createFullAudit();
       assertFalse(audit.equals(null));
     }
 
     @Test
     void equalsShouldReturnFalseForDifferentClass() {
-      ClickhouseTenantCredentialAudit audit = createFullAudit();
+      ClickhouseProjectCredentialAudit audit = createFullAudit();
       assertFalse(audit.equals("not an audit"));
       assertFalse(audit.equals(Integer.valueOf(1)));
     }
 
     @Test
     void equalsShouldReturnTrueForEqualObjects() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       assertTrue(audit1.equals(audit2));
       assertTrue(audit2.equals(audit1));
     }
 
     @Test
     void equalsShouldReturnFalseWhenAuditIdDiffers() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setId(999L);
       assertFalse(audit1.equals(audit2));
     }
 
     @Test
-    void equalsShouldReturnFalseWhenTenantIdDiffers() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+    void equalsShouldReturnFalseWhenProjectIdDiffers() {
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setProjectId("different");
       assertFalse(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldReturnFalseWhenActionDiffers() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setAction("DIFFERENT_ACTION");
       assertFalse(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldReturnFalseWhenPerformedByDiffers() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setPerformedBy("different_user");
       assertFalse(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldReturnFalseWhenDetailsDiffers() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setDetails("different_details");
       assertFalse(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldReturnFalseWhenCreatedAtDiffers() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setCreatedAt("different_date");
       assertFalse(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldHandleNullAuditId() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
       audit1.setId(null);
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setId(null);
       assertTrue(audit1.equals(audit2));
 
-      ClickhouseTenantCredentialAudit audit3 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit3 = createFullAudit();
       assertFalse(audit1.equals(audit3));
     }
 
     @Test
-    void equalsShouldHandleNullTenantId() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
+    void equalsShouldHandleNullProjectId() {
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
       audit1.setProjectId(null);
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setProjectId(null);
       assertTrue(audit1.equals(audit2));
 
-      ClickhouseTenantCredentialAudit audit3 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit3 = createFullAudit();
       assertFalse(audit1.equals(audit3));
     }
 
     @Test
     void equalsShouldHandleNullAction() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
       audit1.setAction(null);
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setAction(null);
       assertTrue(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldHandleNullPerformedBy() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
       audit1.setPerformedBy(null);
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setPerformedBy(null);
       assertTrue(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldHandleNullDetails() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
       audit1.setDetails(null);
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setDetails(null);
       assertTrue(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldHandleNullCreatedAt() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
       audit1.setCreatedAt(null);
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setCreatedAt(null);
       assertTrue(audit1.equals(audit2));
     }
 
     @Test
     void equalsShouldHandleAllNullFields() {
-      ClickhouseTenantCredentialAudit audit1 = new ClickhouseTenantCredentialAudit();
-      ClickhouseTenantCredentialAudit audit2 = new ClickhouseTenantCredentialAudit();
+      ClickhouseProjectCredentialAudit audit1 = new ClickhouseProjectCredentialAudit();
+      ClickhouseProjectCredentialAudit audit2 = new ClickhouseProjectCredentialAudit();
       assertTrue(audit1.equals(audit2));
     }
   }
@@ -167,7 +167,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void hashCodeShouldBeConsistent() {
-      ClickhouseTenantCredentialAudit audit = createFullAudit();
+      ClickhouseProjectCredentialAudit audit = createFullAudit();
       int hash1 = audit.hashCode();
       int hash2 = audit.hashCode();
       assertEquals(hash1, hash2);
@@ -175,22 +175,22 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void hashCodeShouldBeEqualForEqualObjects() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       assertEquals(audit1.hashCode(), audit2.hashCode());
     }
 
     @Test
     void hashCodeShouldDifferForDifferentObjects() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       audit2.setId(999L);
       assertNotEquals(audit1.hashCode(), audit2.hashCode());
     }
 
     @Test
     void hashCodeShouldHandleNullFields() {
-      ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
+      ClickhouseProjectCredentialAudit audit = new ClickhouseProjectCredentialAudit();
       int hash = audit.hashCode();
       assertNotNull(hash);
     }
@@ -201,13 +201,13 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void toStringShouldNotReturnNull() {
-      ClickhouseTenantCredentialAudit audit = createFullAudit();
+      ClickhouseProjectCredentialAudit audit = createFullAudit();
       assertNotNull(audit.toString());
     }
 
     @Test
     void toStringShouldContainFieldNames() {
-      ClickhouseTenantCredentialAudit audit = createFullAudit();
+      ClickhouseProjectCredentialAudit audit = createFullAudit();
       String str = audit.toString();
       assertTrue(str.contains("id"));
       assertTrue(str.contains("projectId"));
@@ -216,7 +216,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void toStringShouldHandleNullFields() {
-      ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
+      ClickhouseProjectCredentialAudit audit = new ClickhouseProjectCredentialAudit();
       String str = audit.toString();
       assertNotNull(str);
     }
@@ -227,9 +227,9 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void builderShouldCreateObjectWithAllFields() {
-      ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit = ClickhouseProjectCredentialAudit.builder()
           .id(1L)
-          .projectId("tenant1")
+          .projectId("project1")
           .action("CREATE")
           .performedBy("admin")
           .details("test_details")
@@ -237,7 +237,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
           .build();
 
       assertEquals(1L, audit.getId());
-      assertEquals("tenant1", audit.getProjectId());
+      assertEquals("project1", audit.getProjectId());
       assertEquals("CREATE", audit.getAction());
       assertEquals("admin", audit.getPerformedBy());
       assertEquals("test_details", audit.getDetails());
@@ -246,7 +246,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void builderShouldHandleNullValues() {
-      ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
+      ClickhouseProjectCredentialAudit audit = ClickhouseProjectCredentialAudit.builder()
           .id(null)
           .projectId(null)
           .action(null)
@@ -261,7 +261,7 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void builderShouldProvideToString() {
-      String str = ClickhouseTenantCredentialAudit.builder()
+      String str = ClickhouseProjectCredentialAudit.builder()
           .id(1L)
           .toString();
       assertNotNull(str);
@@ -273,14 +273,14 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void canEqualShouldReturnTrueForSameType() {
-      ClickhouseTenantCredentialAudit audit1 = createFullAudit();
-      ClickhouseTenantCredentialAudit audit2 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit1 = createFullAudit();
+      ClickhouseProjectCredentialAudit audit2 = createFullAudit();
       assertTrue(audit1.equals(audit2));
     }
 
     @Test
     void canEqualShouldReturnFalseForDifferentType() {
-      ClickhouseTenantCredentialAudit audit = createFullAudit();
+      ClickhouseProjectCredentialAudit audit = createFullAudit();
       assertFalse(audit.equals("string"));
       assertFalse(audit.equals(123));
     }
@@ -291,11 +291,11 @@ class ClickhouseTenantCredentialAuditBranchTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit(
-          1L, "tenant", "action", "performer", "details", "created");
+      ClickhouseProjectCredentialAudit audit = new ClickhouseProjectCredentialAudit(
+          1L, "project", "action", "performer", "details", "created");
 
       assertEquals(1L, audit.getId());
-      assertEquals("tenant", audit.getProjectId());
+      assertEquals("project", audit.getProjectId());
       assertEquals("action", audit.getAction());
       assertEquals("performer", audit.getPerformedBy());
       assertEquals("details", audit.getDetails());
@@ -303,10 +303,10 @@ class ClickhouseTenantCredentialAuditBranchTest {
     }
   }
 
-  private ClickhouseTenantCredentialAudit createFullAudit() {
-    return ClickhouseTenantCredentialAudit.builder()
+  private ClickhouseProjectCredentialAudit createFullAudit() {
+    return ClickhouseProjectCredentialAudit.builder()
         .id(1L)
-        .projectId("tenant1")
+        .projectId("project1")
         .action("CREATE")
         .performedBy("admin")
         .details("test_details")

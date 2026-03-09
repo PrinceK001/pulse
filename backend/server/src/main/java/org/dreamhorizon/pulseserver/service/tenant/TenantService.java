@@ -8,7 +8,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
@@ -20,7 +20,7 @@ import org.dreamhorizon.pulseserver.service.tenant.models.UpdateTenantRequest;
 public class TenantService {
 
   private final TenantDao tenantDao;
-  private final ClickhouseTenantConnectionPoolManager poolManager;
+  private final ClickhouseProjectConnectionPoolManager poolManager;
   private final org.dreamhorizon.pulseserver.service.OpenFgaService openFgaService;
 
   public Single<Tenant> createTenant(CreateTenantRequest request) {
@@ -84,5 +84,5 @@ public class TenantService {
         .doOnComplete(() -> log.info("Tenant activated: {}", tenantId))
         .doOnError(error -> log.error("Failed to activate tenant: {}", tenantId, error));
   }
-
+  
 }

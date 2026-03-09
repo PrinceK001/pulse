@@ -106,5 +106,4 @@ public class TenantsController {
             .build()))
         .to(RestResponse.jaxrsRestHandler());
   }
-
 }
