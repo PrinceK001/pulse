@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { ProjectSummary } from '../helpers/getUserProjects';
+import { ProjectSummary } from '../helpers/getUserProjects/getUserProjects.interface';
 import { useUserProjects } from '../hooks';
 import { TenantRole } from '../constants/Roles';
 import { TIERS, TierType } from '../constants/Tiers';

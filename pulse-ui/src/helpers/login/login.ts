@@ -1,26 +1,6 @@
 import { API_BASE_URL } from "../../constants";
 import { makeRequest } from "../makeRequest";
-import { TierType } from "../../constants/Tiers";
-
-export interface LoginRequest {
-  firebaseIdToken: string;
-}
-
-export interface LoginResponse {
-  status: string;
-  accessToken?: string;
-  refreshToken?: string;
-  userId: string;
-  email: string;
-  name: string;
-  tenantId?: string;
-  tenantName?: string;
-  tenantRole?: string;
-  tier?: TierType;
-  needsOnboarding: boolean;
-  tokenType?: string;
-  expiresIn?: number;
-}
+import { LoginResponse, LoginResult } from "./login.interface";
 
 /**
  * Call POST /v1/auth/login with Firebase ID token
@@ -28,10 +8,7 @@ export interface LoginResponse {
  */
 export const login = async (
   firebaseIdToken: string
-): Promise<{
-  data?: LoginResponse;
-  error?: { message: string };
-}> => {
+): Promise<LoginResult> => {
   try {
     const response = await makeRequest<LoginResponse>({
       url: `${API_BASE_URL}/v1/auth/login`,
