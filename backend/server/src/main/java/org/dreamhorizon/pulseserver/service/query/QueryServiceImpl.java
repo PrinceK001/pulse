@@ -11,6 +11,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,13 @@ import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class QueryServiceImpl implements QueryService {
+
+  private static final Pattern ORDER_BY_PATTERN =
+      Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE);
+  private static final Pattern GROUP_BY_PATTERN =
+      Pattern.compile("\\bGROUP\\s+BY\\b", Pattern.CASE_INSENSITIVE);
+  private static final Pattern LIMIT_PATTERN =
+      Pattern.compile("\\bLIMIT\\b", Pattern.CASE_INSENSITIVE);
 
   private final QueryClient queryClient;
   private final QueryJobDao queryJobDao;
@@ -73,18 +82,31 @@ public class QueryServiceImpl implements QueryService {
   }
 
   private String appendProjectId(String originalQuery, String projectId) {
-    String project = String.format("AND project_id = '%s'", projectId);
+    String projectFilter = String.format("AND project_id = '%s'", projectId);
 
-    // 1. Trim whitespace
-    // 2. Remove one or more trailing semicolons using regex
-    // 3. Trim again to be safe
     String cleanedBase = originalQuery.trim()
         .replaceAll(";+$", "")
         .trim();
 
-    // Return the joined query.
-    // We add a space to ensure the fragment doesn't touch the last word of the base.
-    return cleanedBase + " " + project.trim() + ";";
+    int insertPosition = findTrailingClausePosition(cleanedBase);
+    String before = cleanedBase.substring(0, insertPosition).trim();
+    String after = cleanedBase.substring(insertPosition).trim();
+
+    if (after.isEmpty()) {
+      return before + " " + projectFilter + ";";
+    }
+    return before + " " + projectFilter + " " + after + ";";
+  }
+
+  private int findTrailingClausePosition(String query) {
+    int position = query.length();
+    for (Pattern pattern : new Pattern[]{ORDER_BY_PATTERN, GROUP_BY_PATTERN, LIMIT_PATTERN}) {
+      Matcher matcher = pattern.matcher(query);
+      if (matcher.find()) {
+        position = Math.min(position, matcher.start());
+      }
+    }
+    return position;
   }
 
   private Single<QueryJob> handleQueryState(String jobId, String queryExecutionId, QueryStatus status, Long initialDataScannedBytes) {
