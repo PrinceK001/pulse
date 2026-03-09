@@ -1786,5 +1786,27 @@ public class QueryServiceImplTest {
 
       verify(queryClient).submitQuery(eq(expectedQuery));
     }
+
+    @Test
+    void shouldUseWhereWhenNoWhereClauseExists() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant";
+
+      String result = queryService.appendProjectId(query, "test_tenant");
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE project_id = 'test_tenant';");
+    }
+
+    @Test
+    void shouldUseWhereBeforeOrderByWhenNoWhereClauseExists() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant ORDER BY \"timestamp\" DESC";
+
+      String result = queryService.appendProjectId(query, "test_tenant");
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM pulse_athena_db.otel_data_test_tenant"
+              + " WHERE project_id = 'test_tenant'"
+              + " ORDER BY \"timestamp\" DESC;");
+    }
   }
 }

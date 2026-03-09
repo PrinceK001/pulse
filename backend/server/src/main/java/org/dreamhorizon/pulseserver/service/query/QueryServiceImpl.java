@@ -33,6 +33,8 @@ import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class QueryServiceImpl implements QueryService {
 
+  private static final Pattern WHERE_PATTERN =
+      Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE);
   private static final Pattern ORDER_BY_PATTERN =
       Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE);
   private static final Pattern GROUP_BY_PATTERN =
@@ -81,12 +83,15 @@ public class QueryServiceImpl implements QueryService {
             }));
   }
 
-  private String appendProjectId(String originalQuery, String projectId) {
-    String projectFilter = String.format("AND project_id = '%s'", projectId);
-
+  String appendProjectId(String originalQuery, String projectId) {
     String cleanedBase = originalQuery.trim()
         .replaceAll(";+$", "")
         .trim();
+
+    boolean hasWhere = WHERE_PATTERN.matcher(cleanedBase).find();
+    String projectFilter = hasWhere
+        ? String.format("AND project_id = '%s'", projectId)
+        : String.format("WHERE project_id = '%s'", projectId);
 
     int insertPosition = findTrailingClausePosition(cleanedBase);
     String before = cleanedBase.substring(0, insertPosition).trim();
