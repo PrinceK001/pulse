@@ -8,7 +8,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
@@ -20,7 +20,7 @@ import org.dreamhorizon.pulseserver.service.tenant.models.UpdateTenantRequest;
 public class TenantService {
 
   private final TenantDao tenantDao;
-  private final ClickhouseTenantConnectionPoolManager poolManager;
+  private final ClickhouseProjectConnectionPoolManager poolManager;
   private final org.dreamhorizon.pulseserver.service.OpenFgaService openFgaService;
 
   public Single<Tenant> createTenant(CreateTenantRequest request) {
@@ -84,48 +84,5 @@ public class TenantService {
         .doOnComplete(() -> log.info("Tenant activated: {}", tenantId))
         .doOnError(error -> log.error("Failed to activate tenant: {}", tenantId, error));
   }
-
-  public Completable deleteTenant(String tenantId) {
-    log.info("Deleting tenant: {}", tenantId);
-
-    return tenantDao.deleteTenant(tenantId)
-        .doOnComplete(() -> log.info("Tenant deleted: {}", tenantId))
-        .doOnError(error -> log.error("Failed to delete tenant: {}", tenantId, error));
-  }
-
-  public Single<Boolean> tenantExists(String tenantId) {
-    return tenantDao.tenantExists(tenantId);
-  }
-
-  /**
-   * Create tenant for a specific user during onboarding flow.
-   * This method:
-   * 1. Creates the tenant record in MySQL
-   * 2. Assigns the user as admin in OpenFGA
-   * 
-   * @param name Tenant name
-   * @param description Tenant description
-   * @param userId User ID (who will be the admin)
-   * @return Single with created Tenant
-   */
-  public Single<Tenant> createTenantForUser(String name, String description, String userId) {
-    String tenantId = "tenant-" + java.util.UUID.randomUUID();
-    
-    log.info("Creating tenant: tenantId={}, name={}, userId={}", tenantId, name, userId);
-    
-    Tenant tenant = Tenant.builder()
-        .tenantId(tenantId)
-        .name(name)
-        .description(description)
-        .isActive(true)
-        .build();
-    
-    return tenantDao.createTenant(tenant)
-        .flatMap(created -> 
-            openFgaService.assignTenantRole(userId, tenantId, "admin")
-                .andThen(Single.just(created))
-        )
-        .doOnSuccess(t -> log.info("Tenant created and user assigned as admin: tenantId={}, userId={}", tenantId, userId))
-        .doOnError(error -> log.error("Failed to create tenant for user: tenantId={}, userId={}", tenantId, userId, error));
-  }
+  
 }
