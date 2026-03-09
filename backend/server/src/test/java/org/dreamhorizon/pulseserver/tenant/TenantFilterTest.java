@@ -60,9 +60,9 @@ class TenantFilterTest {
     void shouldSetTenantIdFromHeader() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
-      // No Authorization header, so it falls back to X-Tenant-ID header
+      // No Authorization header, so it falls back to X-API-KEY header
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("test-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("test-tenant_secret-key");
 
       tenantFilter.filter(requestContext);
 
@@ -74,7 +74,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("  test-tenant  ");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("  test-tenant_secret  ");
 
       tenantFilter.filter(requestContext);
 
@@ -149,7 +149,7 @@ class TenantFilterTest {
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
       when(jwtService.verifyToken("valid-token")).thenReturn(claims);
       when(claims.get("tenantId", String.class)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -164,7 +164,7 @@ class TenantFilterTest {
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
       when(jwtService.verifyToken("valid-token")).thenReturn(claims);
       when(claims.get("tenantId", String.class)).thenReturn("   ");
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -178,7 +178,7 @@ class TenantFilterTest {
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer invalid-token");
       when(jwtService.verifyToken("invalid-token")).thenThrow(new RuntimeException("Invalid token"));
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -190,7 +190,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Basic some-credentials");
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -202,7 +202,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer ");
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -214,7 +214,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer    ");
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("header-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -323,7 +323,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn(null);
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("test-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("test-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -363,7 +363,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer some-token");
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("fallback-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("fallback-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -407,7 +407,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("root-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("root-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -419,7 +419,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("empty-path-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("empty-path-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -432,7 +432,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("healthchecker");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("health-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("health-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
@@ -444,7 +444,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("v1/metrics/query");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("api-tenant");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("api-tenant_secret");
 
       tenantFilter.filter(requestContext);
 
