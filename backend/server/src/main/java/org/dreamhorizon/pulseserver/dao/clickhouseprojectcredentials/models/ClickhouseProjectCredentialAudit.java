@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.clickhousecredentials.models;
+package org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ClickhouseTenantCredentialAudit {
+public class ClickhouseProjectCredentialAudit {
   private Long id;
   private String projectId;
   private String action;

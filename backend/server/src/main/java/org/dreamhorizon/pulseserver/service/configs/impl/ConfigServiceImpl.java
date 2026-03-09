@@ -13,7 +13,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
@@ -53,7 +52,7 @@ public class ConfigServiceImpl implements ConfigService {
         .recordStats()
         .buildAsync((String projectId, java.util.concurrent.Executor executor) -> {
           log.info("Loading config into cache for project: {}", projectId);
-          return sdkConfigsDao.getConfig()
+          return sdkConfigsDao.getConfig(projectId)
               .toCompletionStage()
               .toCompletableFuture();
         });
@@ -61,7 +60,7 @@ public class ConfigServiceImpl implements ConfigService {
 
   @Override
   public Single<PulseConfig> getSdkConfig(String projectId, long version) {
-    return sdkConfigsDao.getConfig(version);
+    return sdkConfigsDao.getConfig(projectId, version);
   }
 
   @Override

@@ -15,17 +15,14 @@ import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
-import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.dao.notification.*;
-import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
-import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService;
@@ -40,6 +37,7 @@ import org.dreamhorizon.pulseserver.service.notification.oauth.*;
 import org.dreamhorizon.pulseserver.service.notification.provider.*;
 import org.dreamhorizon.pulseserver.service.notification.queue.*;
 import org.dreamhorizon.pulseserver.service.notification.webhook.*;
+import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
@@ -66,15 +64,6 @@ public class MainModule extends VertxAbstractModule {
     bind(ObjectMapper.class).toInstance(getObjectMapper());
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
     bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
-
-    bind(ClickhouseTenantConnectionPoolManager.class).toProvider(() -> {
-      ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
-      ClickhouseTenantConnectionPoolManager manager = new ClickhouseTenantConnectionPoolManager(config);
-      SharedDataUtils.put(vertx, manager);
-      return manager;
-    }).in(Singleton.class);
-
-    bind(ClickhouseCredentialsDao.class).in(Singleton.class);
 
     // === NEW: Multi-tenancy & RBAC Services ===
     // === NEW: Multi-tenancy & RBAC DAOs ===
