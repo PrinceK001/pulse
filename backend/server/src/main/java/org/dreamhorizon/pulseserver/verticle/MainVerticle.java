@@ -26,7 +26,10 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
+import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.guice.GuiceInjector;
+import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 @Slf4j
@@ -37,13 +40,15 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public Completable rxStart() {
-    Completable completable = ConfigUtils.getConfigRetriever(vertx)
-        .rxGetConfig()
-        .map(config -> {
-          JsonObject appConfig = config.getJsonObject("app", new JsonObject());
+    Completable completable =
+        ConfigUtils.getConfigRetriever(vertx)
+            .rxGetConfig()
+            .map(
+                config -> {
+                  JsonObject appConfig = config.getJsonObject("app", new JsonObject());
 
-          JsonObject mysqlConfig = config.getJsonObject("mysql", new JsonObject());
-          JsonObject webClientConfig = config.getJsonObject("webclient", new JsonObject());
+                  JsonObject mysqlConfig = config.getJsonObject("mysql", new JsonObject());
+                  JsonObject webClientConfig = config.getJsonObject("webclient", new JsonObject());
 
 
           this.mysqlClient = new MysqlClientImpl(this.vertx, mysqlConfig);
@@ -53,7 +58,11 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
           JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
-          
+                    JsonObject notificationConfig =
+                            config.getJsonObject("notification", new JsonObject());
+                    SharedDataUtils.put(
+                            vertx.getDelegate(), notificationConfig.mapTo(NotificationConfig.class));
+
           // Initialize OpenFGA configuration
           JsonObject openfgaJson = config.getJsonObject("openfga", new JsonObject());
           String apiUrl = openfgaJson.getString("apiUrl", "http://localhost:8080");
@@ -67,7 +76,7 @@ public class MainVerticle extends AbstractVerticle {
           } else if (enabledValue instanceof String) {
             enabled = Boolean.parseBoolean((String) enabledValue);
           }
-          
+
           // If enabled but missing IDs, try to fetch from OpenFGA
           if (enabled && (storeId == null || storeId.isEmpty())) {
             log.info("OpenFGA enabled but no storeId configured, attempting to fetch from {}...", apiUrl);
@@ -82,7 +91,7 @@ public class MainVerticle extends AbstractVerticle {
               enabled = false;
             }
           }
-          
+
           OpenFgaConfig openfgaConfig = OpenFgaConfig.builder()
               .apiUrl(apiUrl)
               .storeId(storeId != null ? storeId : "")
@@ -90,9 +99,9 @@ public class MainVerticle extends AbstractVerticle {
               .enabled(enabled && storeId != null && !storeId.isEmpty())
               .build();
           SharedDataUtils.put(vertx.getDelegate(), openfgaConfig);
-          log.info("OpenFGA config initialized - enabled: {}, apiUrl: {}, storeId: {}", 
+          log.info("OpenFGA config initialized - enabled: {}, apiUrl: {}, storeId: {}",
               openfgaConfig.isEnabled(), openfgaConfig.getApiUrl(), openfgaConfig.getStoreId());
-          
+
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
           return config;
@@ -104,17 +113,42 @@ public class MainVerticle extends AbstractVerticle {
                     new RestVerticle(
                         new HttpServerOptions().setPort(8080)),
                 new DeploymentOptions().setInstances(getNumOfCores()))
-        ).ignoreElement();
+        ).ignoreElement()
+        .doOnComplete(this::startNotificationWorker);
 
     if (Objects.equals(System.getenv("KAFKA_ENABLED"), "true")) {
-      return completable.andThen((vertx.rxDeployVerticle(AnrCrashLogConsumerVerticle::new,
-          new DeploymentOptions().setInstances(getNumOfCores())))).ignoreElement();
+      return completable
+          .andThen(
+              (vertx.rxDeployVerticle(
+                  AnrCrashLogConsumerVerticle::new,
+                  new DeploymentOptions().setInstances(getNumOfCores()))))
+          .ignoreElement();
     }
     return completable;
   }
 
   private Integer getNumOfCores() {
     return CpuCoreSensor.availableProcessors();
+  }
+
+  private void startNotificationWorker() {
+    try {
+      NotificationWorker worker = GuiceInjector.getGuiceInjector().getInstance(NotificationWorker.class);
+      worker.start();
+      log.info("Notification worker started successfully");
+    } catch (Exception e) {
+      log.warn("Failed to start notification worker: {}", e.getMessage());
+    }
+  }
+
+  private void stopNotificationWorker() {
+    try {
+      NotificationWorker worker = GuiceInjector.getGuiceInjector().getInstance(NotificationWorker.class);
+      worker.stop();
+      log.info("Notification worker stopped");
+    } catch (Exception e) {
+      log.warn("Error stopping notification worker: {}", e.getMessage());
+    }
   }
 
   /**
@@ -127,10 +161,10 @@ public class MainVerticle extends AbstractVerticle {
           .uri(java.net.URI.create(apiUrl + "/stores"))
           .GET()
           .build();
-      
-      java.net.http.HttpResponse<String> response = client.send(request, 
+
+      java.net.http.HttpResponse<String> response = client.send(request,
           java.net.http.HttpResponse.BodyHandlers.ofString());
-      
+
       String body = response.body();
       // Parse JSON to find store with matching name
       // Looking for pattern: "id": "xxx", "name": "pulse-authorization" (handles spaces)
@@ -158,10 +192,10 @@ public class MainVerticle extends AbstractVerticle {
           .uri(java.net.URI.create(apiUrl + "/stores/" + storeId + "/authorization-models"))
           .GET()
           .build();
-      
+
       java.net.http.HttpResponse<String> response = client.send(request,
           java.net.http.HttpResponse.BodyHandlers.ofString());
-      
+
       String body = response.body();
       // Parse JSON to find first model ID (handles spaces in JSON)
       // Looking for pattern: "id": "xxx"
@@ -186,14 +220,15 @@ public class MainVerticle extends AbstractVerticle {
         .setKeepAliveTimeout(
             Integer.parseInt(config.getString(HTTP_CLIENT_KEEP_ALIVE_TIMEOUT)) / 1000)
         .setIdleTimeout(Integer.parseInt(config.getString(HTTP_CLIENT_IDLE_TIMEOUT)))
-        .setMaxPoolSize(
-            Integer.parseInt(config.getString(HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE)))
+        .setMaxPoolSize(Integer.parseInt(config.getString(HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE)))
         .setReadIdleTimeout(Integer.parseInt(config.getString(HTTP_READ_TIMEOUT)))
         .setWriteIdleTimeout(Integer.parseInt(config.getString(HTTP_WRITE_TIMEOUT)));
   }
 
   @Override
   public Completable rxStop() {
+    stopNotificationWorker();
+    
     try {
       ClickhouseProjectConnectionPoolManager poolManager =
           SharedDataUtils.get(vertx.getDelegate(), ClickhouseProjectConnectionPoolManager.class);
