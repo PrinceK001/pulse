@@ -99,7 +99,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
         || normalizedPath.startsWith(INTERNAL_PATH_PREFIX)  // Internal service-to-service endpoints
         || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
         || normalizedPath.startsWith(LOGS_INGESTION_PATH)
-        || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
+        || normalizedPath.startsWith(TNC_DOCUMENTS_PATH);
         || normalizedPath.contains(NOTIFICATIONS_PATH_PREFIX)
         || normalizedPath.startsWith(INTEGRATIONS_PATH_PREFIX);
   }
