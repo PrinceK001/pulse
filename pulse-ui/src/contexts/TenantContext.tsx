@@ -3,42 +3,11 @@ import { ProjectSummary } from '../helpers/getUserProjects/getUserProjects.inter
 import { useUserProjects } from '../hooks';
 import { TenantRole } from '../constants/Roles';
 import { TIERS, TierType } from '../constants/Tiers';
-
-interface TenantInfo {
-  tenantId: string;
-  tenantName: string;
-  userRole: TenantRole;
-  tier: TierType;
-}
-
-interface TenantContextType {
-  // State
-  tenantId: string | null;
-  tenantName: string | null;
-  userRole: TenantRole | null;
-  tier: TierType | null;
-  projects: ProjectSummary[];
-  isLoading: boolean;
-  
-  // Methods
-  setTenantInfo: (tenant: TenantInfo) => void;
-  refreshProjects: () => Promise<void>;
-  addProject: (project: ProjectSummary) => void;
-  clearTenant: () => void;
-}
+import { TenantInfo, TenantContextType, StoredTenantData } from './TenantContext.interface';
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'pulse_tenant_context';
-
-interface StoredTenantData {
-  tenantId: string;
-  tenantName: string;
-  userRole: TenantRole;
-  tier: TierType;
-  projects: ProjectSummary[];
-  timestamp: number;
-}
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);

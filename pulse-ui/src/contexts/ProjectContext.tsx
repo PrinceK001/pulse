@@ -3,43 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useTenantContext } from './TenantContext';
 import { ProjectRole } from '../constants/Roles';
 import { TIERS, TierType } from '../constants/Tiers';
-
-interface ProjectInfo {
-  projectId: string;
-  projectName: string;
-  userRole: ProjectRole;
-  isActive?: boolean;
-  /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. This field is ignored. */
-  plan?: TierType;
-}
-
-interface ProjectContextType {
-  // State
-  projectId: string | null;
-  projectName: string | null;
-  userRole: ProjectRole | null;
-  /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. Always returns 'free' for backward compatibility. */
-  plan: TierType | null;
-  isActive: boolean;
-  
-  // Methods
-  setProject: (project: ProjectInfo) => void;
-  switchProject: (projectId: string) => Promise<void>;
-  clearProject: () => void;
-}
+import { ProjectInfo, ProjectContextType, StoredProjectData } from './ProjectContext.interface';
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'pulse_project_context';
-
-interface StoredProjectData {
-  projectId: string;
-  projectName: string;
-  userRole: ProjectRole;
-  isActive: boolean;
-  plan?: TierType;
-  timestamp: number;
-}
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projectId, setProjectId] = useState<string | null>(null);

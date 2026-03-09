@@ -1,7 +1,4 @@
-export interface ProjectInfo {
-  projectId: string;
-  projectName: string;
-}
+import { ProjectInfo } from './projectContext.interface';
 
 /**
  * Get project context from sessionStorage (single source of truth).
