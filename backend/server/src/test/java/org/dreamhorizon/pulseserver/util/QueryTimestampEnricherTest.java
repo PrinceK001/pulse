@@ -111,7 +111,7 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldAddWhereClauseBeforeHaving() {
-      String query = "SELECT col, COUNT(*) FROM pulse_athena_db.otel_data GROUP BY col HAVING COUNT(*) > 5";
+      String query = "SELECT col, COUNT(*) FROM test_db.test_table GROUP BY col HAVING COUNT(*) > 5";
       String timestamp = "2025-12-23 11:29:35";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
@@ -124,7 +124,7 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldAddWhereClauseBeforeOffset() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data LIMIT 10 OFFSET 20";
+      String query = "SELECT * FROM test_db.test_table LIMIT 10 OFFSET 20";
       String timestamp = "2025-12-23 11:29:35";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
