@@ -20,7 +20,8 @@ import org.dreamhorizon.pulseserver.service.JwtService;
  * <p>Tenant resolution order:</p>
  * <ol>
  *   <li>JWT token tenantId claim from Authorization header</li>
- *   <li>X-API-KEY header (API key for authentication, useful for admin operations)</li>
+ *   <li>X-Tenant-ID header (explicit override, useful for admin operations)</li>
+ *   <li>X-API-KEY header (API key for authentication)</li>
  * </ol>
  */
 @Slf4j
@@ -28,6 +29,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 @Priority(Priorities.AUTHENTICATION + 10) // Run after authentication but before authorization
 public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
+  public static final String TENANT_HEADER = "X-Tenant-ID";
   public static final String API_KEY_HEADER = "X-API-KEY";
   public static final String PROJECT_HEADER = "X-Project-ID";
   private static final String HEALTHCHECK_PATH = "healthcheck";
@@ -98,11 +100,20 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return tokenTenantId.trim();
     }
 
-    // Priority 2: X-API-KEY header 
+    // Priority 2: X-API-KEY header - extract project ID from API key
     String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
     if (apiKey != null && !apiKey.isBlank()) {
-      log.debug("Tenant ID resolved from API key header: {}", apiKey);
-      return apiKey.trim();
+      String projectId = extractProjectIdFromApiKey(apiKey.trim());
+      log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
+      return projectId;
+    }
+
+    // Priority 3: Explicit X-Tenant-ID header (fallback)
+    //Todo: This will be removed once we have the complete project Onboarding in place
+    String headerTenantId = requestContext.getHeaderString(TENANT_HEADER);
+    if (headerTenantId != null && !headerTenantId.isBlank()) {
+      log.debug("Tenant ID resolved from header: {}", headerTenantId);
+      return headerTenantId.trim();
     }
 
     //This a Temporary fix for supporting the projectId.
@@ -112,11 +123,11 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return projectId.trim();
     }
 
-    log.error("Missing tenant ID (not found in token or X-API-KEY header) for path: {}",
+    log.error("Missing tenant ID (not found in token or X-API-KEY header or X-Tenant-ID header) for path: {}",
         requestContext.getUriInfo().getPath());
     requestContext.abortWith(
         jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
-            .entity("{\"error\": \"Tenant ID is required (via Authorization token or X-API-KEY header)\"}")
+            .entity("{\"error\": \"Tenant ID is required (via Authorization token or X-API-KEY header or X-Tenant-ID header)\"}")
             .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
             .build());
     return null;
@@ -160,6 +171,21 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       jwtService = GuiceInjector.getGuiceInjector().getInstance(JwtService.class);
     }
     return jwtService;
+  }
+
+  private String extractProjectIdFromApiKey(String apiKey) {
+    if (apiKey == null || apiKey.isBlank()) {
+      return apiKey;
+    }
+    
+    int lastUnderscoreIndex = apiKey.lastIndexOf('_');
+    if (lastUnderscoreIndex == -1) {
+      // No underscore found, return original string
+      return apiKey;
+    }
+    
+    // Extract everything before the last underscore
+    return apiKey.substring(0, lastUnderscoreIndex);
   }
 }
 
