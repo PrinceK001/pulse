@@ -35,12 +35,16 @@ public class QueryServiceImpl implements QueryService {
 
   private static final Pattern WHERE_PATTERN =
       Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE);
-  private static final Pattern ORDER_BY_PATTERN =
-      Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE);
-  private static final Pattern GROUP_BY_PATTERN =
-      Pattern.compile("\\bGROUP\\s+BY\\b", Pattern.CASE_INSENSITIVE);
-  private static final Pattern LIMIT_PATTERN =
-      Pattern.compile("\\bLIMIT\\b", Pattern.CASE_INSENSITIVE);
+  private static final Pattern[] TRAILING_CLAUSE_PATTERNS = {
+      Pattern.compile("\\bGROUP\\s+BY\\b", Pattern.CASE_INSENSITIVE),
+      Pattern.compile("\\bHAVING\\b", Pattern.CASE_INSENSITIVE),
+      Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE),
+      Pattern.compile("\\bLIMIT\\b", Pattern.CASE_INSENSITIVE),
+      Pattern.compile("\\bOFFSET\\b", Pattern.CASE_INSENSITIVE),
+      Pattern.compile("\\bUNION\\b", Pattern.CASE_INSENSITIVE),
+      Pattern.compile("\\bINTERSECT\\b", Pattern.CASE_INSENSITIVE),
+      Pattern.compile("\\bEXCEPT\\b", Pattern.CASE_INSENSITIVE),
+  };
 
   private final QueryClient queryClient;
   private final QueryJobDao queryJobDao;
@@ -105,7 +109,7 @@ public class QueryServiceImpl implements QueryService {
 
   private int findTrailingClausePosition(String query) {
     int position = query.length();
-    for (Pattern pattern : new Pattern[]{ORDER_BY_PATTERN, GROUP_BY_PATTERN, LIMIT_PATTERN}) {
+    for (Pattern pattern : TRAILING_CLAUSE_PATTERNS) {
       Matcher matcher = pattern.matcher(query);
       if (matcher.find()) {
         position = Math.min(position, matcher.start());
