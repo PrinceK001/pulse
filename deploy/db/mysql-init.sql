@@ -314,18 +314,6 @@ CREATE TABLE severity
     description TEXT
 );
 
-CREATE TABLE notification_channels
-(
-    notification_channel_id INT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(64) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    type ENUM('slack', 'email') NOT NULL,
-    config VARCHAR(500) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE NOT NULL,
-    INDEX idx_notification_channels_project (project_id),
-    CONSTRAINT fk_notification_channels_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
-);
-
 
 CREATE TABLE alerts (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -630,41 +618,54 @@ CREATE TABLE IF NOT EXISTS clickhouse_project_credential_audit (
 );
 
 -- Notification Service Tables
-CREATE TABLE IF NOT EXISTS project_notification_channels (
+CREATE TABLE IF NOT EXISTS notification_channels (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NOT NULL,
-    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NOT NULL,
+    project_id VARCHAR(64) NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
     name VARCHAR(255) NOT NULL,
     config JSON NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_project_channel_name (project_id, name),
+    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
     INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
 );
 
-CREATE TABLE IF NOT EXISTS project_notification_templates (
+CREATE TABLE IF NOT EXISTS notification_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NOT NULL,
     event_name VARCHAR(255) NOT NULL,
-    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NULL,
     version INT NOT NULL DEFAULT 1,
     body JSON NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notification_template_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_template_version (project_id, event_name, channel_type, version),
-    INDEX idx_template_event (project_id, event_name, is_active)
+    UNIQUE KEY unique_template_version (event_name, channel_type),
+    INDEX idx_template_event (event_name, is_active)
+);
+
+CREATE TABLE IF NOT EXISTS channel_event_mapping (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NOT NULL,
+    channel_id BIGINT NOT NULL,
+    event_name VARCHAR(255) NOT NULL,
+    recipient VARCHAR(512) NULL,
+    recipient_name VARCHAR(255) NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_mapping_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    CONSTRAINT fk_mapping_channel FOREIGN KEY (channel_id) REFERENCES notification_channels(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_mapping (channel_id, event_name, recipient_name),
+    INDEX idx_mapping_project_event (project_id, event_name, is_active)
 );
 
 CREATE TABLE IF NOT EXISTS notification_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
-    batch_id VARCHAR(64) NOT NULL,
     idempotency_key VARCHAR(255) NOT NULL,
-    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NOT NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
     channel_id BIGINT NOT NULL,
     template_id BIGINT NOT NULL,
     recipient VARCHAR(512) NOT NULL,
@@ -680,7 +681,6 @@ CREATE TABLE IF NOT EXISTS notification_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sent_at TIMESTAMP NULL,
     CONSTRAINT fk_notification_log_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    INDEX idx_log_batch (batch_id),
     INDEX idx_log_project_status (project_id, status),
     UNIQUE INDEX idx_log_idempotency (project_id, idempotency_key, channel_type, recipient),
     INDEX idx_log_external_id (external_id)
