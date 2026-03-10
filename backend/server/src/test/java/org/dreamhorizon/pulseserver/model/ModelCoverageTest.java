@@ -15,12 +15,16 @@ import org.dreamhorizon.pulseserver.dto.request.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
 import org.dreamhorizon.pulseserver.dto.request.UpdateProjectRequest;
 import org.dreamhorizon.pulseserver.service.ProjectAuditAction;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.EmailSuppression;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationLog;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationMessage;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationResult;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackChannelConfig;
+import org.dreamhorizon.pulseserver.service.notification.models.TemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationStatus;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
 import org.dreamhorizon.pulseserver.service.notification.models.QueuedNotification;
@@ -491,16 +495,17 @@ class ModelCoverageTest {
 
     @Test
     void notificationMessageBuilder() {
+      ChannelConfig channelConfig = SlackChannelConfig.builder().accessToken("token").build();
+      TemplateBody templateBody = EmailTemplateBody.builder().subject("Subj").html("body").build();
       NotificationMessage msg = NotificationMessage.builder()
           .logId(1L)
           .projectId("proj-1")
-          .batchId("batch-1")
           .idempotencyKey("key")
           .channelType(ChannelType.EMAIL)
           .channelId(2L)
-          .channelConfig("{}")
+          .channelConfig(channelConfig)
           .templateId(3L)
-          .templateBody("body")
+          .templateBody(templateBody)
           .recipient("a@b.com")
           .subject("Subj")
           .params(Map.of("k", "v"))
@@ -509,13 +514,12 @@ class ModelCoverageTest {
 
       assertThat(msg.getLogId()).isEqualTo(1L);
       assertThat(msg.getProjectId()).isEqualTo("proj-1");
-      assertThat(msg.getBatchId()).isEqualTo("batch-1");
       assertThat(msg.getIdempotencyKey()).isEqualTo("key");
       assertThat(msg.getChannelType()).isEqualTo(ChannelType.EMAIL);
       assertThat(msg.getChannelId()).isEqualTo(2L);
-      assertThat(msg.getChannelConfig()).isEqualTo("{}");
+      assertThat(msg.getChannelConfig()).isEqualTo(channelConfig);
       assertThat(msg.getTemplateId()).isEqualTo(3L);
-      assertThat(msg.getTemplateBody()).isEqualTo("body");
+      assertThat(msg.getTemplateBody()).isEqualTo(templateBody);
       assertThat(msg.getRecipient()).isEqualTo("a@b.com");
       assertThat(msg.getSubject()).isEqualTo("Subj");
       assertThat(msg.getParams()).containsEntry("k", "v");
@@ -564,7 +568,6 @@ class ModelCoverageTest {
       NotificationLog log = NotificationLog.builder()
           .id(1L)
           .projectId("proj-1")
-          .batchId("b1")
           .idempotencyKey("key")
           .channelType(ChannelType.SLACK)
           .channelId(2L)
@@ -609,32 +612,32 @@ class ModelCoverageTest {
 
     @Test
     void notificationTemplateBuilder() {
+      TemplateBody body = EmailTemplateBody.builder().subject("Alert").html("body").build();
       NotificationTemplate t = NotificationTemplate.builder()
           .id(1L)
-          .projectId("proj-1")
           .eventName("alert")
           .channelType(ChannelType.EMAIL)
           .version(1)
-          .body("body")
+          .body(body)
           .isActive(true)
           .createdAt(Instant.EPOCH)
           .updatedAt(Instant.EPOCH)
           .build();
 
       assertThat(t.getId()).isEqualTo(1L);
-      assertThat(t.getProjectId()).isEqualTo("proj-1");
       assertThat(t.getEventName()).isEqualTo("alert");
-      assertThat(t.getBody()).isEqualTo("body");
+      assertThat(t.getBody()).isEqualTo(body);
     }
 
     @Test
     void notificationChannelBuilder() {
+      ChannelConfig config = SlackChannelConfig.builder().accessToken("token").build();
       NotificationChannel ch = NotificationChannel.builder()
           .id(1L)
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
           .name("Channel")
-          .config("{}")
+          .config(config)
           .isActive(true)
           .createdAt(Instant.EPOCH)
           .updatedAt(Instant.EPOCH)
@@ -644,6 +647,7 @@ class ModelCoverageTest {
       assertThat(ch.getProjectId()).isEqualTo("proj-1");
       assertThat(ch.getChannelType()).isEqualTo(ChannelType.SLACK);
       assertThat(ch.getName()).isEqualTo("Channel");
+      assertThat(ch.getConfig()).isEqualTo(config);
     }
   }
 
@@ -652,7 +656,7 @@ class ModelCoverageTest {
 
     @Test
     void shouldHaveValues() {
-      assertThat(ChannelType.values()).containsExactly(ChannelType.SLACK, ChannelType.EMAIL, ChannelType.TEAMS, ChannelType.ALL);
+      assertThat(ChannelType.values()).containsExactly(ChannelType.SLACK, ChannelType.SLACK_WEBHOOK, ChannelType.EMAIL, ChannelType.TEAMS, ChannelType.ALL);
     }
 
     @Test

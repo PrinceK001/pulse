@@ -16,13 +16,16 @@ import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowIterator;
 import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackChannelConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,7 @@ import org.mockito.quality.Strictness;
 class NotificationChannelDaoTest {
 
   @Mock MysqlClient mysqlClient;
+  @Mock ObjectMapper objectMapper;
   @Mock MySQLPool writerPool;
   @Mock MySQLPool readerPool;
   @Mock PreparedQuery<RowSet<Row>> preparedQuery;
@@ -48,7 +52,8 @@ class NotificationChannelDaoTest {
 
   @BeforeEach
   void setup() {
-    notificationChannelDao = new NotificationChannelDao(mysqlClient);
+    objectMapper = new ObjectMapper();
+    notificationChannelDao = new NotificationChannelDao(mysqlClient, objectMapper);
   }
 
   private void setupWriterPool() {
@@ -97,11 +102,12 @@ class NotificationChannelDaoTest {
   private Row createMockChannelRow() {
     Row mockRow = mock(Row.class);
     LocalDateTime now = LocalDateTime.now();
+    JsonObject configJson = new JsonObject().put("type", "EMAIL").put("fromAddress", "test@example.com");
     when(mockRow.getLong("id")).thenReturn(1L);
     when(mockRow.getString("project_id")).thenReturn("proj-1");
     when(mockRow.getString("channel_type")).thenReturn("EMAIL");
     when(mockRow.getString("name")).thenReturn("Email Channel");
-    when(mockRow.getValue("config")).thenReturn(new JsonObject("{\"apiKey\":\"secret\"}"));
+    when(mockRow.getValue("config")).thenReturn(configJson);
     when(mockRow.getBoolean("is_active")).thenReturn(true);
     when(mockRow.getLocalDateTime("created_at")).thenReturn(now);
     when(mockRow.getLocalDateTime("updated_at")).thenReturn(now);
@@ -138,7 +144,8 @@ class NotificationChannelDaoTest {
       assertThat(result).isNotNull();
       assertThat(result.getId()).isEqualTo(1L);
       assertThat(result.getChannelType()).isEqualTo(ChannelType.EMAIL);
-      assertThat(result.getConfig()).contains("apiKey");
+      assertThat(result.getConfig()).isInstanceOf(EmailChannelConfig.class);
+      assertThat(((EmailChannelConfig) result.getConfig()).getFromAddress()).isEqualTo("test@example.com");
     }
 
     @Test
@@ -151,7 +158,8 @@ class NotificationChannelDaoTest {
 
       NotificationChannel result = notificationChannelDao.getChannelById(1L).blockingGet();
 
-      assertThat(result.getConfig()).isEqualTo("{\"apiKey\":\"secret\"}");
+      assertThat(result.getConfig()).isInstanceOf(EmailChannelConfig.class);
+      assertThat(((EmailChannelConfig) result.getConfig()).getFromAddress()).isEqualTo("test@example.com");
     }
 
     @Test
@@ -164,7 +172,7 @@ class NotificationChannelDaoTest {
 
       NotificationChannel result = notificationChannelDao.getChannelById(2L).blockingGet();
 
-      assertThat(result.getConfig()).isEqualTo("{\"webhook\":\"url\"}");
+      assertThat(result.getConfig()).isNull();
     }
 
     @Test
@@ -308,7 +316,7 @@ class NotificationChannelDaoTest {
               .projectId("proj-1")
               .channelType(ChannelType.EMAIL)
               .name("Email")
-              .config("{\"key\":\"value\"}")
+              .config(EmailChannelConfig.builder().fromAddress("test@example.com").build())
               .isActive(true)
               .build();
 
@@ -330,7 +338,7 @@ class NotificationChannelDaoTest {
       NotificationChannel channel =
           NotificationChannel.builder()
               .name("Updated")
-              .config("{}")
+              .config(SlackChannelConfig.builder().accessToken("xoxb-token").build())
               .isActive(false)
               .build();
 
@@ -346,7 +354,11 @@ class NotificationChannelDaoTest {
     @Test
     void shouldReturnZeroWhenNoRowsUpdated() {
       NotificationChannel channel =
-          NotificationChannel.builder().name("X").config("{}").isActive(true).build();
+          NotificationChannel.builder()
+              .name("X")
+              .config(EmailChannelConfig.builder().fromAddress("x@example.com").build())
+              .isActive(true)
+              .build();
 
       setupWriterPreparedQuery();
       when(rowSet.rowCount()).thenReturn(0);

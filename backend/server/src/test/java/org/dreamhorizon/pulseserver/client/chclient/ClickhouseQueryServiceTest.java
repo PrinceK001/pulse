@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,8 +17,8 @@ import io.r2dbc.spi.Row;
 import io.r2dbc.spi.RowMetadata;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.function.BiFunction;
 import java.util.List;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
@@ -34,11 +35,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
+@SuppressWarnings({"unchecked", "rawtypes"})
 class ClickhouseQueryServiceTest {
 
   @Mock
@@ -120,23 +123,23 @@ class ClickhouseQueryServiceTest {
       io.r2dbc.spi.ColumnMetadata col2 = org.mockito.Mockito.mock(io.r2dbc.spi.ColumnMetadata.class);
       when(col1.getName()).thenReturn("col1");
       when(col2.getName()).thenReturn("col2");
-      when(mockRowMetadata.getColumnMetadatas()).thenReturn(List.of(col1, col2));
+      doReturn(List.of(col1, col2)).when(mockRowMetadata).getColumnMetadatas();
 
       Result mockResult = org.mockito.Mockito.mock(Result.class);
       doAnswer(invocation -> {
-        java.util.function.BiFunction<Row, RowMetadata, ?> mapper = invocation.getArgument(0);
+        BiFunction<Row, RowMetadata, ?> mapper = invocation.getArgument(0);
         Object mapped = mapper.apply(mockRow, mockRowMetadata);
         return Flux.just(mapped);
-      }).when(mockResult).map(any());
+      }).when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
 
       Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
       io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
       when(mockConnection.createStatement("SELECT col1, col2 FROM t")).thenReturn(mockStatement);
-      when(mockStatement.execute()).thenReturn(Flux.just(mockResult));
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
       when(mockConnection.close()).thenReturn(Mono.empty());
 
       ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
-      when(mockPool.create()).thenReturn(Flux.just(mockConnection));
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
 
       when(clickhouseProjectCredentialsDao.getCredentialsByProjectId("proj_123"))
           .thenReturn(Maybe.just(credentials));
@@ -175,16 +178,16 @@ class ClickhouseQueryServiceTest {
 
       Result mockResult = org.mockito.Mockito.mock(Result.class);
       doAnswer(invocation -> Flux.<GetRawUserEventsResponseDto.Row>empty())
-          .when(mockResult).map(any());
+          .when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
 
       Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
       io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
       when(mockConnection.createStatement("SELECT 1")).thenReturn(mockStatement);
-      when(mockStatement.execute()).thenReturn(Flux.just(mockResult));
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
       when(mockConnection.close()).thenReturn(Mono.empty());
 
       ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
-      when(mockPool.create()).thenReturn(Flux.just(mockConnection));
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
 
       when(clickhouseProjectCredentialsDao.getCredentialsByProjectId("proj_empty"))
           .thenReturn(Maybe.just(credentials));
@@ -240,11 +243,11 @@ class ClickhouseQueryServiceTest {
       Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
       io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
       when(mockConnection.createStatement("SELECT 1")).thenReturn(mockStatement);
-      when(mockStatement.execute()).thenReturn(Flux.error(new RuntimeException("Query failed")));
+      doReturn(Flux.<Result>error(new RuntimeException("Query failed"))).when(mockStatement).execute();
       when(mockConnection.close()).thenReturn(Mono.empty());
 
       ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
-      when(mockPool.create()).thenReturn(Flux.just(mockConnection));
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
 
       when(clickhouseProjectCredentialsDao.getCredentialsByProjectId("proj_exec_err"))
           .thenReturn(Maybe.just(credentials));
@@ -292,6 +295,129 @@ class ClickhouseQueryServiceTest {
           .assertError(IllegalStateException.class)
           .assertError(e -> e.getMessage().contains("No ClickHouse credentials found for project"));
       verify(clickhouseProjectCredentialsDao).getCredentialsByProjectId("proj_456");
+    }
+
+    @Test
+    void shouldReturnMappedRowsWhenCredentialsAndPoolAreAvailable() {
+      QueryConfiguration config = QueryConfiguration.newQuery("SELECT col1 FROM t")
+          .projectId("proj_gen")
+          .build();
+
+      ClickhouseProjectCredentials credentials = ClickhouseProjectCredentials.builder()
+          .projectId("proj_gen")
+          .clickhouseUsername("ch_user")
+          .clickhousePasswordEncrypted("pass")
+          .build();
+
+      Row mockRow = org.mockito.Mockito.mock(Row.class);
+      when(mockRow.get(0)).thenReturn("mapped_value");
+
+      RowMetadata mockRowMetadata = org.mockito.Mockito.mock(RowMetadata.class);
+      io.r2dbc.spi.ColumnMetadata colMeta = org.mockito.Mockito.mock(io.r2dbc.spi.ColumnMetadata.class);
+      when(colMeta.getName()).thenReturn("col1");
+      doReturn(List.of(colMeta)).when(mockRowMetadata).getColumnMetadatas();
+
+      Result mockResult = org.mockito.Mockito.mock(Result.class);
+      doAnswer(invocation -> {
+        BiFunction<Row, RowMetadata, ?> mapper = invocation.getArgument(0);
+        Object mapped = mapper.apply(mockRow, mockRowMetadata);
+        return Flux.just(mapped);
+      }).when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
+
+      Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
+      io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
+      when(mockConnection.createStatement("SELECT col1 FROM t")).thenReturn(mockStatement);
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+
+      when(clickhouseProjectCredentialsDao.getCredentialsByProjectId("proj_gen"))
+          .thenReturn(Maybe.just(credentials));
+      when(clickhouseProjectConnectionPoolManager.getPoolForProject(
+          eq("proj_gen"), eq("ch_user"), eq("pass")))
+          .thenReturn(mockPool);
+
+      QueryResultResponse<TestRow> response =
+          clickhouseQueryService.executeQueryOrCreateJob(config, TestRow.class).blockingGet();
+
+      assertThat(response).isNotNull();
+      assertThat(response.getJobComplete()).isTrue();
+      assertThat(response.getRows()).hasSize(1);
+      assertThat(response.getRows().get(0).getCol1()).isEqualTo("mapped_value");
+    }
+
+    @Test
+    void shouldReturnEmptyRowsWhenGenericQueryReturnsNoResults() {
+      QueryConfiguration config = QueryConfiguration.newQuery("SELECT col1 FROM t")
+          .projectId("proj_gen_empty")
+          .build();
+
+      ClickhouseProjectCredentials credentials = ClickhouseProjectCredentials.builder()
+          .projectId("proj_gen_empty")
+          .clickhouseUsername("ch_user")
+          .clickhousePasswordEncrypted("pass")
+          .build();
+
+      Result mockResult = org.mockito.Mockito.mock(Result.class);
+      doAnswer(invocation -> Flux.<java.util.Map<String, Object>>empty())
+          .when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
+
+      Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
+      io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
+      when(mockConnection.createStatement("SELECT col1 FROM t")).thenReturn(mockStatement);
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+
+      when(clickhouseProjectCredentialsDao.getCredentialsByProjectId("proj_gen_empty"))
+          .thenReturn(Maybe.just(credentials));
+      when(clickhouseProjectConnectionPoolManager.getPoolForProject(
+          eq("proj_gen_empty"), eq("ch_user"), eq("pass")))
+          .thenReturn(mockPool);
+
+      QueryResultResponse<TestRow> response =
+          clickhouseQueryService.executeQueryOrCreateJob(config, TestRow.class).blockingGet();
+
+      assertThat(response).isNotNull();
+      assertThat(response.getJobComplete()).isTrue();
+      assertThat(response.getRows()).isEmpty();
+    }
+
+    @Test
+    void shouldPropagateErrorWhenGenericQueryExecutionFails() {
+      QueryConfiguration config = QueryConfiguration.newQuery("SELECT 1")
+          .projectId("proj_gen_err")
+          .build();
+
+      ClickhouseProjectCredentials credentials = ClickhouseProjectCredentials.builder()
+          .projectId("proj_gen_err")
+          .clickhouseUsername("ch_user")
+          .clickhousePasswordEncrypted("pass")
+          .build();
+
+      Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
+      io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
+      when(mockConnection.createStatement("SELECT 1")).thenReturn(mockStatement);
+      doReturn(Flux.<Result>error(new RuntimeException("CH error"))).when(mockStatement).execute();
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+
+      when(clickhouseProjectCredentialsDao.getCredentialsByProjectId("proj_gen_err"))
+          .thenReturn(Maybe.just(credentials));
+      when(clickhouseProjectConnectionPoolManager.getPoolForProject(
+          eq("proj_gen_err"), eq("ch_user"), eq("pass")))
+          .thenReturn(mockPool);
+
+      clickhouseQueryService.executeQueryOrCreateJob(config, TestRow.class)
+          .test()
+          .assertError(Exception.class)
+          .assertError(e -> e.getMessage().contains("Failed to execute tenant generic query"));
     }
   }
 

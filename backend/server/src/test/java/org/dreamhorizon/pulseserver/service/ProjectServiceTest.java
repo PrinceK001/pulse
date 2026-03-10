@@ -146,7 +146,7 @@ class ProjectServiceTest {
           .thenReturn(Single.just(
               org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto
                   .builder()
-                  .batchId("batch-1")
+                  .idempotencyKey("batch-1")
                   .build()));
 
       ProjectCreationResult result =

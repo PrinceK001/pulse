@@ -66,7 +66,7 @@ class ProjectMemberServiceTest {
         tenantMemberService, notificationService);
     // Stub notification service for fire-and-forget calls in success paths
     when(notificationService.sendNotification(anyString(), any()))
-        .thenReturn(Single.just(NotificationBatchResponseDto.builder().batchId("batch-1").build()));
+        .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
   }
 
   private Project createProject(String projectId, String tenantId, String name) {

@@ -23,8 +23,10 @@ import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationMessage;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationResult;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationStatus;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
 import org.dreamhorizon.pulseserver.service.notification.models.QueuedNotification;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProviderFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -153,9 +155,8 @@ class NotificationQueueTest {
 
       NotificationTemplate template = NotificationTemplate.builder()
           .id(1L)
-          .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .body("Hello")
+          .body(SlackTemplateBody.builder().text("Hello").build())
           .build();
       NotificationResult successResult = NotificationResult.builder()
           .success(true)
@@ -197,9 +198,8 @@ class NotificationQueueTest {
 
       NotificationTemplate template = NotificationTemplate.builder()
           .id(2L)
-          .projectId("proj-1")
           .channelType(ChannelType.EMAIL)
-          .body("Hello")
+          .body(EmailTemplateBody.builder().subject("Test").text("Hello").build())
           .build();
 
       when(queue.receiveMessages(eq(5), eq(60))).thenReturn(Single.just(List.of(queuedNotification)));
@@ -235,9 +235,8 @@ class NotificationQueueTest {
 
       NotificationTemplate template = NotificationTemplate.builder()
           .id(1L)
-          .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .body("Hello")
+          .body(SlackTemplateBody.builder().text("Hello").build())
           .build();
       NotificationResult failResult = NotificationResult.builder()
           .success(false)
@@ -280,9 +279,8 @@ class NotificationQueueTest {
 
       NotificationTemplate template = NotificationTemplate.builder()
           .id(1L)
-          .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .body("Hello")
+          .body(SlackTemplateBody.builder().text("Hello").build())
           .build();
       NotificationResult permFailResult = NotificationResult.builder()
           .success(false)
@@ -357,9 +355,8 @@ class NotificationQueueTest {
 
       NotificationTemplate template = NotificationTemplate.builder()
           .id(1L)
-          .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .body("Hello")
+          .body(SlackTemplateBody.builder().text("Hello").build())
           .build();
       NotificationResult failResult = NotificationResult.builder()
           .success(false)
@@ -401,9 +398,8 @@ class NotificationQueueTest {
 
       NotificationTemplate template = NotificationTemplate.builder()
           .id(1L)
-          .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .body("Hello")
+          .body(SlackTemplateBody.builder().text("Hello").build())
           .build();
       NotificationResult successResult = NotificationResult.builder()
           .success(true)

@@ -19,7 +19,10 @@ import org.dreamhorizon.pulseserver.service.notification.TemplateService;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationMessage;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
-
+import org.dreamhorizon.pulseserver.service.notification.models.SlackChannelConfig;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackTemplateBody;
+import org.dreamhorizon.pulseserver.service.notification.models.TeamsChannelConfig;
+import org.dreamhorizon.pulseserver.service.notification.models.TeamsTemplateBody;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import software.amazon.awssdk.services.ses.SesClient;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -49,6 +53,9 @@ class NotificationProvidersTest {
 
   @Mock
   NotificationConfig notificationConfig;
+
+  @Mock
+  SesClient sesClient;
 
   @BeforeEach
   void setUp() {
@@ -77,11 +84,11 @@ class NotificationProvidersTest {
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig("invalid-json")
+          .channelConfig(null)
           .recipient("https://webhook.teams.com")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"title\":\"Alert\",\"text\":\"Hello\"}")
+          .body(TeamsTemplateBody.builder().title("Alert").text("Hello").build())
           .build();
 
       var result = provider.send(message, template).blockingGet();
@@ -93,16 +100,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorWhenRecipientEmpty() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"title\":\"Alert\"}")
+          .body(TeamsTemplateBody.builder().title("Alert").build())
           .build();
 
       var result = provider.send(message, template).blockingGet();
@@ -114,16 +119,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendSuccessfullyWithPlaintTextBody() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Plain text message")
+          .body(TeamsTemplateBody.builder().title("Alert").text("Plain text message").build())
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -141,16 +145,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendSuccessfullyWithJsonBody() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .params(Map.of("name", "Test"))
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"title\":\"Alert\",\"text\":\"Hello {{name}}\"}")
+          .body(TeamsTemplateBody.builder().title("Alert").text("Hello {{name}}").build())
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -167,15 +170,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnPermanentFailureOn400() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("text")
+          .body(TeamsTemplateBody.builder().text("text").build())
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -193,16 +195,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorWhenRecipientNull() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient(null)
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"title\":\"Alert\"}")
+          .body(TeamsTemplateBody.builder().title("Alert").build())
           .build();
 
       var result = provider.send(message, template).blockingGet();
@@ -214,15 +214,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorOnHttpFailure() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("text")
+          .body(TeamsTemplateBody.builder().text("text").build())
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -239,15 +238,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnNonPermanentFailureOn500() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("text")
+          .body(TeamsTemplateBody.builder().text("text").build())
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -265,16 +263,17 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendWithAdaptiveCardBody() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
+      String bodyJson =
+          "{\"type\":\"AdaptiveCard\",\"body\":[{\"type\":\"TextBlock\",\"text\":\"Alert\"}],\"$schema\":\"http://adaptivecards.io/schemas/adaptive-card.json\",\"version\":\"1.4\"}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"type\":\"AdaptiveCard\",\"body\":[{\"type\":\"TextBlock\",\"text\":\"Alert\"}],\"$schema\":\"http://adaptivecards.io/schemas/adaptive-card.json\",\"version\":\"1.4\"}")
+          .body(TeamsTemplateBody.builder().body(OBJECT_MAPPER.readTree(bodyJson)).build())
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -291,16 +290,16 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendWithBodyContainingTypeKey() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
+      String bodyJson = "{\"type\":\"Container\",\"body\":[{\"type\":\"TextBlock\",\"text\":\"Hello\"}]}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"type\":\"Container\",\"body\":[{\"type\":\"TextBlock\",\"text\":\"Hello\"}]}")
+          .body(TeamsTemplateBody.builder().body(OBJECT_MAPPER.readTree(bodyJson)).build())
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -317,16 +316,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendWithSimpleCardWithEmptyText() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"title\":\"Alert only\"}")
+          .body(TeamsTemplateBody.builder().title("Alert only").build())
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -343,16 +341,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldHandleTemplateParseFailureWithTextCardFallback() throws Exception {
-      String configJson = "{\"type\":\"TEAMS\",\"workflowUrl\":\"https://webhook.teams.com\"}";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.TEAMS)
-          .channelConfig(configJson)
+          .channelConfig(TeamsChannelConfig.builder().workflowUrl("https://webhook.teams.com").build())
           .recipient("https://webhook.teams.com")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"title\":\"Alert\",\"text\":{{broken")
+          .body(null)
           .build();
 
       when(webClient.postAbs(eq("https://webhook.teams.com"))).thenReturn(httpRequest);
@@ -389,11 +386,11 @@ class NotificationProvidersTest {
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig("invalid")
+          .channelConfig(null)
           .recipient("C123")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"text\":\"Hi\"}")
+          .body(SlackTemplateBody.builder().text("Hi").build())
           .build();
 
       var result = provider.send(message, template).blockingGet();
@@ -405,16 +402,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorWhenAccessTokenMissing() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("").build())
           .recipient("C123")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"text\":\"Hi\"}")
+          .body(SlackTemplateBody.builder().text("Hi").build())
           .build();
 
       var result = provider.send(message, template).blockingGet();
@@ -426,17 +421,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendSuccessfullyWithPlainText() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Hello world")
+          .body(SlackTemplateBody.builder().text("Hello world").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -453,16 +446,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorWhenSlackApiReturnsError() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Hi")
+          .body(SlackTemplateBody.builder().text("Hi").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -480,16 +471,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorWhenSlackApiReturnsTransientError() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Hi")
+          .body(SlackTemplateBody.builder().text("Hi").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -506,16 +495,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorWhenSlackApiReturnsUnknownError() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Hi")
+          .body(SlackTemplateBody.builder().text("Hi").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -532,16 +519,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorWhenSlackResponseNotParseable() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Hi")
+          .body(SlackTemplateBody.builder().text("Hi").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -559,17 +544,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnSuccessWithoutTsInResponse() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Hello")
+          .body(SlackTemplateBody.builder().text("Hello").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -586,16 +569,14 @@ class NotificationProvidersTest {
 
     @Test
     void shouldReturnErrorOnHttpFailure() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Hi")
+          .body(SlackTemplateBody.builder().text("Hi").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -613,18 +594,19 @@ class NotificationProvidersTest {
 
     @Test
     void shouldIncludeBotNameAndIconEmojiInPayload() throws Exception {
-      String configJson =
-          "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\",\"botName\":\"PulseBot\",\"iconEmoji\":\":robot_face:\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder()
+              .accessToken("xoxb-token")
+              .botName("PulseBot")
+              .iconEmoji(":robot_face:")
+              .build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Hello")
+          .body(SlackTemplateBody.builder().text("Hello").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -639,17 +621,19 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendWithJsonBodyContainingBlocks() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
+      String blocksJson = "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"Hello\"}}]";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of("name", "World"))
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"text\":\"Hi {{name}}\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"Hello\"}}]}")
+          .body(SlackTemplateBody.builder()
+              .text("Hi {{name}}")
+              .blocks(OBJECT_MAPPER.readTree(blocksJson))
+              .build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -665,17 +649,19 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendWithJsonBodyAsArray() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
+      String blocksJson = "[{\"type\":\"section\",\"text\":{\"type\":\"plain_text\",\"text\":\"Alert\"}}]";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("[{\"type\":\"section\",\"text\":{\"type\":\"plain_text\",\"text\":\"Alert\"}}]")
+          .body(SlackTemplateBody.builder()
+              .blocks(OBJECT_MAPPER.readTree(blocksJson))
+              .text("fallback")
+              .build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -691,17 +677,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendWithJsonBodyTextOnlyNoBlocks() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"text\":\"Simple text message\"}")
+          .body(SlackTemplateBody.builder().text("Simple text message").build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -717,17 +701,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldSendWithJsonBodyNoTextUsesRender() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"other\":\"value\"}")
+          .body(SlackTemplateBody.builder().build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -743,17 +725,15 @@ class NotificationProvidersTest {
 
     @Test
     void shouldHandleTemplateParseFailureWithPlainTextFallback() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"text\":{{invalid json")
+          .body(null)
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -769,17 +749,19 @@ class NotificationProvidersTest {
 
     @Test
     void shouldExtractFallbackTextFromBlocksWithObjectText() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
+      String blocksJson =
+          "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"Fallback from block\"}}]";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"Fallback from block\"}}]}")
+          .body(SlackTemplateBody.builder()
+              .blocks(OBJECT_MAPPER.readTree(blocksJson))
+              .build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -795,17 +777,18 @@ class NotificationProvidersTest {
 
     @Test
     void shouldExtractFallbackTextFromBlocksWithTextualText() throws Exception {
-      String configJson = "{\"type\":\"SLACK\",\"accessToken\":\"xoxb-token\"}";
-
+      String blocksJson = "[{\"type\":\"section\",\"text\":\"plain text\"}]";
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
-          .channelConfig(configJson)
+          .channelConfig(SlackChannelConfig.builder().accessToken("xoxb-token").build())
           .recipient("C123")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"blocks\":[{\"type\":\"section\",\"text\":\"plain text\"}]}")
+          .body(SlackTemplateBody.builder()
+              .blocks(OBJECT_MAPPER.readTree(blocksJson))
+              .build())
           .build();
 
       when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -828,7 +811,7 @@ class NotificationProvidersTest {
       when(notificationConfig.getRegion()).thenReturn("us-east-1");
       org.dreamhorizon.pulseserver.service.notification.provider.EmailNotificationProvider provider =
           new org.dreamhorizon.pulseserver.service.notification.provider.EmailNotificationProvider(
-              OBJECT_MAPPER, templateService, notificationConfig);
+              templateService, notificationConfig, sesClient);
 
       assertThat(provider.getChannelType()).isEqualTo(ChannelType.EMAIL);
     }

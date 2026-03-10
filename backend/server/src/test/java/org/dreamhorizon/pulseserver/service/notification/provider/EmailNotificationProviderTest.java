@@ -5,12 +5,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.reactivex.rxjava3.core.Single;
 import java.util.Map;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailChannelConfig;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationMessage;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationResult;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
@@ -32,8 +32,6 @@ import software.amazon.awssdk.services.ses.model.SesException;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class EmailNotificationProviderTest {
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
   @Mock
   SesClient sesClient;
 
@@ -49,7 +47,7 @@ class EmailNotificationProviderTest {
   void setUp() {
     when(templateService.renderText(anyString(), any())).thenAnswer(inv -> inv.getArgument(0));
     when(notificationConfig.getRegion()).thenReturn("us-east-1");
-    provider = new EmailNotificationProvider(OBJECT_MAPPER, templateService, notificationConfig, sesClient);
+    provider = new EmailNotificationProvider(templateService, notificationConfig, sesClient);
   }
 
   @Nested
@@ -64,26 +62,24 @@ class EmailNotificationProviderTest {
   @Nested
   class Send {
 
-    private static String validChannelConfig() {
-      return "{\"type\":\"EMAIL\",\"fromAddress\":\"noreply@example.com\",\"fromName\":\"Pulse\"}";
-    }
-
-    private static String templateBodyWithSubjectAndHtml() {
-      return "{\"subject\":\"Test Subject\",\"html\":\"<p>Hello {{name}}</p>\",\"text\":\"Hello {{name}}\"}";
-    }
-
     @Test
     void shouldSendEmailSuccessfully() throws Exception {
-      String channelConfig = validChannelConfig();
       NotificationMessage message = NotificationMessage.builder()
           .projectId("proj-1")
           .channelType(ChannelType.EMAIL)
-          .channelConfig(channelConfig)
+          .channelConfig(EmailChannelConfig.builder()
+              .fromAddress("noreply@example.com")
+              .fromName("Pulse")
+              .build())
           .recipient("user@example.com")
           .params(Map.of("name", "User"))
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body(templateBodyWithSubjectAndHtml())
+          .body(EmailTemplateBody.builder()
+              .subject("Test Subject")
+              .html("<p>Hello {{name}}</p>")
+              .text("Hello {{name}}")
+              .build())
           .build();
 
       when(sesClient.sendEmail(any(SendEmailRequest.class)))
@@ -99,12 +95,18 @@ class EmailNotificationProviderTest {
     @Test
     void shouldRenderTemplateWithParams() throws Exception {
       NotificationMessage message = NotificationMessage.builder()
-          .channelConfig(validChannelConfig())
+          .channelConfig(EmailChannelConfig.builder()
+              .fromAddress("noreply@example.com")
+              .fromName("Pulse")
+              .build())
           .recipient("user@example.com")
           .params(Map.of("name", "Alice"))
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"subject\":\"Hi {{name}}\",\"html\":\"<p>Hello {{name}}</p>\"}")
+          .body(EmailTemplateBody.builder()
+              .subject("Hi {{name}}")
+              .html("<p>Hello {{name}}</p>")
+              .build())
           .build();
 
       when(templateService.renderText("Hi {{name}}", Map.of("name", "Alice"))).thenReturn("Hi Alice");
@@ -121,11 +123,14 @@ class EmailNotificationProviderTest {
     @Test
     void shouldReturnErrorWhenChannelConfigInvalid() {
       NotificationMessage message = NotificationMessage.builder()
-          .channelConfig("invalid-json")
+          .channelConfig(null)
           .recipient("user@example.com")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"subject\":\"Hi\",\"html\":\"<p>Hello</p>\"}")
+          .body(EmailTemplateBody.builder()
+              .subject("Hi")
+              .html("<p>Hello</p>")
+              .build())
           .build();
 
       NotificationResult result = provider.send(message, template).blockingGet();
@@ -135,32 +140,40 @@ class EmailNotificationProviderTest {
     }
 
     @Test
-    void shouldHandlePlainTextTemplateWhenJsonParseFails() throws Exception {
+    void shouldHandlePlainTextTemplateWhenJsonParseFails() {
       NotificationMessage message = NotificationMessage.builder()
-          .channelConfig(validChannelConfig())
+          .channelConfig(EmailChannelConfig.builder()
+              .fromAddress("noreply@example.com")
+              .fromName("Pulse")
+              .build())
           .recipient("user@example.com")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("Plain HTML content <p>Hello</p>")
+          .body(null)
           .build();
-
-      when(sesClient.sendEmail(any(SendEmailRequest.class)))
-          .thenReturn(SendEmailResponse.builder().messageId("msg-789").build());
 
       NotificationResult result = provider.send(message, template).blockingGet();
 
-      assertThat(result.isSuccess()).isTrue();
+      assertThat(result.isSuccess()).isFalse();
+      assertThat(result.getErrorMessage()).isNotNull();
     }
 
     @Test
     void shouldReturnFailureOnSesException() throws Exception {
       NotificationMessage message = NotificationMessage.builder()
-          .channelConfig(validChannelConfig())
+          .channelConfig(EmailChannelConfig.builder()
+              .fromAddress("noreply@example.com")
+              .fromName("Pulse")
+              .build())
           .recipient("user@example.com")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body(templateBodyWithSubjectAndHtml())
+          .body(EmailTemplateBody.builder()
+              .subject("Test Subject")
+              .html("<p>Hello {{name}}</p>")
+              .text("Hello {{name}}")
+              .build())
           .build();
 
       when(sesClient.sendEmail(any(SendEmailRequest.class)))
@@ -183,11 +196,18 @@ class EmailNotificationProviderTest {
     @Test
     void shouldReturnNonPermanentFailureOnTransientSesError() throws Exception {
       NotificationMessage message = NotificationMessage.builder()
-          .channelConfig(validChannelConfig())
+          .channelConfig(EmailChannelConfig.builder()
+              .fromAddress("noreply@example.com")
+              .fromName("Pulse")
+              .build())
           .recipient("user@example.com")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body(templateBodyWithSubjectAndHtml())
+          .body(EmailTemplateBody.builder()
+              .subject("Test Subject")
+              .html("<p>Hello {{name}}</p>")
+              .text("Hello {{name}}")
+              .build())
           .build();
 
       when(sesClient.sendEmail(any(SendEmailRequest.class)))
@@ -208,11 +228,18 @@ class EmailNotificationProviderTest {
     @Test
     void shouldReturnFailureOnGenericException() throws Exception {
       NotificationMessage message = NotificationMessage.builder()
-          .channelConfig(validChannelConfig())
+          .channelConfig(EmailChannelConfig.builder()
+              .fromAddress("noreply@example.com")
+              .fromName("Pulse")
+              .build())
           .recipient("user@example.com")
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body(templateBodyWithSubjectAndHtml())
+          .body(EmailTemplateBody.builder()
+              .subject("Test Subject")
+              .html("<p>Hello {{name}}</p>")
+              .text("Hello {{name}}")
+              .build())
           .build();
 
       when(sesClient.sendEmail(any(SendEmailRequest.class)))
@@ -227,15 +254,20 @@ class EmailNotificationProviderTest {
 
     @Test
     void shouldIncludeReplyToAndConfigSetWhenProvided() throws Exception {
-      String channelConfig = "{\"type\":\"EMAIL\",\"fromAddress\":\"noreply@example.com\","
-          + "\"replyToAddress\":\"support@example.com\",\"configurationSetName\":\"my-config-set\"}";
       NotificationMessage message = NotificationMessage.builder()
-          .channelConfig(channelConfig)
+          .channelConfig(EmailChannelConfig.builder()
+              .fromAddress("noreply@example.com")
+              .replyToAddress("support@example.com")
+              .configurationSetName("my-config-set")
+              .build())
           .recipient("user@example.com")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"subject\":\"Hi\",\"html\":\"<p>Hello</p>\"}")
+          .body(EmailTemplateBody.builder()
+              .subject("Hi")
+              .html("<p>Hello</p>")
+              .build())
           .build();
 
       when(sesClient.sendEmail(any(SendEmailRequest.class)))
@@ -248,14 +280,19 @@ class EmailNotificationProviderTest {
 
     @Test
     void shouldFormatSenderWithFromName() throws Exception {
-      String channelConfig = "{\"type\":\"EMAIL\",\"fromAddress\":\"noreply@example.com\",\"fromName\":\"Pulse Alerts\"}";
       NotificationMessage message = NotificationMessage.builder()
-          .channelConfig(channelConfig)
+          .channelConfig(EmailChannelConfig.builder()
+              .fromAddress("noreply@example.com")
+              .fromName("Pulse Alerts")
+              .build())
           .recipient("user@example.com")
           .params(Map.of())
           .build();
       NotificationTemplate template = NotificationTemplate.builder()
-          .body("{\"subject\":\"Hi\",\"html\":\"<p>Hello</p>\"}")
+          .body(EmailTemplateBody.builder()
+              .subject("Hi")
+              .html("<p>Hello</p>")
+              .build())
           .build();
 
       when(sesClient.sendEmail(any(SendEmailRequest.class)))

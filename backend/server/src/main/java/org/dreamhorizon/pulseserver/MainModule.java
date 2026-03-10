@@ -19,6 +19,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
@@ -42,6 +43,7 @@ import org.dreamhorizon.pulseserver.service.notification.provider.EmailNotificat
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProviderFactory;
 import org.dreamhorizon.pulseserver.service.notification.provider.SlackNotificationProvider;
+import org.dreamhorizon.pulseserver.service.notification.provider.SlackWebhookNotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.provider.TeamsNotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.queue.DlqHandler;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetryPolicy;
@@ -133,6 +135,7 @@ public class MainModule extends VertxAbstractModule {
     bind(NotificationTemplateDao.class).in(Singleton.class);
     bind(NotificationLogDao.class).in(Singleton.class);
     bind(EmailSuppressionDao.class).in(Singleton.class);
+    bind(ChannelEventMappingDao.class).in(Singleton.class);
 
     bind(TemplateService.class).in(Singleton.class);
     bind(NotificationService.class).to(NotificationServiceImpl.class).in(Singleton.class);
@@ -147,6 +150,7 @@ public class MainModule extends VertxAbstractModule {
         Multibinder.newSetBinder(binder(), NotificationProvider.class);
     providerBinder.addBinding().to(EmailNotificationProvider.class).in(Singleton.class);
     providerBinder.addBinding().to(SlackNotificationProvider.class).in(Singleton.class);
+    providerBinder.addBinding().to(SlackWebhookNotificationProvider.class).in(Singleton.class);
     providerBinder.addBinding().to(TeamsNotificationProvider.class).in(Singleton.class);
 
     bind(SesWebhookHandler.class).in(Singleton.class);

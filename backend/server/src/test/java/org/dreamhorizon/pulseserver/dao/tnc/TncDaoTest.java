@@ -130,7 +130,7 @@ class TncDaoTest {
       assertThat(result.getId()).isEqualTo(1L);
       assertThat(result.getVersion()).isEqualTo("2024-01");
       assertThat(result.getTosS3Url()).isEqualTo("s3://bucket/tnc/2024-01/tos.html");
-      assertThat(result.getActive()).isTrue();
+      assertThat(result.isActive()).isTrue();
     }
 
     @Test
@@ -275,7 +275,8 @@ class TncDaoTest {
       when(rowSet.iterator()).thenReturn(iterator);
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(rowSet))
-          .thenReturn(Single.just(rowSet))
+          .thenReturn(Single.just(rowSet));
+      when(preparedQuery.rxExecute())
           .thenReturn(Single.just(rowSet));
 
       TncVersion result = tncDao.publishVersion(

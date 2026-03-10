@@ -1555,6 +1555,39 @@ class AlertEvaluationServiceTest {
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
     }
+
+    @Test
+    void shouldEvaluateMetricsForNetworkApiScopeWithMethodUrlFormat() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
+      method.setAccessible(true);
+
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .scope("NETWORK_API")
+          .conditionExpression("A")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(1)
+              .name("get_https://api.test.com/endpoint")
+              .conditions("[{\"metric\":\"NET_LATENCY\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":100}]")
+              .build()
+      );
+
+      PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
+      queryResult.setFields(List.of("t1", "method", "network_apiName", "net_latency"));
+      queryResult.setRows(List.of(List.of("2026-01-08T10:00:00Z", "get", "https://api.test.com/endpoint", "150.0")));
+
+      when(metricOperatorFactory.getProcessor(MetricOperator.GREATER_THAN)).thenReturn(metricOperatorProcessor);
+      when(metricOperatorProcessor.isFiring(100f, 150f)).thenReturn(true);
+
+      @SuppressWarnings("unchecked")
+      List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
+      assertNotNull(results);
+      assertEquals(1, results.size());
+    }
   }
 
   @Nested
@@ -2453,6 +2486,64 @@ class AlertEvaluationServiceTest {
       String key = (String) buildRowKeyMethod.invoke(alertEvaluationService, row, fieldIndexMap);
       assertEquals("default", key);
     }
+
+    @Test
+    void shouldBuildRowKeyWithT1AndScope() throws Exception {
+      Method buildRowKeyMethod = AlertEvaluationService.class.getDeclaredMethod(
+          "buildRowKey", List.class, java.util.Map.class);
+      buildRowKeyMethod.setAccessible(true);
+
+      List<String> row = List.of("2026-01-08T10:00:00Z", "HomeScreen", "100.5");
+      Map<String, Integer> fieldIndexMap = new HashMap<>();
+      fieldIndexMap.put("t1", 0);
+      fieldIndexMap.put("screenName", 1);
+      fieldIndexMap.put("load_time", 2);
+
+      String key = (String) buildRowKeyMethod.invoke(alertEvaluationService, row, fieldIndexMap);
+      assertNotNull(key);
+      assertTrue(key.contains("2026-01-08T10:00:00Z"));
+      assertTrue(key.contains("HomeScreen"));
+    }
+
+    @Test
+    void shouldBuildRowKeyWithMethodForNetworkApi() throws Exception {
+      Method buildRowKeyMethod = AlertEvaluationService.class.getDeclaredMethod(
+          "buildRowKey", List.class, java.util.Map.class);
+      buildRowKeyMethod.setAccessible(true);
+
+      List<String> row = List.of("2026-01-08T10:00:00Z", "get", "https://api.test.com", "150");
+      Map<String, Integer> fieldIndexMap = new HashMap<>();
+      fieldIndexMap.put("t1", 0);
+      fieldIndexMap.put("method", 1);
+      fieldIndexMap.put("network_apiName", 2);
+      fieldIndexMap.put("latency", 3);
+
+      String key = (String) buildRowKeyMethod.invoke(alertEvaluationService, row, fieldIndexMap);
+      assertNotNull(key);
+      assertTrue(key.contains("get"));
+      assertTrue(key.contains("https://api.test.com"));
+    }
+
+    @Test
+    void shouldMergeResultsWithEmptyValues() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "mergeQueryResults", List.class);
+      method.setAccessible(true);
+
+      PerformanceMetricDistributionRes result1 = new PerformanceMetricDistributionRes();
+      result1.setFields(List.of("t1", "screenName", "load_time"));
+      result1.setRows(List.of(List.of("2026-01-08T10:00:00Z", "HomeScreen", "")));
+
+      PerformanceMetricDistributionRes result2 = new PerformanceMetricDistributionRes();
+      result2.setFields(List.of("t1", "screenName", "crash_users"));
+      result2.setRows(List.of(List.of("2026-01-08T10:00:00Z", "HomeScreen", "5")));
+
+      PerformanceMetricDistributionRes merged = (PerformanceMetricDistributionRes)
+          method.invoke(alertEvaluationService, List.of(result1, result2));
+
+      assertNotNull(merged);
+      assertFalse(merged.getRows().isEmpty());
+    }
   }
 
   @Nested
@@ -2625,6 +2716,24 @@ class AlertEvaluationServiceTest {
       method.setAccessible(true);
 
       Float result = (Float) method.invoke(alertEvaluationService, "NaN");
+      assertNull(result);
+    }
+
+    @Test
+    void shouldReturnNullForInfinity() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod("parseMetricValue", String.class);
+      method.setAccessible(true);
+
+      Float result = (Float) method.invoke(alertEvaluationService, "Infinity");
+      assertNull(result);
+    }
+
+    @Test
+    void shouldReturnNullForInvalidNumber() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod("parseMetricValue", String.class);
+      method.setAccessible(true);
+
+      Float result = (Float) method.invoke(alertEvaluationService, "not_a_number");
       assertNull(result);
     }
   }

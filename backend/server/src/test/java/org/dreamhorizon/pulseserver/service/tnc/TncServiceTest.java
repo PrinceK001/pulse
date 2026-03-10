@@ -12,7 +12,6 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
@@ -27,9 +26,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 @ExtendWith(MockitoExtension.class)
@@ -220,7 +222,7 @@ class TncServiceTest {
       byte[] ppBytes = "<html>PP</html>".getBytes();
 
       when(applicationConfig.getTncS3BucketName()).thenReturn("tnc-bucket");
-      when(s3AsyncClient.putObject(any(), any()))
+      when(s3AsyncClient.putObject(any(PutObjectRequest.class), any(AsyncRequestBody.class)))
           .thenReturn(CompletableFuture.completedFuture(PutObjectResponse.builder().build()));
       when(tncDao.publishVersion(anyString(), anyString(), anyString(), anyString(),
           anyString(), anyString()))
@@ -330,7 +332,8 @@ class TncServiceTest {
     void shouldGeneratePresignedUrlForValidS3Url() throws MalformedURLException {
       PresignedGetObjectRequest presignedRequest = mock(PresignedGetObjectRequest.class);
       when(presignedRequest.url()).thenReturn(new URL("https://presigned.example.com/doc?signature=xxx"));
-      when(s3Presigner.presignGetObject(any())).thenReturn(presignedRequest);
+      when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+          .thenReturn(presignedRequest);
 
       String result = tncService.generatePresignedUrl("s3://my-bucket/tnc/v1/tos.html");
 
@@ -355,7 +358,7 @@ class TncServiceTest {
 
     @Test
     void shouldReturnOriginalUrlWhenPresigningFails() {
-      when(s3Presigner.presignGetObject(any()))
+      when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
           .thenThrow(new RuntimeException("Presign failed"));
 
       String result = tncService.generatePresignedUrl("s3://bucket/key.html");

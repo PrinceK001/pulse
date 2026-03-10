@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
@@ -21,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -47,7 +49,7 @@ class NotificationTemplateDaoTest {
 
   @BeforeEach
   void setup() {
-    notificationTemplateDao = new NotificationTemplateDao(mysqlClient);
+    notificationTemplateDao = new NotificationTemplateDao(mysqlClient, new ObjectMapper());
   }
 
   private void setupWriterPool() {
@@ -96,12 +98,12 @@ class NotificationTemplateDaoTest {
   private Row createMockTemplateRow() {
     Row mockRow = mock(Row.class);
     LocalDateTime now = LocalDateTime.now();
+    String bodyJson = "{\"type\":\"EMAIL\",\"subject\":\"Alert\",\"html\":\"<p>Hello {{name}}</p>\"}";
     when(mockRow.getLong("id")).thenReturn(1L);
-    when(mockRow.getString("project_id")).thenReturn("proj-1");
     when(mockRow.getString("event_name")).thenReturn("alert_created");
     when(mockRow.getString("channel_type")).thenReturn("EMAIL");
     when(mockRow.getInteger("version")).thenReturn(1);
-    when(mockRow.getValue("body")).thenReturn("Hello {{name}}");
+    when(mockRow.getValue("body")).thenReturn(bodyJson);
     when(mockRow.getBoolean("is_active")).thenReturn(true);
     when(mockRow.getLocalDateTime("created_at")).thenReturn(now);
     when(mockRow.getLocalDateTime("updated_at")).thenReturn(now);
@@ -141,7 +143,7 @@ class NotificationTemplateDaoTest {
   }
 
   @Nested
-  class GetTemplatesByProject {
+  class GetTemplatesByChannelType {
 
     @Test
     void shouldGetTemplatesSuccessfully() {
@@ -152,10 +154,11 @@ class NotificationTemplateDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       List<NotificationTemplate> result =
-          notificationTemplateDao.getTemplatesByProject("proj-1").blockingGet();
+          notificationTemplateDao.getTemplatesByChannelType(ChannelType.EMAIL).blockingGet();
 
       assertThat(result).hasSize(1);
-      assertThat(result.get(0).getProjectId()).isEqualTo("proj-1");
+      assertThat(result.get(0).getEventName()).isEqualTo("alert_created");
+      assertThat(result.get(0).getChannelType()).isEqualTo(ChannelType.EMAIL);
     }
 
     @Test
@@ -165,7 +168,7 @@ class NotificationTemplateDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       List<NotificationTemplate> result =
-          notificationTemplateDao.getTemplatesByProject("proj-empty").blockingGet();
+          notificationTemplateDao.getTemplatesByChannelType(ChannelType.SLACK).blockingGet();
 
       assertThat(result).isEmpty();
     }
@@ -184,7 +187,7 @@ class NotificationTemplateDaoTest {
 
       NotificationTemplate result =
           notificationTemplateDao
-              .getTemplateByEventNameAndChannel("proj-1", "alert_created", ChannelType.EMAIL)
+              .getTemplateByEventNameAndChannel("alert_created", ChannelType.EMAIL)
               .blockingGet();
 
       assertThat(result).isNotNull();
@@ -201,7 +204,7 @@ class NotificationTemplateDaoTest {
 
       NotificationTemplate result =
           notificationTemplateDao
-              .getTemplateByEventNameAndChannel("proj-1", "unknown", ChannelType.SLACK)
+              .getTemplateByEventNameAndChannel("unknown", ChannelType.SLACK)
               .blockingGet();
 
       assertThat(result).isNull();
@@ -222,7 +225,7 @@ class NotificationTemplateDaoTest {
 
       Integer result =
           notificationTemplateDao
-              .getLatestVersion("proj-1", "alert_created", ChannelType.EMAIL)
+              .getLatestVersion("alert_created", ChannelType.EMAIL)
               .blockingGet();
 
       assertThat(result).isEqualTo(3);
@@ -237,7 +240,7 @@ class NotificationTemplateDaoTest {
 
       Integer result =
           notificationTemplateDao
-              .getLatestVersion("proj-1", "new_event", ChannelType.EMAIL)
+              .getLatestVersion("new_event", ChannelType.EMAIL)
               .blockingGet();
 
       assertThat(result).isEqualTo(0);
@@ -251,11 +254,10 @@ class NotificationTemplateDaoTest {
     void shouldCreateTemplateSuccessfully() {
       NotificationTemplate template =
           NotificationTemplate.builder()
-              .projectId("proj-1")
               .eventName("alert_created")
               .channelType(ChannelType.EMAIL)
               .version(1)
-              .body("Hello")
+              .body(EmailTemplateBody.builder().subject("Subject").html("<p>Hello</p>").build())
               .isActive(true)
               .build();
 
@@ -278,7 +280,11 @@ class NotificationTemplateDaoTest {
           NotificationTemplate.builder()
               .eventName("alert_updated")
               .channelType(ChannelType.EMAIL)
-              .body("Updated body")
+              .body(
+                  EmailTemplateBody.builder()
+                      .subject("Updated")
+                      .html("<p>Updated body</p>")
+                      .build())
               .isActive(true)
               .build();
 
@@ -294,7 +300,11 @@ class NotificationTemplateDaoTest {
     @Test
     void shouldReturnZeroWhenNoRowsUpdated() {
       NotificationTemplate template =
-          NotificationTemplate.builder().eventName("x").body("x").isActive(true).build();
+          NotificationTemplate.builder()
+              .eventName("x")
+              .body(EmailTemplateBody.builder().subject("x").html("<p>x</p>").build())
+              .isActive(true)
+              .build();
 
       setupWriterPreparedQuery();
       when(rowSet.rowCount()).thenReturn(0);

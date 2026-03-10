@@ -3,7 +3,6 @@ package org.dreamhorizon.pulseserver.resources;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
 import org.dreamhorizon.pulseserver.model.LoginStatus;
@@ -23,6 +22,7 @@ import org.dreamhorizon.pulseserver.resources.v1.projects.models.ProjectResponse
 import org.dreamhorizon.pulseserver.resources.v1.users.models.UserProjectsResponse;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationChannelDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SlackOAuthCallbackRequest;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackChannelConfig;
 import org.dreamhorizon.pulseserver.resources.notification.models.SlackOAuthResponseDto;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.junit.jupiter.api.Nested;
@@ -422,12 +422,17 @@ class RestModelCoverageTest {
 
     @Test
     void shouldBuildAndAssertAllFields() {
+      SlackChannelConfig config = SlackChannelConfig.builder()
+          .accessToken("xoxb-token")
+          .workspaceId("T123")
+          .botName("Pulse Bot")
+          .build();
       NotificationChannelDto model = NotificationChannelDto.builder()
           .id(1L)
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
           .name("Slack Channel")
-          .config(Collections.singletonMap("channel", "general"))
+          .config(config)
           .isActive(true)
           .createdAt(Instant.now())
           .updatedAt(Instant.now())
@@ -437,7 +442,7 @@ class RestModelCoverageTest {
       assertThat(model.getProjectId()).isEqualTo("proj-1");
       assertThat(model.getChannelType()).isEqualTo(ChannelType.SLACK);
       assertThat(model.getName()).isEqualTo("Slack Channel");
-      assertThat(model.getConfig()).isNotNull();
+      assertThat(model.getConfig()).isEqualTo(config);
       assertThat(model.getIsActive()).isTrue();
       assertThat(model.getCreatedAt()).isNotNull();
       assertThat(model.getUpdatedAt()).isNotNull();

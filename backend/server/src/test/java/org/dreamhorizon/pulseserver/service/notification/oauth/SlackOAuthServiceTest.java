@@ -18,6 +18,7 @@ import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackChannelConfig;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -201,12 +202,18 @@ class SlackOAuthServiceTest {
           .workspaceName("My Workspace")
           .build();
 
+      SlackChannelConfig oldConfig = SlackChannelConfig.builder().accessToken("old-token").build();
+      SlackChannelConfig newConfig = SlackChannelConfig.builder()
+          .accessToken("xoxb-123")
+          .botName("Pulse")
+          .build();
+
       NotificationChannel existingChannel = NotificationChannel.builder()
           .id(10L)
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
           .name("Slack - Old")
-          .config("{}")
+          .config(oldConfig)
           .isActive(true)
           .createdAt(Instant.now())
           .updatedAt(Instant.now())
@@ -217,7 +224,7 @@ class SlackOAuthServiceTest {
           .projectId("proj-1")
           .channelType(ChannelType.SLACK)
           .name("Slack - My Workspace")
-          .config("{\"accessToken\":\"xoxb-123\",\"botName\":\"Pulse\"}")
+          .config(newConfig)
           .isActive(true)
           .build();
 
@@ -251,13 +258,17 @@ class SlackOAuthServiceTest {
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any(NotificationChannel.class)))
           .thenReturn(Single.just(20L));
+      SlackChannelConfig createdConfig = SlackChannelConfig.builder()
+          .accessToken("xoxb-789")
+          .botName("Pulse")
+          .build();
       when(channelDao.getChannelById(eq(20L)))
           .thenReturn(Maybe.just(NotificationChannel.builder()
               .id(20L)
               .projectId("proj-2")
               .channelType(ChannelType.SLACK)
               .name("Slack - New Workspace")
-              .config("{\"accessToken\":\"xoxb-789\",\"botName\":\"Pulse\"}")
+              .config(createdConfig)
               .isActive(true)
               .build()));
 
@@ -290,6 +301,7 @@ class SlackOAuthServiceTest {
               .projectId("proj-3")
               .channelType(ChannelType.SLACK)
               .name("Slack")
+              .config(SlackChannelConfig.builder().accessToken("xoxb-abc").build())
               .isActive(true)
               .build()));
 

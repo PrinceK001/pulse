@@ -99,7 +99,6 @@ class NotificationLogDaoTest {
     LocalDateTime now = LocalDateTime.now();
     when(mockRow.getLong("id")).thenReturn(1L);
     when(mockRow.getString("project_id")).thenReturn("proj-1");
-    when(mockRow.getString("batch_id")).thenReturn("batch-1");
     when(mockRow.getString("idempotency_key")).thenReturn("key-1");
     when(mockRow.getString("channel_type")).thenReturn("EMAIL");
     when(mockRow.getLong("channel_id")).thenReturn(10L);
@@ -153,7 +152,7 @@ class NotificationLogDaoTest {
   }
 
   @Nested
-  class GetLogsByBatch {
+  class GetLogsByIdempotencyKey {
 
     @Test
     void shouldGetLogsSuccessfully() {
@@ -164,10 +163,10 @@ class NotificationLogDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       List<NotificationLog> result =
-          notificationLogDao.getLogsByBatch("proj-1", "batch-1").blockingGet();
+          notificationLogDao.getLogsByIdempotencyKey("proj-1", "key-1").blockingGet();
 
       assertThat(result).hasSize(1);
-      assertThat(result.get(0).getBatchId()).isEqualTo("batch-1");
+      assertThat(result.get(0).getIdempotencyKey()).isEqualTo("key-1");
     }
 
     @Test
@@ -177,7 +176,7 @@ class NotificationLogDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       List<NotificationLog> result =
-          notificationLogDao.getLogsByBatch("proj-1", "batch-empty").blockingGet();
+          notificationLogDao.getLogsByIdempotencyKey("proj-1", "key-empty").blockingGet();
 
       assertThat(result).isEmpty();
     }
@@ -227,7 +226,6 @@ class NotificationLogDaoTest {
       NotificationLog log =
           NotificationLog.builder()
               .projectId("proj-1")
-              .batchId("batch-1")
               .idempotencyKey("key-1")
               .channelType(ChannelType.EMAIL)
               .channelId(10L)
@@ -256,7 +254,6 @@ class NotificationLogDaoTest {
       NotificationLog log =
           NotificationLog.builder()
               .projectId("proj-1")
-              .batchId("batch-1")
               .idempotencyKey("key-1")
               .channelType(ChannelType.EMAIL)
               .channelId(10L)
@@ -281,7 +278,6 @@ class NotificationLogDaoTest {
       NotificationLog log =
           NotificationLog.builder()
               .projectId("proj-1")
-              .batchId("batch-1")
               .idempotencyKey("key-1")
               .channelType(ChannelType.EMAIL)
               .channelId(10L)
