@@ -131,9 +131,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
     if (apiKey != null && !apiKey.isBlank()) {
       try {
-        String projectId = extractProjectIdFromApiKey(apiKey.trim());
-        log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
-        return projectId;
+        log.debug("Project ID resolved from API key header: {} ", apiKey);
+        return apiKey.trim();
       } catch (IllegalArgumentException e) {
         log.error("Invalid API key format: {}. Error: {}", apiKey, e.getMessage());
         requestContext.abortWith(
