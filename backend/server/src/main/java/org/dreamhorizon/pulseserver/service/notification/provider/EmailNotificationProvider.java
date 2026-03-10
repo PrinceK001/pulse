@@ -31,17 +31,27 @@ public class EmailNotificationProvider implements NotificationProvider {
       ObjectMapper objectMapper,
       TemplateService templateService,
       NotificationConfig notificationConfig) {
+    this(objectMapper, templateService, notificationConfig,
+        SesClient.builder()
+            .region(Region.of(notificationConfig.getRegion()))
+            .httpClient(UrlConnectionHttpClient.builder().build())
+            .build());
+    log.info(
+        "Email notification provider initialized with region: {}", notificationConfig.getRegion());
+  }
+
+  /**
+   * Package-private constructor for unit testing with a mock/injectable SesClient.
+   */
+  EmailNotificationProvider(
+      ObjectMapper objectMapper,
+      TemplateService templateService,
+      NotificationConfig notificationConfig,
+      SesClient sesClient) {
     this.objectMapper = objectMapper;
     this.templateService = templateService;
     this.notificationConfig = notificationConfig;
-
-    this.sesClient = SesClient.builder()
-        .region(Region.of(notificationConfig.getRegion()))
-        .httpClient(UrlConnectionHttpClient.builder().build())
-        .build();
-
-    log.info(
-        "Email notification provider initialized with region: {}", notificationConfig.getRegion());
+    this.sesClient = sesClient;
   }
 
   @Override

@@ -24,7 +24,7 @@ import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
-import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
+import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService;
