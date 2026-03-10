@@ -55,6 +55,7 @@ import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontAsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Slf4j
 public class MainModule extends VertxAbstractModule {
@@ -96,6 +97,7 @@ public class MainModule extends VertxAbstractModule {
     bind(ErrorGroupingService.class).in(Singleton.class);
     bind(Symbolicator.class).in(Singleton.class);
     bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);
+    bind(S3Presigner.class).toProvider(this::loadS3Presigner).in(Singleton.class);
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
     bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
@@ -168,6 +170,13 @@ public class MainModule extends VertxAbstractModule {
   private S3AsyncClient loadS3Client() {
     return S3AsyncClient.builder()
         .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+        .region(Region.AP_SOUTH_1)
+        .credentialsProvider(DefaultCredentialsProvider.create())
+        .build();
+  }
+
+  private S3Presigner loadS3Presigner() {
+    return S3Presigner.builder()
         .region(Region.AP_SOUTH_1)
         .credentialsProvider(DefaultCredentialsProvider.create())
         .build();

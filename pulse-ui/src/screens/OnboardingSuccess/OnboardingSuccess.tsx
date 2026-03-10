@@ -28,8 +28,11 @@ import {
 import { showNotification } from '../../helpers/showNotification';
 import { getProjectApiKey } from '../../helpers/getProjectApiKey';
 import { useProjectContext } from '../../contexts';
-import { makeRequest } from '../../helpers/makeRequest';
-import { API_BASE_URL } from '../../constants';
+import { ROUTES } from '../../constants';
+import { useInviteProjectMember } from '../../hooks';
+import { ApiResponse } from '../../helpers/makeRequest';
+import { ProjectMember } from '../../types/members';
+import { PROJECT_ROLES, PROJECT_ROLE_LABELS, ProjectRole } from '../../constants/Roles';
 import classes from './OnboardingSuccess.module.css';
 
 export function OnboardingSuccess() {
@@ -37,7 +40,7 @@ export function OnboardingSuccess() {
   const location = useLocation();
   const navigate = useNavigate();
   const locationState = location.state || {};
-  const projectId = urlProjectId; // Get from URL params
+  const projectId = urlProjectId;
   
   // Get project info from context
   const { projectName: contextProjectName, projectId: contextProjectId } = useProjectContext();
@@ -49,14 +52,27 @@ export function OnboardingSuccess() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('viewer');
-  const [inviting, setInviting] = useState(false);
+  const [inviteRole, setInviteRole] = useState<ProjectRole>(PROJECT_ROLES.VIEWER);
+  
+  // React Query hook for inviting members
+  const inviteMutation = useInviteProjectMember();
+  const inviting = inviteMutation.isPending;
 
   // Fetch project details if not in location.state
   useEffect(() => {
     const fetchProjectDetails = async () => {
       if (!projectId) {
-        navigate('/project-selection', { replace: true });
+        // Get tenant ID from cookies and redirect to organization projects
+        const tenantId = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('tenantId='))
+          ?.split('=')[1];
+        
+        if (tenantId && tenantId !== "undefined") {
+          navigate(`/${tenantId}/projects`, { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
         return;
       }
 
@@ -66,18 +82,15 @@ export function OnboardingSuccess() {
         return;
       }
 
-      console.log('[OnboardingSuccess] Fetching project details from API');
       setLoading(true);
 
       try {
         // Get project name from React Context
         if (contextProjectName && contextProjectId === projectId) {
-          console.log('[OnboardingSuccess] Using project name from context:', contextProjectName);
           setProjectName(contextProjectName);
         } else if (!projectName) {
           // If context doesn't have the project name and it's not in state, redirect to project dashboard
-          console.log('[OnboardingSuccess] No project context, redirecting to dashboard');
-          navigate(`/projects/${projectId}`, { replace: true });
+          navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId), { replace: true });
           return;
         }
 
@@ -87,7 +100,7 @@ export function OnboardingSuccess() {
       } catch (error) {
         console.error('[OnboardingSuccess] Error fetching project details:', error);
         // On error, redirect to project dashboard
-        navigate(`/projects/${projectId}`, { replace: true });
+        navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId), { replace: true });
       } finally {
         setLoading(false);
       }
@@ -113,38 +126,34 @@ export function OnboardingSuccess() {
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const handleInviteMember = async () => {
+  const handleInviteMember = () => {
     if (!inviteEmail.trim() || !projectId) return;
     
-    setInviting(true);
-    try {
-      const response = await makeRequest<any>({
-        url: `${API_BASE_URL}/v1/projects/${projectId}/members`,
-        init: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: inviteEmail.trim(),
-            role: inviteRole,
-          }),
+    inviteMutation.mutate(
+      {
+        projectId,
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      },
+      {
+        onSuccess: (response: ApiResponse<ProjectMember>) => {
+          if (response?.data && !response?.error) {
+            showNotification('Success', `Invitation sent to ${inviteEmail}`, <IconUsers />, '#0ec9c2');
+            setInviteEmail('');
+          } else {
+            showNotification('Error', response?.error?.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+          }
         },
-      });
-      
-      if (response.data) {
-        showNotification('Success', `Invitation sent to ${inviteEmail}`, <IconUsers />, '#0ec9c2');
-        setInviteEmail('');
-      } else {
-        showNotification('Error', response.error?.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+        onError: (error: any) => {
+          showNotification('Error', error.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+        },
       }
-    } catch (error: any) {
-      showNotification('Error', error.message || 'Failed to invite member', <IconUsers />, '#fa5252');
-    } finally {
-      setInviting(false);
-    }
+    );
   };
 
   const handleGoToDashboard = () => {
-    navigate(`/projects/${projectId}`);
+    if (!projectId) return;
+    navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId));
   };
 
   const maskApiKey = (key: string) => {
@@ -190,15 +199,25 @@ Pulse.initialize({
         <Stack gap="xl">
           {/* Success Header */}
           <Box className={classes.successHeader}>
-            <Box className={classes.iconWrapper}>
-              <IconRocket size={48} className={classes.successIcon} />
-            </Box>
+
             <Text className={classes.title}>
               🎉 Project "{projectName}" Created Successfully!
             </Text>
-            {/* <Text className={classes.subtitle}>
-              Your analytics platform is ready. Follow the steps below to integrate Pulse into your app.
-            </Text> */}
+            <Text className={classes.subtitle}>
+              Your project is ready! Complete the setup below to start using Pulse.
+            </Text>
+            
+            {/* Primary CTA Button in Header */}
+            <Group justify="center" mt="lg" gap="md">
+              <Button
+                size="lg"
+                className={classes.primaryCtaButton}
+                onClick={handleGoToDashboard}
+                leftSection={<IconRocket size={20} />}
+              >
+                Go to Dashboard
+              </Button>
+            </Group>
           </Box>
 
           {/* API Key Section */}
@@ -237,8 +256,7 @@ Pulse.initialize({
           <Paper className={classes.section} shadow="sm" p="xl" radius="md">
             <Group mb="md">
               <IconCode size={24} style={{ color: '#0ec9c2' }} />
-              <Text fw={600} size="lg">Quick Start</Text>
-            </Group>
+              <Text fw={600} size="lg">Quick Start</Text>            </Group>
             <Text size="sm" c="dimmed" mb="md">
               Choose your platform and copy the initialization code:
             </Text>
@@ -292,11 +310,11 @@ Pulse.initialize({
               <Select
                 label="Role"
                 value={inviteRole}
-                onChange={(value) => setInviteRole(value || 'viewer')}
+                onChange={(value) => setInviteRole((value as ProjectRole) || PROJECT_ROLES.VIEWER)}
                 data={[
-                  { value: 'admin', label: 'Admin' },
-                  { value: 'editor', label: 'Editor' },
-                  { value: 'viewer', label: 'Viewer' },
+                  { value: PROJECT_ROLES.ADMIN, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.ADMIN] },
+                  { value: PROJECT_ROLES.EDITOR, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.EDITOR] },
+                  { value: PROJECT_ROLES.VIEWER, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.VIEWER] },
                 ]}
                 style={{ width: 150 }}
               />
@@ -312,17 +330,17 @@ Pulse.initialize({
             </Group>
           </Paper>
 
-          {/* CTA Button */}
-          <Group justify="center" mt="xl">
+          {/* <Group justify="center" mt="xl">
             <Button
               size="lg"
-              className={classes.ctaButton}
+              variant="outline"
+              className={classes.secondaryCtaButton}
               onClick={handleGoToDashboard}
               leftSection={<IconRocket size={20} />}
             >
               Go to Dashboard
             </Button>
-          </Group>
+          </Group> */}
         </Stack>
       </Container>
     </Box>
