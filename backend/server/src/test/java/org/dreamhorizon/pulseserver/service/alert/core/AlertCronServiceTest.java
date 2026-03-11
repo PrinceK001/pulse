@@ -274,7 +274,7 @@ class AlertCronServiceTest {
       assertTrue(toString.contains("id=1"));
       assertTrue(toString.contains("interval=60"));
       assertTrue(toString.contains("url=http://test.url"));
-      assertTrue(toString.contains("tenantId=tenant1"));
+      assertTrue(toString.contains("projectId=tenant1"));
     }
 
     @Test
@@ -381,7 +381,7 @@ class AlertCronServiceTest {
       String toString = model.toString();
 
       assertTrue(toString.contains("id=1"));
-      assertTrue(toString.contains("tenantId=tenant1"));
+      assertTrue(toString.contains("projectId=tenant1"));
       assertTrue(toString.contains("newInterval=120"));
       assertTrue(toString.contains("oldInterval=60"));
       assertTrue(toString.contains("url=http://test.url"));
