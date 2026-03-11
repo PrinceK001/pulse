@@ -17,6 +17,7 @@ import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import jakarta.ws.rs.WebApplicationException;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
@@ -385,8 +386,9 @@ class AuthServiceTest {
 
       RuntimeException ex = assertThrows(RuntimeException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof IllegalArgumentException);
-      assertTrue(ex.getCause().getMessage().contains("Refresh token is required"));
+      assertTrue(ex.getCause() instanceof WebApplicationException);
+      WebApplicationException wae = (WebApplicationException) ex.getCause();
+      assertEquals(400, wae.getResponse().getStatus());
     }
 
     @Test
@@ -396,7 +398,9 @@ class AuthServiceTest {
 
       RuntimeException ex = assertThrows(RuntimeException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof IllegalArgumentException);
+      assertTrue(ex.getCause() instanceof WebApplicationException);
+      WebApplicationException wae = (WebApplicationException) ex.getCause();
+      assertEquals(400, wae.getResponse().getStatus());
     }
 
     @Test
@@ -407,8 +411,23 @@ class AuthServiceTest {
 
       RuntimeException ex = assertThrows(RuntimeException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof IllegalArgumentException);
-      assertTrue(ex.getCause().getMessage().contains("Invalid token type"));
+      assertTrue(ex.getCause() instanceof WebApplicationException);
+      WebApplicationException wae = (WebApplicationException) ex.getCause();
+      assertEquals(400, wae.getResponse().getStatus());
+    }
+
+    @Test
+    void throwsWhenRefreshTokenExpired() {
+      GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
+      request.setRefreshToken("expired-refresh");
+      when(jwtService.isRefreshToken("expired-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("expired-refresh")).thenReturn(true);
+
+      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+          authService.getAccessTokenFromRefreshToken(request).blockingGet());
+      assertTrue(ex.getCause() instanceof WebApplicationException);
+      WebApplicationException wae = (WebApplicationException) ex.getCause();
+      assertEquals(401, wae.getResponse().getStatus());
     }
 
     @Test
@@ -416,6 +435,7 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("valid-refresh");
       when(jwtService.isRefreshToken("valid-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("valid-refresh")).thenReturn(false);
       Claims claims = mock(Claims.class);
       when(claims.getSubject()).thenReturn("user1");
       when(claims.get(eq("email"), eq(String.class))).thenReturn("e@x.com");
@@ -439,15 +459,13 @@ class AuthServiceTest {
     @Test
     void throwsWhenVerifyTokenThrows() {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
-      request.setRefreshToken("expired-refresh");
-      when(jwtService.isRefreshToken("expired-refresh")).thenReturn(true);
-      when(jwtService.verifyToken("expired-refresh")).thenThrow(new RuntimeException("Token expired"));
+      request.setRefreshToken("bad-refresh");
+      when(jwtService.isRefreshToken("bad-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("bad-refresh")).thenReturn(false);
+      when(jwtService.verifyToken("bad-refresh")).thenThrow(new RuntimeException("Token invalid"));
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      assertThrows(RuntimeException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-
-      assertTrue(ex.getMessage().contains("Failed to refresh access token"));
-      assertNotNull(ex.getCause());
     }
 
     @Test
@@ -455,6 +473,7 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("valid-refresh");
       when(jwtService.isRefreshToken("valid-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("valid-refresh")).thenReturn(false);
       Claims claims = mock(Claims.class);
       when(claims.getSubject()).thenReturn("user1");
       when(claims.get(eq("email"), eq(String.class))).thenReturn(null);
@@ -964,6 +983,7 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("valid-refresh");
       when(jwtService.isRefreshToken("valid-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("valid-refresh")).thenReturn(false);
       Claims claims = mock(Claims.class);
       when(claims.getSubject()).thenReturn(null);
       when(claims.get(eq("email"), eq(String.class))).thenReturn("e@x.com");
