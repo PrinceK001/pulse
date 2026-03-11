@@ -201,10 +201,6 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   }
 
   private String extractProjectIdFromApiKey(String apiKey) {
-    if (apiKey == null || apiKey.isBlank()) {
-      return apiKey;
-    }
-
     int lastUnderscoreIndex = apiKey.lastIndexOf('_');
     if (lastUnderscoreIndex == -1) {
       // No underscore found, return original string
