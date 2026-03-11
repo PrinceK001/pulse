@@ -28,7 +28,7 @@ ON CLUSTER `pulse-clickhouse`
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(LogAttributes['user.id'], ''),
+    `UserId` String MATERIALIZED ifNull(nullIf(LogAttributes['user.id'], ''), ifNull(LogAttributes['app.installation.id'], '')),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
     `EventName` LowCardinality(String) CODEC(ZSTD(1)),
 
@@ -87,7 +87,7 @@ ON CLUSTER `pulse-clickhouse`
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''), 
+    `UserId` String MATERIALIZED ifNull(nullIf(SpanAttributes['user.id'], ''), ifNull(SpanAttributes['app.installation.id'], '')),
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_user_id UserId TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
