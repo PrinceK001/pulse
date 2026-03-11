@@ -65,11 +65,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       return;
     }
 
-    String projectId = ProjectContext.getProjectId();
-    if (projectId == null || projectId.isBlank()) {
-      log.debug("No project context for path: {}", path);
-      return;
-    }
+    String projectId = ProjectContext.requireProjectId();
 
     String userId = extractUserIdFromToken(requestContext);
     if (userId == null) {

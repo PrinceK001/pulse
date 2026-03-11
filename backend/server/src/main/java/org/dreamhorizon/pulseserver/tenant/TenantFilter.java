@@ -131,13 +131,6 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return projectId;
     }
 
-    log.error("Missing Project ID (not found in token or X-API-KEY header or X-Project-ID header) for path: {}",
-        requestContext.getUriInfo().getPath());
-    requestContext.abortWith(
-        jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
-            .entity("{\"error\": \"Project ID is required (via Authorization token or X-API-KEY header or X-Tenant-ID header)\"}")
-            .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-            .build());
     return null;
   }
 
