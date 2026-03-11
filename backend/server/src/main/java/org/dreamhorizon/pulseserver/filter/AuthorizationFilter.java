@@ -54,21 +54,23 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   public void filter(ContainerRequestContext requestContext) throws IOException {
     String path = requestContext.getUriInfo().getPath();
 
-    // Skip authorization for excluded paths
     if (isExcludedPath(path)) {
       log.debug("Skipping authorization for excluded path: {}", path);
       return;
     }
 
-    // Check if project context is set (required for project-scoped resources)
+    RequiresPermission permission = getRequiresPermission();
+    if (permission == null) {
+      log.debug("No @RequiresPermission annotation for path: {}, skipping authorization", path);
+      return;
+    }
+
     String projectId = ProjectContext.getProjectId();
     if (projectId == null || projectId.isBlank()) {
-      // No project context - this might be a tenant-level resource
       log.debug("No project context for path: {}", path);
       return;
     }
 
-    // Extract user ID from JWT token
     String userId = extractUserIdFromToken(requestContext);
     if (userId == null) {
       log.warn("Authorization check failed: missing user ID in token for path: {}", path);
@@ -76,11 +78,10 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       return;
     }
 
-    String action = resolveAction(requestContext.getMethod());
+    String action = permission.value();
 
     log.debug("Checking permission: userId={}, action={}, projectId={}", userId, action, projectId);
 
-    // Perform permission check
     try {
       Boolean hasPermission = getOpenFgaService().checkPermission(userId, action, "project", projectId)
           .blockingGet();
@@ -123,37 +124,25 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   }
 
   /**
-   * Resolve the required OpenFGA permission for the current request.
-   * Checks for a {@link RequiresPermission} annotation on the resource method
-   * (or its class) first; falls back to HTTP-method-based inference.
+   * Returns the {@link RequiresPermission} annotation from the resource method
+   * or its class, or {@code null} if neither is annotated.
    */
-  private String resolveAction(String httpMethod) {
-    if (resourceInfo != null) {
-      Method resourceMethod = resourceInfo.getResourceMethod();
-      if (resourceMethod != null) {
-        RequiresPermission methodAnnotation = resourceMethod.getAnnotation(RequiresPermission.class);
-        if (methodAnnotation != null) {
-          return methodAnnotation.value();
-        }
-      }
-      Class<?> resourceClass = resourceInfo.getResourceClass();
-      if (resourceClass != null) {
-        RequiresPermission classAnnotation = resourceClass.getAnnotation(RequiresPermission.class);
-        if (classAnnotation != null) {
-          return classAnnotation.value();
-        }
+  private RequiresPermission getRequiresPermission() {
+    if (resourceInfo == null) {
+      return null;
+    }
+    Method resourceMethod = resourceInfo.getResourceMethod();
+    if (resourceMethod != null) {
+      RequiresPermission methodAnnotation = resourceMethod.getAnnotation(RequiresPermission.class);
+      if (methodAnnotation != null) {
+        return methodAnnotation;
       }
     }
-    return mapHttpMethodToAction(httpMethod);
-  }
-
-  private String mapHttpMethodToAction(String method) {
-    return switch (method.toUpperCase()) {
-      case "GET", "HEAD" -> "can_view";
-      case "POST", "PUT", "PATCH" -> "can_edit";
-      case "DELETE" -> "can_delete_project";
-      default -> "can_view";
-    };
+    Class<?> resourceClass = resourceInfo.getResourceClass();
+    if (resourceClass != null) {
+      return resourceClass.getAnnotation(RequiresPermission.class);
+    }
+    return null;
   }
 
   /**
