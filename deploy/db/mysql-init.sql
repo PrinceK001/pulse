@@ -314,6 +314,21 @@ CREATE TABLE severity
     description TEXT
 );
 
+-- Notification Service Tables
+CREATE TABLE IF NOT EXISTS notification_channels (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    config JSON NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
+    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
+);
+
 
 CREATE TABLE alerts (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -340,8 +355,7 @@ CREATE TABLE alerts (
     INDEX idx_alerts_project_active (project_id, is_active),
 
     CONSTRAINT fk_alerts_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    CONSTRAINT fk_alert_severity FOREIGN KEY (severity_id) REFERENCES severity(severity_id),
-    CONSTRAINT fk_alert_notification_channel FOREIGN KEY (notification_channel_id) REFERENCES notification_channels(notification_channel_id)
+    CONSTRAINT fk_alert_severity FOREIGN KEY (severity_id) REFERENCES severity(severity_id)
 );
 
 CREATE TABLE alert_scope (
@@ -622,20 +636,6 @@ CREATE TABLE IF NOT EXISTS tnc_acceptances (
     CONSTRAINT fk_tnc_acc_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
     CONSTRAINT fk_tnc_acc_version FOREIGN KEY (tnc_version_id) REFERENCES tnc_versions(id)
 
-);
--- Notification Service Tables
-CREATE TABLE IF NOT EXISTS notification_channels (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NULL,
-    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    config JSON NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
-    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
 );
 
 -- Insert default platform email channel for system notifications (onboarding, etc.)
