@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.tenant;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.never;
@@ -10,6 +11,7 @@ import io.jsonwebtoken.Claims;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerResponseContext;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import java.io.IOException;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -163,6 +166,72 @@ class TenantFilterTest {
     }
 
     @Test
+    void shouldSkipFilterForOnboardingPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/onboarding/step1");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+      verify(requestContext, never()).getHeaderString(TenantFilter.API_KEY_HEADER);
+    }
+
+    @Test
+    void shouldSkipFilterForInviteAcceptPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/invites/accept/abc");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+      verify(requestContext, never()).getHeaderString(TenantFilter.API_KEY_HEADER);
+    }
+
+    @Test
+    void shouldSkipFilterForInternalPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("internal/health");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+      verify(requestContext, never()).getHeaderString(TenantFilter.API_KEY_HEADER);
+    }
+
+    @Test
+    void shouldSkipFilterForLogsIngestionPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/logs");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+      verify(requestContext, never()).getHeaderString(TenantFilter.API_KEY_HEADER);
+    }
+
+    @Test
+    void shouldSkipFilterForTncDocumentsPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/tnc/documents");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+      verify(requestContext, never()).getHeaderString(TenantFilter.API_KEY_HEADER);
+    }
+
+    @Test
+    void shouldSkipFilterForIntegrationsPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/integrations/webhook");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+      verify(requestContext, never()).getHeaderString(TenantFilter.API_KEY_HEADER);
+    }
+
+    @Test
     void shouldNotExcludeNullPath() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn(null);
@@ -260,6 +329,181 @@ class TenantFilterTest {
       tenantFilter.filter(requestContext);
 
       assertEquals("config-tenant", ProjectContext.getProjectId());
+    }
+  }
+
+  @Nested
+  class ApiKeyProjectIdExtraction {
+
+    @Test
+    void shouldExtractProjectIdFromApiKeyWithUnderscore() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/metrics");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("proj_123_secretkey");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("proj_123", ProjectContext.getProjectId());
+    }
+
+    @Test
+    void shouldExtractProjectIdFromApiKeyWithSingleUnderscore() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/metrics");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("project_key");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("project", ProjectContext.getProjectId());
+    }
+
+    @Test
+    void shouldReturnFullApiKeyWhenNoUnderscore() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/metrics");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("simplekey");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      assertEquals("simplekey", ProjectContext.getProjectId());
+    }
+  }
+
+  @Nested
+  class TenantIdFromToken {
+
+    @BeforeEach
+    void setUpJwtService() {
+      tenantFilter.setJwtService(jwtService);
+    }
+
+    @Test
+    void shouldSetTenantIdFromValidJwtToken() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn("proj_123");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn("tenant_abc");
+
+      tenantFilter.filter(requestContext);
+
+      assertThat(TenantContext.getTenantId()).isEqualTo("tenant_abc");
+    }
+
+    @Test
+    void shouldNotSetTenantIdWhenTokenHasNoClaim() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn("proj_123");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldNotSetTenantIdWhenNoAuthHeader() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn("proj_123");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldNotSetTenantIdWhenAuthHeaderIsNotBearer() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn("proj_123");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Basic abc123");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldNotSetTenantIdWhenBearerTokenIsBlank() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn("proj_123");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer   ");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldHandleTokenVerificationFailure() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn("proj_123");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer bad-token");
+      when(jwtService.verifyToken("bad-token")).thenThrow(new RuntimeException("Invalid token"));
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+    }
+  }
+
+  @Nested
+  class MissingProjectId {
+
+    @Test
+    void shouldAbortWhenNoProjectIdAndNoApiKey() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
+      verify(requestContext).abortWith(captor.capture());
+      assertThat(captor.getValue().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void shouldAbortWhenProjectHeaderIsBlank() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn("   ");
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
+      verify(requestContext).abortWith(captor.capture());
+      assertThat(captor.getValue().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void shouldAbortWhenApiKeyIsBlank() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("   ");
+
+      tenantFilter.filter(requestContext);
+
+      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
+      verify(requestContext).abortWith(captor.capture());
+      assertThat(captor.getValue().getStatus()).isEqualTo(400);
     }
   }
 }
