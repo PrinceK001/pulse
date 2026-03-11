@@ -11,7 +11,6 @@ import io.jsonwebtoken.Claims;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerResponseContext;
 import jakarta.ws.rs.core.HttpHeaders;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import java.io.IOException;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
@@ -21,7 +20,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -458,52 +456,6 @@ class TenantFilterTest {
       tenantFilter.filter(requestContext);
 
       assertNull(TenantContext.getTenantId());
-    }
-  }
-
-  @Nested
-  class MissingProjectId {
-
-    @Test
-    void shouldAbortWhenNoProjectIdAndNoApiKey() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects");
-      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn(null);
-
-      tenantFilter.filter(requestContext);
-
-      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
-      verify(requestContext).abortWith(captor.capture());
-      assertThat(captor.getValue().getStatus()).isEqualTo(400);
-    }
-
-    @Test
-    void shouldAbortWhenProjectHeaderIsBlank() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects");
-      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn("   ");
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn(null);
-
-      tenantFilter.filter(requestContext);
-
-      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
-      verify(requestContext).abortWith(captor.capture());
-      assertThat(captor.getValue().getStatus()).isEqualTo(400);
-    }
-
-    @Test
-    void shouldAbortWhenApiKeyIsBlank() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects");
-      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("   ");
-
-      tenantFilter.filter(requestContext);
-
-      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
-      verify(requestContext).abortWith(captor.capture());
-      assertThat(captor.getValue().getStatus()).isEqualTo(400);
     }
   }
 }

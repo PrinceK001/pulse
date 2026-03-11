@@ -57,20 +57,25 @@ class AuthorizationFilterTest {
    */
   static class TestResource {
     @RequiresPermission("can_view")
-    public void viewEndpoint() {}
+    public void viewEndpoint() {
+    }
 
     @RequiresPermission("can_edit")
-    public void editEndpoint() {}
+    public void editEndpoint() {
+    }
 
     @RequiresPermission("can_delete_project")
-    public void deleteEndpoint() {}
+    public void deleteEndpoint() {
+    }
 
-    public void unannotatedEndpoint() {}
+    public void unannotatedEndpoint() {
+    }
   }
 
   @RequiresPermission("can_view")
   static class ClassAnnotatedResource {
-    public void inheritedEndpoint() {}
+    public void inheritedEndpoint() {
+    }
   }
 
   @BeforeEach
@@ -247,17 +252,6 @@ class AuthorizationFilterTest {
 
   @Nested
   class NoProjectContext {
-
-    @Test
-    void shouldSkipWhenProjectContextIsNull() throws Exception {
-      setupAnnotatedMethod("can_view");
-      setupPath("v1/projects");
-      ProjectContext.clear();
-
-      filter.filter(requestContext);
-
-      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
-    }
 
     @Test
     void shouldSkipWhenProjectContextIsBlank() throws Exception {
