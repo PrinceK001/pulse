@@ -91,10 +91,14 @@ public class Symbolicator {
             out.add(symbolicateNames((JsFrame) f, sourcemap));
           }
           sourceMapExists.put(cacheKey, true);  // Cache success
+          log.info("JS deobfuscation successful: cacheKey={}", cacheKey);
           return out;
         })
         .onErrorReturn(error -> {
-          sourceMapExists.put(cacheKey, false);  // Cache failure
+          sourceMapExists.put(cacheKey, false);
+          log.warn("JS deobfuscation failed: projectId={}, appVersion={}, versionCode={}, platform={}, frames={}, error={}",
+              eventMeta.getProjectId(), eventMeta.getAppVersion(), eventMeta.getAppVersionCode(),
+              eventMeta.getPlatform(), jsFrames.size(), error.getMessage());
           return jsFrames.stream().map(Frame::getToken).toList();
         });
   }
@@ -131,10 +135,14 @@ public class Symbolicator {
                   .setRetracedStackTraceConsumer(out::addAll)
                   .build());
           sourceMapExists.put(cacheKey, true);  // Cache success
+          log.info("Java deobfuscation successful: cacheKey={}", cacheKey);
           return out;
         })
         .onErrorReturn(error -> {
           sourceMapExists.put(cacheKey, false);  // Cache failure
+          log.warn("Java deobfuscation failed: projectId={}, appVersion={}, versionCode={}, platform={}, frames={}, error={}",
+              eventMeta.getProjectId(), eventMeta.getAppVersion(), eventMeta.getAppVersionCode(),
+              eventMeta.getPlatform(), javaFrames.size(), error.getMessage());
           return javaFrames.stream().map(Frame::getToken).toList();
         });
   }
