@@ -670,7 +670,11 @@ export class MockResponseGenerator {
         tenantId: isDevToken ? "tenant-mock-1" : null,
         tenantRole: isDevToken ? "admin" : null,
       });
-      const refreshToken = "mock_refresh_token_" + Date.now();
+      const refreshToken = this.createMockJWTToken({
+        userId: isDevToken ? "user-mock-dev" : "user-mock-new",
+        email: isDevToken ? "dev@example.com" : "newuser@example.com",
+        type: "refresh",
+      });
 
       if (isDevToken) {
         this.dataStore.setCurrentTenant(this.dataStore.getDefaultMockTenant());
@@ -742,8 +746,15 @@ export class MockResponseGenerator {
 
       return {
         data: {
-          accessToken: "mock_access_token_" + Date.now(),
-          refreshToken: "mock_refresh_token_" + Date.now(),
+          accessToken: this.createMockJWTToken({
+            userId: isDummyLogin ? "user-mock-dev" : "user-mock",
+            email: isDummyLogin ? "dev@example.com" : "mock@example.com",
+          }),
+          refreshToken: this.createMockJWTToken({
+            userId: isDummyLogin ? "user-mock-dev" : "user-mock",
+            email: isDummyLogin ? "dev@example.com" : "mock@example.com",
+            type: "refresh",
+          }),
           idToken: mockIdToken,
           code: "mock_code_" + Date.now(),
           tokenType: "Bearer",
@@ -765,8 +776,15 @@ export class MockResponseGenerator {
 
       return {
         data: {
-          accessToken: "mock_refreshed_token_" + Date.now(),
-          refreshToken: "mock_refresh_token_" + Date.now(),
+          accessToken: this.createMockJWTToken({
+            userId: "user-mock-refreshed",
+            email: "mock@example.com",
+          }),
+          refreshToken: this.createMockJWTToken({
+            userId: "user-mock-refreshed",
+            email: "mock@example.com",
+            type: "refresh",
+          }),
           idToken: mockIdToken,
           tokenType: "Bearer",
           expiresIn: 3600,
@@ -878,7 +896,11 @@ export class MockResponseGenerator {
         tenantId,
         tenantRole: "admin",
       });
-      const refreshToken = "mock_refresh_token_" + Date.now();
+      const refreshToken = this.createMockJWTToken({
+        userId: "user-mock-onboarded",
+        email: "dev@example.com",
+        type: "refresh",
+      });
 
       const newTenant = {
         tenantId,
