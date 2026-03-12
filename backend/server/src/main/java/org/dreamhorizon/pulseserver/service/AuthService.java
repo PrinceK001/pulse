@@ -625,7 +625,7 @@ public class AuthService {
               .build();
         }
 
-        boolean isValid = jwtService.isAccessToken(token);
+        boolean isValid = jwtService.isAccessToken(token) && !jwtService.isTokenExpired(token);
 
         return VerifyAuthTokenResponseDto.builder()
             .isAuthTokenValid(isValid)
