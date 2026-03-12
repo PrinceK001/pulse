@@ -148,6 +148,29 @@ export interface MockTenantDetails {
   createdAt: string;
 }
 
+// API key for project (matches ApiKeyRestResponse)
+export interface MockApiKey {
+  apiKeyId: number;
+  projectId: string;
+  displayName: string;
+  apiKey: string;
+  isActive: boolean;
+  expiresAt: string | null;
+  gracePeriodEndsAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  deactivatedAt: string | null;
+  deactivatedBy: string | null;
+  deactivationReason: string | null;
+}
+
+// Project settings (mock structure)
+export interface MockProjectSettings {
+  retentionDays?: number;
+  samplingRate?: number;
+  [key: string]: unknown;
+}
+
 export class MockDataStore {
   private static instance: MockDataStore;
   private data: IMockDataStore;
@@ -168,6 +191,15 @@ export class MockDataStore {
 
   /** Tenant details: tenantId -> tenant */
   private mockTenants: Map<string, MockTenantDetails> = new Map();
+
+  /** Project API keys: projectId -> MockApiKey[] */
+  private mockProjectApiKeys: Map<string, MockApiKey[]> = new Map();
+
+  /** Project settings: projectId -> settings */
+  private mockProjectSettings: Map<string, MockProjectSettings> = new Map();
+
+  /** Next API key ID for mock generation */
+  private nextApiKeyId = 1000;
 
   private constructor() {
     this.data = {
@@ -467,6 +499,32 @@ export class MockDataStore {
       createdAt: new Date(now - 30 * oneDay).toISOString(),
       createdBy: "amit.kumar@example.com",
     });
+
+    // Initialize API keys for default projects
+    this.initializeProjectApiKeys(defaultTenantId, now);
+  }
+
+  private initializeProjectApiKeys(tenantId: string, now: number): void {
+    const projects = ["proj-mock-1", "proj-mock-2", "proj-mock-3"];
+    for (const projectId of projects) {
+      const keys: MockApiKey[] = [
+        {
+          apiKeyId: this.nextApiKeyId++,
+          projectId,
+          displayName: "Production",
+          apiKey: `pk_mock_${projectId}_${Math.random().toString(36).slice(2, 18)}`,
+          isActive: true,
+          expiresAt: null,
+          gracePeriodEndsAt: null,
+          createdBy: "rahul.sharma@example.com",
+          createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000).toISOString(),
+          deactivatedAt: null,
+          deactivatedBy: null,
+          deactivationReason: null,
+        },
+      ];
+      this.mockProjectApiKeys.set(projectId, keys);
+    }
   }
 
   private initializeUsers(): void {
@@ -1652,6 +1710,22 @@ export class MockDataStore {
     };
 
     this.mockProjects.set(projectId, { ...project });
+    this.mockProjectApiKeys.set(projectId, [
+      {
+        apiKeyId: this.nextApiKeyId++,
+        projectId,
+        displayName: "Default",
+        apiKey,
+        isActive: true,
+        expiresAt: null,
+        gracePeriodEndsAt: null,
+        createdBy,
+        createdAt: now,
+        deactivatedAt: null,
+        deactivatedBy: null,
+        deactivationReason: null,
+      },
+    ]);
     this.mockProjectMembers.set(projectId, [
       {
         userId: "user-" + createdBy.replace(/[^a-z0-9]/gi, "-"),
@@ -1743,6 +1817,149 @@ export class MockDataStore {
   hasProjectMember(projectId: string, email: string): boolean {
     const members = this.mockProjectMembers.get(projectId) ?? [];
     return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
+  }
+
+  removeTenantMember(tenantId: string, userId: string): boolean {
+    const members = this.mockTenantMembers.get(tenantId) ?? [];
+    const idx = members.findIndex((m) => m.userId === userId);
+    if (idx === -1) return false;
+    members.splice(idx, 1);
+    this.mockTenantMembers.set(tenantId, members);
+    return true;
+  }
+
+  removeProjectMember(projectId: string, userId: string): boolean {
+    const members = this.mockProjectMembers.get(projectId) ?? [];
+    const idx = members.findIndex((m) => m.userId === userId);
+    if (idx === -1) return false;
+    members.splice(idx, 1);
+    this.mockProjectMembers.set(projectId, members);
+    return true;
+  }
+
+  updateTenantMemberRole(
+    tenantId: string,
+    userId: string,
+    newRole: string,
+  ): MockMember | null {
+    const members = this.mockTenantMembers.get(tenantId) ?? [];
+    const member = members.find((m) => m.userId === userId);
+    if (!member) return null;
+    member.role = newRole;
+    return member;
+  }
+
+  updateProjectMemberRole(
+    projectId: string,
+    userId: string,
+    newRole: string,
+  ): MockMember | null {
+    const members = this.mockProjectMembers.get(projectId) ?? [];
+    const member = members.find((m) => m.userId === userId);
+    if (!member) return null;
+    member.role = newRole;
+    return member;
+  }
+
+  updateProject(
+    projectId: string,
+    updates: { name?: string; description?: string; isActive?: boolean },
+  ): MockProjectDetails | null {
+    const project = this.mockProjects.get(projectId);
+    if (!project) return null;
+    if (updates.name !== undefined) project.name = updates.name;
+    if (updates.description !== undefined)
+      project.description = updates.description;
+    if (updates.isActive !== undefined) project.isActive = updates.isActive;
+    return project;
+  }
+
+  updateTenant(
+    tenantId: string,
+    updates: { name?: string; description?: string },
+  ): MockTenantDetails | null {
+    const tenant = this.mockTenants.get(tenantId);
+    if (!tenant) return null;
+    if (updates.name !== undefined) tenant.name = updates.name;
+    if (updates.description !== undefined)
+      tenant.description = updates.description;
+    return tenant;
+  }
+
+  getProjectApiKeys(projectId: string): MockApiKey[] {
+    const keys = this.mockProjectApiKeys.get(projectId) ?? [];
+    return keys.filter((k) => k.isActive);
+  }
+
+  addProjectApiKey(
+    projectId: string,
+    displayName: string,
+    createdBy: string,
+  ): MockApiKey & { rawKey: string } {
+    const rawKey =
+      "pk_mock_" + projectId + "_" + Math.random().toString(36).slice(2, 18);
+    const key: MockApiKey = {
+      apiKeyId: this.nextApiKeyId++,
+      projectId,
+      displayName,
+      apiKey: rawKey,
+      isActive: true,
+      expiresAt: null,
+      gracePeriodEndsAt: null,
+      createdBy,
+      createdAt: new Date().toISOString(),
+      deactivatedAt: null,
+      deactivatedBy: null,
+      deactivationReason: null,
+    };
+    const keys = this.mockProjectApiKeys.get(projectId) ?? [];
+    keys.push(key);
+    this.mockProjectApiKeys.set(projectId, keys);
+    return { ...key, rawKey };
+  }
+
+  revokeProjectApiKey(
+    projectId: string,
+    apiKeyId: number,
+    revokedBy: string,
+  ): boolean {
+    const keys = this.mockProjectApiKeys.get(projectId) ?? [];
+    const key = keys.find((k) => k.apiKeyId === apiKeyId);
+    if (!key || !key.isActive) return false;
+    key.isActive = false;
+    key.deactivatedAt = new Date().toISOString();
+    key.deactivatedBy = revokedBy;
+    key.deactivationReason = "Revoked by user";
+    return true;
+  }
+
+  getProjectSettings(projectId: string): MockProjectSettings {
+    const stored = this.mockProjectSettings.get(projectId);
+    if (stored) return stored;
+    return {
+      retentionDays: 90,
+      samplingRate: 0.5,
+    };
+  }
+
+  updateProjectSettings(
+    projectId: string,
+    settings: Partial<MockProjectSettings>,
+  ): MockProjectSettings {
+    const current = this.getProjectSettings(projectId);
+    const updated = { ...current, ...settings };
+    this.mockProjectSettings.set(projectId, updated);
+    return updated;
+  }
+
+  lookupTenantByDomain(domain: string): MockTenantDetails | null {
+    const defaultTenant = this.mockTenants.get("tenant-mock-1");
+    if (!defaultTenant) return null;
+    return {
+      ...defaultTenant,
+      tenantId: defaultTenant.tenantId,
+      name: defaultTenant.name,
+    };
   }
 
   /** Default mock tenant for dev-id-token login */

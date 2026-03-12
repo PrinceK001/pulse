@@ -2,7 +2,7 @@
 
 Last Updated: 2024-03-12
 
-**Coverage**: 55/75 endpoints (73%)
+**Coverage**: 67/75 endpoints (89%)
 
 ---
 
@@ -68,7 +68,7 @@ Last Updated: 2024-03-12
 |----------|--------|---------|--------|-------|
 | `/v1/tenants/:tenantId` | GET | `handleTenantEndpoints` | ✅ | Returns tenant details |
 | `/v1/tenants` | GET | — | ❌ P3 | Tenant list (admin only) |
-| `/v1/tenants/:tenantId` | PUT | — | ❌ P2 | Update org details |
+| `/v1/tenants/:tenantId` | PUT | `handleTenantEndpoints` | ✅ | Update org details |
 | `/v1/tenants/:tenantId/deactivate` | PUT | — | ❌ P3 | Deactivate org |
 | `/v1/tenants/:tenantId/activate` | PUT | — | ❌ P3 | Activate org |
 
@@ -77,8 +77,8 @@ Last Updated: 2024-03-12
 |----------|--------|---------|--------|-------|
 | `/v1/tenants/:tenantId/members` | GET | `handleTenantEndpoints` | ✅ | Lists members with roles |
 | `/v1/tenants/:tenantId/members` | POST | `handleTenantEndpoints` | ✅ | Single & bulk invite support |
-| `/v1/tenants/:tenantId/members/:userId` | DELETE | — | ❌ P2 | Remove members |
-| `/v1/tenants/:tenantId/members/:userId` | PATCH | — | ❌ P2 | Update roles |
+| `/v1/tenants/:tenantId/members/:userId` | DELETE | `handleTenantEndpoints` | ✅ | Remove members |
+| `/v1/tenants/:tenantId/members/:userId` | PATCH | `handleTenantEndpoints` | ✅ | Update roles |
 | `/v1/tenants/:tenantId/members/leave` | DELETE | — | ❌ P3 | Leave org |
 
 ### Project Operations
@@ -86,7 +86,7 @@ Last Updated: 2024-03-12
 |----------|--------|---------|--------|-------|
 | `/v1/projects` | POST | `handleProjectEndpoints` | ✅ | Creates project with API key |
 | `/v1/projects/:projectId` | GET | `handleProjectEndpoints` | ✅ | Returns project details |
-| `/v1/projects/:projectId` | PUT | — | ❌ P2 | Update project |
+| `/v1/projects/:projectId` | PUT | `handleProjectEndpoints` | ✅ | Update project |
 | `/v1/projects/:projectId` | DELETE | — | ❌ P3 | Delete project |
 
 ### Project Member Management
@@ -94,50 +94,61 @@ Last Updated: 2024-03-12
 |----------|--------|---------|--------|-------|
 | `/v1/projects/:projectId/members` | GET | `handleProjectEndpoints` | ✅ | Lists members with roles |
 | `/v1/projects/:projectId/members` | POST | `handleProjectEndpoints` | ✅ | Single & bulk invite support |
-| `/v1/projects/:projectId/members/:userId` | DELETE | — | ❌ P2 | Remove collaborators |
-| `/v1/projects/:projectId/members/:userId` | PATCH | — | ❌ P2 | Update roles |
+| `/v1/projects/:projectId/members/:userId` | DELETE | `handleProjectEndpoints` | ✅ | Remove collaborators |
+| `/v1/projects/:projectId/members/:userId` | PATCH | `handleProjectEndpoints` | ✅ | Update roles |
 | `/v1/projects/:projectId/members/leave` | DELETE | — | ❌ P3 | Leave project |
 
 ---
 
-## ❌ Phase 3 - Remaining Endpoints
+## ✅ Phase 3 Complete - Remaining CRUD Operations
 
-### API Keys (P2 - Medium Priority)
-| Endpoint | Method | Backend File | Blockers |
-|----------|--------|--------------|----------|
-| `/v1/projects/:projectId/api-keys` | GET | `ProjectApiKeysController.java` | API key management |
-| `/v1/projects/:projectId/api-keys` | POST | `ProjectApiKeysController.java` | Generate keys |
-| `/v1/projects/:projectId/api-keys/:keyId` | DELETE | `ProjectApiKeysController.java` | Revoke keys |
+### API Keys
+| Endpoint | Method | Handler | Status | Notes |
+|----------|--------|---------|--------|-------|
+| `/v1/projects/:projectId/api-keys` | GET | `handleProjectEndpoints` | ✅ | List active API keys (masked) |
+| `/v1/projects/:projectId/api-keys` | POST | `handleProjectEndpoints` | ✅ | Generate new API key |
+| `/v1/projects/:projectId/api-keys/:apiKeyId` | DELETE | `handleProjectEndpoints` | ✅ | Revoke API key |
 
-### Other Missing (P2-P3)
-| Endpoint | Method | Backend File | Priority | Blockers |
-|----------|--------|--------------|----------|----------|
-| `/v1/auth/tenant/lookup` | GET | `Authenticate.java` | P3 | Tenant lookup helper |
+### Project Settings
+| Endpoint | Method | Handler | Status | Notes |
+|----------|--------|---------|--------|-------|
+| `/v1/projects/:projectId/settings` | GET | `handleProjectEndpoints` | ✅ | Get project settings |
+| `/v1/projects/:projectId/settings` | PUT | `handleProjectEndpoints` | ✅ | Update project settings |
+
+### Auth / Tenant Lookup
+| Endpoint | Method | Handler | Status | Notes |
+|----------|--------|---------|--------|-------|
+| `/v1/auth/tenant/lookup` | GET | `handleAuthEndpoints` | ✅ | Lookup tenant by domain |
+
+## ❌ Phase 4 - Remaining Endpoints (Low Priority)
+
+| Endpoint | Method | Notes |
+|----------|--------|-------|
+| `/v1/tenants` | GET | Tenant list (admin only) |
+| `/v1/tenants/:tenantId/deactivate` | PUT | Deactivate org |
+| `/v1/tenants/:tenantId/activate` | PUT | Activate org |
+| `/v1/tenants/:tenantId/members/leave` | DELETE | Leave org |
+| `/v1/projects/:projectId` | DELETE | Delete project |
+| `/v1/projects/:projectId/members/leave` | DELETE | Leave project |
 
 ---
 
 ## 📊 Statistics
 
 - **Total Backend Endpoints**: ~75
-- **Mocked Endpoints**: 55
-- **Coverage**: 73%
+- **Mocked Endpoints**: 67
+- **Coverage**: 89%
 - **Phase 1**: ✅ Complete (Auth, Onboarding, TNC)
 - **Phase 2**: ✅ Complete (Project/Tenant CRUD + Member Lists/Invite)
-- **Phase 3**: 🔄 Pending (Remaining CRUD operations - 12 endpoints)
+- **Phase 3**: ✅ Complete (Member removal/role update, entity updates, API keys, settings, tenant lookup)
 
 ---
 
-## 🎯 Next Priority - Phase 3
+## 🎯 Next Priority - Phase 4
 
-**Remaining CRUD Operations** (12 endpoints):
-1. Member removal: `DELETE /v1/tenants/:tenantId/members/:userId`
-2. Member removal: `DELETE /v1/projects/:projectId/members/:userId`
-3. Role updates: `PATCH /v1/tenants/:tenantId/members/:userId`
-4. Role updates: `PATCH /v1/projects/:projectId/members/:userId`
-5. Update project: `PUT /v1/projects/:projectId`
-6. Update tenant: `PUT /v1/tenants/:tenantId`
-7. API key management (3 endpoints)
-8. Other misc endpoints (tenant lookup, etc.)
+**Remaining Endpoints** (8 endpoints - Low Priority):
+- Tenant list, deactivate/activate, leave org
+- Delete project, leave project
 
 ---
 
@@ -148,6 +159,17 @@ Last Updated: 2024-03-12
 3. **No validation**: Mock accepts any input (backend validates)
 
 ## 📝 Recent Updates
+
+### Phase 3 (Completed 2024-03-12)
+- ✅ Implemented member removal (DELETE) for tenant and project members
+- ✅ Implemented role updates (PATCH) for tenant and project members
+- ✅ Implemented project update (PUT) - name, description, isActive
+- ✅ Implemented tenant update (PUT) - name, description
+- ✅ Implemented API key management (GET list, POST create, DELETE revoke)
+- ✅ Implemented project settings (GET, PUT)
+- ✅ Implemented tenant lookup (GET /v1/auth/tenant/lookup)
+- ✅ Added validation: cannot remove/demote last admin
+- ✅ Coverage increased from 73% to 89%
 
 ### Phase 2 (Completed 2024-03-12)
 - ✅ Implemented project creation and details endpoints

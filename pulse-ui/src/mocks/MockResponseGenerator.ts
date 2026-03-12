@@ -793,6 +793,30 @@ export class MockResponseGenerator {
       };
     }
 
+    // Handle GET /v1/auth/tenant/lookup - Lookup tenant by domain (Host header)
+    if (pathname.includes("/auth/tenant/lookup") && method === "GET") {
+      const tenant = this.dataStore.getTenant("tenant-mock-1");
+      if (!tenant) {
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "NOT_FOUND",
+            message: "Tenant not found",
+            cause: "No tenant found for the given domain",
+          },
+        };
+      }
+      return {
+        data: {
+          gcpTenantId: "gcp-" + tenant.tenantId,
+          tenantId: tenant.tenantId,
+          tenantName: tenant.name,
+        },
+        status: 200,
+      };
+    }
+
     // Handle token verify endpoint
     if (pathname.includes("/token/verify") && method === "GET") {
       // Check if authorization header is present
@@ -971,6 +995,21 @@ export class MockResponseGenerator {
       return this.handleCreateProject(request);
     }
 
+    // DELETE/PATCH /v1/projects/:projectId/members/:userId
+    if (
+      pathParts.length === 5 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "projects" &&
+      pathParts[3] === "members"
+    ) {
+      const projectId = pathParts[2];
+      const userId = pathParts[4];
+      if (method === "DELETE")
+        return this.handleRemoveProjectMember(projectId, userId);
+      if (method === "PATCH")
+        return this.handleUpdateProjectMemberRole(projectId, userId, request);
+    }
+
     // GET/POST /v1/projects/:projectId/members
     if (pathParts.length === 4 && pathParts[3] === "members") {
       const projectId = pathParts[2];
@@ -979,7 +1018,36 @@ export class MockResponseGenerator {
         return this.handleInviteProjectMembers(projectId, request);
     }
 
-    // GET /v1/projects/:projectId - Get project details
+    // DELETE /v1/projects/:projectId/api-keys/:apiKeyId
+    if (
+      pathParts.length === 5 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "projects" &&
+      pathParts[3] === "api-keys"
+    ) {
+      const projectId = pathParts[2];
+      const apiKeyId = pathParts[4];
+      if (method === "DELETE")
+        return this.handleRevokeProjectApiKey(projectId, apiKeyId, request);
+    }
+
+    // GET/POST /v1/projects/:projectId/api-keys
+    if (pathParts.length === 4 && pathParts[3] === "api-keys") {
+      const projectId = pathParts[2];
+      if (method === "GET") return this.handleListProjectApiKeys(projectId);
+      if (method === "POST")
+        return this.handleCreateProjectApiKey(projectId, request);
+    }
+
+    // GET/PUT /v1/projects/:projectId/settings
+    if (pathParts.length === 4 && pathParts[3] === "settings") {
+      const projectId = pathParts[2];
+      if (method === "GET") return this.handleGetProjectSettings(projectId);
+      if (method === "PUT")
+        return this.handleUpdateProjectSettings(projectId, request);
+    }
+
+    // GET/PUT /v1/projects/:projectId - Get/Update project details
     if (
       pathParts.length === 3 &&
       pathParts[0] === "v1" &&
@@ -987,6 +1055,7 @@ export class MockResponseGenerator {
     ) {
       const projectId = pathParts[2];
       if (method === "GET") return this.handleGetProject(projectId);
+      if (method === "PUT") return this.handleUpdateProject(projectId, request);
     }
 
     return {
@@ -1221,6 +1290,400 @@ export class MockResponseGenerator {
     };
   }
 
+  private handleRemoveProjectMember(
+    projectId: string,
+    userId: string,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    const members = this.dataStore.getProjectMembers(projectId);
+    const member = members.find((m) => m.userId === userId);
+    if (!member) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this project`,
+        },
+      };
+    }
+    const admins = members.filter((m) => m.role === "admin");
+    if (admins.length === 1 && member.role === "admin") {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Cannot remove last admin",
+          cause: "At least one admin must remain in the project",
+        },
+      };
+    }
+    this.dataStore.removeProjectMember(projectId, userId);
+    return { data: {}, status: 200 };
+  }
+
+  private handleUpdateProjectMemberRole(
+    projectId: string,
+    userId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    let body: { newRole?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const newRole = (body.newRole ?? "").toLowerCase();
+    const validRoles = ["admin", "editor", "viewer"];
+    if (!newRole || !validRoles.includes(newRole)) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid role",
+          cause: `newRole must be one of: ${validRoles.join(", ")}`,
+        },
+      };
+    }
+    const members = this.dataStore.getProjectMembers(projectId);
+    const targetMember = members.find((m) => m.userId === userId);
+    if (!targetMember) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this project`,
+        },
+      };
+    }
+    if (targetMember.role === "admin" && newRole !== "admin") {
+      const admins = members.filter((m) => m.role === "admin");
+      if (admins.length === 1) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot demote last admin",
+            cause: "At least one admin must remain in the project",
+          },
+        };
+      }
+    }
+    const member = this.dataStore.updateProjectMemberRole(
+      projectId,
+      userId,
+      newRole,
+    );
+    if (!member) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this project`,
+        },
+      };
+    }
+    return { data: member, status: 200 };
+  }
+
+  private handleUpdateProject(
+    projectId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    let body: { name?: string; description?: string; isActive?: boolean } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const name = body.name?.trim();
+    if (name !== undefined && name.length > 0 && name.length < 3) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Project name must be at least 3 characters",
+          cause: "Name too short",
+        },
+      };
+    }
+    const updates: {
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+    } = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.description !== undefined) updates.description = body.description;
+    if (body.isActive !== undefined) updates.isActive = body.isActive;
+    const updated = this.dataStore.updateProject(projectId, updates);
+    if (!updated) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    return {
+      data: {
+        projectId: updated.projectId,
+        name: updated.name,
+        description: updated.description,
+        tenantId: updated.tenantId,
+        isActive: updated.isActive,
+        createdAt: updated.createdAt,
+        createdBy: updated.createdBy,
+      },
+      status: 200,
+    };
+  }
+
+  private handleListProjectApiKeys(projectId: string): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    const keys = this.dataStore.getProjectApiKeys(projectId);
+    const apiKeys = keys.map((k) => ({
+      ...k,
+      apiKey: k.apiKey.length > 4 ? "pk_****" + k.apiKey.slice(-4) : "pk_****",
+    }));
+    return {
+      data: { apiKeys, count: apiKeys.length },
+      status: 200,
+    };
+  }
+
+  private handleCreateProjectApiKey(
+    projectId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    let body: { displayName?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const displayName = body.displayName?.trim();
+    if (!displayName || displayName.length < 2) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Display name is required",
+          cause: "Display name must be at least 2 characters",
+        },
+      };
+    }
+    const created = this.dataStore.addProjectApiKey(
+      projectId,
+      displayName,
+      "dev@example.com",
+    );
+    return {
+      data: {
+        apiKeyId: created.apiKeyId,
+        projectId: created.projectId,
+        displayName: created.displayName,
+        apiKey: created.rawKey,
+        expiresAt: created.expiresAt,
+        createdAt: created.createdAt,
+      },
+      status: 201,
+    };
+  }
+
+  private handleRevokeProjectApiKey(
+    projectId: string,
+    apiKeyIdStr: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    const apiKeyId = parseInt(apiKeyIdStr, 10);
+    if (isNaN(apiKeyId)) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid API key ID",
+          cause: "apiKeyId must be a number",
+        },
+      };
+    }
+    const revoked = this.dataStore.revokeProjectApiKey(
+      projectId,
+      apiKeyId,
+      "dev@example.com",
+    );
+    if (!revoked) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "API key not found",
+          cause: `API key ${apiKeyId} does not exist or is already revoked`,
+        },
+      };
+    }
+    return { data: {}, status: 200 };
+  }
+
+  private handleGetProjectSettings(projectId: string): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    const settings = this.dataStore.getProjectSettings(projectId);
+    return { data: settings, status: 200 };
+  }
+
+  private handleUpdateProjectSettings(
+    projectId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    let body: Record<string, unknown> = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const settings = this.dataStore.updateProjectSettings(projectId, body);
+    return { data: settings, status: 200 };
+  }
+
   /**
    * Handle tenant operations (GET /v1/tenants/:tenantId)
    * and tenant member endpoints (GET/POST /v1/tenants/:tenantId/members)
@@ -1231,6 +1694,21 @@ export class MockResponseGenerator {
     request: MockRequest,
   ): MockResponse {
     const pathParts = pathname.split("/").filter((p) => p);
+
+    // DELETE/PATCH /v1/tenants/:tenantId/members/:userId
+    if (
+      pathParts.length === 5 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "tenants" &&
+      pathParts[3] === "members"
+    ) {
+      const tenantId = pathParts[2];
+      const userId = pathParts[4];
+      if (method === "DELETE")
+        return this.handleRemoveTenantMember(tenantId, userId);
+      if (method === "PATCH")
+        return this.handleUpdateTenantMemberRole(tenantId, userId, request);
+    }
 
     // GET/POST /v1/tenants/:tenantId/members
     if (pathParts.length === 4 && pathParts[3] === "members") {
@@ -1248,6 +1726,7 @@ export class MockResponseGenerator {
     ) {
       const tenantId = pathParts[2];
       if (method === "GET") return this.handleGetTenant(tenantId);
+      if (method === "PUT") return this.handleUpdateTenant(tenantId, request);
     }
 
     return {
@@ -1423,6 +1902,199 @@ export class MockResponseGenerator {
         skippedEmails,
       },
       status: 201,
+    };
+  }
+
+  private handleRemoveTenantMember(
+    tenantId: string,
+    userId: string,
+  ): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+    const members = this.dataStore.getTenantMembers(tenantId);
+    const member = members.find((m) => m.userId === userId);
+    if (!member) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this tenant`,
+        },
+      };
+    }
+    const admins = members.filter((m) => m.role === "admin");
+    if (admins.length === 1 && member.role === "admin") {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Cannot remove last admin",
+          cause: "At least one admin must remain in the tenant",
+        },
+      };
+    }
+    this.dataStore.removeTenantMember(tenantId, userId);
+    return { data: {}, status: 200 };
+  }
+
+  private handleUpdateTenantMemberRole(
+    tenantId: string,
+    userId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+    let body: { newRole?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const newRole = (body.newRole ?? "").toLowerCase();
+    const validRoles = ["admin", "member"];
+    if (!newRole || !validRoles.includes(newRole)) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid role",
+          cause: `newRole must be one of: ${validRoles.join(", ")}`,
+        },
+      };
+    }
+    const members = this.dataStore.getTenantMembers(tenantId);
+    const targetMember = members.find((m) => m.userId === userId);
+    if (!targetMember) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this tenant`,
+        },
+      };
+    }
+    if (targetMember.role === "admin" && newRole === "member") {
+      const admins = members.filter((m) => m.role === "admin");
+      if (admins.length === 1) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot demote last admin",
+            cause: "At least one admin must remain in the tenant",
+          },
+        };
+      }
+    }
+    const member = this.dataStore.updateTenantMemberRole(
+      tenantId,
+      userId,
+      newRole,
+    );
+    if (!member) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this tenant`,
+        },
+      };
+    }
+    return { data: member, status: 200 };
+  }
+
+  private handleUpdateTenant(
+    tenantId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+    let body: { name?: string; description?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const updates: { name?: string; description?: string } = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.description !== undefined) updates.description = body.description;
+    const updated = this.dataStore.updateTenant(tenantId, updates);
+    if (!updated) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+    return {
+      data: {
+        tenantId: updated.tenantId,
+        name: updated.name,
+        description: updated.description,
+        tier: updated.tier,
+        isActive: updated.isActive,
+        createdAt: updated.createdAt,
+      },
+      status: 200,
     };
   }
 
