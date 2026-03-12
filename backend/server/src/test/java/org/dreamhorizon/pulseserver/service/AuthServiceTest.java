@@ -384,11 +384,9 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken(null);
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      WebApplicationException ex = assertThrows(WebApplicationException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof WebApplicationException);
-      WebApplicationException wae = (WebApplicationException) ex.getCause();
-      assertEquals(400, wae.getResponse().getStatus());
+      assertEquals(400, ex.getResponse().getStatus());
     }
 
     @Test
@@ -396,11 +394,9 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("   ");
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      WebApplicationException ex = assertThrows(WebApplicationException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof WebApplicationException);
-      WebApplicationException wae = (WebApplicationException) ex.getCause();
-      assertEquals(400, wae.getResponse().getStatus());
+      assertEquals(400, ex.getResponse().getStatus());
     }
 
     @Test
@@ -409,11 +405,9 @@ class AuthServiceTest {
       request.setRefreshToken("not-refresh");
       when(jwtService.isRefreshToken("not-refresh")).thenReturn(false);
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      WebApplicationException ex = assertThrows(WebApplicationException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof WebApplicationException);
-      WebApplicationException wae = (WebApplicationException) ex.getCause();
-      assertEquals(400, wae.getResponse().getStatus());
+      assertEquals(400, ex.getResponse().getStatus());
     }
 
     @Test
@@ -423,11 +417,9 @@ class AuthServiceTest {
       when(jwtService.isRefreshToken("expired-refresh")).thenReturn(true);
       when(jwtService.isTokenExpired("expired-refresh")).thenReturn(true);
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      WebApplicationException ex = assertThrows(WebApplicationException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof WebApplicationException);
-      WebApplicationException wae = (WebApplicationException) ex.getCause();
-      assertEquals(401, wae.getResponse().getStatus());
+      assertEquals(401, ex.getResponse().getStatus());
     }
 
     @Test
