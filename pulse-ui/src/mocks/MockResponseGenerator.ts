@@ -925,7 +925,7 @@ export class MockResponseGenerator {
           name: "Dev User",
           tenantId,
           tenantName: organizationName,
-          tier: "enterprise",
+          tier: "free",
           projectId,
           projectName,
           projectApiKey,

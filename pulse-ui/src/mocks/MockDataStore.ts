@@ -1592,7 +1592,7 @@ export class MockDataStore {
         tenantId,
         name,
         description: "",
-        tier: "enterprise",
+        tier: "free",
         isActive: true,
         createdAt: new Date().toISOString(),
       });
