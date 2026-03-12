@@ -329,7 +329,7 @@ export class MockDataStore {
       tenantId: defaultTenantId,
       name: "Acme Corp",
       description: "Mobile observability platform",
-      tier: "pro",
+      tier: "enterprise",
       isActive: true,
       createdAt: new Date(now - 90 * oneDay).toISOString(),
     });
@@ -1578,7 +1578,7 @@ export class MockDataStore {
         tenantId,
         name: tenant.tenantName,
         description: "",
-        tier: "free",
+        tier: "enterprise",
         isActive: true,
         createdAt: new Date().toISOString(),
       };
@@ -1592,7 +1592,7 @@ export class MockDataStore {
         tenantId,
         name,
         description: "",
-        tier: "free",
+        tier: "enterprise",
         isActive: true,
         createdAt: new Date().toISOString(),
       });
@@ -1683,7 +1683,7 @@ export class MockDataStore {
         tenantId,
         name: tenantName,
         description: "",
-        tier: "free",
+        tier: "enterprise",
         isActive: true,
         createdAt: now,
       });
