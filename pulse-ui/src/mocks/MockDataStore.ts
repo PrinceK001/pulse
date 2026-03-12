@@ -1763,14 +1763,14 @@ export class MockDataStore {
           name: "Web Dashboard",
           description: "Web analytics dashboard",
           isActive: true,
-          role: "editor",
+          role: "admin",
         },
         {
           projectId: "proj-mock-3",
           name: "API Services",
           description: "Backend API monitoring",
           isActive: false,
-          role: "viewer",
+          role: "admin",
         },
       ],
     };
