@@ -1,6 +1,6 @@
 import { Box, TextInput, Group, ScrollArea, Select } from "@mantine/core";
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useDebouncedValue } from "@mantine/hooks";
 import { NetworkListProps, NetworkApi } from "./NetworkList.interface";
 import classes from "./NetworkList.module.css";
@@ -44,6 +44,7 @@ export function NetworkList({
   externalFilters = [],
 }: NetworkListProps) {
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const { trackClick, trackSearch, trackFilter } = useAnalytics("NetworkList");
   const [searchStr, setSearchStr] = useState<string>("");
@@ -386,7 +387,7 @@ export function NetworkList({
 
   const onApiClick = (apiId: string) => {
     trackClick(`NetworkAPI: ${apiId}`);
-    const url = `${ROUTES.NETWORK_DETAIL.basePath}/${apiId}`;
+    const url = `${ROUTES.PROJECT_NETWORK_DETAIL.basePath.replace(":projectId", projectId || "")}/${apiId}`;
     if (screenName) {
       navigate(`${url}?screenName=${encodeURIComponent(screenName)}`);
     } else {
