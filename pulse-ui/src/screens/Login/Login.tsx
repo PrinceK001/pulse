@@ -7,7 +7,6 @@ import {
   Image,
   Button,
   Switch,
-  Group,
   Tooltip,
 } from "@mantine/core";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
